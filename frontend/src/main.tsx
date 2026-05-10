@@ -4,6 +4,7 @@ import { MantineProvider } from '@mantine/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { routeTree } from './routeTree.gen';
+import { attemptSilentRefresh } from './lib/auth/queries';
 import './styles/globals.css';
 
 const queryClient = new QueryClient();
@@ -19,12 +20,17 @@ declare module '@tanstack/react-router' {
 const rootEl = document.getElementById('root');
 if (!rootEl) throw new Error('Root element not found');
 
-createRoot(rootEl).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <MantineProvider>
-        <RouterProvider router={router} />
-      </MantineProvider>
-    </QueryClientProvider>
-  </StrictMode>,
-);
+// Attempt to restore session from httpOnly refresh-token cookie before first render.
+// If it succeeds the access token is stored in-memory and all subsequent queries
+// will be authenticated. If it fails (no cookie / expired) we render unauthenticated.
+attemptSilentRefresh().finally(() => {
+  createRoot(rootEl).render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <MantineProvider>
+          <RouterProvider router={router} />
+        </MantineProvider>
+      </QueryClientProvider>
+    </StrictMode>,
+  );
+});
