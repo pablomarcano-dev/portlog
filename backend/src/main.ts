@@ -4,9 +4,11 @@ import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter(), {
+  // Cast via unknown: NestFastifyApplication.enableCors uses FastifyCorsOptions which
+  // diverges from INestApplication.enableCors (CorsOptions) — upstream type incompatibility.
+  const app = (await NestFactory.create(AppModule, new FastifyAdapter(), {
     bufferLogs: true,
-  });
+  })) as unknown as NestFastifyApplication;
 
   app.useLogger(app.get(Logger));
   app.setGlobalPrefix('api');
