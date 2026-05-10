@@ -31,8 +31,39 @@ model User {
   updatedAt     DateTime  @updatedAt
   lastLoginAt   DateTime?
   refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
 
   @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Audit
+// ---------------------------------------------------------------------------
+// AuditLog is append-only — no update or delete operations are permitted.
+// This is a legal/compliance requirement for Portlog.
+// ---------------------------------------------------------------------------
+
+enum AuditEvent {
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  LOGOUT
+  REFRESH_TOKEN_REUSE
+}
+
+model AuditLog {
+  id        String     @id @default(cuid())
+  event     AuditEvent
+  userId    String?
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email     String?
+  ip        String?
+  userAgent String?
+  metadata  Json?
+  createdAt DateTime   @default(now()) @db.Timestamptz
+
+  @@index([userId, createdAt])
+  @@index([event, createdAt])
+  @@map("audit_logs")
 }
 
 model RefreshToken {

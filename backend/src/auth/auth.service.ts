@@ -3,8 +3,10 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
+import { AuditService } from '../audit/audit.service.js';
 import { type LoginResponse, type RefreshResponse, type CurrentUser } from '@portlog/schemas';
 import { type JwtPayload } from './jwt.strategy.js';
+import { AuditEvent } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomBytes, createHash } from 'node:crypto';
 
@@ -41,6 +43,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -109,6 +112,11 @@ export class AuthService {
         userAgent: ctx.userAgent,
         success: false,
       });
+      void this.auditService.record(AuditEvent.LOGIN_FAILURE, {
+        email,
+        ip: ctx.ip,
+        userAgent: ctx.userAgent,
+      });
       return null;
     }
 
@@ -129,6 +137,12 @@ export class AuthService {
       ip: ctx.ip,
       userAgent: ctx.userAgent,
       success: true,
+    });
+    void this.auditService.record(AuditEvent.LOGIN_SUCCESS, {
+      userId: user.id,
+      email,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent,
     });
 
     const loginResponse: LoginResponse = {
@@ -169,6 +183,12 @@ export class AuthService {
       await this.prisma.refreshToken.updateMany({
         where: { userId: record.userId, revokedAt: null },
         data: { revokedAt: new Date() },
+      });
+      void this.auditService.record(AuditEvent.REFRESH_TOKEN_REUSE, {
+        userId: record.userId,
+        email: record.user.email,
+        ip: ctx.ip,
+        userAgent: ctx.userAgent,
       });
       throw new UnauthorizedException('Refresh token reuse detected. Please log in again.');
     }
@@ -222,6 +242,7 @@ export class AuthService {
       event: 'auth.logout',
       userId,
     });
+    void this.auditService.record(AuditEvent.LOGOUT, { userId });
   }
 
   async getCurrentUser(userId: string): Promise<CurrentUser> {
