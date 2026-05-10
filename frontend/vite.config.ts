@@ -4,6 +4,10 @@ import { TanStackRouterVite } from '@tanstack/router-plugin/vite';
 
 export default defineConfig({
   plugins: [TanStackRouterVite(), react()],
+  optimizeDeps: {
+    // @portlog/schemas ships as CJS; tell Vite to pre-bundle it so named exports work in the browser
+    include: ['@portlog/schemas'],
+  },
   build: {
     sourcemap: true,
     rollupOptions: {

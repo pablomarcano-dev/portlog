@@ -3,3 +3,7 @@ node_modules
 .env
 
 /generated/prisma
+
+# Compiled seed script artifacts
+prisma/seed.js
+prisma/seed.d.ts
