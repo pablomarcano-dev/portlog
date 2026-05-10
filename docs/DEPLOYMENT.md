@@ -45,8 +45,8 @@ services:
   nginx:
     image: nginx:alpine
     ports:
-      - "80:80"
-      - "443:443"
+      - '80:80'
+      - '443:443'
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d
       - ./certbot/conf:/etc/letsencrypt
@@ -65,18 +65,18 @@ services:
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
     expose:
-      - "80"
+      - '80'
     restart: unless-stopped
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     expose:
-      - "3000"
+      - '3000'
     env_file:
       - .env
     depends_on:
@@ -87,8 +87,8 @@ services:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
     expose:
-      - "9000"
-      - "9001"
+      - '9000'
+      - '9001'
     volumes:
       - minio-data:/data
     environment:
@@ -106,19 +106,29 @@ volumes:
 
 ### Frontend Dockerfile
 
+Build context is the **repo root** (monorepo-aware). The Dockerfile lives at `frontend/Dockerfile`.
+
 ```dockerfile
-# Build stage
-FROM node:20-alpine AS build
+# Build stage — context is repo root
+FROM node:26-alpine AS build
 WORKDIR /app
+
 COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
+COPY packages/schemas/package.json ./packages/schemas/
+COPY frontend/package.json ./frontend/
+
+RUN npm ci --workspaces
+
+COPY packages/schemas/ ./packages/schemas/
+COPY frontend/ ./frontend/
+
+RUN npm run build -w @portlog/schemas
+RUN npm run build -w @portlog/frontend
 
 # Production stage
 FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/frontend/dist /usr/share/nginx/html
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
 ```
@@ -152,18 +162,28 @@ server {
 
 ### Backend Dockerfile
 
+Build context is the **repo root** (monorepo-aware). The Dockerfile lives at `backend/Dockerfile`.
+
 ```dockerfile
-# Build stage
-FROM node:20-alpine AS build
+# Build stage — context is repo root
+FROM node:26-alpine AS build
 WORKDIR /app
+
 COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npx prisma generate
-RUN npm run build
+COPY packages/schemas/package.json ./packages/schemas/
+COPY backend/package.json ./backend/
+
+RUN npm ci --workspaces
+
+COPY packages/schemas/ ./packages/schemas/
+COPY backend/ ./backend/
+
+RUN npm run build -w @portlog/schemas
+RUN cd backend && npx prisma generate
+RUN npm run build -w @portlog/backend
 
 # Production stage
-FROM node:20-alpine
+FROM node:26-alpine
 WORKDIR /app
 
 # Puppeteer dependencies (Chromium)
@@ -179,9 +199,9 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/prisma ./prisma
-COPY package*.json ./
+COPY --from=build /app/backend/dist ./dist
+COPY --from=build /app/backend/prisma ./prisma
+COPY backend/package*.json ./
 
 EXPOSE 3000
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
@@ -314,13 +334,13 @@ LOG_LEVEL=info                # debug | info | warn | error
 
 The backend container **must** run in the same region as the Neon project to minimize latency and egress costs. With Neon in `aws-us-east-2`:
 
-| VPS Provider | Region to use |
-|---|---|
-| DigitalOcean | NYC3 or Ashburn |
-| Hetzner US | Hillsboro (closest US-East proxy via internal network) |
-| Linode | Newark or Washington DC |
-| Fly.io | `iad` |
-| Railway | `us-east` |
+| VPS Provider | Region to use                                          |
+| ------------ | ------------------------------------------------------ |
+| DigitalOcean | NYC3 or Ashburn                                        |
+| Hetzner US   | Hillsboro (closest US-East proxy via internal network) |
+| Linode       | Newark or Washington DC                                |
+| Fly.io       | `iad`                                                  |
+| Railway      | `us-east`                                              |
 
 **Latency impact**: same-region <5ms vs cross-continent 150–200ms. For an app that issues 5–10 queries per page load, this is the difference between a snappy UI and a sluggish one.
 
