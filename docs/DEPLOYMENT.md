@@ -36,6 +36,30 @@ The database is **external** (Neon) and not in `docker-compose.yml`. Everything 
 
 ---
 
+## docker-compose.dev.yml (local development)
+
+`docker-compose.dev.yml` brings up the local infrastructure dependencies: Postgres and MinIO. It does **not** build or run the backend or frontend — those run via `npm run dev` on the host.
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
+
+Services:
+
+- `postgres` — Postgres 16-alpine on `:5432`. Credentials: `portlog` / `portlog_dev`. Health-checked.
+- `minio` — MinIO on `:9000` (S3 API) and `:9001` (console). Credentials from `.env` or defaults `portlog` / `portlog_dev`. Health-checked via `/minio/health/live`.
+- `minio-init` — One-shot container (`minio/mc`) that creates the `sgc-documents` bucket once MinIO is healthy. Exits 0 after bucket creation.
+
+Connect to local Postgres:
+
+```bash
+psql postgresql://portlog:portlog_dev@localhost:5432/portlog
+```
+
+MinIO console: http://localhost:9001 (login: `portlog` / `portlog_dev`).
+
+---
+
 ## docker-compose.yml
 
 ```yaml
@@ -106,7 +130,7 @@ volumes:
 
 ### Frontend Dockerfile
 
-Build context is the **repo root** (monorepo-aware). The Dockerfile lives at `frontend/Dockerfile`.
+Build context is the **repo root** (monorepo-aware). The Dockerfile lives at `frontend/Dockerfile`. `packages/schemas/` must be copied before `npm ci` so that `@portlog/schemas` resolves during `vite build`.
 
 ```dockerfile
 # Build stage — context is repo root
@@ -135,12 +159,20 @@ CMD ["nginx", "-g", "daemon off;"]
 
 ### Frontend nginx.conf
 
+Includes gzip compression and SPA fallback routing. Lives at `frontend/nginx.conf`.
+
 ```nginx
 server {
     listen 80;
     server_name _;
     root /usr/share/nginx/html;
     index index.html;
+
+    # Enable gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/javascript application/javascript application/json image/svg+xml;
 
     # SPA fallback — all routes serve index.html
     location / {
@@ -164,46 +196,50 @@ server {
 
 Build context is the **repo root** (monorepo-aware). The Dockerfile lives at `backend/Dockerfile`.
 
+Both `backend` and `frontend` services in `docker-compose.yml` use `build.context: .` (repo root) so that `packages/schemas/` is reachable during the Docker build. The `dockerfile:` path is relative to that context.
+
 ```dockerfile
 # Build stage — context is repo root
 FROM node:26-alpine AS build
 WORKDIR /app
 
+# Copy manifests first for layer caching
 COPY package*.json ./
 COPY packages/schemas/package.json ./packages/schemas/
 COPY backend/package.json ./backend/
 
+# Install all workspace dependencies
 RUN npm ci --workspaces
 
+# Copy source
 COPY packages/schemas/ ./packages/schemas/
 COPY backend/ ./backend/
 
+# Build schemas first (backend depends on it)
 RUN npm run build -w @portlog/schemas
+
+# Generate Prisma client
 RUN cd backend && npx prisma generate
+
+# Build backend
 RUN npm run build -w @portlog/backend
 
 # Production stage
-FROM node:26-alpine
+FROM node:26-alpine AS runtime
 WORKDIR /app
 
-# Puppeteer dependencies (Chromium)
-RUN apk add --no-cache \
-    chromium \
-    nss \
-    freetype \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont
-
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
-
+# Copy only what runtime needs
 COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/backend/dist ./dist
-COPY --from=build /app/backend/prisma ./prisma
-COPY backend/package*.json ./
+COPY --from=build /app/backend/dist ./backend/dist
+COPY --from=build /app/backend/prisma ./backend/prisma
+COPY --from=build /app/backend/package.json ./backend/package.json
+COPY --from=build /app/packages/schemas/dist ./packages/schemas/dist
+COPY --from=build /app/packages/schemas/package.json ./packages/schemas/package.json
 
+WORKDIR /app/backend
 EXPOSE 3000
+
+# prisma migrate deploy is idempotent — only applies pending migrations.
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
 ```
 
@@ -392,13 +428,24 @@ docker compose restart nginx
 
 ### 4. Initialize MinIO bucket
 
+In **development**, `docker-compose.dev.yml` includes a `minio-init` one-shot container (using the `minio/mc` image) that creates the `sgc-documents` bucket automatically once MinIO is healthy.
+
+In **production**, run the bucket-create manually after MinIO is up:
+
 ```bash
 docker compose up -d minio
 
-docker compose exec minio sh
-mc alias set local http://localhost:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
+docker run --rm --network portlog_default \
+  -e MC_HOST_local="http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@minio:9000" \
+  minio/mc mb --ignore-existing local/sgc-documents
+```
+
+Or interactively:
+
+```bash
+docker run --rm -it --network portlog_default minio/mc sh
+mc alias set local http://minio:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
 mc mb local/sgc-documents
-mc admin policy attach local readwrite --user portlog
 exit
 ```
 

@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -31,13 +29,13 @@ services:
       - minio-dev-data:/data
     restart: unless-stopped
     healthcheck:
-      test: ['CMD', 'mc', 'ready', 'local']
+      test: ['CMD-SHELL', 'curl -sf http://localhost:9000/minio/health/live']
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   minio-init:
-    image: minio/minio:latest
+    image: minio/mc
     depends_on:
       minio:
         condition: service_healthy
