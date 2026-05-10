@@ -7,3 +7,44 @@ datasource db {
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
+
+// ---------------------------------------------------------------------------
+// Roles
+// ---------------------------------------------------------------------------
+// Two roles only. ADM can manage master data and users; OPS handles operations.
+// Passwords MUST never appear in logs, API responses, or select clauses.
+// Emails are stored lowercased — enforce at application layer before persist.
+// ---------------------------------------------------------------------------
+
+enum Role {
+  OPS
+  ADM
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  role          Role      @default(OPS)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLoginAt   DateTime?
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  userAgent String?
+  ip        String?
+
+  @@map("refresh_tokens")
+}
