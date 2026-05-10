@@ -1,19 +1,66 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { HealthModule } from './health/health.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { AuthModule } from './auth/auth.module.js';
+import { JwtAuthGuard } from './auth/jwt-auth.guard.js';
+import { RolesGuard } from './auth/roles.guard.js';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+
+    // Golden Rule 8: Structured logging with pino.
+    // Redaction ensures passwords, tokens, and hashes never appear in logs.
+    // This is load-bearing for a legally-sensitive platform.
     LoggerModule.forRoot({
       pinoHttp: {
+        redact: [
+          'req.body.password',
+          'req.headers.authorization',
+          '*.passwordHash',
+          '*.tokenHash',
+          '*.token',
+          '*.refreshToken',
+        ],
         transport: process.env['NODE_ENV'] !== 'production' ? { target: 'pino-pretty' } : undefined,
       },
     }),
+
+    // Global rate-limiting defaults. Per-route overrides via @Throttle().
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          name: 'default',
+          ttl: 60 * 1000, // 1 minute window (ms)
+          limit: 60, // 60 requests/min global default
+        },
+      ],
+    }),
+
     PrismaModule,
     HealthModule,
+    AuthModule,
+  ],
+  providers: [
+    // ThrottlerGuard must run first (before auth) so rate limits apply to all routes.
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+    // JwtAuthGuard: global — verifies Bearer token on all routes not marked @Public().
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    // RolesGuard: global — enforces @Roles() decorator. Runs after JwtAuthGuard.
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
   ],
 })
 export class AppModule {}

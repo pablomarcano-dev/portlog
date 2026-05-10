@@ -39,5 +39,8 @@
     "*.{js,json,md,yml,yaml,css}": [
       "prettier --write"
     ]
+  },
+  "dependencies": {
+    "@nestjs/throttler": "^6.5.0"
   }
 }

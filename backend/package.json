@@ -18,12 +18,14 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@fastify/cookie": "^11.0.2",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
     "@nestjs/jwt": "^10.2.0",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-fastify": "^11.0.1",
+    "@nestjs/throttler": "^6.5.0",
     "@portlog/schemas": "*",
     "@prisma/client": "^6.8.2",
     "bcrypt": "^5.1.1",
