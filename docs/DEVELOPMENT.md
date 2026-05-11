@@ -185,6 +185,48 @@ npx prisma db pull
 npx prisma db push
 ```
 
+### Creating users
+
+There is no registration endpoint — users are created directly via the database. Three options:
+
+**Option 1 — Prisma Studio (easiest for one-off)**
+
+```bash
+cd backend
+npx prisma studio
+# Open http://localhost:5555 → User table → Add record
+# You must hash the password externally first (see below)
+```
+
+**Option 2 — Seed script (dev bootstrap)**
+
+The seed creates `admin@portlog.local` with password `portlog_admin_dev` (ADM role). Edit `backend/prisma/seed.ts` to change credentials before running.
+
+```bash
+# From repo root
+npm run seed -w @portlog/backend
+```
+
+**Option 3 — One-liner (production / ad-hoc)**
+
+```bash
+cd backend
+node -e "
+const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcrypt');
+const prisma = new PrismaClient();
+bcrypt.hash('CHANGE_ME', 12)
+  .then(hash => prisma.user.create({
+    data: { email: 'user@example.com', passwordHash: hash, role: 'OPS', isActive: true }
+  }))
+  .then(u => { console.log('Created:', u.email); prisma.\$disconnect(); });
+"
+```
+
+Roles: `ADM` (full access including user management) or `OPS` (operational access).
+
+---
+
 ### Seeding
 
 `backend/prisma/seed.ts`:
@@ -576,13 +618,13 @@ Mantine date pickers return `Date` objects, not strings. The Zod schema must ref
 
 ```typescript
 // Wrong
-arrival_time: z.string()
+arrival_time: z.string();
 
 // Right (for forms)
-arrival_time: z.date()
+arrival_time: z.date();
 
 // Or, transform on submit
-arrival_time: z.date().transform(d => d.toISOString())
+arrival_time: z.date().transform((d) => d.toISOString());
 ```
 
 ---
