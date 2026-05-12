@@ -8,6 +8,9 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { JwtAuthGuard } from './auth/jwt-auth.guard.js';
 import { RolesGuard } from './auth/roles.guard.js';
+import { FlagsModule } from './master-data/flags/flags.module.js';
+import { ActivitiesModule } from './master-data/activities/activities.module.js';
+import { CargoesModule } from './master-data/cargoes/cargoes.module.js';
 
 @Module({
   imports: [
@@ -44,6 +47,9 @@ import { RolesGuard } from './auth/roles.guard.js';
     PrismaModule,
     HealthModule,
     AuthModule,
+    FlagsModule,
+    ActivitiesModule,
+    CargoesModule,
   ],
   providers: [
     // ThrottlerGuard must run first (before auth) so rate limits apply to all routes.

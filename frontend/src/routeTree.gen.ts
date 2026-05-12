@@ -11,9 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root';
 import { Route as LoginRouteImport } from './routes/login';
 import { Route as ProtectedRouteImport } from './routes/_protected';
-import { Route as ProtectedMasterDataRouteImport } from './routes/_protected/master-data';
 import { Route as ProtectedIndexRouteImport } from './routes/_protected/index';
-import { Route as ProtectedMasterDataDemoRouteImport } from './routes/_protected/master-data/__demo';
+import { Route as ProtectedMasterDataRouteImport } from './routes/_protected/master-data';
+import { Route as ProtectedMasterDataFlagsRouteImport } from './routes/_protected/master-data/flags';
+import { Route as ProtectedMasterDataCargoesRouteImport } from './routes/_protected/master-data/cargoes';
+import { Route as ProtectedMasterDataActivitiesRouteImport } from './routes/_protected/master-data/activities';
+import { Route as ProtectedMasterData_demoRouteImport } from './routes/_protected/master-data/__demo';
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -24,54 +27,90 @@ const ProtectedRoute = ProtectedRouteImport.update({
   id: '/_protected',
   getParentRoute: () => rootRouteImport,
 } as any);
-const ProtectedMasterDataRoute = ProtectedMasterDataRouteImport.update({
-  id: '/master-data',
-  path: '/master-data',
-  getParentRoute: () => ProtectedRoute,
-} as any);
 const ProtectedIndexRoute = ProtectedIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => ProtectedRoute,
 } as any);
-const ProtectedMasterDataDemoRoute = ProtectedMasterDataDemoRouteImport.update({
+const ProtectedMasterDataRoute = ProtectedMasterDataRouteImport.update({
+  id: '/master-data',
+  path: '/master-data',
+  getParentRoute: () => ProtectedRoute,
+} as any);
+const ProtectedMasterDataFlagsRoute = ProtectedMasterDataFlagsRouteImport.update({
+  id: '/flags',
+  path: '/flags',
+  getParentRoute: () => ProtectedMasterDataRoute,
+} as any);
+const ProtectedMasterDataCargoesRoute = ProtectedMasterDataCargoesRouteImport.update({
+  id: '/cargoes',
+  path: '/cargoes',
+  getParentRoute: () => ProtectedMasterDataRoute,
+} as any);
+const ProtectedMasterDataActivitiesRoute = ProtectedMasterDataActivitiesRouteImport.update({
+  id: '/activities',
+  path: '/activities',
+  getParentRoute: () => ProtectedMasterDataRoute,
+} as any);
+const ProtectedMasterData_demoRoute = ProtectedMasterData_demoRouteImport.update({
   id: '/__demo',
-  path: '/__demo',
   getParentRoute: () => ProtectedMasterDataRoute,
 } as any);
 
 export interface FileRoutesByFullPath {
   '/': typeof ProtectedIndexRoute;
   '/login': typeof LoginRoute;
-  '/master-data': typeof ProtectedMasterDataRouteWithChildren;
-  '/master-data/__demo': typeof ProtectedMasterDataDemoRoute;
+  '/master-data': typeof ProtectedMasterData_demoRoute;
+  '/master-data/activities': typeof ProtectedMasterDataActivitiesRoute;
+  '/master-data/cargoes': typeof ProtectedMasterDataCargoesRoute;
+  '/master-data/flags': typeof ProtectedMasterDataFlagsRoute;
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute;
+  '/master-data': typeof ProtectedMasterData_demoRoute;
   '/': typeof ProtectedIndexRoute;
-  '/master-data': typeof ProtectedMasterDataRouteWithChildren;
-  '/master-data/__demo': typeof ProtectedMasterDataDemoRoute;
+  '/master-data/activities': typeof ProtectedMasterDataActivitiesRoute;
+  '/master-data/cargoes': typeof ProtectedMasterDataCargoesRoute;
+  '/master-data/flags': typeof ProtectedMasterDataFlagsRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   '/_protected': typeof ProtectedRouteWithChildren;
   '/login': typeof LoginRoute;
-  '/_protected/': typeof ProtectedIndexRoute;
   '/_protected/master-data': typeof ProtectedMasterDataRouteWithChildren;
-  '/_protected/master-data/__demo': typeof ProtectedMasterDataDemoRoute;
+  '/_protected/': typeof ProtectedIndexRoute;
+  '/_protected/master-data/__demo': typeof ProtectedMasterData_demoRoute;
+  '/_protected/master-data/activities': typeof ProtectedMasterDataActivitiesRoute;
+  '/_protected/master-data/cargoes': typeof ProtectedMasterDataCargoesRoute;
+  '/_protected/master-data/flags': typeof ProtectedMasterDataFlagsRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: '/' | '/login' | '/master-data' | '/master-data/__demo';
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/master-data'
+    | '/master-data/activities'
+    | '/master-data/cargoes'
+    | '/master-data/flags';
   fileRoutesByTo: FileRoutesByTo;
-  to: '/login' | '/' | '/master-data' | '/master-data/__demo';
+  to:
+    | '/login'
+    | '/master-data'
+    | '/'
+    | '/master-data/activities'
+    | '/master-data/cargoes'
+    | '/master-data/flags';
   id:
     | '__root__'
     | '/_protected'
     | '/login'
-    | '/_protected/'
     | '/_protected/master-data'
-    | '/_protected/master-data/__demo';
+    | '/_protected/'
+    | '/_protected/master-data/__demo'
+    | '/_protected/master-data/activities'
+    | '/_protected/master-data/cargoes'
+    | '/_protected/master-data/flags';
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
@@ -109,22 +148,49 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedMasterDataRouteImport;
       parentRoute: typeof ProtectedRoute;
     };
+    '/_protected/master-data/flags': {
+      id: '/_protected/master-data/flags';
+      path: '/flags';
+      fullPath: '/master-data/flags';
+      preLoaderRoute: typeof ProtectedMasterDataFlagsRouteImport;
+      parentRoute: typeof ProtectedMasterDataRoute;
+    };
+    '/_protected/master-data/cargoes': {
+      id: '/_protected/master-data/cargoes';
+      path: '/cargoes';
+      fullPath: '/master-data/cargoes';
+      preLoaderRoute: typeof ProtectedMasterDataCargoesRouteImport;
+      parentRoute: typeof ProtectedMasterDataRoute;
+    };
+    '/_protected/master-data/activities': {
+      id: '/_protected/master-data/activities';
+      path: '/activities';
+      fullPath: '/master-data/activities';
+      preLoaderRoute: typeof ProtectedMasterDataActivitiesRouteImport;
+      parentRoute: typeof ProtectedMasterDataRoute;
+    };
     '/_protected/master-data/__demo': {
       id: '/_protected/master-data/__demo';
-      path: '/__demo';
-      fullPath: '/master-data/__demo';
-      preLoaderRoute: typeof ProtectedMasterDataDemoRouteImport;
+      path: '';
+      fullPath: '/master-data';
+      preLoaderRoute: typeof ProtectedMasterData_demoRouteImport;
       parentRoute: typeof ProtectedMasterDataRoute;
     };
   }
 }
 
 interface ProtectedMasterDataRouteChildren {
-  ProtectedMasterDataDemoRoute: typeof ProtectedMasterDataDemoRoute;
+  ProtectedMasterData_demoRoute: typeof ProtectedMasterData_demoRoute;
+  ProtectedMasterDataActivitiesRoute: typeof ProtectedMasterDataActivitiesRoute;
+  ProtectedMasterDataCargoesRoute: typeof ProtectedMasterDataCargoesRoute;
+  ProtectedMasterDataFlagsRoute: typeof ProtectedMasterDataFlagsRoute;
 }
 
 const ProtectedMasterDataRouteChildren: ProtectedMasterDataRouteChildren = {
-  ProtectedMasterDataDemoRoute: ProtectedMasterDataDemoRoute,
+  ProtectedMasterData_demoRoute: ProtectedMasterData_demoRoute,
+  ProtectedMasterDataActivitiesRoute: ProtectedMasterDataActivitiesRoute,
+  ProtectedMasterDataCargoesRoute: ProtectedMasterDataCargoesRoute,
+  ProtectedMasterDataFlagsRoute: ProtectedMasterDataFlagsRoute,
 };
 
 const ProtectedMasterDataRouteWithChildren = ProtectedMasterDataRoute._addFileChildren(
@@ -132,13 +198,13 @@ const ProtectedMasterDataRouteWithChildren = ProtectedMasterDataRoute._addFileCh
 );
 
 interface ProtectedRouteChildren {
-  ProtectedIndexRoute: typeof ProtectedIndexRoute;
   ProtectedMasterDataRoute: typeof ProtectedMasterDataRouteWithChildren;
+  ProtectedIndexRoute: typeof ProtectedIndexRoute;
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
-  ProtectedIndexRoute: ProtectedIndexRoute,
   ProtectedMasterDataRoute: ProtectedMasterDataRouteWithChildren,
+  ProtectedIndexRoute: ProtectedIndexRoute,
 };
 
 const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(ProtectedRouteChildren);
