@@ -15,6 +15,8 @@ import { CharterersModule } from './master-data/charterers/charterers.module.js'
 import { ShippersModule } from './master-data/shippers/shippers.module.js';
 import { OperatorsModule } from './master-data/operators/operators.module.js';
 import { AgentsModule } from './master-data/agents/agents.module.js';
+import { SuppliersModule } from './master-data/suppliers/suppliers.module.js';
+import { PortsModule } from './master-data/ports/ports.module.js';
 
 @Module({
   imports: [
@@ -58,6 +60,8 @@ import { AgentsModule } from './master-data/agents/agents.module.js';
     ShippersModule,
     OperatorsModule,
     AgentsModule,
+    SuppliersModule,
+    PortsModule,
   ],
   providers: [
     // ThrottlerGuard must run first (before auth) so rate limits apply to all routes.
