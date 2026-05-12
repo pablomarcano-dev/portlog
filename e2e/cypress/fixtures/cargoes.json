@@ -1,1 +1,4 @@
-{ "create": { "name": "Test Cargo", "bblUnit": "BBL" }, "update": { "name": "Test Cargo Renamed" } }
+{
+  "create": { "name": "Test Cargo", "bblUnit": "BBL" },
+  "update": { "name": "Test Cargo Renamed", "bblUnit": "MT" }
+}
