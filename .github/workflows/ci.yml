@@ -27,6 +27,10 @@ jobs:
       - name: Build schemas
         run: npm run build -w @portlog/schemas
 
+      - name: Generate Prisma client
+        run: npx prisma generate
+        working-directory: backend
+
       - name: Typecheck
         run: npm run typecheck
 
