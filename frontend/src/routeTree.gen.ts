@@ -18,6 +18,7 @@ import { Route as ProtectedMasterDataOperatorsRouteImport } from './routes/_prot
 import { Route as ProtectedMasterDataFlagsRouteImport } from './routes/_protected/master-data/flags';
 import { Route as ProtectedMasterDataCharterersRouteImport } from './routes/_protected/master-data/charterers';
 import { Route as ProtectedMasterDataCargoesRouteImport } from './routes/_protected/master-data/cargoes';
+import { Route as ProtectedMasterDataAgentsRouteImport } from './routes/_protected/master-data/agents';
 import { Route as ProtectedMasterDataActivitiesRouteImport } from './routes/_protected/master-data/activities';
 import { Route as ProtectedMasterData_demoRouteImport } from './routes/_protected/master-data/__demo';
 
@@ -65,6 +66,11 @@ const ProtectedMasterDataCargoesRoute = ProtectedMasterDataCargoesRouteImport.up
   path: '/cargoes',
   getParentRoute: () => ProtectedMasterDataRoute,
 } as any);
+const ProtectedMasterDataAgentsRoute = ProtectedMasterDataAgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
+  getParentRoute: () => ProtectedMasterDataRoute,
+} as any);
 const ProtectedMasterDataActivitiesRoute = ProtectedMasterDataActivitiesRouteImport.update({
   id: '/activities',
   path: '/activities',
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute;
   '/master-data': typeof ProtectedMasterData_demoRoute;
   '/master-data/activities': typeof ProtectedMasterDataActivitiesRoute;
+  '/master-data/agents': typeof ProtectedMasterDataAgentsRoute;
   '/master-data/cargoes': typeof ProtectedMasterDataCargoesRoute;
   '/master-data/charterers': typeof ProtectedMasterDataCharterersRoute;
   '/master-data/flags': typeof ProtectedMasterDataFlagsRoute;
@@ -91,6 +98,7 @@ export interface FileRoutesByTo {
   '/master-data': typeof ProtectedMasterData_demoRoute;
   '/': typeof ProtectedIndexRoute;
   '/master-data/activities': typeof ProtectedMasterDataActivitiesRoute;
+  '/master-data/agents': typeof ProtectedMasterDataAgentsRoute;
   '/master-data/cargoes': typeof ProtectedMasterDataCargoesRoute;
   '/master-data/charterers': typeof ProtectedMasterDataCharterersRoute;
   '/master-data/flags': typeof ProtectedMasterDataFlagsRoute;
@@ -105,6 +113,7 @@ export interface FileRoutesById {
   '/_protected/': typeof ProtectedIndexRoute;
   '/_protected/master-data/__demo': typeof ProtectedMasterData_demoRoute;
   '/_protected/master-data/activities': typeof ProtectedMasterDataActivitiesRoute;
+  '/_protected/master-data/agents': typeof ProtectedMasterDataAgentsRoute;
   '/_protected/master-data/cargoes': typeof ProtectedMasterDataCargoesRoute;
   '/_protected/master-data/charterers': typeof ProtectedMasterDataCharterersRoute;
   '/_protected/master-data/flags': typeof ProtectedMasterDataFlagsRoute;
@@ -118,6 +127,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/master-data'
     | '/master-data/activities'
+    | '/master-data/agents'
     | '/master-data/cargoes'
     | '/master-data/charterers'
     | '/master-data/flags'
@@ -129,6 +139,7 @@ export interface FileRouteTypes {
     | '/master-data'
     | '/'
     | '/master-data/activities'
+    | '/master-data/agents'
     | '/master-data/cargoes'
     | '/master-data/charterers'
     | '/master-data/flags'
@@ -142,6 +153,7 @@ export interface FileRouteTypes {
     | '/_protected/'
     | '/_protected/master-data/__demo'
     | '/_protected/master-data/activities'
+    | '/_protected/master-data/agents'
     | '/_protected/master-data/cargoes'
     | '/_protected/master-data/charterers'
     | '/_protected/master-data/flags'
@@ -219,6 +231,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedMasterDataCargoesRouteImport;
       parentRoute: typeof ProtectedMasterDataRoute;
     };
+    '/_protected/master-data/agents': {
+      id: '/_protected/master-data/agents';
+      path: '/agents';
+      fullPath: '/master-data/agents';
+      preLoaderRoute: typeof ProtectedMasterDataAgentsRouteImport;
+      parentRoute: typeof ProtectedMasterDataRoute;
+    };
     '/_protected/master-data/activities': {
       id: '/_protected/master-data/activities';
       path: '/activities';
@@ -239,6 +258,7 @@ declare module '@tanstack/react-router' {
 interface ProtectedMasterDataRouteChildren {
   ProtectedMasterData_demoRoute: typeof ProtectedMasterData_demoRoute;
   ProtectedMasterDataActivitiesRoute: typeof ProtectedMasterDataActivitiesRoute;
+  ProtectedMasterDataAgentsRoute: typeof ProtectedMasterDataAgentsRoute;
   ProtectedMasterDataCargoesRoute: typeof ProtectedMasterDataCargoesRoute;
   ProtectedMasterDataCharterersRoute: typeof ProtectedMasterDataCharterersRoute;
   ProtectedMasterDataFlagsRoute: typeof ProtectedMasterDataFlagsRoute;
@@ -249,6 +269,7 @@ interface ProtectedMasterDataRouteChildren {
 const ProtectedMasterDataRouteChildren: ProtectedMasterDataRouteChildren = {
   ProtectedMasterData_demoRoute: ProtectedMasterData_demoRoute,
   ProtectedMasterDataActivitiesRoute: ProtectedMasterDataActivitiesRoute,
+  ProtectedMasterDataAgentsRoute: ProtectedMasterDataAgentsRoute,
   ProtectedMasterDataCargoesRoute: ProtectedMasterDataCargoesRoute,
   ProtectedMasterDataCharterersRoute: ProtectedMasterDataCharterersRoute,
   ProtectedMasterDataFlagsRoute: ProtectedMasterDataFlagsRoute,
