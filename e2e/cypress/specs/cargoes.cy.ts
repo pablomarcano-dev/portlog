@@ -1,5 +1,7 @@
 /// <reference types="cypress" />
 
+export {};
+
 /**
  * E2E-S5: Cargoes CRUD — full OPS/ADM flow + BBL unit field
  *

@@ -1,5 +1,7 @@
 /// <reference types="cypress" />
 
+export {};
+
 const API_URL = Cypress.env('API_URL') as string;
 
 // Selectors derived from MasterDetailShell, ButtonBar, FlashSearch, CommentarioField source.
