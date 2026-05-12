@@ -7,9 +7,15 @@ import {
   Button,
   Loader,
   Center,
+  UnstyledButton,
 } from '@mantine/core';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCurrentUser, useLogout } from '../lib/auth/queries';
+
+const NAV_LINKS = [
+  { label: 'Home', to: '/' },
+  { label: 'Master Data', to: '/master-data/flags' },
+] as const;
 
 interface AppShellProps {
   children: ReactNode;
@@ -17,6 +23,8 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   const navigate = useNavigate();
+  const routerState = useRouterState();
+  const currentPath = routerState.location.pathname;
   const { data: currentUser, isPending } = useCurrentUser();
   const logout = useLogout();
 
@@ -37,7 +45,33 @@ export function AppShell({ children }: AppShellProps) {
     <MantineAppShell header={{ height: 56 }}>
       <MantineAppShell.Header>
         <Group h="100%" px="md" justify="space-between">
-          <Text fw={600}>Portlog</Text>
+          <Group gap="lg">
+            <Text fw={600}>Portlog</Text>
+            {NAV_LINKS.map((link) => {
+              const isActive =
+                link.to === '/'
+                  ? currentPath === '/'
+                  : currentPath.startsWith(link.to.split('/').slice(0, 2).join('/'));
+              return (
+                <UnstyledButton
+                  key={link.to}
+                  onClick={() => void navigate({ to: link.to })}
+                  style={{
+                    color: isActive ? 'var(--mantine-color-blue-7)' : 'var(--mantine-color-gray-7)',
+                    fontWeight: isActive ? 600 : 400,
+                    fontSize: 'var(--mantine-font-size-sm)',
+                    borderBottom: isActive
+                      ? '2px solid var(--mantine-color-blue-6)'
+                      : '2px solid transparent',
+                    paddingBottom: 2,
+                  }}
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  {link.label}
+                </UnstyledButton>
+              );
+            })}
+          </Group>
           <Group gap="sm">
             {currentUser !== undefined && (
               <>

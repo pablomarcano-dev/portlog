@@ -43,3 +43,4 @@ e2e/.env.local
 e2e/cypress/screenshots
 e2e/cypress/videos
 
+.mcp.json
