@@ -1,0 +1,4 @@
+{
+  "create": { "name": "Test Flag", "abbreviation": "TF" },
+  "update": { "name": "Test Flag Renamed" }
+}

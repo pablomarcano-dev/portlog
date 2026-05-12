@@ -235,13 +235,16 @@ import { z } from 'zod';
 
 export const shipParticularsSchema = z.object({
   imo: z.string().regex(/^\d{7}$/, 'IMO must be 7 digits'),
-  mmsi: z.string().regex(/^\d{9}$/).optional(),
+  mmsi: z
+    .string()
+    .regex(/^\d{9}$/)
+    .optional(),
   name: z.string().min(1).max(100),
   flag: z.string().length(2, 'ISO 3166-1 alpha-2 code'),
   callSign: z.string().min(3).max(10),
   grossTonnage: z.number().positive(),
   netTonnage: z.number().positive(),
-  loa: z.number().positive(),         // Length overall
+  loa: z.number().positive(), // Length overall
   beam: z.number().positive(),
   draftMax: z.number().positive(),
   yearBuilt: z.number().int().min(1900).max(new Date().getFullYear()),
@@ -312,15 +315,15 @@ Centralized client with auth interceptor and typed responses:
 import { getStoredToken, refreshToken } from '@/lib/auth';
 
 class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
     super(message);
   }
 }
 
-export async function apiRequest<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
+export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getStoredToken();
   const response = await fetch(`${import.meta.env.VITE_API_URL}${path}`, {
     ...options,
@@ -373,18 +376,15 @@ import react from '@vitejs/plugin-react';
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite';
 
 export default defineConfig({
-  plugins: [
-    TanStackRouterVite(),
-    react(),
-  ],
+  plugins: [TanStackRouterVite(), react()],
   build: {
     sourcemap: true,
     rollupOptions: {
       output: {
         manualChunks: {
           'react-vendor': ['react', 'react-dom'],
-          'mantine': ['@mantine/core', '@mantine/hooks', '@mantine/dates'],
-          'tanstack': ['@tanstack/react-query', '@tanstack/react-router'],
+          mantine: ['@mantine/core', '@mantine/hooks', '@mantine/dates'],
+          tanstack: ['@tanstack/react-query', '@tanstack/react-router'],
         },
       },
     },
@@ -406,7 +406,9 @@ If a chunk exceeds these, investigate — likely an unintended import pulling in
 
 - **Unit tests**: Vitest for utilities and schemas
 - **Component tests**: Vitest + React Testing Library for forms and complex components
-- **E2E tests**: Playwright for the critical flows listed in Golden Rule 9
+- **E2E tests**: Cypress 13 for the critical flows listed in Golden Rule 9
+
+The `e2e/` workspace (`@portlog/e2e`) contains the Cypress config, custom commands, and DB reset task. Run `npm run cy:open -w @portlog/e2e` for interactive mode or `npm run cy:run -w @portlog/e2e` for headless CI runs.
 
 Critical E2E flows that **must** be covered:
 
@@ -416,7 +418,7 @@ Critical E2E flows that **must** be covered:
 4. Service request → WhatsApp dispatch → confirm delivery status
 5. Master data CRUD for each entity (smoke level)
 
-E2E suites run against a Neon preview branch with seeded data.
+E2E suites run against a dedicated test database seeded via `cy.task('resetDb')` before each spec. The `cy.login()` command hits `POST /api/auth/login` directly — no form interaction — and relies on the `refresh_token` httpOnly cookie to authenticate subsequent `cy.visit()` calls via the silent refresh in `_protected.tsx`.
 
 ---
 

@@ -1,0 +1,22 @@
+{
+  "name": "@portlog/e2e",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "cy:open": "cypress open",
+    "cy:run": "cypress run",
+    "cy:run:headed": "cypress run --headed",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/bcrypt": "^5.0.0",
+    "cypress": "^13.0.0",
+    "typescript": "^5.8.3",
+    "wait-on": "^8.0.0"
+  },
+  "dependencies": {
+    "@prisma/client": "*",
+    "bcrypt": "^5.1.1"
+  }
+}

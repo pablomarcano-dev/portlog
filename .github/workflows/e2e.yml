@@ -1,0 +1,89 @@
+name: E2E Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: portlog_test
+          POSTGRES_USER: portlog
+          POSTGRES_PASSWORD: portlog_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://portlog:portlog_dev@localhost:5432/portlog_test
+      DIRECT_URL: postgresql://portlog:portlog_dev@localhost:5432/portlog_test
+      E2E_DATABASE_URL: postgresql://portlog:portlog_dev@localhost:5432/portlog_test
+      JWT_SECRET: ci-jwt-secret-placeholder
+      JWT_REFRESH_SECRET: ci-jwt-refresh-secret-placeholder
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build schemas
+        run: npm run build -w @portlog/schemas
+
+      - name: Prisma generate
+        working-directory: backend
+        run: npx prisma generate
+
+      - name: Prisma migrate deploy
+        working-directory: backend
+        run: npx prisma migrate deploy
+
+      - name: Seed database
+        run: npm run seed -w @portlog/backend
+
+      - name: Build backend
+        run: npm run build -w @portlog/backend
+
+      - name: Start backend
+        run: node backend/dist/main.js &
+
+      - name: Wait for backend
+        run: npx wait-on http://localhost:3000/api/health --timeout 30000
+
+      - name: Build frontend
+        run: npm run build -w @portlog/frontend
+
+      - name: Start frontend preview
+        run: npx vite preview --port 5173 --host &
+        working-directory: frontend
+
+      - name: Wait for frontend
+        run: npx wait-on http://localhost:5173 --timeout 30000
+
+      - name: Run Cypress
+        run: npm run cy:run -w @portlog/e2e
+
+      - name: Upload screenshots on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cypress-screenshots
+          path: e2e/cypress/screenshots

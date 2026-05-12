@@ -5,7 +5,8 @@
   "workspaces": [
     "packages/*",
     "backend",
-    "frontend"
+    "frontend",
+    "e2e"
   ],
   "scripts": {
     "dev": "concurrently -n schemas,backend,frontend -c cyan,blue,green \"npm run dev -w @portlog/schemas\" \"npm run start:dev -w @portlog/backend\" \"npm run dev -w @portlog/frontend\"",

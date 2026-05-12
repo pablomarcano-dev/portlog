@@ -38,3 +38,8 @@ Thumbs.db
 # Playwright MCP
 .playwright-mcp/
 
+# E2E
+e2e/.env.local
+e2e/cypress/screenshots
+e2e/cypress/videos
+

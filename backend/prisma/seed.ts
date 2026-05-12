@@ -23,6 +23,21 @@ async function main(): Promise<void> {
 
   // eslint-disable-next-line no-console
   console.log(`Seeded ADM user: ${email}`);
+
+  const opsEmail = 'ops@portlog.local';
+  await prisma.user.upsert({
+    where: { email: opsEmail },
+    update: {},
+    create: {
+      email: opsEmail,
+      passwordHash: await bcrypt.hash('portlog_ops_dev', 10),
+      role: Role.OPS,
+      isActive: true,
+    },
+  });
+
+  // eslint-disable-next-line no-console
+  console.log(`Seeded OPS user: ${opsEmail}`);
 }
 
 main()
