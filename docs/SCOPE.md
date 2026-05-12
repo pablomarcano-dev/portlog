@@ -71,6 +71,12 @@ Cross-Cutting
   - [ ] Session timeout / forced logout policy?
   - [ ] Audit log granularity for login events?
 
+**ADR (POR-29, 2026-05-12): Owner permission model**
+Decision: `User` gains a `permissions String[] @default([])` field rather than a third role.
+Reserved value for M2: `"owner.financial"` — gates access to Owner's `acuerdos` and `historyJson` fields.
+Rationale: a string array is more flexible than expanding the `Role` enum, is reversible behind a service-layer check, and avoids a breaking schema change when new fine-grained permissions are needed.
+Guard/decorator implementation is deferred to M2-S12 (Owner CRUD story).
+
 ---
 
 ## 02. Master Data

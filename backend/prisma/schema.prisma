@@ -27,6 +27,10 @@ model User {
   passwordHash  String
   role          Role      @default(OPS)
   isActive      Boolean   @default(true)
+  // permissions is a flexible array of permission strings.
+  // Reserved values for M2: "owner.financial" (gates Owner Acuerdos + financial history fields).
+  // This approach is more flexible than a third role and avoids exploding the Role enum.
+  permissions   String[]  @default([])
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   lastLoginAt   DateTime?
@@ -78,4 +82,303 @@ model RefreshToken {
   ip        String?
 
   @@map("refresh_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// M2 — Master Data
+// ---------------------------------------------------------------------------
+// All master-data entities follow the same conventions:
+//   - cuid() primary keys (consistent with User, AuditLog)
+//   - snake_case plural table names via @@map
+//   - comments String? @db.Text — new requirement across all legacy forms
+//   - createdAt / updatedAt with @db.Timestamptz for UTC storage
+//   - name indexes on lookup-heavy tables
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Flag — country flag codes (ISO 3166-1)
+// ---------------------------------------------------------------------------
+model Flag {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  abbreviation String?
+  comments     String?  @db.Text
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  updatedAt    DateTime @updatedAt @db.Timestamptz
+
+  shipParticulars ShipParticular[]
+
+  @@index([name])
+  @@map("flags")
+}
+
+// ---------------------------------------------------------------------------
+// Activity — operational activity types
+// ---------------------------------------------------------------------------
+model Activity {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  comments  String?  @db.Text
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  @@map("activities")
+}
+
+// ---------------------------------------------------------------------------
+// Cargo — cargo type catalog
+// ---------------------------------------------------------------------------
+model Cargo {
+  id        String   @id @default(cuid())
+  name      String
+  bblUnit   String   // e.g. "BBL", "MT"
+  comments  String?  @db.Text
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  @@map("cargoes")
+}
+
+// ---------------------------------------------------------------------------
+// Port — port directory with self-referential hierarchy
+// parentId enables country → port → terminal/berth nesting
+// ---------------------------------------------------------------------------
+model Port {
+  id           String   @id @default(cuid())
+  name         String
+  abbreviation String?
+  location     String?
+  // Self-referential: a port can belong to a parent (country or terminal grouping)
+  parentId     String?
+  parent       Port?    @relation("PortHierarchy", fields: [parentId], references: [id])
+  children     Port[]   @relation("PortHierarchy")
+  comments     String?  @db.Text
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  updatedAt    DateTime @updatedAt @db.Timestamptz
+
+  @@index([name])
+  @@map("ports")
+}
+
+// ---------------------------------------------------------------------------
+// Charterer — vessel charterers
+// ---------------------------------------------------------------------------
+model Charterer {
+  id          String   @id @default(cuid())
+  name        String
+  address     String?
+  contactInfo String?  @db.Text
+  comments    String?  @db.Text
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  updatedAt   DateTime @updatedAt @db.Timestamptz
+
+  contacts Contact[]
+
+  @@index([name])
+  @@map("charterers")
+}
+
+// ---------------------------------------------------------------------------
+// Shipper — cargo shippers
+// ---------------------------------------------------------------------------
+model Shipper {
+  id            String   @id @default(cuid())
+  name          String
+  email         String?
+  businessPhone String?
+  businessFax   String?
+  address       String?
+  comments      String?  @db.Text
+  createdAt     DateTime @default(now()) @db.Timestamptz
+  updatedAt     DateTime @updatedAt @db.Timestamptz
+
+  contacts Contact[]
+
+  @@index([name])
+  @@map("shippers")
+}
+
+// ---------------------------------------------------------------------------
+// Agent — port agents
+// ---------------------------------------------------------------------------
+model Agent {
+  id          String   @id @default(cuid())
+  name        String
+  address     String?
+  contactInfo String?  @db.Text
+  comments    String?  @db.Text
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  updatedAt   DateTime @updatedAt @db.Timestamptz
+
+  @@index([name])
+  @@map("agents")
+}
+
+// ---------------------------------------------------------------------------
+// Operator — vessel operators
+// location validated to "L" (local) | "E" (exterior) at the application layer
+// sendCopy: whether to CC this operator on outbound documents
+// itemsProforma: placeholder JSON for proforma line items (full normalization deferred)
+// ---------------------------------------------------------------------------
+model Operator {
+  id                   String   @id @default(cuid())
+  name                 String
+  email                String?
+  businessPhone        String?
+  businessFax          String?
+  address              String?
+  standardRequirements String?  @db.Text
+  sendCopy             Boolean  @default(false)
+  // "L" = local | "E" = exterior — enforced at app layer, not DB constraint
+  location             String?
+  // Placeholder for proforma line items; full normalization deferred to a later milestone
+  itemsProforma        Json?
+  comments             String?  @db.Text
+  createdAt            DateTime @default(now()) @db.Timestamptz
+  updatedAt            DateTime @updatedAt @db.Timestamptz
+
+  contacts        Contact[]
+  shipParticulars ShipParticular[]
+
+  @@index([name])
+  @@map("operators")
+}
+
+// ---------------------------------------------------------------------------
+// Owner — vessel owners
+// Contains CRM and financial fields.
+// Access to acuerdos + historyJson is gated by the "owner.financial" permission
+// (enforced in the service layer — guard implementation is in M2-S12).
+// comentarios: free-text separate from the standard comments field (per legacy form).
+// historyJson: JSON blob for Buques/OTs/Factura/PagosRecibidos — full normalization deferred.
+// ---------------------------------------------------------------------------
+model Owner {
+  id              String   @id @default(cuid())
+  listadoContacto String?
+  cantidad        Int?
+  numeroContacto  String?
+  nombre          String
+  direccionFisica String?
+  telefonos       String?
+  direccion       String?
+  cargo           String?
+  redesSociales   String?
+  // Free-text CRM field separate from the standard `comments` column (per legacy form spec)
+  comentarios     String?  @db.Text
+  cumpleanos      String?
+  gustos          String?  @db.Text
+  recomendaciones String?  @db.Text
+  business        String?  @db.Text
+  webpage         String?
+  // Financial fields — access gated by "owner.financial" permission (M2-S12)
+  acuerdos        String?  @db.Text
+  // JSON blob for Buques / OTs / Factura / PagosRecibidos history.
+  // Full relational normalization deferred to a future milestone.
+  historyJson     Json?
+  comments        String?  @db.Text
+  createdAt       DateTime @default(now()) @db.Timestamptz
+  updatedAt       DateTime @updatedAt @db.Timestamptz
+
+  contacts        Contact[]
+  shipParticulars ShipParticular[]
+
+  @@index([nombre])
+  @@map("owners")
+}
+
+// ---------------------------------------------------------------------------
+// Supplier — service providers (Proveedores)
+// ---------------------------------------------------------------------------
+model Supplier {
+  id                  String   @id @default(cuid())
+  name                String
+  contactos           String?  @db.Text
+  direccion           String?
+  servicios           String?  @db.Text
+  kyc                 String?  @db.Text
+  telefonos           String?
+  correosElectronicos String?  @db.Text
+  certificados        String?  @db.Text
+  tarifas             String?  @db.Text
+  contratoDeServicios String?  @db.Text
+  acuerdos            String?  @db.Text
+  comments            String?  @db.Text
+  createdAt           DateTime @default(now()) @db.Timestamptz
+  updatedAt           DateTime @updatedAt @db.Timestamptz
+
+  @@index([name])
+  @@map("suppliers")
+}
+
+// ---------------------------------------------------------------------------
+// Contact — generic contacts directory
+// Cross-linked to Shipper / Operator / Owner / Charterer via four nullable FKs.
+// Business rule: at most ONE of the four entity FKs may be non-null per row.
+// This is enforced by the CHECK constraint `contacts_single_owner_chk` added
+// directly to the migration SQL (Prisma cannot express CHECK constraints natively).
+// ---------------------------------------------------------------------------
+model Contact {
+  id            String     @id @default(cuid())
+  name          String
+  email         String?
+  homePhone     String?
+  mobile        String?
+  businessPhone String?
+  businessFax   String?
+  address       String?
+  // Entity FK cross-links — at most one may be non-null (enforced by DB CHECK constraint)
+  shipperId     String?
+  shipper       Shipper?   @relation(fields: [shipperId], references: [id], onDelete: SetNull)
+  operatorId    String?
+  operator      Operator?  @relation(fields: [operatorId], references: [id], onDelete: SetNull)
+  ownerId       String?
+  owner         Owner?     @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  charterId     String?
+  charterer     Charterer? @relation(fields: [charterId], references: [id], onDelete: SetNull)
+  comments      String?    @db.Text
+  createdAt     DateTime   @default(now()) @db.Timestamptz
+  updatedAt     DateTime   @updatedAt @db.Timestamptz
+
+  @@map("contacts")
+}
+
+// ---------------------------------------------------------------------------
+// ShipParticular — vessel registry
+// imoNumber: unique when present; nullable (open question with client — allow null
+//   for vessels not yet assigned an IMO or with non-standard entries, but uniqueness
+//   is enforced among non-null values at DB level via @unique — Postgres silently
+//   allows multiple NULLs in a unique index, which gives us partial-uniqueness semantics).
+// callSign: marked @unique per business rule; open question whether duplicate
+//   call signs across flags should be allowed — keeping @unique until client confirms otherwise.
+// ---------------------------------------------------------------------------
+model ShipParticular {
+  id           String   @id @default(cuid())
+  // Call sign is unique per vessel identification rules (open question: cross-flag duplicates allowed?)
+  callSign     String   @unique
+  name         String
+  abbreviation String?
+  loa          Decimal? @db.Decimal(10, 3) // Length Overall in metres
+  dwt          Decimal? @db.Decimal(12, 3) // Deadweight Tonnage
+  grt          Decimal? @db.Decimal(12, 3) // Gross Register Tonnage
+  nrt          Decimal? @db.Decimal(12, 3) // Net Register Tonnage
+  email        String?
+  // imoNumber is unique among non-null values (Postgres unique index allows multiple NULLs).
+  // Partial-uniqueness concern: Prisma @unique maps to a standard unique index, which is correct here.
+  imoNumber    String?  @unique
+  phone        String?
+  phone2       String?
+  fax          String?
+  flagId       String
+  flag         Flag     @relation(fields: [flagId], references: [id])
+  ownerId      String?
+  owner        Owner?   @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  operatorId   String?
+  operator     Operator? @relation(fields: [operatorId], references: [id], onDelete: SetNull)
+  comments     String?  @db.Text
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  updatedAt    DateTime @updatedAt @db.Timestamptz
+
+  @@index([name])
+  @@index([imoNumber])
+  @@map("ship_particulars")
 }
