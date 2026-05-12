@@ -11,6 +11,7 @@ import { RolesGuard } from './auth/roles.guard.js';
 import { FlagsModule } from './master-data/flags/flags.module.js';
 import { ActivitiesModule } from './master-data/activities/activities.module.js';
 import { CargoesModule } from './master-data/cargoes/cargoes.module.js';
+import { CharterersModule } from './master-data/charterers/charterers.module.js';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { CargoesModule } from './master-data/cargoes/cargoes.module.js';
     FlagsModule,
     ActivitiesModule,
     CargoesModule,
+    CharterersModule,
   ],
   providers: [
     // ThrottlerGuard must run first (before auth) so rate limits apply to all routes.
