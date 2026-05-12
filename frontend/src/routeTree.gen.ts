@@ -13,6 +13,8 @@ import { Route as LoginRouteImport } from './routes/login';
 import { Route as ProtectedRouteImport } from './routes/_protected';
 import { Route as ProtectedIndexRouteImport } from './routes/_protected/index';
 import { Route as ProtectedMasterDataRouteImport } from './routes/_protected/master-data';
+import { Route as ProtectedMasterDataShippersRouteImport } from './routes/_protected/master-data/shippers';
+import { Route as ProtectedMasterDataOperatorsRouteImport } from './routes/_protected/master-data/operators';
 import { Route as ProtectedMasterDataFlagsRouteImport } from './routes/_protected/master-data/flags';
 import { Route as ProtectedMasterDataCharterersRouteImport } from './routes/_protected/master-data/charterers';
 import { Route as ProtectedMasterDataCargoesRouteImport } from './routes/_protected/master-data/cargoes';
@@ -37,6 +39,16 @@ const ProtectedMasterDataRoute = ProtectedMasterDataRouteImport.update({
   id: '/master-data',
   path: '/master-data',
   getParentRoute: () => ProtectedRoute,
+} as any);
+const ProtectedMasterDataShippersRoute = ProtectedMasterDataShippersRouteImport.update({
+  id: '/shippers',
+  path: '/shippers',
+  getParentRoute: () => ProtectedMasterDataRoute,
+} as any);
+const ProtectedMasterDataOperatorsRoute = ProtectedMasterDataOperatorsRouteImport.update({
+  id: '/operators',
+  path: '/operators',
+  getParentRoute: () => ProtectedMasterDataRoute,
 } as any);
 const ProtectedMasterDataFlagsRoute = ProtectedMasterDataFlagsRouteImport.update({
   id: '/flags',
@@ -71,6 +83,8 @@ export interface FileRoutesByFullPath {
   '/master-data/cargoes': typeof ProtectedMasterDataCargoesRoute;
   '/master-data/charterers': typeof ProtectedMasterDataCharterersRoute;
   '/master-data/flags': typeof ProtectedMasterDataFlagsRoute;
+  '/master-data/operators': typeof ProtectedMasterDataOperatorsRoute;
+  '/master-data/shippers': typeof ProtectedMasterDataShippersRoute;
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute;
@@ -80,6 +94,8 @@ export interface FileRoutesByTo {
   '/master-data/cargoes': typeof ProtectedMasterDataCargoesRoute;
   '/master-data/charterers': typeof ProtectedMasterDataCharterersRoute;
   '/master-data/flags': typeof ProtectedMasterDataFlagsRoute;
+  '/master-data/operators': typeof ProtectedMasterDataOperatorsRoute;
+  '/master-data/shippers': typeof ProtectedMasterDataShippersRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
@@ -92,6 +108,8 @@ export interface FileRoutesById {
   '/_protected/master-data/cargoes': typeof ProtectedMasterDataCargoesRoute;
   '/_protected/master-data/charterers': typeof ProtectedMasterDataCharterersRoute;
   '/_protected/master-data/flags': typeof ProtectedMasterDataFlagsRoute;
+  '/_protected/master-data/operators': typeof ProtectedMasterDataOperatorsRoute;
+  '/_protected/master-data/shippers': typeof ProtectedMasterDataShippersRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
@@ -102,7 +120,9 @@ export interface FileRouteTypes {
     | '/master-data/activities'
     | '/master-data/cargoes'
     | '/master-data/charterers'
-    | '/master-data/flags';
+    | '/master-data/flags'
+    | '/master-data/operators'
+    | '/master-data/shippers';
   fileRoutesByTo: FileRoutesByTo;
   to:
     | '/login'
@@ -111,7 +131,9 @@ export interface FileRouteTypes {
     | '/master-data/activities'
     | '/master-data/cargoes'
     | '/master-data/charterers'
-    | '/master-data/flags';
+    | '/master-data/flags'
+    | '/master-data/operators'
+    | '/master-data/shippers';
   id:
     | '__root__'
     | '/_protected'
@@ -122,7 +144,9 @@ export interface FileRouteTypes {
     | '/_protected/master-data/activities'
     | '/_protected/master-data/cargoes'
     | '/_protected/master-data/charterers'
-    | '/_protected/master-data/flags';
+    | '/_protected/master-data/flags'
+    | '/_protected/master-data/operators'
+    | '/_protected/master-data/shippers';
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
@@ -159,6 +183,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/master-data';
       preLoaderRoute: typeof ProtectedMasterDataRouteImport;
       parentRoute: typeof ProtectedRoute;
+    };
+    '/_protected/master-data/shippers': {
+      id: '/_protected/master-data/shippers';
+      path: '/shippers';
+      fullPath: '/master-data/shippers';
+      preLoaderRoute: typeof ProtectedMasterDataShippersRouteImport;
+      parentRoute: typeof ProtectedMasterDataRoute;
+    };
+    '/_protected/master-data/operators': {
+      id: '/_protected/master-data/operators';
+      path: '/operators';
+      fullPath: '/master-data/operators';
+      preLoaderRoute: typeof ProtectedMasterDataOperatorsRouteImport;
+      parentRoute: typeof ProtectedMasterDataRoute;
     };
     '/_protected/master-data/flags': {
       id: '/_protected/master-data/flags';
@@ -204,6 +242,8 @@ interface ProtectedMasterDataRouteChildren {
   ProtectedMasterDataCargoesRoute: typeof ProtectedMasterDataCargoesRoute;
   ProtectedMasterDataCharterersRoute: typeof ProtectedMasterDataCharterersRoute;
   ProtectedMasterDataFlagsRoute: typeof ProtectedMasterDataFlagsRoute;
+  ProtectedMasterDataOperatorsRoute: typeof ProtectedMasterDataOperatorsRoute;
+  ProtectedMasterDataShippersRoute: typeof ProtectedMasterDataShippersRoute;
 }
 
 const ProtectedMasterDataRouteChildren: ProtectedMasterDataRouteChildren = {
@@ -212,6 +252,8 @@ const ProtectedMasterDataRouteChildren: ProtectedMasterDataRouteChildren = {
   ProtectedMasterDataCargoesRoute: ProtectedMasterDataCargoesRoute,
   ProtectedMasterDataCharterersRoute: ProtectedMasterDataCharterersRoute,
   ProtectedMasterDataFlagsRoute: ProtectedMasterDataFlagsRoute,
+  ProtectedMasterDataOperatorsRoute: ProtectedMasterDataOperatorsRoute,
+  ProtectedMasterDataShippersRoute: ProtectedMasterDataShippersRoute,
 };
 
 const ProtectedMasterDataRouteWithChildren = ProtectedMasterDataRoute._addFileChildren(
