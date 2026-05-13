@@ -9,6 +9,10 @@
       "require": "./dist/index.js",
       "default": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./ais": {
+      "default": "./dist/ais/schemas.js",
+      "types": "./dist/ais/schemas.d.ts"
     }
   },
   "scripts": {

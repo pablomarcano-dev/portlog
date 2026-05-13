@@ -15,10 +15,12 @@ async function bootstrap() {
 
   // Register @fastify/cookie so that reply.setCookie() and request.cookies work.
   // Must be registered before listen().
-  // Type cast needed: @fastify/cookie uses export = (CJS) which creates a
+  // Type cast via unknown: @fastify/cookie uses export = (CJS) which creates a
   // minor type mismatch with NestFastifyApplication.register's union parameter type.
+  // The double-cast (as unknown as Parameters<typeof app.register>[0]) is safe here
+  // because fastifyCookie is a valid Fastify plugin at runtime.
 
-  await app.register(fastifyCookie as Parameters<typeof app.register>[0]);
+  await app.register(fastifyCookie as unknown as Parameters<typeof app.register>[0]);
 
   // CORS: allow the frontend origin with credentials (required for httpOnly cookie exchange).
   // SameSite=Lax on the cookie is sufficient for CSRF protection; credentials: true

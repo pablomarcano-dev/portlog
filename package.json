@@ -42,6 +42,8 @@
     ]
   },
   "dependencies": {
-    "@nestjs/throttler": "^6.5.0"
+    "@nestjs/throttler": "^6.5.0",
+    "bottleneck": "^2.19.5",
+    "lru-cache": "^11.3.6"
   }
 }
