@@ -18,6 +18,7 @@ import { useCurrentUser, useLogout } from '../lib/auth/queries';
 // focused on entities managed exclusively inside Master Data.
 const NAV_LINKS = [
   { label: 'Home', to: '/' },
+  { label: 'Nominations', to: '/nominations' },
   { label: 'Master Data', to: '/master-data/flags' },
   { label: 'Suppliers', to: '/master-data/suppliers' },
 ] as const;
