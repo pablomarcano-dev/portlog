@@ -16,6 +16,7 @@ import { Route as ProtectedMasterDataRouteImport } from './routes/_protected/mas
 import { Route as ProtectedMasterDataSuppliersRouteImport } from './routes/_protected/master-data/suppliers';
 import { Route as ProtectedMasterDataShippersRouteImport } from './routes/_protected/master-data/shippers';
 import { Route as ProtectedMasterDataPortsRouteImport } from './routes/_protected/master-data/ports';
+import { Route as ProtectedMasterDataOwnersRouteImport } from './routes/_protected/master-data/owners';
 import { Route as ProtectedMasterDataOperatorsRouteImport } from './routes/_protected/master-data/operators';
 import { Route as ProtectedMasterDataFlagsRouteImport } from './routes/_protected/master-data/flags';
 import { Route as ProtectedMasterDataContactsRouteImport } from './routes/_protected/master-data/contacts';
@@ -57,6 +58,11 @@ const ProtectedMasterDataShippersRoute = ProtectedMasterDataShippersRouteImport.
 const ProtectedMasterDataPortsRoute = ProtectedMasterDataPortsRouteImport.update({
   id: '/ports',
   path: '/ports',
+  getParentRoute: () => ProtectedMasterDataRoute,
+} as any);
+const ProtectedMasterDataOwnersRoute = ProtectedMasterDataOwnersRouteImport.update({
+  id: '/owners',
+  path: '/owners',
   getParentRoute: () => ProtectedMasterDataRoute,
 } as any);
 const ProtectedMasterDataOperatorsRoute = ProtectedMasterDataOperatorsRouteImport.update({
@@ -110,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/master-data/contacts': typeof ProtectedMasterDataContactsRoute;
   '/master-data/flags': typeof ProtectedMasterDataFlagsRoute;
   '/master-data/operators': typeof ProtectedMasterDataOperatorsRoute;
+  '/master-data/owners': typeof ProtectedMasterDataOwnersRoute;
   '/master-data/ports': typeof ProtectedMasterDataPortsRoute;
   '/master-data/shippers': typeof ProtectedMasterDataShippersRoute;
   '/master-data/suppliers': typeof ProtectedMasterDataSuppliersRoute;
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/master-data/contacts': typeof ProtectedMasterDataContactsRoute;
   '/master-data/flags': typeof ProtectedMasterDataFlagsRoute;
   '/master-data/operators': typeof ProtectedMasterDataOperatorsRoute;
+  '/master-data/owners': typeof ProtectedMasterDataOwnersRoute;
   '/master-data/ports': typeof ProtectedMasterDataPortsRoute;
   '/master-data/shippers': typeof ProtectedMasterDataShippersRoute;
   '/master-data/suppliers': typeof ProtectedMasterDataSuppliersRoute;
@@ -143,6 +151,7 @@ export interface FileRoutesById {
   '/_protected/master-data/contacts': typeof ProtectedMasterDataContactsRoute;
   '/_protected/master-data/flags': typeof ProtectedMasterDataFlagsRoute;
   '/_protected/master-data/operators': typeof ProtectedMasterDataOperatorsRoute;
+  '/_protected/master-data/owners': typeof ProtectedMasterDataOwnersRoute;
   '/_protected/master-data/ports': typeof ProtectedMasterDataPortsRoute;
   '/_protected/master-data/shippers': typeof ProtectedMasterDataShippersRoute;
   '/_protected/master-data/suppliers': typeof ProtectedMasterDataSuppliersRoute;
@@ -160,6 +169,7 @@ export interface FileRouteTypes {
     | '/master-data/contacts'
     | '/master-data/flags'
     | '/master-data/operators'
+    | '/master-data/owners'
     | '/master-data/ports'
     | '/master-data/shippers'
     | '/master-data/suppliers';
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
     | '/master-data/contacts'
     | '/master-data/flags'
     | '/master-data/operators'
+    | '/master-data/owners'
     | '/master-data/ports'
     | '/master-data/shippers'
     | '/master-data/suppliers';
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
     | '/_protected/master-data/contacts'
     | '/_protected/master-data/flags'
     | '/_protected/master-data/operators'
+    | '/_protected/master-data/owners'
     | '/_protected/master-data/ports'
     | '/_protected/master-data/shippers'
     | '/_protected/master-data/suppliers';
@@ -251,6 +263,13 @@ declare module '@tanstack/react-router' {
       path: '/ports';
       fullPath: '/master-data/ports';
       preLoaderRoute: typeof ProtectedMasterDataPortsRouteImport;
+      parentRoute: typeof ProtectedMasterDataRoute;
+    };
+    '/_protected/master-data/owners': {
+      id: '/_protected/master-data/owners';
+      path: '/owners';
+      fullPath: '/master-data/owners';
+      preLoaderRoute: typeof ProtectedMasterDataOwnersRouteImport;
       parentRoute: typeof ProtectedMasterDataRoute;
     };
     '/_protected/master-data/operators': {
@@ -321,6 +340,7 @@ interface ProtectedMasterDataRouteChildren {
   ProtectedMasterDataContactsRoute: typeof ProtectedMasterDataContactsRoute;
   ProtectedMasterDataFlagsRoute: typeof ProtectedMasterDataFlagsRoute;
   ProtectedMasterDataOperatorsRoute: typeof ProtectedMasterDataOperatorsRoute;
+  ProtectedMasterDataOwnersRoute: typeof ProtectedMasterDataOwnersRoute;
   ProtectedMasterDataPortsRoute: typeof ProtectedMasterDataPortsRoute;
   ProtectedMasterDataShippersRoute: typeof ProtectedMasterDataShippersRoute;
   ProtectedMasterDataSuppliersRoute: typeof ProtectedMasterDataSuppliersRoute;
@@ -335,6 +355,7 @@ const ProtectedMasterDataRouteChildren: ProtectedMasterDataRouteChildren = {
   ProtectedMasterDataContactsRoute: ProtectedMasterDataContactsRoute,
   ProtectedMasterDataFlagsRoute: ProtectedMasterDataFlagsRoute,
   ProtectedMasterDataOperatorsRoute: ProtectedMasterDataOperatorsRoute,
+  ProtectedMasterDataOwnersRoute: ProtectedMasterDataOwnersRoute,
   ProtectedMasterDataPortsRoute: ProtectedMasterDataPortsRoute,
   ProtectedMasterDataShippersRoute: ProtectedMasterDataShippersRoute,
   ProtectedMasterDataSuppliersRoute: ProtectedMasterDataSuppliersRoute,
