@@ -52,6 +52,7 @@ enum AuditEvent {
   LOGIN_FAILURE
   LOGOUT
   REFRESH_TOKEN_REUSE
+  OWNER_FINANCIAL_DENIED
 }
 
 model AuditLog {

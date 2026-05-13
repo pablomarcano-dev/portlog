@@ -8,6 +8,7 @@ export type SafeUser = {
   email: string;
   role: 'OPS' | 'ADM';
   isActive: boolean;
+  permissions: string[];
   createdAt: Date;
   updatedAt: Date;
   lastLoginAt: Date | null;
@@ -18,6 +19,7 @@ const SAFE_USER_SELECT = {
   email: true,
   role: true,
   isActive: true,
+  permissions: true,
   createdAt: true,
   updatedAt: true,
   lastLoginAt: true,
