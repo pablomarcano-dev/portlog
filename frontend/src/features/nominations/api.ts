@@ -2,12 +2,14 @@ import { apiRequest } from '../../lib/api/client';
 import {
   NominationListResponseSchema,
   NominationSchema,
+  AisVesselSchema,
   type NominationListQuery,
   type NominationListResponse,
   type NominationCreateInput,
   type NominationUpdateInput,
   type NominationStatusTransition,
   type Nomination,
+  type AisVessel,
 } from '@portlog/schemas';
 
 export const nominationsApi = {
@@ -54,3 +56,8 @@ export const nominationsApi = {
     return NominationSchema.parse(raw);
   },
 };
+
+export async function fetchAisVessel(imo: string): Promise<AisVessel> {
+  const raw = await apiRequest<unknown>(`/ais/vessels/${imo}`);
+  return AisVesselSchema.parse(raw);
+}
