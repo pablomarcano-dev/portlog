@@ -296,8 +296,19 @@ export const NominationSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// NominationListResponseSchema — paginated list response from GET /api/nominations
+// ---------------------------------------------------------------------------
+export const NominationListResponseSchema = z.object({
+  items: z.array(NominationListItemSchema),
+  total: z.number().int().nonnegative(),
+  page: z.number().int().positive(),
+  pageSize: z.number().int().positive(),
+});
+
+// ---------------------------------------------------------------------------
 // Inferred TypeScript types
 // ---------------------------------------------------------------------------
+export type NominationListResponse = z.infer<typeof NominationListResponseSchema>;
 export type NominationCreateInput = z.infer<typeof NominationCreateSchema>;
 export type NominationUpdateInput = z.infer<typeof NominationUpdateSchema>;
 export type NominationStatusTransition = z.infer<typeof NominationStatusTransitionSchema>;
