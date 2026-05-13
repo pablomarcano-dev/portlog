@@ -41,7 +41,12 @@ export const ContactCreateSchema = ContactBaseSchema.superRefine(singleOwnerRefi
 
 export const ContactUpdateSchema = ContactBaseSchema.partial().superRefine(singleOwnerRefinement);
 
-export const ContactListQuerySchema = ListQuerySchema;
+export const ContactListQuerySchema = ListQuerySchema.extend({
+  shipperId: z.string().cuid().optional(),
+  operatorId: z.string().cuid().optional(),
+  ownerId: z.string().cuid().optional(),
+  charterId: z.string().cuid().optional(),
+});
 
 export type ContactCreateInput = z.infer<typeof ContactCreateSchema>;
 export type ContactUpdateInput = z.infer<typeof ContactUpdateSchema>;
