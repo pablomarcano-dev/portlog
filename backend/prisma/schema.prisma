@@ -531,3 +531,34 @@ model NominationStatusHistory {
   @@index([nominationId, createdAt])
   @@map("nomination_status_history")
 }
+
+// ---------------------------------------------------------------------------
+// M2-S14 — Email Groups (Grupos de Correo)
+// Distribution lists used when generating and sending port documents.
+// Members are free-text email rows (not FK to Contact) so groups can include
+// external addresses that are not tracked contacts.
+// ---------------------------------------------------------------------------
+model EmailGroup {
+  id          String             @id @default(cuid())
+  name        String
+  description String?
+  comments    String?            @db.Text
+  createdAt   DateTime           @default(now()) @db.Timestamptz
+  updatedAt   DateTime           @updatedAt @db.Timestamptz
+  members     EmailGroupMember[]
+
+  @@index([name])
+  @@map("email_groups")
+}
+
+model EmailGroupMember {
+  id           String     @id @default(cuid())
+  emailGroupId String
+  email        String
+  displayName  String?
+  order        Int        @default(0)
+  emailGroup   EmailGroup @relation(fields: [emailGroupId], references: [id], onDelete: Cascade)
+
+  @@index([emailGroupId])
+  @@map("email_group_members")
+}

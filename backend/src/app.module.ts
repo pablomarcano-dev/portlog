@@ -22,6 +22,7 @@ import { OwnersModule } from './master-data/owners/owners.module.js';
 import { ShipParticularsModule } from './master-data/ship-particulars/ship-particulars.module.js';
 import { AisModule } from './ais/ais.module.js';
 import { NominationsModule } from './nominations/nominations.module.js';
+import { EmailGroupsModule } from './master-data/email-groups/email-groups.module.js';
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { NominationsModule } from './nominations/nominations.module.js';
     ShipParticularsModule,
     AisModule,
     NominationsModule,
+    EmailGroupsModule,
   ],
   providers: [
     // ThrottlerGuard must run first (before auth) so rate limits apply to all routes.

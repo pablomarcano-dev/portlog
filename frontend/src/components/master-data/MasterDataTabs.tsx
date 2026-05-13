@@ -22,6 +22,7 @@ const TABS: TabDef[] = [
   { label: 'Agents', path: '/master-data/agents' },
   { label: 'Operators', path: '/master-data/operators' },
   { label: 'Contacts', path: '/master-data/contacts' },
+  { label: 'Email Groups', path: '/master-data/email-groups' },
 ];
 
 export function MasterDataTabs() {
