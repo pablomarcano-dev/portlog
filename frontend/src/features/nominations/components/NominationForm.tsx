@@ -3,11 +3,14 @@ import { Button, Fieldset, Grid, Group, Radio, Stack, Textarea, TextInput } from
 import { DatePickerInput } from '@mantine/dates';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { NominationCreateSchema } from '@portlog/schemas';
 import type { NominationCreateInput } from '@portlog/schemas';
+import { apiRequest } from '../../../lib/api/client';
 import { EntityPicker } from '../../../components/master-data/EntityPicker';
 import { FeaturesFieldArray } from './FeaturesFieldArray';
+import { AisSuggestionPanel } from './AisSuggestionPanel';
 
 interface NominationFormProps {
   mode: 'create' | 'edit';
@@ -26,7 +29,7 @@ export function NominationForm({
 }: NominationFormProps) {
   const navigate = useNavigate();
 
-  const { register, handleSubmit, control, reset, formState } = useForm<NominationCreateInput>({
+  const form = useForm<NominationCreateInput>({
     resolver: zodResolver(NominationCreateSchema),
     defaultValues: {
       voyageNumber: '',
@@ -36,6 +39,21 @@ export function NominationForm({
       ...defaultValues,
     },
   });
+
+  const { register, handleSubmit, control, reset, formState, watch } = form;
+
+  // Watch the selected vessel so we can fetch its IMO for AIS lookup
+  const shipParticularId = watch('shipParticularId');
+
+  const selectedShipQuery = useQuery({
+    queryKey: ['ship-particulars', shipParticularId],
+    queryFn: () =>
+      apiRequest<{ imoNumber: string | null }>(`/master-data/ship-particulars/${shipParticularId}`),
+    enabled: !!shipParticularId,
+    staleTime: 60_000,
+  });
+
+  const imo = selectedShipQuery.data?.imoNumber ?? null;
 
   // Search state for each EntityPicker
   const [shipSearch, setShipSearch] = useState('');
@@ -276,6 +294,9 @@ export function NominationForm({
             </Grid>
           </Stack>
         </Fieldset>
+
+        {/* AIS suggestion panel — shown only when vessel has a valid IMO */}
+        {imo && /^\d{7}$/.test(imo) && <AisSuggestionPanel imo={imo} form={form} />}
 
         {/* 3. Ports */}
         <Fieldset legend="Ports">

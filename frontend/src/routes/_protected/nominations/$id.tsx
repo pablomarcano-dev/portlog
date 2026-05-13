@@ -3,6 +3,7 @@ import {
   Alert,
   Badge,
   Box,
+  Button,
   Container,
   Divider,
   Group,
@@ -11,6 +12,7 @@ import {
   Text,
   Title,
 } from '@mantine/core';
+import { useQueryClient } from '@tanstack/react-query';
 import { NominationForm } from '../../../features/nominations/components/NominationForm';
 import { TransitionButtons } from '../../../features/nominations/components/TransitionButtons';
 import { StatusHistoryTimeline } from '../../../features/nominations/components/StatusHistoryTimeline';
@@ -37,6 +39,11 @@ function NominationDetailPage() {
   const { id } = Route.useParams();
   const { data: nomination, isLoading, isError, error } = useNomination(id);
   const updateNomination = useUpdateNomination(id);
+  const queryClient = useQueryClient();
+
+  function handleRefreshAis() {
+    void queryClient.invalidateQueries({ queryKey: ['ais'] });
+  }
 
   if (isLoading) {
     return (
@@ -130,7 +137,12 @@ function NominationDetailPage() {
                   <Badge color={STATUS_COLORS[nomination.status]}>{nomination.status}</Badge>
                 </Group>
               </Stack>
-              <TransitionButtons nominationId={nomination.id} currentStatus={nomination.status} />
+              <Group gap="xs">
+                <Button size="xs" variant="default" onClick={handleRefreshAis}>
+                  Refresh AIS
+                </Button>
+                <TransitionButtons nominationId={nomination.id} currentStatus={nomination.status} />
+              </Group>
             </Group>
 
             <Divider />
