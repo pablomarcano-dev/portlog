@@ -37,6 +37,11 @@ model User {
   refreshTokens RefreshToken[]
   auditLogs     AuditLog[]
 
+  // Nomination back-relations
+  nominationsCreated     Nomination[]              @relation("NominationCreatedBy")
+  nominationsNominated   Nomination[]              @relation("NominationNominatedBy")
+  nominationStatusChanges NominationStatusHistory[] @relation("NominationStatusChangedBy")
+
   @@map("users")
 }
 
@@ -157,6 +162,13 @@ model Port {
   createdAt    DateTime @default(now()) @db.Timestamptz
   updatedAt    DateTime @updatedAt @db.Timestamptz
 
+  // Named back-relations for the five port FK fields on Nomination
+  nominationsAsOpPort    Nomination[] @relation("NominationOpPort")
+  nominationsAsBerthPort Nomination[] @relation("NominationBerthPort")
+  nominationsAsLastPort  Nomination[] @relation("NominationLastPort")
+  nominationsAsNextPort  Nomination[] @relation("NominationNextPort")
+  nominationsAsDisPort   Nomination[] @relation("NominationDisPort")
+
   @@index([name])
   @@map("ports")
 }
@@ -173,7 +185,8 @@ model Charterer {
   createdAt   DateTime @default(now()) @db.Timestamptz
   updatedAt   DateTime @updatedAt @db.Timestamptz
 
-  contacts Contact[]
+  contacts     Contact[]
+  nominations  Nomination[]
 
   @@index([name])
   @@map("charterers")
@@ -193,7 +206,8 @@ model Shipper {
   createdAt     DateTime @default(now()) @db.Timestamptz
   updatedAt     DateTime @updatedAt @db.Timestamptz
 
-  contacts Contact[]
+  contacts     Contact[]
+  nominations  Nomination[]
 
   @@index([name])
   @@map("shippers")
@@ -240,6 +254,7 @@ model Operator {
 
   contacts        Contact[]
   shipParticulars ShipParticular[]
+  nominations     Nomination[]
 
   @@index([name])
   @@map("operators")
@@ -282,6 +297,7 @@ model Owner {
 
   contacts        Contact[]
   shipParticulars ShipParticular[]
+  nominations     Nomination[]
 
   @@index([nombre])
   @@map("owners")
@@ -379,7 +395,139 @@ model ShipParticular {
   createdAt    DateTime @default(now()) @db.Timestamptz
   updatedAt    DateTime @updatedAt @db.Timestamptz
 
+  nominations  Nomination[]
+
   @@index([name])
   @@index([imoNumber])
   @@map("ship_particulars")
+}
+
+// ---------------------------------------------------------------------------
+// M3 — Nominations
+// ---------------------------------------------------------------------------
+// Central transactional entity. PEDR, port documents (M4), SH-xx docs (M5),
+// and service requests (M6) all hang off of this table.
+// All timestamp fields are @db.Timestamptz(6) — UTC-only, Golden Rule applies.
+// NominationStatusHistory is append-only (enforced at service layer in M3-S2).
+// ---------------------------------------------------------------------------
+
+enum NominationStatus {
+  DRAFT
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum NominationType {
+  FULL_AGENCY
+  OWNERS_AGENTS_ONLY
+  CHARTERERS_AGENTS_ONLY
+}
+
+model Nomination {
+  id                String           @id @default(uuid()) @db.Uuid
+  // Correlative drives the SN/OT number. Format rendered by service layer as `${YY}/${n.padStart(4,'0')}`.
+  // The sequence `nomination_correlative_seq` is created in the migration raw SQL.
+  correlative       Int              @unique @default(dbgenerated("nextval('nomination_correlative_seq')"))
+
+  // Voyage
+  voyageNumber      String           // e.g. "01/PLC" — free text, Zod-validated in M3-S1
+  voyageCode        String?          // small dropdown next to Voy field (slide 4)
+
+  // Vessel — required FK; cuid() PK on ShipParticular so plain String (no @db.Uuid)
+  shipParticularId  String
+  shipParticular    ShipParticular   @relation(fields: [shipParticularId], references: [id], onDelete: Restrict)
+
+  // Parties — all optional; cuid() PKs so plain String FKs
+  operatorId        String?
+  operator          Operator?        @relation(fields: [operatorId], references: [id], onDelete: Restrict)
+  operatorVariant   String?          // "V. Oper." override text
+  operatorContactId String?          // contact cuid — not a FK (contacts table is not a hard dep here)
+
+  charterId         String?
+  charter           Charterer?       @relation(fields: [charterId], references: [id], onDelete: Restrict)
+  charterVariant    String?
+  charterContactId  String?
+
+  ownerId           String?
+  owner             Owner?           @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  ownerVariant      String?
+  ownerContactId    String?
+
+  shipperId         String?
+  shipper           Shipper?         @relation(fields: [shipperId], references: [id], onDelete: Restrict)
+  shipperVariant    String?
+  shipperContactId  String?
+
+  contactBlackBerry String?
+  blindCopy         String?
+
+  // Ports — five named relations to the Port table; cuid() PKs so plain String FKs
+  opPortId          String?
+  berthPortId       String?
+  lastPortId        String?
+  nextPortId        String?
+  disPortId         String?
+  opPort            Port?            @relation("NominationOpPort", fields: [opPortId], references: [id], onDelete: Restrict)
+  berthPort         Port?            @relation("NominationBerthPort", fields: [berthPortId], references: [id], onDelete: Restrict)
+  lastPort          Port?            @relation("NominationLastPort", fields: [lastPortId], references: [id], onDelete: Restrict)
+  nextPort          Port?            @relation("NominationNextPort", fields: [nextPortId], references: [id], onDelete: Restrict)
+  disPort           Port?            @relation("NominationDisPort", fields: [disPortId], references: [id], onDelete: Restrict)
+
+  // Dates — always UTC; Golden Rule applies
+  dateNominated     DateTime         @db.Timestamptz(6)
+  layDaysFirst      DateTime?        @db.Timestamptz(6)
+  layDaysLast       DateTime?        @db.Timestamptz(6)
+  etaDate           DateTime?        @db.Timestamptz(6)
+
+  // People (free-text except nominatedById which is a cuid FK to users)
+  nominatedById     String?          // "Nomination Received by"; cuid FK — plain String
+  nominatedBy       User?            @relation("NominationNominatedBy", fields: [nominatedById], references: [id], onDelete: Restrict)
+  master            String?
+  mic               String?          // M.I.C.
+  broker            String?
+  boardingClerk     String?
+  inspector         String?
+
+  // Type + subject
+  nominationType    NominationType   @default(FULL_AGENCY)
+  subject           String?
+
+  // Feature table (Product/Qtty/Unit/Oper rows) as JSON; Zod-validated in M3-S1
+  features          Json             @default("[]")
+
+  // State machine
+  status            NominationStatus @default(DRAFT)
+
+  // Audit — createdById is a required cuid FK to users
+  createdById       String
+  createdBy         User             @relation("NominationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt         DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime         @updatedAt @db.Timestamptz(6)
+
+  statusHistory     NominationStatusHistory[]
+
+  @@index([status])
+  @@index([shipParticularId])
+  @@index([dateNominated])
+  @@map("nominations")
+}
+
+model NominationStatusHistory {
+  id           String            @id @default(uuid()) @db.Uuid
+  nominationId String            @db.Uuid
+  nomination   Nomination        @relation(fields: [nominationId], references: [id], onDelete: Cascade)
+  fromStatus   NominationStatus? // null on initial DRAFT insert
+  toStatus     NominationStatus
+  // changedById is a cuid FK to users — plain String
+  changedById  String
+  changedBy    User              @relation("NominationStatusChangedBy", fields: [changedById], references: [id], onDelete: Restrict)
+  // reason is required when toStatus = CANCELLED — enforced by DB CHECK constraint in migration SQL
+  reason       String?
+  // No updatedAt — this table is append-only (service layer enforces no deletes/updates in M3-S2)
+  createdAt    DateTime          @default(now()) @db.Timestamptz(6)
+
+  @@index([nominationId, createdAt])
+  @@map("nomination_status_history")
 }
