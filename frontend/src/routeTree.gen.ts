@@ -8,156 +8,178 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root';
-import { Route as LoginRouteImport } from './routes/login';
-import { Route as ProtectedRouteImport } from './routes/_protected';
-import { Route as ProtectedIndexRouteImport } from './routes/_protected/index';
-import { Route as ProtectedMasterDataRouteImport } from './routes/_protected/master-data';
-import { Route as ProtectedMasterDataSuppliersRouteImport } from './routes/_protected/master-data/suppliers';
-import { Route as ProtectedMasterDataShippersRouteImport } from './routes/_protected/master-data/shippers';
-import { Route as ProtectedMasterDataPortsRouteImport } from './routes/_protected/master-data/ports';
-import { Route as ProtectedMasterDataOwnersRouteImport } from './routes/_protected/master-data/owners';
-import { Route as ProtectedMasterDataOperatorsRouteImport } from './routes/_protected/master-data/operators';
-import { Route as ProtectedMasterDataFlagsRouteImport } from './routes/_protected/master-data/flags';
-import { Route as ProtectedMasterDataContactsRouteImport } from './routes/_protected/master-data/contacts';
-import { Route as ProtectedMasterDataCharterersRouteImport } from './routes/_protected/master-data/charterers';
-import { Route as ProtectedMasterDataCargoesRouteImport } from './routes/_protected/master-data/cargoes';
-import { Route as ProtectedMasterDataAgentsRouteImport } from './routes/_protected/master-data/agents';
-import { Route as ProtectedMasterDataActivitiesRouteImport } from './routes/_protected/master-data/activities';
-import { Route as ProtectedMasterData_demoRouteImport } from './routes/_protected/master-data/__demo';
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ProtectedRouteImport } from './routes/_protected'
+import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
+import { Route as ProtectedMasterDataRouteImport } from './routes/_protected/master-data'
+import { Route as ProtectedMasterDataSuppliersRouteImport } from './routes/_protected/master-data/suppliers'
+import { Route as ProtectedMasterDataShippersRouteImport } from './routes/_protected/master-data/shippers'
+import { Route as ProtectedMasterDataShipParticularsRouteImport } from './routes/_protected/master-data/ship-particulars'
+import { Route as ProtectedMasterDataPortsRouteImport } from './routes/_protected/master-data/ports'
+import { Route as ProtectedMasterDataOwnersRouteImport } from './routes/_protected/master-data/owners'
+import { Route as ProtectedMasterDataOperatorsRouteImport } from './routes/_protected/master-data/operators'
+import { Route as ProtectedMasterDataFlagsRouteImport } from './routes/_protected/master-data/flags'
+import { Route as ProtectedMasterDataContactsRouteImport } from './routes/_protected/master-data/contacts'
+import { Route as ProtectedMasterDataCharterersRouteImport } from './routes/_protected/master-data/charterers'
+import { Route as ProtectedMasterDataCargoesRouteImport } from './routes/_protected/master-data/cargoes'
+import { Route as ProtectedMasterDataAgentsRouteImport } from './routes/_protected/master-data/agents'
+import { Route as ProtectedMasterDataActivitiesRouteImport } from './routes/_protected/master-data/activities'
+import { Route as ProtectedMasterData_demoRouteImport } from './routes/_protected/master-data/__demo'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ProtectedRoute = ProtectedRouteImport.update({
   id: '/_protected',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const ProtectedIndexRoute = ProtectedIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => ProtectedRoute,
-} as any);
+} as any)
 const ProtectedMasterDataRoute = ProtectedMasterDataRouteImport.update({
   id: '/master-data',
   path: '/master-data',
   getParentRoute: () => ProtectedRoute,
-} as any);
-const ProtectedMasterDataSuppliersRoute = ProtectedMasterDataSuppliersRouteImport.update({
-  id: '/suppliers',
-  path: '/suppliers',
-  getParentRoute: () => ProtectedMasterDataRoute,
-} as any);
-const ProtectedMasterDataShippersRoute = ProtectedMasterDataShippersRouteImport.update({
-  id: '/shippers',
-  path: '/shippers',
-  getParentRoute: () => ProtectedMasterDataRoute,
-} as any);
-const ProtectedMasterDataPortsRoute = ProtectedMasterDataPortsRouteImport.update({
-  id: '/ports',
-  path: '/ports',
-  getParentRoute: () => ProtectedMasterDataRoute,
-} as any);
-const ProtectedMasterDataOwnersRoute = ProtectedMasterDataOwnersRouteImport.update({
-  id: '/owners',
-  path: '/owners',
-  getParentRoute: () => ProtectedMasterDataRoute,
-} as any);
-const ProtectedMasterDataOperatorsRoute = ProtectedMasterDataOperatorsRouteImport.update({
-  id: '/operators',
-  path: '/operators',
-  getParentRoute: () => ProtectedMasterDataRoute,
-} as any);
-const ProtectedMasterDataFlagsRoute = ProtectedMasterDataFlagsRouteImport.update({
-  id: '/flags',
-  path: '/flags',
-  getParentRoute: () => ProtectedMasterDataRoute,
-} as any);
-const ProtectedMasterDataContactsRoute = ProtectedMasterDataContactsRouteImport.update({
-  id: '/contacts',
-  path: '/contacts',
-  getParentRoute: () => ProtectedMasterDataRoute,
-} as any);
-const ProtectedMasterDataCharterersRoute = ProtectedMasterDataCharterersRouteImport.update({
-  id: '/charterers',
-  path: '/charterers',
-  getParentRoute: () => ProtectedMasterDataRoute,
-} as any);
-const ProtectedMasterDataCargoesRoute = ProtectedMasterDataCargoesRouteImport.update({
-  id: '/cargoes',
-  path: '/cargoes',
-  getParentRoute: () => ProtectedMasterDataRoute,
-} as any);
-const ProtectedMasterDataAgentsRoute = ProtectedMasterDataAgentsRouteImport.update({
-  id: '/agents',
-  path: '/agents',
-  getParentRoute: () => ProtectedMasterDataRoute,
-} as any);
-const ProtectedMasterDataActivitiesRoute = ProtectedMasterDataActivitiesRouteImport.update({
-  id: '/activities',
-  path: '/activities',
-  getParentRoute: () => ProtectedMasterDataRoute,
-} as any);
-const ProtectedMasterData_demoRoute = ProtectedMasterData_demoRouteImport.update({
-  id: '/__demo',
-  getParentRoute: () => ProtectedMasterDataRoute,
-} as any);
+} as any)
+const ProtectedMasterDataSuppliersRoute =
+  ProtectedMasterDataSuppliersRouteImport.update({
+    id: '/suppliers',
+    path: '/suppliers',
+    getParentRoute: () => ProtectedMasterDataRoute,
+  } as any)
+const ProtectedMasterDataShippersRoute =
+  ProtectedMasterDataShippersRouteImport.update({
+    id: '/shippers',
+    path: '/shippers',
+    getParentRoute: () => ProtectedMasterDataRoute,
+  } as any)
+const ProtectedMasterDataShipParticularsRoute =
+  ProtectedMasterDataShipParticularsRouteImport.update({
+    id: '/ship-particulars',
+    path: '/ship-particulars',
+    getParentRoute: () => ProtectedMasterDataRoute,
+  } as any)
+const ProtectedMasterDataPortsRoute =
+  ProtectedMasterDataPortsRouteImport.update({
+    id: '/ports',
+    path: '/ports',
+    getParentRoute: () => ProtectedMasterDataRoute,
+  } as any)
+const ProtectedMasterDataOwnersRoute =
+  ProtectedMasterDataOwnersRouteImport.update({
+    id: '/owners',
+    path: '/owners',
+    getParentRoute: () => ProtectedMasterDataRoute,
+  } as any)
+const ProtectedMasterDataOperatorsRoute =
+  ProtectedMasterDataOperatorsRouteImport.update({
+    id: '/operators',
+    path: '/operators',
+    getParentRoute: () => ProtectedMasterDataRoute,
+  } as any)
+const ProtectedMasterDataFlagsRoute =
+  ProtectedMasterDataFlagsRouteImport.update({
+    id: '/flags',
+    path: '/flags',
+    getParentRoute: () => ProtectedMasterDataRoute,
+  } as any)
+const ProtectedMasterDataContactsRoute =
+  ProtectedMasterDataContactsRouteImport.update({
+    id: '/contacts',
+    path: '/contacts',
+    getParentRoute: () => ProtectedMasterDataRoute,
+  } as any)
+const ProtectedMasterDataCharterersRoute =
+  ProtectedMasterDataCharterersRouteImport.update({
+    id: '/charterers',
+    path: '/charterers',
+    getParentRoute: () => ProtectedMasterDataRoute,
+  } as any)
+const ProtectedMasterDataCargoesRoute =
+  ProtectedMasterDataCargoesRouteImport.update({
+    id: '/cargoes',
+    path: '/cargoes',
+    getParentRoute: () => ProtectedMasterDataRoute,
+  } as any)
+const ProtectedMasterDataAgentsRoute =
+  ProtectedMasterDataAgentsRouteImport.update({
+    id: '/agents',
+    path: '/agents',
+    getParentRoute: () => ProtectedMasterDataRoute,
+  } as any)
+const ProtectedMasterDataActivitiesRoute =
+  ProtectedMasterDataActivitiesRouteImport.update({
+    id: '/activities',
+    path: '/activities',
+    getParentRoute: () => ProtectedMasterDataRoute,
+  } as any)
+const ProtectedMasterData_demoRoute =
+  ProtectedMasterData_demoRouteImport.update({
+    id: '/__demo',
+    getParentRoute: () => ProtectedMasterDataRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof ProtectedIndexRoute;
-  '/login': typeof LoginRoute;
-  '/master-data': typeof ProtectedMasterData_demoRoute;
-  '/master-data/activities': typeof ProtectedMasterDataActivitiesRoute;
-  '/master-data/agents': typeof ProtectedMasterDataAgentsRoute;
-  '/master-data/cargoes': typeof ProtectedMasterDataCargoesRoute;
-  '/master-data/charterers': typeof ProtectedMasterDataCharterersRoute;
-  '/master-data/contacts': typeof ProtectedMasterDataContactsRoute;
-  '/master-data/flags': typeof ProtectedMasterDataFlagsRoute;
-  '/master-data/operators': typeof ProtectedMasterDataOperatorsRoute;
-  '/master-data/owners': typeof ProtectedMasterDataOwnersRoute;
-  '/master-data/ports': typeof ProtectedMasterDataPortsRoute;
-  '/master-data/shippers': typeof ProtectedMasterDataShippersRoute;
-  '/master-data/suppliers': typeof ProtectedMasterDataSuppliersRoute;
+  '/': typeof ProtectedIndexRoute
+  '/login': typeof LoginRoute
+  '/master-data': typeof ProtectedMasterData_demoRoute
+  '/master-data/activities': typeof ProtectedMasterDataActivitiesRoute
+  '/master-data/agents': typeof ProtectedMasterDataAgentsRoute
+  '/master-data/cargoes': typeof ProtectedMasterDataCargoesRoute
+  '/master-data/charterers': typeof ProtectedMasterDataCharterersRoute
+  '/master-data/contacts': typeof ProtectedMasterDataContactsRoute
+  '/master-data/flags': typeof ProtectedMasterDataFlagsRoute
+  '/master-data/operators': typeof ProtectedMasterDataOperatorsRoute
+  '/master-data/owners': typeof ProtectedMasterDataOwnersRoute
+  '/master-data/ports': typeof ProtectedMasterDataPortsRoute
+  '/master-data/ship-particulars': typeof ProtectedMasterDataShipParticularsRoute
+  '/master-data/shippers': typeof ProtectedMasterDataShippersRoute
+  '/master-data/suppliers': typeof ProtectedMasterDataSuppliersRoute
 }
 export interface FileRoutesByTo {
-  '/login': typeof LoginRoute;
-  '/master-data': typeof ProtectedMasterData_demoRoute;
-  '/': typeof ProtectedIndexRoute;
-  '/master-data/activities': typeof ProtectedMasterDataActivitiesRoute;
-  '/master-data/agents': typeof ProtectedMasterDataAgentsRoute;
-  '/master-data/cargoes': typeof ProtectedMasterDataCargoesRoute;
-  '/master-data/charterers': typeof ProtectedMasterDataCharterersRoute;
-  '/master-data/contacts': typeof ProtectedMasterDataContactsRoute;
-  '/master-data/flags': typeof ProtectedMasterDataFlagsRoute;
-  '/master-data/operators': typeof ProtectedMasterDataOperatorsRoute;
-  '/master-data/owners': typeof ProtectedMasterDataOwnersRoute;
-  '/master-data/ports': typeof ProtectedMasterDataPortsRoute;
-  '/master-data/shippers': typeof ProtectedMasterDataShippersRoute;
-  '/master-data/suppliers': typeof ProtectedMasterDataSuppliersRoute;
+  '/login': typeof LoginRoute
+  '/master-data': typeof ProtectedMasterData_demoRoute
+  '/': typeof ProtectedIndexRoute
+  '/master-data/activities': typeof ProtectedMasterDataActivitiesRoute
+  '/master-data/agents': typeof ProtectedMasterDataAgentsRoute
+  '/master-data/cargoes': typeof ProtectedMasterDataCargoesRoute
+  '/master-data/charterers': typeof ProtectedMasterDataCharterersRoute
+  '/master-data/contacts': typeof ProtectedMasterDataContactsRoute
+  '/master-data/flags': typeof ProtectedMasterDataFlagsRoute
+  '/master-data/operators': typeof ProtectedMasterDataOperatorsRoute
+  '/master-data/owners': typeof ProtectedMasterDataOwnersRoute
+  '/master-data/ports': typeof ProtectedMasterDataPortsRoute
+  '/master-data/ship-particulars': typeof ProtectedMasterDataShipParticularsRoute
+  '/master-data/shippers': typeof ProtectedMasterDataShippersRoute
+  '/master-data/suppliers': typeof ProtectedMasterDataSuppliersRoute
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  '/_protected': typeof ProtectedRouteWithChildren;
-  '/login': typeof LoginRoute;
-  '/_protected/master-data': typeof ProtectedMasterDataRouteWithChildren;
-  '/_protected/': typeof ProtectedIndexRoute;
-  '/_protected/master-data/__demo': typeof ProtectedMasterData_demoRoute;
-  '/_protected/master-data/activities': typeof ProtectedMasterDataActivitiesRoute;
-  '/_protected/master-data/agents': typeof ProtectedMasterDataAgentsRoute;
-  '/_protected/master-data/cargoes': typeof ProtectedMasterDataCargoesRoute;
-  '/_protected/master-data/charterers': typeof ProtectedMasterDataCharterersRoute;
-  '/_protected/master-data/contacts': typeof ProtectedMasterDataContactsRoute;
-  '/_protected/master-data/flags': typeof ProtectedMasterDataFlagsRoute;
-  '/_protected/master-data/operators': typeof ProtectedMasterDataOperatorsRoute;
-  '/_protected/master-data/owners': typeof ProtectedMasterDataOwnersRoute;
-  '/_protected/master-data/ports': typeof ProtectedMasterDataPortsRoute;
-  '/_protected/master-data/shippers': typeof ProtectedMasterDataShippersRoute;
-  '/_protected/master-data/suppliers': typeof ProtectedMasterDataSuppliersRoute;
+  __root__: typeof rootRouteImport
+  '/_protected': typeof ProtectedRouteWithChildren
+  '/login': typeof LoginRoute
+  '/_protected/master-data': typeof ProtectedMasterDataRouteWithChildren
+  '/_protected/': typeof ProtectedIndexRoute
+  '/_protected/master-data/__demo': typeof ProtectedMasterData_demoRoute
+  '/_protected/master-data/activities': typeof ProtectedMasterDataActivitiesRoute
+  '/_protected/master-data/agents': typeof ProtectedMasterDataAgentsRoute
+  '/_protected/master-data/cargoes': typeof ProtectedMasterDataCargoesRoute
+  '/_protected/master-data/charterers': typeof ProtectedMasterDataCharterersRoute
+  '/_protected/master-data/contacts': typeof ProtectedMasterDataContactsRoute
+  '/_protected/master-data/flags': typeof ProtectedMasterDataFlagsRoute
+  '/_protected/master-data/operators': typeof ProtectedMasterDataOperatorsRoute
+  '/_protected/master-data/owners': typeof ProtectedMasterDataOwnersRoute
+  '/_protected/master-data/ports': typeof ProtectedMasterDataPortsRoute
+  '/_protected/master-data/ship-particulars': typeof ProtectedMasterDataShipParticularsRoute
+  '/_protected/master-data/shippers': typeof ProtectedMasterDataShippersRoute
+  '/_protected/master-data/suppliers': typeof ProtectedMasterDataSuppliersRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
+  fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/login'
@@ -171,9 +193,10 @@ export interface FileRouteTypes {
     | '/master-data/operators'
     | '/master-data/owners'
     | '/master-data/ports'
+    | '/master-data/ship-particulars'
     | '/master-data/shippers'
-    | '/master-data/suppliers';
-  fileRoutesByTo: FileRoutesByTo;
+    | '/master-data/suppliers'
+  fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
     | '/master-data'
@@ -187,8 +210,9 @@ export interface FileRouteTypes {
     | '/master-data/operators'
     | '/master-data/owners'
     | '/master-data/ports'
+    | '/master-data/ship-particulars'
     | '/master-data/shippers'
-    | '/master-data/suppliers';
+    | '/master-data/suppliers'
   id:
     | '__root__'
     | '/_protected'
@@ -205,145 +229,154 @@ export interface FileRouteTypes {
     | '/_protected/master-data/operators'
     | '/_protected/master-data/owners'
     | '/_protected/master-data/ports'
+    | '/_protected/master-data/ship-particulars'
     | '/_protected/master-data/shippers'
-    | '/_protected/master-data/suppliers';
-  fileRoutesById: FileRoutesById;
+    | '/_protected/master-data/suppliers'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  ProtectedRoute: typeof ProtectedRouteWithChildren;
-  LoginRoute: typeof LoginRoute;
+  ProtectedRoute: typeof ProtectedRouteWithChildren
+  LoginRoute: typeof LoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
     '/login': {
-      id: '/login';
-      path: '/login';
-      fullPath: '/login';
-      preLoaderRoute: typeof LoginRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_protected': {
-      id: '/_protected';
-      path: '';
-      fullPath: '/';
-      preLoaderRoute: typeof ProtectedRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+      id: '/_protected'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof ProtectedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_protected/': {
-      id: '/_protected/';
-      path: '/';
-      fullPath: '/';
-      preLoaderRoute: typeof ProtectedIndexRouteImport;
-      parentRoute: typeof ProtectedRoute;
-    };
+      id: '/_protected/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof ProtectedIndexRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
     '/_protected/master-data': {
-      id: '/_protected/master-data';
-      path: '/master-data';
-      fullPath: '/master-data';
-      preLoaderRoute: typeof ProtectedMasterDataRouteImport;
-      parentRoute: typeof ProtectedRoute;
-    };
+      id: '/_protected/master-data'
+      path: '/master-data'
+      fullPath: '/master-data'
+      preLoaderRoute: typeof ProtectedMasterDataRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
     '/_protected/master-data/suppliers': {
-      id: '/_protected/master-data/suppliers';
-      path: '/suppliers';
-      fullPath: '/master-data/suppliers';
-      preLoaderRoute: typeof ProtectedMasterDataSuppliersRouteImport;
-      parentRoute: typeof ProtectedMasterDataRoute;
-    };
+      id: '/_protected/master-data/suppliers'
+      path: '/suppliers'
+      fullPath: '/master-data/suppliers'
+      preLoaderRoute: typeof ProtectedMasterDataSuppliersRouteImport
+      parentRoute: typeof ProtectedMasterDataRoute
+    }
     '/_protected/master-data/shippers': {
-      id: '/_protected/master-data/shippers';
-      path: '/shippers';
-      fullPath: '/master-data/shippers';
-      preLoaderRoute: typeof ProtectedMasterDataShippersRouteImport;
-      parentRoute: typeof ProtectedMasterDataRoute;
-    };
+      id: '/_protected/master-data/shippers'
+      path: '/shippers'
+      fullPath: '/master-data/shippers'
+      preLoaderRoute: typeof ProtectedMasterDataShippersRouteImport
+      parentRoute: typeof ProtectedMasterDataRoute
+    }
+    '/_protected/master-data/ship-particulars': {
+      id: '/_protected/master-data/ship-particulars'
+      path: '/ship-particulars'
+      fullPath: '/master-data/ship-particulars'
+      preLoaderRoute: typeof ProtectedMasterDataShipParticularsRouteImport
+      parentRoute: typeof ProtectedMasterDataRoute
+    }
     '/_protected/master-data/ports': {
-      id: '/_protected/master-data/ports';
-      path: '/ports';
-      fullPath: '/master-data/ports';
-      preLoaderRoute: typeof ProtectedMasterDataPortsRouteImport;
-      parentRoute: typeof ProtectedMasterDataRoute;
-    };
+      id: '/_protected/master-data/ports'
+      path: '/ports'
+      fullPath: '/master-data/ports'
+      preLoaderRoute: typeof ProtectedMasterDataPortsRouteImport
+      parentRoute: typeof ProtectedMasterDataRoute
+    }
     '/_protected/master-data/owners': {
-      id: '/_protected/master-data/owners';
-      path: '/owners';
-      fullPath: '/master-data/owners';
-      preLoaderRoute: typeof ProtectedMasterDataOwnersRouteImport;
-      parentRoute: typeof ProtectedMasterDataRoute;
-    };
+      id: '/_protected/master-data/owners'
+      path: '/owners'
+      fullPath: '/master-data/owners'
+      preLoaderRoute: typeof ProtectedMasterDataOwnersRouteImport
+      parentRoute: typeof ProtectedMasterDataRoute
+    }
     '/_protected/master-data/operators': {
-      id: '/_protected/master-data/operators';
-      path: '/operators';
-      fullPath: '/master-data/operators';
-      preLoaderRoute: typeof ProtectedMasterDataOperatorsRouteImport;
-      parentRoute: typeof ProtectedMasterDataRoute;
-    };
+      id: '/_protected/master-data/operators'
+      path: '/operators'
+      fullPath: '/master-data/operators'
+      preLoaderRoute: typeof ProtectedMasterDataOperatorsRouteImport
+      parentRoute: typeof ProtectedMasterDataRoute
+    }
     '/_protected/master-data/flags': {
-      id: '/_protected/master-data/flags';
-      path: '/flags';
-      fullPath: '/master-data/flags';
-      preLoaderRoute: typeof ProtectedMasterDataFlagsRouteImport;
-      parentRoute: typeof ProtectedMasterDataRoute;
-    };
+      id: '/_protected/master-data/flags'
+      path: '/flags'
+      fullPath: '/master-data/flags'
+      preLoaderRoute: typeof ProtectedMasterDataFlagsRouteImport
+      parentRoute: typeof ProtectedMasterDataRoute
+    }
     '/_protected/master-data/contacts': {
-      id: '/_protected/master-data/contacts';
-      path: '/contacts';
-      fullPath: '/master-data/contacts';
-      preLoaderRoute: typeof ProtectedMasterDataContactsRouteImport;
-      parentRoute: typeof ProtectedMasterDataRoute;
-    };
+      id: '/_protected/master-data/contacts'
+      path: '/contacts'
+      fullPath: '/master-data/contacts'
+      preLoaderRoute: typeof ProtectedMasterDataContactsRouteImport
+      parentRoute: typeof ProtectedMasterDataRoute
+    }
     '/_protected/master-data/charterers': {
-      id: '/_protected/master-data/charterers';
-      path: '/charterers';
-      fullPath: '/master-data/charterers';
-      preLoaderRoute: typeof ProtectedMasterDataCharterersRouteImport;
-      parentRoute: typeof ProtectedMasterDataRoute;
-    };
+      id: '/_protected/master-data/charterers'
+      path: '/charterers'
+      fullPath: '/master-data/charterers'
+      preLoaderRoute: typeof ProtectedMasterDataCharterersRouteImport
+      parentRoute: typeof ProtectedMasterDataRoute
+    }
     '/_protected/master-data/cargoes': {
-      id: '/_protected/master-data/cargoes';
-      path: '/cargoes';
-      fullPath: '/master-data/cargoes';
-      preLoaderRoute: typeof ProtectedMasterDataCargoesRouteImport;
-      parentRoute: typeof ProtectedMasterDataRoute;
-    };
+      id: '/_protected/master-data/cargoes'
+      path: '/cargoes'
+      fullPath: '/master-data/cargoes'
+      preLoaderRoute: typeof ProtectedMasterDataCargoesRouteImport
+      parentRoute: typeof ProtectedMasterDataRoute
+    }
     '/_protected/master-data/agents': {
-      id: '/_protected/master-data/agents';
-      path: '/agents';
-      fullPath: '/master-data/agents';
-      preLoaderRoute: typeof ProtectedMasterDataAgentsRouteImport;
-      parentRoute: typeof ProtectedMasterDataRoute;
-    };
+      id: '/_protected/master-data/agents'
+      path: '/agents'
+      fullPath: '/master-data/agents'
+      preLoaderRoute: typeof ProtectedMasterDataAgentsRouteImport
+      parentRoute: typeof ProtectedMasterDataRoute
+    }
     '/_protected/master-data/activities': {
-      id: '/_protected/master-data/activities';
-      path: '/activities';
-      fullPath: '/master-data/activities';
-      preLoaderRoute: typeof ProtectedMasterDataActivitiesRouteImport;
-      parentRoute: typeof ProtectedMasterDataRoute;
-    };
+      id: '/_protected/master-data/activities'
+      path: '/activities'
+      fullPath: '/master-data/activities'
+      preLoaderRoute: typeof ProtectedMasterDataActivitiesRouteImport
+      parentRoute: typeof ProtectedMasterDataRoute
+    }
     '/_protected/master-data/__demo': {
-      id: '/_protected/master-data/__demo';
-      path: '';
-      fullPath: '/master-data';
-      preLoaderRoute: typeof ProtectedMasterData_demoRouteImport;
-      parentRoute: typeof ProtectedMasterDataRoute;
-    };
+      id: '/_protected/master-data/__demo'
+      path: ''
+      fullPath: '/master-data'
+      preLoaderRoute: typeof ProtectedMasterData_demoRouteImport
+      parentRoute: typeof ProtectedMasterDataRoute
+    }
   }
 }
 
 interface ProtectedMasterDataRouteChildren {
-  ProtectedMasterData_demoRoute: typeof ProtectedMasterData_demoRoute;
-  ProtectedMasterDataActivitiesRoute: typeof ProtectedMasterDataActivitiesRoute;
-  ProtectedMasterDataAgentsRoute: typeof ProtectedMasterDataAgentsRoute;
-  ProtectedMasterDataCargoesRoute: typeof ProtectedMasterDataCargoesRoute;
-  ProtectedMasterDataCharterersRoute: typeof ProtectedMasterDataCharterersRoute;
-  ProtectedMasterDataContactsRoute: typeof ProtectedMasterDataContactsRoute;
-  ProtectedMasterDataFlagsRoute: typeof ProtectedMasterDataFlagsRoute;
-  ProtectedMasterDataOperatorsRoute: typeof ProtectedMasterDataOperatorsRoute;
-  ProtectedMasterDataOwnersRoute: typeof ProtectedMasterDataOwnersRoute;
-  ProtectedMasterDataPortsRoute: typeof ProtectedMasterDataPortsRoute;
-  ProtectedMasterDataShippersRoute: typeof ProtectedMasterDataShippersRoute;
-  ProtectedMasterDataSuppliersRoute: typeof ProtectedMasterDataSuppliersRoute;
+  ProtectedMasterData_demoRoute: typeof ProtectedMasterData_demoRoute
+  ProtectedMasterDataActivitiesRoute: typeof ProtectedMasterDataActivitiesRoute
+  ProtectedMasterDataAgentsRoute: typeof ProtectedMasterDataAgentsRoute
+  ProtectedMasterDataCargoesRoute: typeof ProtectedMasterDataCargoesRoute
+  ProtectedMasterDataCharterersRoute: typeof ProtectedMasterDataCharterersRoute
+  ProtectedMasterDataContactsRoute: typeof ProtectedMasterDataContactsRoute
+  ProtectedMasterDataFlagsRoute: typeof ProtectedMasterDataFlagsRoute
+  ProtectedMasterDataOperatorsRoute: typeof ProtectedMasterDataOperatorsRoute
+  ProtectedMasterDataOwnersRoute: typeof ProtectedMasterDataOwnersRoute
+  ProtectedMasterDataPortsRoute: typeof ProtectedMasterDataPortsRoute
+  ProtectedMasterDataShipParticularsRoute: typeof ProtectedMasterDataShipParticularsRoute
+  ProtectedMasterDataShippersRoute: typeof ProtectedMasterDataShippersRoute
+  ProtectedMasterDataSuppliersRoute: typeof ProtectedMasterDataSuppliersRoute
 }
 
 const ProtectedMasterDataRouteChildren: ProtectedMasterDataRouteChildren = {
@@ -357,30 +390,33 @@ const ProtectedMasterDataRouteChildren: ProtectedMasterDataRouteChildren = {
   ProtectedMasterDataOperatorsRoute: ProtectedMasterDataOperatorsRoute,
   ProtectedMasterDataOwnersRoute: ProtectedMasterDataOwnersRoute,
   ProtectedMasterDataPortsRoute: ProtectedMasterDataPortsRoute,
+  ProtectedMasterDataShipParticularsRoute:
+    ProtectedMasterDataShipParticularsRoute,
   ProtectedMasterDataShippersRoute: ProtectedMasterDataShippersRoute,
   ProtectedMasterDataSuppliersRoute: ProtectedMasterDataSuppliersRoute,
-};
+}
 
-const ProtectedMasterDataRouteWithChildren = ProtectedMasterDataRoute._addFileChildren(
-  ProtectedMasterDataRouteChildren,
-);
+const ProtectedMasterDataRouteWithChildren =
+  ProtectedMasterDataRoute._addFileChildren(ProtectedMasterDataRouteChildren)
 
 interface ProtectedRouteChildren {
-  ProtectedMasterDataRoute: typeof ProtectedMasterDataRouteWithChildren;
-  ProtectedIndexRoute: typeof ProtectedIndexRoute;
+  ProtectedMasterDataRoute: typeof ProtectedMasterDataRouteWithChildren
+  ProtectedIndexRoute: typeof ProtectedIndexRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
   ProtectedMasterDataRoute: ProtectedMasterDataRouteWithChildren,
   ProtectedIndexRoute: ProtectedIndexRoute,
-};
+}
 
-const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(ProtectedRouteChildren);
+const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(
+  ProtectedRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   ProtectedRoute: ProtectedRouteWithChildren,
   LoginRoute: LoginRoute,
-};
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()

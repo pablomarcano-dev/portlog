@@ -12,6 +12,7 @@ interface TabDef {
  * with browser navigation. Owner and Supplier are separate routes (not tabs).
  */
 const TABS: TabDef[] = [
+  { label: 'Ship Particulars', path: '/master-data/ship-particulars' },
   { label: 'Flags', path: '/master-data/flags' },
   { label: 'Activities', path: '/master-data/activities' },
   { label: 'Cargoes', path: '/master-data/cargoes' },
@@ -21,7 +22,6 @@ const TABS: TabDef[] = [
   { label: 'Agents', path: '/master-data/agents' },
   { label: 'Operators', path: '/master-data/operators' },
   { label: 'Contacts', path: '/master-data/contacts' },
-  { label: 'Ship Particulars', path: '/master-data/ship-particulars' },
 ];
 
 export function MasterDataTabs() {
