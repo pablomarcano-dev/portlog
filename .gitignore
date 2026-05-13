@@ -47,3 +47,6 @@ e2e/cypress/videos
 
 # AIS spike
 .env.spike
+backend/scripts/*.js
+backend/scripts/*.js.map
+backend/scripts/*.d.ts
