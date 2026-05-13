@@ -6,12 +6,13 @@ import { type Role } from '@portlog/schemas';
 
 /**
  * JWT payload shape stored in access tokens.
- * sub: user CUID, email: lowercased, role: OPS | ADM.
+ * sub: user CUID, email: lowercased, role: OPS | ADM, permissions: string[].
  */
 export type JwtPayload = {
   sub: string;
   email: string;
   role: Role;
+  permissions: string[];
 };
 
 /**
@@ -39,6 +40,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
    * We return the payload as-is since it already contains the fields we need.
    */
   validate(payload: JwtPayload): RequestUser {
-    return { sub: payload.sub, email: payload.email, role: payload.role };
+    return {
+      sub: payload.sub,
+      email: payload.email,
+      role: payload.role,
+      permissions: payload.permissions ?? [],
+    };
   }
 }

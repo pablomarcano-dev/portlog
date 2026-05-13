@@ -120,7 +120,12 @@ export class AuthService {
       return null;
     }
 
-    const payload: JwtPayload = { sub: user.id, email: user.email, role: user.role };
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      permissions: user.permissions ?? [],
+    };
     const accessToken = this.issueAccessToken(payload);
     const rawRefreshToken = await this.issueRefreshToken(user.id, ctx);
 
@@ -152,6 +157,7 @@ export class AuthService {
         email: user.email,
         role: user.role,
         isActive: user.isActive,
+        permissions: user.permissions ?? [],
       },
     };
 
@@ -171,7 +177,9 @@ export class AuthService {
 
     const record = await this.prisma.refreshToken.findUnique({
       where: { tokenHash },
-      include: { user: { select: { id: true, email: true, role: true, isActive: true } } },
+      include: {
+        user: { select: { id: true, email: true, role: true, isActive: true, permissions: true } },
+      },
     });
 
     if (!record) {
@@ -212,6 +220,7 @@ export class AuthService {
       sub: record.user.id,
       email: record.user.email,
       role: record.user.role,
+      permissions: record.user.permissions ?? [],
     };
     const accessToken = this.issueAccessToken(payload);
     const newRawRefreshToken = await this.issueRefreshToken(record.user.id, ctx);
@@ -255,6 +264,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
       isActive: user.isActive,
+      permissions: user.permissions ?? [],
     };
   }
 }

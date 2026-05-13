@@ -14,6 +14,7 @@ export const CurrentUserSchema = z.object({
   email: z.string().email(),
   role: RoleSchema,
   isActive: z.boolean(),
+  permissions: z.array(z.string()).default([]),
 });
 export type CurrentUser = z.infer<typeof CurrentUserSchema>;
 
