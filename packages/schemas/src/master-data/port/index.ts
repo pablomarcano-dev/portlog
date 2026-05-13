@@ -11,7 +11,9 @@ export const PortCreateSchema = z.object({
 
 export const PortUpdateSchema = PortCreateSchema.partial();
 
-export const PortListQuerySchema = ListQuerySchema;
+export const PortListQuerySchema = ListQuerySchema.extend({
+  parentId: z.string().cuid().nullish(),
+});
 
 export type PortCreateInput = z.infer<typeof PortCreateSchema>;
 export type PortUpdateInput = z.infer<typeof PortUpdateSchema>;
