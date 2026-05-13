@@ -29,6 +29,8 @@
     "@portlog/schemas": "*",
     "@prisma/client": "^6.8.2",
     "bcrypt": "^5.1.1",
+    "bottleneck": "^2.19.5",
+    "lru-cache": "^11.3.6",
     "nestjs-pino": "^4.4.0",
     "nestjs-zod": "^4.3.0",
     "passport": "^0.7.0",
