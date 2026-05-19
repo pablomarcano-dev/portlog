@@ -42,6 +42,14 @@ model User {
   nominationsNominated    Nomination[]              @relation("NominationNominatedBy")
   nominationStatusChanges NominationStatusHistory[] @relation("NominationStatusChangedBy")
 
+  // PEDR back-relations (M4)
+  pedrsCreated               Pedr[]            @relation("PedrCreatedBy")
+  pedrStageChanges           PedrStageHistory[] @relation("PedrStageChangedBy")
+  pedrSubDocumentsCreated    PedrSubDocument[] @relation("PedrSubDocumentCreatedBy")
+  pedrSubDocumentsFinalized  PedrSubDocument[] @relation("PedrSubDocumentFinalizedBy")
+  pedrEventsRecorded         PedrEvent[]       @relation("PedrEventRecordedBy")
+  documentsCreated           Document[]        @relation("DocumentCreatedBy")
+
   @@map("users")
 }
 
