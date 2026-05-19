@@ -1,2 +1,0 @@
--- AlterEnum
-ALTER TYPE "AuditEvent" ADD VALUE 'OWNER_FINANCIAL_DENIED';
