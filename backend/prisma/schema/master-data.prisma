@@ -1,95 +1,3 @@
-generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
-}
-
-// ---------------------------------------------------------------------------
-// Roles
-// ---------------------------------------------------------------------------
-// Two roles only. ADM can manage master data and users; OPS handles operations.
-// Passwords MUST never appear in logs, API responses, or select clauses.
-// Emails are stored lowercased — enforce at application layer before persist.
-// ---------------------------------------------------------------------------
-
-enum Role {
-  OPS
-  ADM
-}
-
-model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  passwordHash  String
-  role          Role      @default(OPS)
-  isActive      Boolean   @default(true)
-  // permissions is a flexible array of permission strings.
-  // Reserved values for M2: "owner.financial" (gates Owner Acuerdos + financial history fields).
-  // This approach is more flexible than a third role and avoids exploding the Role enum.
-  permissions   String[]  @default([])
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  lastLoginAt   DateTime?
-  refreshTokens RefreshToken[]
-  auditLogs     AuditLog[]
-
-  // Nomination back-relations
-  nominationsCreated     Nomination[]              @relation("NominationCreatedBy")
-  nominationsNominated   Nomination[]              @relation("NominationNominatedBy")
-  nominationStatusChanges NominationStatusHistory[] @relation("NominationStatusChangedBy")
-
-  @@map("users")
-}
-
-// ---------------------------------------------------------------------------
-// Audit
-// ---------------------------------------------------------------------------
-// AuditLog is append-only — no update or delete operations are permitted.
-// This is a legal/compliance requirement for Portlog.
-// ---------------------------------------------------------------------------
-
-enum AuditEvent {
-  LOGIN_SUCCESS
-  LOGIN_FAILURE
-  LOGOUT
-  REFRESH_TOKEN_REUSE
-  OWNER_FINANCIAL_DENIED
-}
-
-model AuditLog {
-  id        String     @id @default(cuid())
-  event     AuditEvent
-  userId    String?
-  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
-  email     String?
-  ip        String?
-  userAgent String?
-  metadata  Json?
-  createdAt DateTime   @default(now()) @db.Timestamptz
-
-  @@index([userId, createdAt])
-  @@index([event, createdAt])
-  @@map("audit_logs")
-}
-
-model RefreshToken {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String    @unique
-  expiresAt DateTime
-  revokedAt DateTime?
-  createdAt DateTime  @default(now())
-  userAgent String?
-  ip        String?
-
-  @@map("refresh_tokens")
-}
-
 // ---------------------------------------------------------------------------
 // M2 — Master Data
 // ---------------------------------------------------------------------------
@@ -185,8 +93,8 @@ model Charterer {
   createdAt   DateTime @default(now()) @db.Timestamptz
   updatedAt   DateTime @updatedAt @db.Timestamptz
 
-  contacts     Contact[]
-  nominations  Nomination[]
+  contacts    Contact[]
+  nominations Nomination[]
 
   @@index([name])
   @@map("charterers")
@@ -206,8 +114,8 @@ model Shipper {
   createdAt     DateTime @default(now()) @db.Timestamptz
   updatedAt     DateTime @updatedAt @db.Timestamptz
 
-  contacts     Contact[]
-  nominations  Nomination[]
+  contacts    Contact[]
+  nominations Nomination[]
 
   @@index([name])
   @@map("shippers")
@@ -369,196 +277,35 @@ model Contact {
 //   call signs across flags should be allowed — keeping @unique until client confirms otherwise.
 // ---------------------------------------------------------------------------
 model ShipParticular {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   // Call sign is unique per vessel identification rules (open question: cross-flag duplicates allowed?)
-  callSign     String   @unique
+  callSign     String    @unique
   name         String
   abbreviation String?
-  loa          Decimal? @db.Decimal(10, 3) // Length Overall in metres
-  dwt          Decimal? @db.Decimal(12, 3) // Deadweight Tonnage
-  grt          Decimal? @db.Decimal(12, 3) // Gross Register Tonnage
-  nrt          Decimal? @db.Decimal(12, 3) // Net Register Tonnage
+  loa          Decimal?  @db.Decimal(10, 3) // Length Overall in metres
+  dwt          Decimal?  @db.Decimal(12, 3) // Deadweight Tonnage
+  grt          Decimal?  @db.Decimal(12, 3) // Gross Register Tonnage
+  nrt          Decimal?  @db.Decimal(12, 3) // Net Register Tonnage
   email        String?
   // imoNumber is unique among non-null values (Postgres unique index allows multiple NULLs).
   // Partial-uniqueness concern: Prisma @unique maps to a standard unique index, which is correct here.
-  imoNumber    String?  @unique
+  imoNumber    String?   @unique
   phone        String?
   phone2       String?
   fax          String?
   flagId       String
-  flag         Flag     @relation(fields: [flagId], references: [id])
+  flag         Flag      @relation(fields: [flagId], references: [id])
   ownerId      String?
-  owner        Owner?   @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  owner        Owner?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   operatorId   String?
   operator     Operator? @relation(fields: [operatorId], references: [id], onDelete: SetNull)
-  comments     String?  @db.Text
-  createdAt    DateTime @default(now()) @db.Timestamptz
-  updatedAt    DateTime @updatedAt @db.Timestamptz
+  comments     String?   @db.Text
+  createdAt    DateTime  @default(now()) @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @db.Timestamptz
 
-  nominations  Nomination[]
+  nominations Nomination[]
 
   @@index([name])
   @@index([imoNumber])
   @@map("ship_particulars")
-}
-
-// ---------------------------------------------------------------------------
-// M3 — Nominations
-// ---------------------------------------------------------------------------
-// Central transactional entity. PEDR, port documents (M4), SH-xx docs (M5),
-// and service requests (M6) all hang off of this table.
-// All timestamp fields are @db.Timestamptz(6) — UTC-only, Golden Rule applies.
-// NominationStatusHistory is append-only (enforced at service layer in M3-S2).
-// ---------------------------------------------------------------------------
-
-enum NominationStatus {
-  DRAFT
-  CONFIRMED
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
-}
-
-enum NominationType {
-  FULL_AGENCY
-  OWNERS_AGENTS_ONLY
-  CHARTERERS_AGENTS_ONLY
-}
-
-model Nomination {
-  id                String           @id @default(uuid()) @db.Uuid
-  // Correlative drives the SN/OT number. Format rendered by service layer as `${YY}/${n.padStart(4,'0')}`.
-  // The sequence `nomination_correlative_seq` is created in the migration raw SQL.
-  correlative       Int              @unique @default(dbgenerated("nextval('nomination_correlative_seq')"))
-
-  // Voyage
-  voyageNumber      String           // e.g. "01/PLC" — free text, Zod-validated in M3-S1
-  voyageCode        String?          // small dropdown next to Voy field (slide 4)
-
-  // Vessel — required FK; cuid() PK on ShipParticular so plain String (no @db.Uuid)
-  shipParticularId  String
-  shipParticular    ShipParticular   @relation(fields: [shipParticularId], references: [id], onDelete: Restrict)
-
-  // Parties — all optional; cuid() PKs so plain String FKs
-  operatorId        String?
-  operator          Operator?        @relation(fields: [operatorId], references: [id], onDelete: Restrict)
-  operatorVariant   String?          // "V. Oper." override text
-  operatorContactId String?          // contact cuid — not a FK (contacts table is not a hard dep here)
-
-  charterId         String?
-  charter           Charterer?       @relation(fields: [charterId], references: [id], onDelete: Restrict)
-  charterVariant    String?
-  charterContactId  String?
-
-  ownerId           String?
-  owner             Owner?           @relation(fields: [ownerId], references: [id], onDelete: Restrict)
-  ownerVariant      String?
-  ownerContactId    String?
-
-  shipperId         String?
-  shipper           Shipper?         @relation(fields: [shipperId], references: [id], onDelete: Restrict)
-  shipperVariant    String?
-  shipperContactId  String?
-
-  contactBlackBerry String?
-  blindCopy         String?
-
-  // Ports — five named relations to the Port table; cuid() PKs so plain String FKs
-  opPortId          String?
-  berthPortId       String?
-  lastPortId        String?
-  nextPortId        String?
-  disPortId         String?
-  opPort            Port?            @relation("NominationOpPort", fields: [opPortId], references: [id], onDelete: Restrict)
-  berthPort         Port?            @relation("NominationBerthPort", fields: [berthPortId], references: [id], onDelete: Restrict)
-  lastPort          Port?            @relation("NominationLastPort", fields: [lastPortId], references: [id], onDelete: Restrict)
-  nextPort          Port?            @relation("NominationNextPort", fields: [nextPortId], references: [id], onDelete: Restrict)
-  disPort           Port?            @relation("NominationDisPort", fields: [disPortId], references: [id], onDelete: Restrict)
-
-  // Dates — always UTC; Golden Rule applies
-  dateNominated     DateTime         @db.Timestamptz(6)
-  layDaysFirst      DateTime?        @db.Timestamptz(6)
-  layDaysLast       DateTime?        @db.Timestamptz(6)
-  etaDate           DateTime?        @db.Timestamptz(6)
-
-  // People (free-text except nominatedById which is a cuid FK to users)
-  nominatedById     String?          // "Nomination Received by"; cuid FK — plain String
-  nominatedBy       User?            @relation("NominationNominatedBy", fields: [nominatedById], references: [id], onDelete: Restrict)
-  master            String?
-  mic               String?          // M.I.C.
-  broker            String?
-  boardingClerk     String?
-  inspector         String?
-
-  // Type + subject
-  nominationType    NominationType   @default(FULL_AGENCY)
-  subject           String?
-
-  // Feature table (Product/Qtty/Unit/Oper rows) as JSON; Zod-validated in M3-S1
-  features          Json             @default("[]")
-
-  // State machine
-  status            NominationStatus @default(DRAFT)
-
-  // Audit — createdById is a required cuid FK to users
-  createdById       String
-  createdBy         User             @relation("NominationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  createdAt         DateTime         @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime         @updatedAt @db.Timestamptz(6)
-
-  statusHistory     NominationStatusHistory[]
-
-  @@index([status])
-  @@index([shipParticularId])
-  @@index([dateNominated])
-  @@map("nominations")
-}
-
-model NominationStatusHistory {
-  id           String            @id @default(uuid()) @db.Uuid
-  nominationId String            @db.Uuid
-  nomination   Nomination        @relation(fields: [nominationId], references: [id], onDelete: Cascade)
-  fromStatus   NominationStatus? // null on initial DRAFT insert
-  toStatus     NominationStatus
-  // changedById is a cuid FK to users — plain String
-  changedById  String
-  changedBy    User              @relation("NominationStatusChangedBy", fields: [changedById], references: [id], onDelete: Restrict)
-  // reason is required when toStatus = CANCELLED — enforced by DB CHECK constraint in migration SQL
-  reason       String?
-  // No updatedAt — this table is append-only (service layer enforces no deletes/updates in M3-S2)
-  createdAt    DateTime          @default(now()) @db.Timestamptz(6)
-
-  @@index([nominationId, createdAt])
-  @@map("nomination_status_history")
-}
-
-// ---------------------------------------------------------------------------
-// M2-S14 — Email Groups (Grupos de Correo)
-// Distribution lists used when generating and sending port documents.
-// Members are free-text email rows (not FK to Contact) so groups can include
-// external addresses that are not tracked contacts.
-// ---------------------------------------------------------------------------
-model EmailGroup {
-  id          String             @id @default(cuid())
-  name        String
-  description String?
-  comments    String?            @db.Text
-  createdAt   DateTime           @default(now()) @db.Timestamptz
-  updatedAt   DateTime           @updatedAt @db.Timestamptz
-  members     EmailGroupMember[]
-
-  @@index([name])
-  @@map("email_groups")
-}
-
-model EmailGroupMember {
-  id           String     @id @default(cuid())
-  emailGroupId String
-  email        String
-  displayName  String?
-  order        Int        @default(0)
-  emailGroup   EmailGroup @relation(fields: [emailGroupId], references: [id], onDelete: Cascade)
-
-  @@index([emailGroupId])
-  @@map("email_group_members")
 }
