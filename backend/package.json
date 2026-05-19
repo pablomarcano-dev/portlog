@@ -31,6 +31,7 @@
     "bcrypt": "^5.1.1",
     "bottleneck": "^2.19.5",
     "lru-cache": "^11.3.6",
+    "minio": "^8.0.7",
     "nestjs-pino": "^4.4.0",
     "nestjs-zod": "^4.3.0",
     "passport": "^0.7.0",
