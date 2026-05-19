@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Roles
+// ---------------------------------------------------------------------------
+// Two roles only. ADM can manage master data and users; OPS handles operations.
+// Passwords MUST never appear in logs, API responses, or select clauses.
+// Emails are stored lowercased — enforce at application layer before persist.
+// ---------------------------------------------------------------------------
+
+enum Role {
+  OPS
+  ADM
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  role          Role      @default(OPS)
+  isActive      Boolean   @default(true)
+  // permissions is a flexible array of permission strings.
+  // Reserved values for M2: "owner.financial" (gates Owner Acuerdos + financial history fields).
+  // This approach is more flexible than a third role and avoids exploding the Role enum.
+  permissions   String[]  @default([])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLoginAt   DateTime?
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+
+  // Nomination back-relations
+  nominationsCreated      Nomination[]              @relation("NominationCreatedBy")
+  nominationsNominated    Nomination[]              @relation("NominationNominatedBy")
+  nominationStatusChanges NominationStatusHistory[] @relation("NominationStatusChangedBy")
+
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Audit
+// ---------------------------------------------------------------------------
+// AuditLog is append-only — no update or delete operations are permitted.
+// This is a legal/compliance requirement for Portlog.
+// ---------------------------------------------------------------------------
+
+enum AuditEvent {
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  LOGOUT
+  REFRESH_TOKEN_REUSE
+  OWNER_FINANCIAL_DENIED
+}
+
+model AuditLog {
+  id        String     @id @default(cuid())
+  event     AuditEvent
+  userId    String?
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email     String?
+  ip        String?
+  userAgent String?
+  metadata  Json?
+  createdAt DateTime   @default(now()) @db.Timestamptz
+
+  @@index([userId, createdAt])
+  @@index([event, createdAt])
+  @@map("audit_logs")
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  userAgent String?
+  ip        String?
+
+  @@map("refresh_tokens")
+}
