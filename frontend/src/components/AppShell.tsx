@@ -19,6 +19,7 @@ import { useCurrentUser, useLogout } from '../lib/auth/queries';
 const NAV_LINKS = [
   { label: 'Home', to: '/' },
   { label: 'Nominations', to: '/nominations' },
+  { label: 'Vessels', to: '/vessels' },
   { label: 'Master Data', to: '/master-data/flags' },
   { label: 'Suppliers', to: '/master-data/suppliers' },
 ] as const;

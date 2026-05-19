@@ -14,7 +14,9 @@ import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
 import { Route as ProtectedNominationsRouteImport } from './routes/_protected/nominations'
 import { Route as ProtectedMasterDataRouteImport } from './routes/_protected/master-data'
+import { Route as ProtectedVesselsIndexRouteImport } from './routes/_protected/vessels/index'
 import { Route as ProtectedNominationsIndexRouteImport } from './routes/_protected/nominations/index'
+import { Route as ProtectedVesselsImoRouteImport } from './routes/_protected/vessels/$imo'
 import { Route as ProtectedNominationsNewRouteImport } from './routes/_protected/nominations/new'
 import { Route as ProtectedNominationsIdRouteImport } from './routes/_protected/nominations/$id'
 import { Route as ProtectedMasterDataSuppliersRouteImport } from './routes/_protected/master-data/suppliers'
@@ -56,12 +58,22 @@ const ProtectedMasterDataRoute = ProtectedMasterDataRouteImport.update({
   path: '/master-data',
   getParentRoute: () => ProtectedRoute,
 } as any)
+const ProtectedVesselsIndexRoute = ProtectedVesselsIndexRouteImport.update({
+  id: '/vessels/',
+  path: '/vessels/',
+  getParentRoute: () => ProtectedRoute,
+} as any)
 const ProtectedNominationsIndexRoute =
   ProtectedNominationsIndexRouteImport.update({
     id: '/',
     path: '/',
     getParentRoute: () => ProtectedNominationsRoute,
   } as any)
+const ProtectedVesselsImoRoute = ProtectedVesselsImoRouteImport.update({
+  id: '/vessels/$imo',
+  path: '/vessels/$imo',
+  getParentRoute: () => ProtectedRoute,
+} as any)
 const ProtectedNominationsNewRoute = ProtectedNominationsNewRouteImport.update({
   id: '/new',
   path: '/new',
@@ -176,7 +188,9 @@ export interface FileRoutesByFullPath {
   '/master-data/suppliers': typeof ProtectedMasterDataSuppliersRoute
   '/nominations/$id': typeof ProtectedNominationsIdRoute
   '/nominations/new': typeof ProtectedNominationsNewRoute
+  '/vessels/$imo': typeof ProtectedVesselsImoRoute
   '/nominations/': typeof ProtectedNominationsIndexRoute
+  '/vessels/': typeof ProtectedVesselsIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -197,7 +211,9 @@ export interface FileRoutesByTo {
   '/master-data/suppliers': typeof ProtectedMasterDataSuppliersRoute
   '/nominations/$id': typeof ProtectedNominationsIdRoute
   '/nominations/new': typeof ProtectedNominationsNewRoute
+  '/vessels/$imo': typeof ProtectedVesselsImoRoute
   '/nominations': typeof ProtectedNominationsIndexRoute
+  '/vessels': typeof ProtectedVesselsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -222,7 +238,9 @@ export interface FileRoutesById {
   '/_protected/master-data/suppliers': typeof ProtectedMasterDataSuppliersRoute
   '/_protected/nominations/$id': typeof ProtectedNominationsIdRoute
   '/_protected/nominations/new': typeof ProtectedNominationsNewRoute
+  '/_protected/vessels/$imo': typeof ProtectedVesselsImoRoute
   '/_protected/nominations/': typeof ProtectedNominationsIndexRoute
+  '/_protected/vessels/': typeof ProtectedVesselsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -246,7 +264,9 @@ export interface FileRouteTypes {
     | '/master-data/suppliers'
     | '/nominations/$id'
     | '/nominations/new'
+    | '/vessels/$imo'
     | '/nominations/'
+    | '/vessels/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -267,7 +287,9 @@ export interface FileRouteTypes {
     | '/master-data/suppliers'
     | '/nominations/$id'
     | '/nominations/new'
+    | '/vessels/$imo'
     | '/nominations'
+    | '/vessels'
   id:
     | '__root__'
     | '/_protected'
@@ -291,7 +313,9 @@ export interface FileRouteTypes {
     | '/_protected/master-data/suppliers'
     | '/_protected/nominations/$id'
     | '/_protected/nominations/new'
+    | '/_protected/vessels/$imo'
     | '/_protected/nominations/'
+    | '/_protected/vessels/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -336,12 +360,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedMasterDataRouteImport
       parentRoute: typeof ProtectedRoute
     }
+    '/_protected/vessels/': {
+      id: '/_protected/vessels/'
+      path: '/vessels'
+      fullPath: '/vessels/'
+      preLoaderRoute: typeof ProtectedVesselsIndexRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
     '/_protected/nominations/': {
       id: '/_protected/nominations/'
       path: '/'
       fullPath: '/nominations/'
       preLoaderRoute: typeof ProtectedNominationsIndexRouteImport
       parentRoute: typeof ProtectedNominationsRoute
+    }
+    '/_protected/vessels/$imo': {
+      id: '/_protected/vessels/$imo'
+      path: '/vessels/$imo'
+      fullPath: '/vessels/$imo'
+      preLoaderRoute: typeof ProtectedVesselsImoRouteImport
+      parentRoute: typeof ProtectedRoute
     }
     '/_protected/nominations/new': {
       id: '/_protected/nominations/new'
@@ -515,12 +553,16 @@ interface ProtectedRouteChildren {
   ProtectedMasterDataRoute: typeof ProtectedMasterDataRouteWithChildren
   ProtectedNominationsRoute: typeof ProtectedNominationsRouteWithChildren
   ProtectedIndexRoute: typeof ProtectedIndexRoute
+  ProtectedVesselsImoRoute: typeof ProtectedVesselsImoRoute
+  ProtectedVesselsIndexRoute: typeof ProtectedVesselsIndexRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
   ProtectedMasterDataRoute: ProtectedMasterDataRouteWithChildren,
   ProtectedNominationsRoute: ProtectedNominationsRouteWithChildren,
   ProtectedIndexRoute: ProtectedIndexRoute,
+  ProtectedVesselsImoRoute: ProtectedVesselsImoRoute,
+  ProtectedVesselsIndexRoute: ProtectedVesselsIndexRoute,
 }
 
 const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(

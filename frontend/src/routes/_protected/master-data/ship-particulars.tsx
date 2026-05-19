@@ -13,6 +13,7 @@ import {
   useDeleteShipParticular,
   shipParticularsApi,
 } from '../../../lib/api/master-data/ship-particulars';
+import { DatalasticImoLookup } from '../../../features/master-data/ship-particulars/DatalasticImoLookup';
 
 export const Route = createFileRoute('/_protected/master-data/ship-particulars')({
   component: ShipParticularsScreen,
@@ -148,6 +149,9 @@ function ShipParticularFields({
           />
         </Grid.Col>
       </Grid>
+
+      {/* IMO Lookup from Datalastic */}
+      <DatalasticImoLookup form={form} />
 
       {/* Row 3: FK Pickers */}
       <Controller
