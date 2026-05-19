@@ -25,6 +25,7 @@ import { NominationsModule } from './nominations/nominations.module.js';
 import { EmailGroupsModule } from './master-data/email-groups/email-groups.module.js';
 import { PedrModule } from './pedr/pedr.module.js';
 import { StorageModule } from './storage/storage.module.js';
+import { PdfModule } from './pdf/pdf.module.js';
 
 @Module({
   imports: [
@@ -78,6 +79,7 @@ import { StorageModule } from './storage/storage.module.js';
     EmailGroupsModule,
     PedrModule,
     StorageModule,
+    PdfModule,
   ],
   providers: [
     // ThrottlerGuard must run first (before auth) so rate limits apply to all routes.
