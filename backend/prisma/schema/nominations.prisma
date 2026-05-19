@@ -104,6 +104,10 @@ model Nomination {
 
   statusHistory NominationStatusHistory[]
 
+  // PEDR back-relations (M4)
+  pedr      Pedr?
+  documents Document[]
+
   @@index([status])
   @@index([shipParticularId])
   @@index([dateNominated])
