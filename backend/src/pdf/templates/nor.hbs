@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 24px; }
+  h1 { font-size: 16px; border-bottom: 2px solid #333; padding-bottom: 8px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+  th { background: #f0f0f0; font-weight: bold; }
+  .footer { margin-top: 32px; font-size: 10px; color: #666; border-top: 1px solid #ccc; padding-top: 8px; }
+  .signature { margin-top: 48px; display: flex; justify-content: space-between; }
+  .sig-block { text-align: center; width: 40%; border-top: 1px solid #333; padding-top: 8px; }
+</style>
+</head>
+<body>
+<h1>NOTICE OF READINESS (NOR)</h1>
+<table>
+  <tr><th>Vessel</th><td>{{vesselName}}</td></tr>
+  <tr><th>Port / Berth</th><td>{{portName}} / {{berth}}</td></tr>
+  <tr><th>Voyage No.</th><td>{{correlative}}</td></tr>
+  <tr><th>Date &amp; Time Tendered</th><td>{{tenderedAt}}</td></tr>
+  <tr><th>Date &amp; Time Accepted</th><td>{{acceptedAt}}</td></tr>
+  <tr><th>Cargo</th><td>{{cargoName}}</td></tr>
+  <tr><th>Quantity (MT)</th><td>{{quantity}}</td></tr>
+  <tr><th>Master</th><td>{{masterName}}</td></tr>
+  <tr><th>Agent</th><td>{{agentName}}</td></tr>
+</table>
+<p>The vessel <strong>{{vesselName}}</strong> is in all respects ready to commence
+{{#if isLoading}}loading{{else}}discharging{{/if}} the above cargo.</p>
+<div class="signature">
+  <div class="sig-block">Master / Captain</div>
+  <div class="sig-block">Port Agent</div>
+</div>
+<div class="footer">Generated: {{generatedAt}}</div>
+</body>
+</html>
