@@ -42,6 +42,17 @@ export const pedrStageTransitionSchema = z.object({
 export type PedrStageTransition = z.infer<typeof pedrStageTransitionSchema>;
 
 // ---------------------------------------------------------------------------
+// List query
+// ---------------------------------------------------------------------------
+export const pedrListQuerySchema = z.object({
+  stage: pedrStageSchema.optional(),
+  nominationSearch: z.string().optional(),
+  pageSize: z.coerce.number().int().positive().max(100).default(20),
+  cursor: z.string().uuid().optional(),
+});
+export type PedrListQuery = z.infer<typeof pedrListQuerySchema>;
+
+// ---------------------------------------------------------------------------
 // Response shape — full Pedr row
 // ---------------------------------------------------------------------------
 export const pedrResponseSchema = z.object({
