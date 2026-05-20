@@ -23,6 +23,7 @@
     "@tanstack/react-router": "^1.114.23",
     "@tanstack/react-router-devtools": "^1.114.23",
     "dayjs": "^1.11.13",
+    "exceljs": "^4.4.0",
     "pino": "^9.6.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
