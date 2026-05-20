@@ -1,117 +1,23 @@
-import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FleetEntry } from '@portlog/schemas';
+import { apiRequest } from '../../../lib/api/client';
 
-const STORAGE_KEY = 'portlog:fleet:v2';
+// ---------------------------------------------------------------------------
+// API helpers
+// ---------------------------------------------------------------------------
 
-type FleetMap = Record<string, FleetEntry[]>;
-type Listener = () => void;
-const listeners = new Set<Listener>();
-
-let mapCache: FleetMap | null = null;
-const sliceCache = new Map<string, FleetEntry[]>();
-const EMPTY: FleetEntry[] = [];
-let storageBound = false;
-
-function isBrowser(): boolean {
-  return typeof window !== 'undefined' && typeof localStorage !== 'undefined';
+function fleetKey(unlocode: string) {
+  return ['fleet', unlocode] as const;
 }
 
-function isFleetEntry(e: unknown): e is FleetEntry {
-  return (
-    !!e &&
-    typeof (e as FleetEntry).imo === 'string' &&
-    typeof (e as FleetEntry).addedAt === 'number'
-  );
+async function fetchFleet(unlocode: string): Promise<FleetEntry[]> {
+  return apiRequest<FleetEntry[]>(`/fleet?unlocode=${encodeURIComponent(unlocode)}`);
 }
 
-function parse(raw: string | null): FleetMap {
-  if (!raw) return {};
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return {};
-    }
-    const out: FleetMap = {};
-    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-      if (!Array.isArray(v)) continue;
-      out[k] = (v as unknown[]).filter(isFleetEntry);
-    }
-    return out;
-  } catch {
-    return {};
-  }
-}
-
-function loadFromStorage(): FleetMap {
-  if (!isBrowser()) return {};
-  return parse(localStorage.getItem(STORAGE_KEY));
-}
-
-function notify(): void {
-  listeners.forEach((l) => l());
-}
-
-function bindStorageEvent(): void {
-  if (storageBound || !isBrowser()) return;
-  storageBound = true;
-  window.addEventListener('storage', (e) => {
-    if (e.key !== STORAGE_KEY) return;
-    mapCache = parse(e.newValue);
-    sliceCache.clear();
-    notify();
-  });
-}
-
-function getMap(): FleetMap {
-  if (mapCache === null) mapCache = loadFromStorage();
-  return mapCache;
-}
-
-function setMap(next: FleetMap): void {
-  mapCache = next;
-  sliceCache.clear();
-  if (isBrowser()) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  }
-  notify();
-}
-
-export function getFleet(unlocode: string | null | undefined): FleetEntry[] {
-  if (!unlocode) return EMPTY;
-  const cached = sliceCache.get(unlocode);
-  if (cached) return cached;
-  const slice = getMap()[unlocode] ?? EMPTY;
-  sliceCache.set(unlocode, slice);
-  return slice;
-}
-
-export function setFleet(unlocode: string, entries: FleetEntry[]): void {
-  const map = getMap();
-  if (entries.length === 0) {
-    if (!(unlocode in map)) return;
-    const { [unlocode]: _drop, ...rest } = map;
-    void _drop;
-    setMap(rest);
-    return;
-  }
-  setMap({ ...map, [unlocode]: entries });
-}
-
-export function getAllFleets(): FleetMap {
-  return getMap();
-}
-
-export function setAllFleets(map: FleetMap): void {
-  setMap(map);
-}
-
-export function subscribe(listener: Listener): () => void {
-  bindStorageEvent();
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-}
+// ---------------------------------------------------------------------------
+// parseImoList — pure util, unchanged
+// ---------------------------------------------------------------------------
 
 /** Parse whitespace/comma separated string of IMO numbers */
 export function parseImoList(input: string): { valid: string[]; invalid: string[] } {
@@ -131,7 +37,11 @@ export function parseImoList(input: string): { valid: string[]; invalid: string[
   return { valid, invalid };
 }
 
-const SERVER_EMPTY: FleetEntry[] = [];
+export const ZARPE_PRUNE_TTL_MS = 15 * 24 * 60 * 60 * 1000;
+
+// ---------------------------------------------------------------------------
+// UseFleetResult interface — unchanged so callers need no edits
+// ---------------------------------------------------------------------------
 
 export interface UseFleetResult {
   entries: FleetEntry[];
@@ -143,91 +53,97 @@ export interface UseFleetResult {
   clearZarpe: (imo: string) => void;
 }
 
-// Fleet vessels that have been categorized as zarpe (departed) for longer than
-// this window are dropped by the prune job.
-export const ZARPE_PRUNE_TTL_MS = 15 * 24 * 60 * 60 * 1000;
-const PRUNE_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
-
-/**
- * Per-port fleet hook. Pass the active port UNLOCODE.
- * Uses useSyncExternalStore for cross-tab synchronization.
- */
 export function useFleet(unlocode: string | null | undefined): UseFleetResult {
-  const getSnapshot = useCallback(() => getFleet(unlocode), [unlocode]);
-  const entries = useSyncExternalStore(subscribe, getSnapshot, () => SERVER_EMPTY);
+  const qc = useQueryClient();
+
+  const { data: entries = [] } = useQuery({
+    queryKey: fleetKey(unlocode ?? ''),
+    queryFn: () => fetchFleet(unlocode!),
+    enabled: !!unlocode,
+    staleTime: 30_000,
+  });
+
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
+
+  const invalidate = useCallback(() => {
+    if (unlocode) void qc.invalidateQueries({ queryKey: fleetKey(unlocode) });
+  }, [qc, unlocode]);
+
+  const addMutation = useMutation({
+    mutationFn: (imos: string[]) =>
+      apiRequest<FleetEntry[]>('/fleet', {
+        method: 'POST',
+        body: JSON.stringify({ imos, unlocode }),
+      }),
+    onSuccess: invalidate,
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (imo: string) =>
+      apiRequest<void>(`/fleet/${imo}?unlocode=${encodeURIComponent(unlocode ?? '')}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: invalidate,
+  });
+
+  const clearMutation = useMutation({
+    mutationFn: () =>
+      apiRequest<void>(`/fleet?unlocode=${encodeURIComponent(unlocode ?? '')}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: invalidate,
+  });
+
+  const zarpeMutation = useMutation({
+    mutationFn: ({ imo, zarpeSince }: { imo: string; zarpeSince: number | null }) =>
+      apiRequest<void>(`/fleet/${imo}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ unlocode, zarpeSince }),
+      }),
+    onSuccess: invalidate,
+  });
 
   const addImos = useCallback<UseFleetResult['addImos']>(
     (input) => {
       const { valid, invalid } = parseImoList(input);
-      if (!unlocode) return { added: [], invalid };
-      if (valid.length === 0) return { added: [], invalid };
-
-      const current = getFleet(unlocode);
-      const existing = new Set(current.map((e) => e.imo));
-      const added: string[] = [];
-      const now = Date.now();
-      const next = [...current];
-      for (const imo of valid) {
-        if (!existing.has(imo)) {
-          next.push({ imo, addedAt: now });
-          existing.add(imo);
-          added.push(imo);
-        }
+      if (unlocode && valid.length > 0) {
+        addMutation.mutate(valid);
       }
-      setFleet(unlocode, next);
-      return { added, invalid };
+      return { added: valid, invalid };
     },
-    [unlocode],
+    [unlocode, addMutation],
   );
 
   const removeImo = useCallback<UseFleetResult['removeImo']>(
     (imo) => {
-      if (!unlocode) return;
-      const current = getFleet(unlocode);
-      setFleet(
-        unlocode,
-        current.filter((e) => e.imo !== imo),
-      );
+      if (unlocode) removeMutation.mutate(imo);
     },
-    [unlocode],
+    [unlocode, removeMutation],
   );
 
   const clearImos = useCallback<UseFleetResult['clearImos']>(() => {
-    if (!unlocode) return;
-    setFleet(unlocode, []);
-  }, [unlocode]);
+    if (unlocode) clearMutation.mutate();
+  }, [unlocode, clearMutation]);
 
   const markZarpe = useCallback<UseFleetResult['markZarpe']>(
     (imo) => {
       if (!unlocode) return;
-      const current = getFleet(unlocode);
-      const idx = current.findIndex((e) => e.imo === imo);
-      const entry = current[idx];
-      if (idx < 0 || !entry || entry.zarpeSince) return;
-      const next = current.slice();
-      next[idx] = {
-        imo: entry.imo,
-        addedAt: entry.addedAt,
-        name: entry.name,
-        zarpeSince: Date.now(),
-      };
-      setFleet(unlocode, next);
+      const entry = entriesRef.current.find((e) => e.imo === imo);
+      if (!entry || entry.zarpeSince) return;
+      zarpeMutation.mutate({ imo, zarpeSince: Date.now() });
     },
-    [unlocode],
+    [unlocode, zarpeMutation],
   );
 
   const clearZarpe = useCallback<UseFleetResult['clearZarpe']>(
     (imo) => {
       if (!unlocode) return;
-      const current = getFleet(unlocode);
-      const idx = current.findIndex((e) => e.imo === imo);
-      const entry = current[idx];
-      if (idx < 0 || !entry || !entry.zarpeSince) return;
-      const next = current.slice();
-      next[idx] = { imo: entry.imo, addedAt: entry.addedAt, name: entry.name };
-      setFleet(unlocode, next);
+      const entry = entriesRef.current.find((e) => e.imo === imo);
+      if (!entry || !entry.zarpeSince) return;
+      zarpeMutation.mutate({ imo, zarpeSince: null });
     },
-    [unlocode],
+    [unlocode, zarpeMutation],
   );
 
   const imos = useMemo(() => entries.map((e) => e.imo), [entries]);
@@ -236,27 +152,9 @@ export function useFleet(unlocode: string | null | undefined): UseFleetResult {
 }
 
 /**
- * Browser-side "job" that drops fleet entries whose zarpeSince is older than
- * `ttlMs`. Sweeps every port-bucket so a single mount is enough — runs on
- * mount and hourly while the app is open.
+ * Pruning is now handled server-side on every GET /fleet call.
+ * This hook is kept as a no-op so callers need no changes.
  */
-export function useFleetPruneJob(ttlMs: number = ZARPE_PRUNE_TTL_MS): void {
-  useEffect(() => {
-    function sweep() {
-      const now = Date.now();
-      const map = getAllFleets();
-      let mutated = false;
-      const next: Record<string, FleetEntry[]> = {};
-      for (const [port, entries] of Object.entries(map)) {
-        const kept = entries.filter((e) => !e.zarpeSince || now - e.zarpeSince < ttlMs);
-        if (kept.length !== entries.length) mutated = true;
-        if (kept.length > 0) next[port] = kept;
-        else mutated = true;
-      }
-      if (mutated) setAllFleets(next);
-    }
-    sweep();
-    const id = window.setInterval(sweep, PRUNE_SWEEP_INTERVAL_MS);
-    return () => window.clearInterval(id);
-  }, [ttlMs]);
+export function useFleetPruneJob(_ttlMs?: number): void {
+  useEffect(() => {}, []);
 }

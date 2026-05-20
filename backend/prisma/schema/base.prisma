@@ -49,6 +49,7 @@ model User {
   pedrSubDocumentsFinalized  PedrSubDocument[] @relation("PedrSubDocumentFinalizedBy")
   pedrEventsRecorded         PedrEvent[]       @relation("PedrEventRecordedBy")
   documentsCreated           Document[]        @relation("DocumentCreatedBy")
+  fleetVessels               FleetVessel[]
 
   @@map("users")
 }
