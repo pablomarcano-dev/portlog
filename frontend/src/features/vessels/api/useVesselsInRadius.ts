@@ -1,6 +1,12 @@
 import { useDatalastic } from './useDatalastic';
 import type { RadiusVessel, VesselInRadiusResponse } from '@portlog/schemas';
 
+// Datalastic wraps all responses in { meta: { success }, data: <payload> }
+interface DatalasticVesselInRadiusResponse {
+  meta: { success: boolean };
+  data: VesselInRadiusResponse;
+}
+
 /**
  * Fetches vessels within a radius of a given lat/lon via vessel_inradius.
  * Only enabled when lat, lon, and radius are provided.
@@ -12,7 +18,7 @@ export function useVesselsInRadius(
 ): { vessels: RadiusVessel[]; isLoading: boolean; isError: boolean } {
   const enabled = lat !== null && lon !== null && radius > 0;
 
-  const { data, isLoading, isError } = useDatalastic<VesselInRadiusResponse>(
+  const { data, isLoading, isError } = useDatalastic<DatalasticVesselInRadiusResponse>(
     'vessel_inradius',
     enabled
       ? {
@@ -25,7 +31,7 @@ export function useVesselsInRadius(
   );
 
   return {
-    vessels: data?.vessels ?? [],
+    vessels: data?.data?.vessels ?? [],
     isLoading,
     isError,
   };
