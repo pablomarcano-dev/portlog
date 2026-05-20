@@ -22,7 +22,7 @@ export function usePortSearch(query: string): PortResult[] {
 
   const { data } = useDatalastic<PortFindResponse>(
     'port_find',
-    { name: debouncedQuery },
+    { name: debouncedQuery, fuzzy: '1' },
     { enabled },
   );
 

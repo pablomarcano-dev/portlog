@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 import type { FleetEntry } from '@portlog/schemas';
 
 const STORAGE_KEY = 'portlog:fleet:v2';
@@ -139,7 +139,14 @@ export interface UseFleetResult {
   addImos: (input: string) => { added: string[]; invalid: string[] };
   removeImo: (imo: string) => void;
   clearImos: () => void;
+  markZarpe: (imo: string) => void;
+  clearZarpe: (imo: string) => void;
 }
+
+// Fleet vessels that have been categorized as zarpe (departed) for longer than
+// this window are dropped by the prune job.
+export const ZARPE_PRUNE_TTL_MS = 15 * 24 * 60 * 60 * 1000;
+const PRUNE_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 
 /**
  * Per-port fleet hook. Pass the active port UNLOCODE.
@@ -190,7 +197,66 @@ export function useFleet(unlocode: string | null | undefined): UseFleetResult {
     setFleet(unlocode, []);
   }, [unlocode]);
 
+  const markZarpe = useCallback<UseFleetResult['markZarpe']>(
+    (imo) => {
+      if (!unlocode) return;
+      const current = getFleet(unlocode);
+      const idx = current.findIndex((e) => e.imo === imo);
+      const entry = current[idx];
+      if (idx < 0 || !entry || entry.zarpeSince) return;
+      const next = current.slice();
+      next[idx] = {
+        imo: entry.imo,
+        addedAt: entry.addedAt,
+        name: entry.name,
+        zarpeSince: Date.now(),
+      };
+      setFleet(unlocode, next);
+    },
+    [unlocode],
+  );
+
+  const clearZarpe = useCallback<UseFleetResult['clearZarpe']>(
+    (imo) => {
+      if (!unlocode) return;
+      const current = getFleet(unlocode);
+      const idx = current.findIndex((e) => e.imo === imo);
+      const entry = current[idx];
+      if (idx < 0 || !entry || !entry.zarpeSince) return;
+      const next = current.slice();
+      next[idx] = { imo: entry.imo, addedAt: entry.addedAt, name: entry.name };
+      setFleet(unlocode, next);
+    },
+    [unlocode],
+  );
+
   const imos = useMemo(() => entries.map((e) => e.imo), [entries]);
 
-  return { entries, imos, addImos, removeImo, clearImos };
+  return { entries, imos, addImos, removeImo, clearImos, markZarpe, clearZarpe };
+}
+
+/**
+ * Browser-side "job" that drops fleet entries whose zarpeSince is older than
+ * `ttlMs`. Sweeps every port-bucket so a single mount is enough — runs on
+ * mount and hourly while the app is open.
+ */
+export function useFleetPruneJob(ttlMs: number = ZARPE_PRUNE_TTL_MS): void {
+  useEffect(() => {
+    function sweep() {
+      const now = Date.now();
+      const map = getAllFleets();
+      let mutated = false;
+      const next: Record<string, FleetEntry[]> = {};
+      for (const [port, entries] of Object.entries(map)) {
+        const kept = entries.filter((e) => !e.zarpeSince || now - e.zarpeSince < ttlMs);
+        if (kept.length !== entries.length) mutated = true;
+        if (kept.length > 0) next[port] = kept;
+        else mutated = true;
+      }
+      if (mutated) setAllFleets(next);
+    }
+    sweep();
+    const id = window.setInterval(sweep, PRUNE_SWEEP_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [ttlMs]);
 }

@@ -23,7 +23,9 @@ export function PortAutocomplete({ onPortSelect, selectedPort }: PortAutocomplet
     if (!result) return;
     // Fetch full port detail (with terminals)
     try {
-      const detail = await apiRequest<{ data: PortDetail }>(`/datalastic/port?uuid=${result.uuid}`);
+      const detail = await apiRequest<{ data: PortDetail }>(
+        `/datalastic/port?unlocode=${result.unlocode}`,
+      );
       onPortSelect(detail.data);
       setQuery(`${result.port_name} (${result.unlocode})`);
     } catch {
