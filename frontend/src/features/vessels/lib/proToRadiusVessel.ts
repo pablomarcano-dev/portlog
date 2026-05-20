@@ -19,11 +19,11 @@ export function proToRadiusVessel(
   return {
     uuid: `fleet:${imo}`,
     name: pro.name ?? '',
-    mmsi: '',
+    mmsi: pro.mmsi ?? '',
     imo,
     country_iso: pro.country_iso ?? '',
     type: pro.type ?? '',
-    type_specific: '',
+    type_specific: pro.type_specific ?? '',
     lat: pro.lat,
     lon: pro.lon,
     speed: pro.speed ?? 0,

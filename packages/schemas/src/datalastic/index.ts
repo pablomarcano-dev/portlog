@@ -151,7 +151,9 @@ export const vesselProDataSchema = z.object({
   last_position_epoch: z.number().nullable(),
   last_position_UTC: z.string().nullable(),
   type: z.string().nullable(),
+  type_specific: z.string().nullable(),
   country_iso: z.string().nullable(),
+  mmsi: z.string().nullable(),
 });
 
 export type VesselProData = z.infer<typeof vesselProDataSchema>;
