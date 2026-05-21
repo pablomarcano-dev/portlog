@@ -17,8 +17,10 @@ import { NominationForm } from '../../../features/nominations/components/Nominat
 import { TransitionButtons } from '../../../features/nominations/components/TransitionButtons';
 import { StatusHistoryTimeline } from '../../../features/nominations/components/StatusHistoryTimeline';
 import { MessagesNav } from '../../../features/nominations/components/MessagesNav';
+import { ActionsPanel } from '../../../features/nominations/components/ActionsPanel';
 import { useNomination } from '../../../features/nominations/hooks/useNomination';
 import { useUpdateNomination } from '../../../features/nominations/hooks/useUpdateNomination';
+import { usePedrByNomination } from '../../../features/nominations/api/usePedrByNomination';
 import type { NominationCreateInput, NominationStatus } from '@portlog/schemas';
 
 export const Route = createFileRoute('/_protected/nominations/$id')({
@@ -40,6 +42,7 @@ function NominationDetailPage() {
   const { data: nomination, isLoading, isError, error } = useNomination(id);
   const updateNomination = useUpdateNomination(id);
   const queryClient = useQueryClient();
+  const { data: pedr } = usePedrByNomination(id);
 
   function handleRefreshAis() {
     void queryClient.invalidateQueries({ queryKey: ['ais'] });
@@ -166,7 +169,7 @@ function NominationDetailPage() {
         </Container>
       </Box>
 
-      {/* Right rail: Status history */}
+      {/* Right rail: Status history + Actions panel */}
       <Box
         style={{
           width: 280,
@@ -180,6 +183,13 @@ function NominationDetailPage() {
           Status History
         </Text>
         <StatusHistoryTimeline history={nomination.statusHistory} />
+
+        {/* Actions panel — shown when a PEDR exists for this nomination */}
+        {pedr && (
+          <Box mt="lg">
+            <ActionsPanel pedrId={pedr.id} vesselName={nomination.shipParticular.name} />
+          </Box>
+        )}
       </Box>
     </Box>
   );

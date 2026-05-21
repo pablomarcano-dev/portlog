@@ -159,6 +159,19 @@ export class PedrService {
     return pedr;
   }
 
+  async getByNominationId(nominationId: string) {
+    const pedr = await this.prisma.pedr.findUnique({
+      where: { nominationId },
+      include: DETAIL_INCLUDE,
+    });
+
+    if (!pedr) {
+      throw new NotFoundException(`No PEDR found for nomination ${nominationId}.`);
+    }
+
+    return pedr;
+  }
+
   async updateRequirements(id: string, dto: UpdatePedrRequirementsInput, userId: string) {
     const existing = await this.prisma.pedr.findUnique({
       where: { id },

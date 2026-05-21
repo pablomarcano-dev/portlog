@@ -50,6 +50,7 @@ model User {
   pedrEventsRecorded         PedrEvent[]       @relation("PedrEventRecordedBy")
   documentsCreated           Document[]        @relation("DocumentCreatedBy")
   fleetVessels               FleetVessel[]
+  emailDispatchesSent        EmailDispatch[]   @relation("DispatchSentBy")
 
   @@map("users")
 }

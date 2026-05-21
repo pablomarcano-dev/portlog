@@ -1,0 +1,37 @@
+// ---------------------------------------------------------------------------
+// M4-S6 — Email Dispatch
+// ---------------------------------------------------------------------------
+// Tracks every email dispatched for a PEDR sub-document type.
+// This table is effectively append-only: once a dispatch is recorded, only
+// sentAt and error are updated (to reflect the async send result).
+// All timestamps use @db.Timestamptz per Golden Rule 6.
+// ---------------------------------------------------------------------------
+
+enum SubDocType {
+  ACKNOWLEDGEMENT
+  PREARRIVAL
+  ETA_ETB
+  NOR
+  SOF
+  CARGO_UPDATE
+}
+
+model EmailDispatch {
+  id            String      @id @default(cuid())
+  pedrId        String      @db.Uuid
+  pedr          Pedr        @relation("PedrEmailDispatches", fields: [pedrId], references: [id], onDelete: Cascade)
+  subDocType    SubDocType
+  toAddresses   String[]
+  ccAddresses   String[]    @default([])
+  subject       String
+  bodyHtml      String?     @db.Text
+  pdfStorageKey String?
+  sentAt        DateTime?   @db.Timestamptz
+  sentById      String
+  sentBy        User        @relation("DispatchSentBy", fields: [sentById], references: [id], onDelete: Restrict)
+  error         String?
+  createdAt     DateTime    @default(now()) @db.Timestamptz
+
+  @@index([pedrId, subDocType])
+  @@map("email_dispatches")
+}
