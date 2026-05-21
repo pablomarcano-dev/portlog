@@ -31,6 +31,7 @@ const DETAIL_INCLUDE = {
   charter: { select: { id: true, name: true } },
   owner: { select: { id: true, nombre: true } },
   shipper: { select: { id: true, name: true } },
+  agent: { select: { id: true, name: true } },
   opPort: { select: { id: true, name: true, abbreviation: true } },
   berthPort: { select: { id: true, name: true, abbreviation: true } },
   lastPort: { select: { id: true, name: true, abbreviation: true } },

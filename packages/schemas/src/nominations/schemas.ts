@@ -41,6 +41,8 @@ export const NominationCreateSchema = z
     shipperVariant: z.string().max(255).optional(),
     shipperContactId: cuidFk.optional(),
 
+    agentId: cuidFk.optional(),
+
     contactBlackBerry: z.string().max(255).optional().nullable(),
     blindCopy: z.string().max(255).optional().nullable(),
 
@@ -243,6 +245,9 @@ export const NominationSchema = z.object({
   shipper: PartySummarySchema,
   shipperVariant: z.string().nullable(),
   shipperContactId: cuidFk.nullable(),
+
+  agentId: cuidFk.nullable(),
+  agent: PartySummarySchema,
 
   contactBlackBerry: z.string().nullable(),
   blindCopy: z.string().nullable(),
