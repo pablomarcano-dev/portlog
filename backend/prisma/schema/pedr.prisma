@@ -75,10 +75,11 @@ model Pedr {
   createdAt   DateTime  @default(now()) @db.Timestamptz(6)
   updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
 
-  stageHistory  PedrStageHistory[]
-  subDocuments  PedrSubDocument[]
-  events        PedrEvent[]
-  documents     Document[]
+  stageHistory    PedrStageHistory[]
+  subDocuments    PedrSubDocument[]
+  events          PedrEvent[]
+  documents       Document[]
+  emailDispatches EmailDispatch[]    @relation("PedrEmailDispatches")
 
   @@index([nominationId])
   @@index([currentStage])

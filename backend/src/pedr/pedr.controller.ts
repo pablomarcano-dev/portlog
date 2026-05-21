@@ -42,6 +42,11 @@ export class PedrController {
     return this.svc.list(query);
   }
 
+  @Get('by-nomination/:nominationId')
+  byNomination(@Param('nominationId', ParseUUIDPipe) nominationId: string) {
+    return this.svc.getByNominationId(nominationId);
+  }
+
   @Get(':id')
   byId(@Param('id', ParseUUIDPipe) id: string) {
     return this.svc.getById(id);

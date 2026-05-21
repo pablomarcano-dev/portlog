@@ -28,6 +28,7 @@ import { StorageModule } from './storage/storage.module.js';
 import { PdfModule } from './pdf/pdf.module.js';
 import { DatalasticModule } from './datalastic/datalastic.module.js';
 import { FleetModule } from './fleet/fleet.module.js';
+import { DispatchModule } from './dispatch/dispatch.module.js';
 
 @Module({
   imports: [
@@ -84,6 +85,7 @@ import { FleetModule } from './fleet/fleet.module.js';
     PdfModule,
     DatalasticModule,
     FleetModule,
+    DispatchModule,
   ],
   providers: [
     // ThrottlerGuard must run first (before auth) so rate limits apply to all routes.

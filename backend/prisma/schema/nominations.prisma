@@ -56,6 +56,9 @@ model Nomination {
   shipperVariant   String?
   shipperContactId String?
 
+  agentId String?
+  agent   Agent?  @relation(fields: [agentId], references: [id], onDelete: Restrict)
+
   contactBlackBerry String?
   blindCopy         String?
 
