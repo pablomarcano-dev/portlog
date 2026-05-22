@@ -1,0 +1,46 @@
+<!-- TODO: replace with canonical client template -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: Arial, sans-serif; font-size: 12px; margin: 24px; }
+  h2 { text-align: center; }
+  .header { margin-bottom: 16px; }
+  .field { margin-bottom: 6px; }
+  label { font-weight: bold; display: inline-block; width: 140px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { border: 1px solid #555; padding: 6px 8px; text-align: left; }
+  th { background: #eee; }
+  .footer { margin-top: 16px; font-size: 10px; color: #888; }
+</style>
+</head>
+<body>
+  <h2>SH-29A — Spares Landing Receipt</h2>
+  <div class="header">
+    <strong>Vessel:</strong> {{nomination.vesselName}} &nbsp;|&nbsp;
+    <strong>IMO:</strong> {{nomination.imo}} &nbsp;|&nbsp;
+    <strong>Port:</strong> {{nomination.opPortName}} &nbsp;|&nbsp;
+    <strong>Correlativo:</strong> {{nomination.correlative}}
+  </div>
+  {{#if doc.awbOrInvoice}}<div class="field"><label>AWB / Invoice:</label> {{doc.awbOrInvoice}}</div>{{/if}}
+  {{#if doc.supplier}}<div class="field"><label>Supplier:</label> {{doc.supplier}}</div>{{/if}}
+  <table>
+    <thead>
+      <tr><th>Description</th><th>Qty</th><th>Unit</th><th>Weight (kg)</th></tr>
+    </thead>
+    <tbody>
+      {{#each doc.rows}}
+      <tr>
+        <td>{{this.description}}</td>
+        <td>{{this.qty}}</td>
+        <td>{{this.unit}}</td>
+        <td>{{this.weightKg}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+  {{#if doc.receivedBy}}<div class="field" style="margin-top:12px;"><label>Received By:</label> {{doc.receivedBy}}</div>{{/if}}
+  <div class="footer">Generated: {{generatedAt}}</div>
+</body>
+</html>

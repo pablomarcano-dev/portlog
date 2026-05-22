@@ -8,3 +8,4 @@ export * from './pedr/index.js';
 export * from './datalastic/index.js';
 export * from './fleet/index.js';
 export * from './dispatch/index.js';
+export * from './sh-documents/index.js';
