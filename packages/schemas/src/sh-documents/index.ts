@@ -103,6 +103,14 @@ export const UpdateSHDocumentSchema = z.object({
 });
 export type UpdateSHDocumentInput = z.infer<typeof UpdateSHDocumentSchema>;
 
+export const SendShDocumentSchema = z.object({
+  toAddresses: z.array(z.string().email()).min(1),
+  ccAddresses: z.array(z.string().email()).optional().default([]),
+  subject: z.string().max(500).optional(),
+  bodyHtml: z.string().optional(),
+});
+export type SendShDocumentInput = z.infer<typeof SendShDocumentSchema>;
+
 // ---------------------------------------------------------------------------
 // DTO (output shape)
 // ---------------------------------------------------------------------------

@@ -50,6 +50,7 @@ model User {
   pedrEventsRecorded         PedrEvent[]       @relation("PedrEventRecordedBy")
   documentsCreated           Document[]        @relation("DocumentCreatedBy")
   shDocumentsCreated         SHDocument[]      @relation("SHDocCreatedBy")
+  shDocumentDispatches       ShDocumentDispatch[] @relation("ShDocDispatchSentBy")
   fleetVessels               FleetVessel[]
   emailDispatchesSent        EmailDispatch[]   @relation("DispatchSentBy")
 

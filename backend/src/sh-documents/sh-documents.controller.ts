@@ -16,8 +16,10 @@ import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import {
   CreateSHDocumentSchema,
   UpdateSHDocumentSchema,
+  SendShDocumentSchema,
   type CreateSHDocumentInput,
   type UpdateSHDocumentInput,
+  type SendShDocumentInput,
 } from '@portlog/schemas';
 import type { RequestUser } from '../auth/jwt.strategy.js';
 
@@ -55,6 +57,16 @@ export class SHDocumentsController {
     @Body(new ZodValidationPipe(UpdateSHDocumentSchema)) dto: UpdateSHDocumentInput,
   ) {
     return this.service.update(nominationId, shId, dto);
+  }
+
+  @Post(':shId/send')
+  send(
+    @Param('nominationId', ParseUUIDPipe) nominationId: string,
+    @Param('shId', ParseUUIDPipe) shId: string,
+    @Body(new ZodValidationPipe(SendShDocumentSchema)) dto: SendShDocumentInput,
+    @Req() req: { user: RequestUser },
+  ) {
+    return this.service.send(nominationId, shId, dto, req.user.sub);
   }
 
   @Post(':shId/finalize')
