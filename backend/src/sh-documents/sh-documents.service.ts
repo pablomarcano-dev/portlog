@@ -3,14 +3,17 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PdfService } from '../pdf/pdf.service.js';
 import { StorageService } from '../storage/storage.service.js';
+import { EmailService } from '../email/email.service.js';
 import {
   type CreateSHDocumentInput,
   type UpdateSHDocumentInput,
+  type SendShDocumentInput,
   type SHDocumentDto,
 } from '@portlog/schemas';
 
@@ -27,6 +30,7 @@ export class SHDocumentsService {
     private readonly prisma: PrismaService,
     private readonly pdf: PdfService,
     private readonly storage: StorageService,
+    private readonly email: EmailService,
   ) {}
 
   async create(
@@ -171,6 +175,107 @@ export class SHDocumentsService {
       }
     }
     await this.prisma.sHDocument.delete({ where: { id: shId } });
+  }
+
+  async send(
+    nominationId: string,
+    shId: string,
+    dto: SendShDocumentInput,
+    userId: string,
+  ): Promise<{ shDocument: SHDocumentDto; dispatch: { id: string; sentAt: string | null } }> {
+    // --- Validate document ---
+    const doc = await this.getOrThrow(nominationId, shId);
+    if (doc.status !== 'FINALIZED') {
+      throw new ConflictException('Only FINALIZED documents can be dispatched via email');
+    }
+    if (doc.type === 'COMMENT' || doc.type === 'OTHER') {
+      throw new BadRequestException(`${doc.type} documents cannot be dispatched`);
+    }
+    if (!doc.minioKey) {
+      throw new BadRequestException('Document has no PDF — generate it first');
+    }
+
+    // --- Build default subject from nomination ---
+    const nomination = await this.prisma.nomination.findUnique({
+      where: { id: nominationId },
+      select: { correlative: true },
+    });
+    const subject = dto.subject ?? `${doc.type} — ${nomination?.correlative ?? nominationId}`;
+
+    // --- Tx 1: record dispatch (pending) + flip doc status to SENT ---
+    // IMPORTANT: Status flip to SENT happens BEFORE email send. If SMTP fails,
+    // status stays SENT and the dispatch row records the error. Operators must
+    // inspect the dispatch error and re-send manually. This is intentional —
+    // we do NOT roll back to FINALIZED on email failure.
+    const { dispatch, updatedDoc } = await this.prisma.$transaction(async (tx) => {
+      const dispatch = await tx.shDocumentDispatch.create({
+        data: {
+          shDocumentId: shId,
+          toAddresses: dto.toAddresses,
+          ccAddresses: dto.ccAddresses ?? [],
+          subject,
+          bodyHtml: dto.bodyHtml ?? null,
+          pdfStorageKey: doc.minioKey!,
+          sentById: userId,
+          sentAt: null,
+          error: null,
+        },
+      });
+      const updatedDoc = await tx.sHDocument.update({
+        where: { id: shId },
+        data: { status: 'SENT', sentAt: new Date() },
+        include: { createdBy: { select: { id: true, email: true } } },
+      });
+      return { dispatch, updatedDoc };
+    });
+
+    // --- Read PDF buffer from MinIO ---
+    let pdfBuffer: Buffer;
+    try {
+      pdfBuffer = await this.storage.getFileBuffer(doc.minioKey);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await this.prisma.shDocumentDispatch.update({
+        where: { id: dispatch.id },
+        data: { error: `Failed to read PDF from storage: ${message}` },
+      });
+      throw new InternalServerErrorException('Failed to read PDF from storage');
+    }
+
+    // --- Send email; update dispatch row with result ---
+    let sentAt: Date | null = null;
+    try {
+      await this.email.send({
+        to: dto.toAddresses,
+        cc: dto.ccAddresses ?? [],
+        subject,
+        html: dto.bodyHtml ?? '',
+        attachments: [
+          {
+            filename: `${doc.type}.pdf`,
+            content: pdfBuffer,
+            contentType: 'application/pdf',
+          },
+        ],
+      });
+      sentAt = new Date();
+      await this.prisma.shDocumentDispatch.update({
+        where: { id: dispatch.id },
+        data: { sentAt },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await this.prisma.shDocumentDispatch.update({
+        where: { id: dispatch.id },
+        data: { error: message },
+      });
+      // Status is already SENT — do not revert. Operator must re-dispatch manually.
+    }
+
+    return {
+      shDocument: this.toDto(updatedDoc),
+      dispatch: { id: dispatch.id, sentAt: sentAt?.toISOString() ?? null },
+    };
   }
 
   markSent(shId: string): Promise<void> {

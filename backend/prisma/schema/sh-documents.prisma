@@ -43,7 +43,36 @@ model SHDocument {
   createdAt     DateTime         @default(now()) @db.Timestamptz(6)
   updatedAt     DateTime         @updatedAt      @db.Timestamptz(6)
 
+  dispatches    ShDocumentDispatch[]
+
   @@index([nominationId, type])
   @@index([nominationId, status])
   @@map("sh_documents")
+}
+
+// ---------------------------------------------------------------------------
+// M5-S2 — SH-xx Email Dispatch log
+// ---------------------------------------------------------------------------
+// Append-only audit trail for every email send attempt on a SH-xx document.
+// sentAt and error are updated after the async send result is known.
+// All timestamps use @db.Timestamptz(6) per Golden Rule 6.
+// ---------------------------------------------------------------------------
+
+model ShDocumentDispatch {
+  id            String     @id @default(cuid())
+  shDocumentId  String     @db.Uuid
+  shDocument    SHDocument @relation(fields: [shDocumentId], references: [id], onDelete: Cascade)
+  toAddresses   String[]
+  ccAddresses   String[]   @default([])
+  subject       String
+  bodyHtml      String?    @db.Text
+  pdfStorageKey String
+  sentAt        DateTime?  @db.Timestamptz(6)
+  sentById      String
+  sentBy        User       @relation("ShDocDispatchSentBy", fields: [sentById], references: [id], onDelete: Restrict)
+  error         String?
+  createdAt     DateTime   @default(now()) @db.Timestamptz(6)
+
+  @@index([shDocumentId, createdAt])
+  @@map("sh_document_dispatches")
 }

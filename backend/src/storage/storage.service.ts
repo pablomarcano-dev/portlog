@@ -65,6 +65,16 @@ export class StorageService implements OnModuleInit {
     await this.client.removeObject(this.bucket, key);
   }
 
+  async getFileBuffer(key: string): Promise<Buffer> {
+    this.assertAvailable();
+    const stream = await this.client.getObject(this.bucket, key);
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks);
+  }
+
   async fileExists(key: string): Promise<boolean> {
     this.assertAvailable();
     try {
