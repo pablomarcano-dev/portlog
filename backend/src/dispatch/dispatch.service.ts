@@ -80,6 +80,15 @@ export class DispatchService {
     };
 
     // 2b. For SOF: fetch events ordered by occurredAt asc (server-side; no extraData needed)
+    // 2c. For CARGO_UPDATE: compute update number from prior dispatches
+    let cargoUpdateNumber = 1;
+    if (subDocType === 'CARGO_UPDATE') {
+      const count = await this.prisma.emailDispatch.count({
+        where: { pedrId, subDocType: 'CARGO_UPDATE' },
+      });
+      cargoUpdateNumber = count + 1;
+    }
+
     let sofEvents: Array<{
       kind: string;
       occurredAt: Date;
@@ -105,6 +114,7 @@ export class DispatchService {
       nomination,
       extraData,
       sofEvents,
+      cargoUpdateNumber,
     );
 
     // 3. Generate PDF
@@ -247,6 +257,7 @@ export class DispatchService {
       note: string | null;
       recordedBy: { email: string };
     }> = [],
+    cargoUpdateNumber = 1,
   ): Record<string, unknown> {
     switch (type) {
       case 'ACKNOWLEDGEMENT':
@@ -308,6 +319,19 @@ export class DispatchService {
           })),
         };
 
+      case 'CARGO_UPDATE':
+        return {
+          ...base,
+          cargoName: this.extractCargoName(nomination.features),
+          blQuantity: extraData?.blQuantity ?? '',
+          blDate: extraData?.blDate ?? '',
+          vesselFigure: extraData?.vesselFigure ?? '',
+          shoreFigure: extraData?.shoreFigure ?? '',
+          remarks: extraData?.remarks ?? null,
+          updateNumber: cargoUpdateNumber,
+          generatedAt: new Date().toISOString(),
+        };
+
       default:
         return base;
     }
@@ -336,6 +360,8 @@ export class DispatchService {
         return `<p>Please find attached the Notice of Readiness for vessel <strong>${vessel}</strong> at port <strong>${port}</strong>.</p>`;
       case 'SOF':
         return `<p>Please find attached the Statement of Facts for vessel <strong>${vessel}</strong> at port <strong>${port}</strong>.</p>`;
+      case 'CARGO_UPDATE':
+        return `<p>Please find attached the Cargo Update for vessel <strong>${vessel}</strong> at port <strong>${port}</strong>.</p>`;
       default:
         return `<p>Please find the attached document for vessel <strong>${vessel}</strong>.</p>`;
     }

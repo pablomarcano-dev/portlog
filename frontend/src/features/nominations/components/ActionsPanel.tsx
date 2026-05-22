@@ -47,7 +47,6 @@ const ACTIONS: SubDocAction[] = [
     type: 'CARGO_UPDATE',
     label: 'Cargo Update',
     subjectTemplate: (v) => `Cargo Update — ${v}`,
-    future: true,
   },
   {
     type: 'SOF',

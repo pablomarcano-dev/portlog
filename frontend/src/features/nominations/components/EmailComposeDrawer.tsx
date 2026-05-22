@@ -8,13 +8,14 @@ import {
   Textarea,
   TextInput,
   MultiSelect,
+  NumberInput,
   Badge,
   Alert,
   Loader,
   Box,
   Table,
 } from '@mantine/core';
-import { DateTimePicker } from '@mantine/dates';
+import { DateTimePicker, DatePickerInput } from '@mantine/dates';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -63,6 +64,12 @@ const composeSchema = z.object({
   norTenderedAt: z.date().nullable().optional(),
   norAcceptedAt: z.date().nullable().optional(),
   layTimeCommences: z.date().nullable().optional(),
+  // CARGO_UPDATE extra fields — only used when subDocType === 'CARGO_UPDATE'
+  blQuantity: z.number().nullable().optional(),
+  blDate: z.date().nullable().optional(),
+  vesselFigure: z.number().nullable().optional(),
+  shoreFigure: z.number().nullable().optional(),
+  cargoUpdateRemarks: z.string().optional(),
 });
 type ComposeForm = z.infer<typeof composeSchema>;
 
@@ -104,11 +111,18 @@ export function EmailComposeDrawer({
       norTenderedAt: null,
       norAcceptedAt: null,
       layTimeCommences: null,
+      blQuantity: null,
+      blDate: null,
+      vesselFigure: null,
+      shoreFigure: null,
+      cargoUpdateRemarks: '',
     },
   });
 
   const toGroupIds = watch('toGroupIds');
   const norTenderedAt = watch('norTenderedAt');
+  const blQuantity = watch('blQuantity');
+  const blDate = watch('blDate');
 
   // Build MultiSelect data from email groups
   const groupSelectData =
@@ -129,6 +143,11 @@ export function EmailComposeDrawer({
       norTenderedAt: null,
       norAcceptedAt: null,
       layTimeCommences: null,
+      blQuantity: null,
+      blDate: null,
+      vesselFigure: null,
+      shoreFigure: null,
+      cargoUpdateRemarks: '',
     });
     setResolveError(null);
     onClose();
@@ -199,7 +218,15 @@ export function EmailComposeDrawer({
                 ? values.layTimeCommences.toISOString()
                 : undefined,
             }
-          : undefined;
+          : subDocType === 'CARGO_UPDATE'
+            ? {
+                blQuantity: values.blQuantity ?? undefined,
+                blDate: values.blDate ? values.blDate.toISOString().split('T')[0] : undefined,
+                vesselFigure: values.vesselFigure ?? undefined,
+                shoreFigure: values.shoreFigure ?? undefined,
+                remarks: values.cargoUpdateRemarks || undefined,
+              }
+            : undefined;
 
     dispatch.mutate(
       {
@@ -425,6 +452,83 @@ export function EmailComposeDrawer({
               </>
             )}
 
+            {/* CARGO_UPDATE-specific extra fields */}
+            {subDocType === 'CARGO_UPDATE' && (
+              <>
+                <Controller
+                  name="blQuantity"
+                  control={control}
+                  render={({ field }) => (
+                    <NumberInput
+                      label="BL Quantity (MT)"
+                      description="Required — bill of lading quantity in metric tons"
+                      placeholder="e.g. 25000"
+                      value={field.value ?? ''}
+                      onChange={(val) => field.onChange(val === '' ? null : val)}
+                      required
+                      min={0}
+                      error={errors.blQuantity?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  name="blDate"
+                  control={control}
+                  render={({ field }) => (
+                    <DatePickerInput
+                      label="BL Date"
+                      description="Required — bill of lading date"
+                      placeholder="Select date"
+                      value={field.value ?? null}
+                      onChange={field.onChange}
+                      required
+                      clearable
+                      error={errors.blDate?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  name="vesselFigure"
+                  control={control}
+                  render={({ field }) => (
+                    <NumberInput
+                      label="Vessel Figure (MT)"
+                      description="Optional — vessel figure in metric tons"
+                      placeholder="e.g. 24950"
+                      value={field.value ?? ''}
+                      onChange={(val) => field.onChange(val === '' ? null : val)}
+                      min={0}
+                      error={errors.vesselFigure?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  name="shoreFigure"
+                  control={control}
+                  render={({ field }) => (
+                    <NumberInput
+                      label="Shore Figure (MT)"
+                      description="Optional — shore figure in metric tons"
+                      placeholder="e.g. 24980"
+                      value={field.value ?? ''}
+                      onChange={(val) => field.onChange(val === '' ? null : val)}
+                      min={0}
+                      error={errors.shoreFigure?.message}
+                    />
+                  )}
+                />
+                <Textarea
+                  label="Remarks"
+                  description="Optional — additional remarks"
+                  placeholder="Enter any remarks..."
+                  minRows={2}
+                  autosize
+                  {...register('cargoUpdateRemarks')}
+                  error={errors.cargoUpdateRemarks?.message}
+                />
+              </>
+            )}
+
             {/* Attachment chip */}
             <Box>
               <Text size="xs" c="dimmed" mb={4}>
@@ -458,7 +562,10 @@ export function EmailComposeDrawer({
               <Button
                 type="submit"
                 loading={dispatch.isPending}
-                disabled={subDocType === 'NOR' && !norTenderedAt}
+                disabled={
+                  (subDocType === 'NOR' && !norTenderedAt) ||
+                  (subDocType === 'CARGO_UPDATE' && (blQuantity == null || !blDate))
+                }
               >
                 Send
               </Button>
