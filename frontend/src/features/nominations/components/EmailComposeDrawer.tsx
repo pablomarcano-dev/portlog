@@ -57,6 +57,10 @@ const composeSchema = z.object({
   etb: z.date().nullable().optional(),
   berthNumber: z.string().optional(),
   etcDate: z.date().nullable().optional(),
+  // NOR extra fields — only used when subDocType === 'NOR'
+  norTenderedAt: z.date().nullable().optional(),
+  norAcceptedAt: z.date().nullable().optional(),
+  layTimeCommences: z.date().nullable().optional(),
 });
 type ComposeForm = z.infer<typeof composeSchema>;
 
@@ -94,10 +98,14 @@ export function EmailComposeDrawer({
       etb: null,
       berthNumber: '',
       etcDate: null,
+      norTenderedAt: null,
+      norAcceptedAt: null,
+      layTimeCommences: null,
     },
   });
 
   const toGroupIds = watch('toGroupIds');
+  const norTenderedAt = watch('norTenderedAt');
 
   // Build MultiSelect data from email groups
   const groupSelectData =
@@ -115,6 +123,9 @@ export function EmailComposeDrawer({
       etb: null,
       berthNumber: '',
       etcDate: null,
+      norTenderedAt: null,
+      norAcceptedAt: null,
+      layTimeCommences: null,
     });
     setResolveError(null);
     onClose();
@@ -177,7 +188,15 @@ export function EmailComposeDrawer({
             berthNumber: values.berthNumber || undefined,
             etcDate: values.etcDate ? values.etcDate.toISOString() : undefined,
           }
-        : undefined;
+        : subDocType === 'NOR'
+          ? {
+              norTenderedAt: values.norTenderedAt ? values.norTenderedAt.toISOString() : undefined,
+              norAcceptedAt: values.norAcceptedAt ? values.norAcceptedAt.toISOString() : undefined,
+              layTimeCommences: values.layTimeCommences
+                ? values.layTimeCommences.toISOString()
+                : undefined,
+            }
+          : undefined;
 
     dispatch.mutate(
       {
@@ -313,6 +332,57 @@ export function EmailComposeDrawer({
               </>
             )}
 
+            {/* NOR-specific extra fields */}
+            {subDocType === 'NOR' && (
+              <>
+                <Controller
+                  name="norTenderedAt"
+                  control={control}
+                  render={({ field }) => (
+                    <DateTimePicker
+                      label="NOR Tendered At"
+                      description="Required — date and time NOR was tendered to port"
+                      placeholder="Select date and time"
+                      value={field.value ?? null}
+                      onChange={field.onChange}
+                      required
+                      error={errors.norTenderedAt?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  name="norAcceptedAt"
+                  control={control}
+                  render={({ field }) => (
+                    <DateTimePicker
+                      label="NOR Accepted At"
+                      description="Optional — date and time NOR was accepted"
+                      placeholder="Select date and time"
+                      value={field.value ?? null}
+                      onChange={field.onChange}
+                      clearable
+                      error={errors.norAcceptedAt?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  name="layTimeCommences"
+                  control={control}
+                  render={({ field }) => (
+                    <DateTimePicker
+                      label="Lay Time Commences"
+                      description="Optional — date and time lay time commences"
+                      placeholder="Select date and time"
+                      value={field.value ?? null}
+                      onChange={field.onChange}
+                      clearable
+                      error={errors.layTimeCommences?.message}
+                    />
+                  )}
+                />
+              </>
+            )}
+
             {/* Attachment chip */}
             <Box>
               <Text size="xs" c="dimmed" mb={4}>
@@ -343,7 +413,11 @@ export function EmailComposeDrawer({
               <Button variant="default" onClick={handleClose} disabled={dispatch.isPending}>
                 Cancel
               </Button>
-              <Button type="submit" loading={dispatch.isPending}>
+              <Button
+                type="submit"
+                loading={dispatch.isPending}
+                disabled={subDocType === 'NOR' && !norTenderedAt}
+              >
                 Send
               </Button>
             </Group>

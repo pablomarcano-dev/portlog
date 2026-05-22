@@ -254,6 +254,16 @@ export class DispatchService {
           remarks: null,
         };
 
+      case 'NOR':
+        return {
+          ...base,
+          berthPort: nomination.berthPort?.name ?? '',
+          cargoName: this.extractCargoName(nomination.features),
+          norTenderedAt: extraData?.norTenderedAt ?? '',
+          norAcceptedAt: extraData?.norAcceptedAt ?? '',
+          layTimeCommences: extraData?.layTimeCommences ?? '',
+        };
+
       default:
         return base;
     }
@@ -278,6 +288,8 @@ export class DispatchService {
         return `<p>Please find attached the Pre-Arrival Notification for vessel <strong>${vessel}</strong> at port <strong>${port}</strong>.</p>`;
       case 'ETA_ETB':
         return `<p>Please find attached the ETA/ETB Notice for vessel <strong>${vessel}</strong> at port <strong>${port}</strong>.</p>`;
+      case 'NOR':
+        return `<p>Please find attached the Notice of Readiness for vessel <strong>${vessel}</strong> at port <strong>${port}</strong>.</p>`;
       default:
         return `<p>Please find the attached document for vessel <strong>${vessel}</strong>.</p>`;
     }

@@ -23,6 +23,9 @@ export const subDocExtraDataSchema = z.object({
   etb: z.string().optional(), // ETA_ETB: estimated time of berthing
   berthNumber: z.string().optional(), // ETA_ETB: berth assignment
   etcDate: z.string().optional(), // ETA_ETB: estimated time of completion
+  norTenderedAt: z.string().optional(), // NOR: when NOR was tendered (required for NOR dispatch)
+  norAcceptedAt: z.string().optional(), // NOR: when NOR was accepted (optional)
+  layTimeCommences: z.string().optional(), // NOR: when lay time commences (optional)
 });
 export type SubDocExtraData = z.infer<typeof subDocExtraDataSchema>;
 
