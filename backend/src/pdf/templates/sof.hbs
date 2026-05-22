@@ -30,6 +30,7 @@
     <tr><th>Date &amp; Time</th><th>Event</th><th>Notes</th></tr>
   </thead>
   <tbody>
+    {{#if events.length}}
     {{#each events}}
     <tr>
       <td>{{this.occurredAt}}</td>
@@ -37,6 +38,9 @@
       <td>{{this.note}}</td>
     </tr>
     {{/each}}
+    {{else}}
+    <tr><td colspan="3" style="text-align:center; color:#666;">No events recorded.</td></tr>
+    {{/if}}
   </tbody>
 </table>
 <div class="signature">

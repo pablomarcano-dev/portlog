@@ -79,11 +79,32 @@ export class DispatchService {
       sentAt: new Date().toISOString(),
     };
 
+    // 2b. For SOF: fetch events ordered by occurredAt asc (server-side; no extraData needed)
+    let sofEvents: Array<{
+      kind: string;
+      occurredAt: Date;
+      note: string | null;
+      recordedBy: { email: string };
+    }> = [];
+    if (subDocType === 'SOF') {
+      sofEvents = await this.prisma.pedrEvent.findMany({
+        where: { pedrId },
+        orderBy: { occurredAt: 'asc' },
+        select: {
+          kind: true,
+          occurredAt: true,
+          note: true,
+          recordedBy: { select: { email: true } },
+        },
+      });
+    }
+
     const templateData = this.buildTemplateData(
       subDocType as PedrSubDocumentType,
       baseData,
       nomination,
       extraData,
+      sofEvents,
     );
 
     // 3. Generate PDF
@@ -220,6 +241,12 @@ export class DispatchService {
       features?: unknown;
     },
     extraData?: SubDocExtraData,
+    sofEvents: Array<{
+      kind: string;
+      occurredAt: Date;
+      note: string | null;
+      recordedBy: { email: string };
+    }> = [],
   ): Record<string, unknown> {
     switch (type) {
       case 'ACKNOWLEDGEMENT':
@@ -264,6 +291,23 @@ export class DispatchService {
           layTimeCommences: extraData?.layTimeCommences ?? '',
         };
 
+      case 'SOF':
+        return {
+          ...base,
+          cargoName: this.extractCargoName(nomination.features),
+          berth: nomination.berthPort?.name ?? '',
+          blQuantity: '',
+          outturnQuantity: '',
+          generatedAt: new Date().toISOString(),
+          signedOffAt: null,
+          events: sofEvents.map((e) => ({
+            kind: e.kind,
+            occurredAt: e.occurredAt.toISOString(),
+            note: e.note ?? '',
+            recordedBy: e.recordedBy.email,
+          })),
+        };
+
       default:
         return base;
     }
@@ -290,6 +334,8 @@ export class DispatchService {
         return `<p>Please find attached the ETA/ETB Notice for vessel <strong>${vessel}</strong> at port <strong>${port}</strong>.</p>`;
       case 'NOR':
         return `<p>Please find attached the Notice of Readiness for vessel <strong>${vessel}</strong> at port <strong>${port}</strong>.</p>`;
+      case 'SOF':
+        return `<p>Please find attached the Statement of Facts for vessel <strong>${vessel}</strong> at port <strong>${port}</strong>.</p>`;
       default:
         return `<p>Please find the attached document for vessel <strong>${vessel}</strong>.</p>`;
     }

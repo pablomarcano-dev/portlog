@@ -75,4 +75,9 @@ export class PedrController {
   history(@Param('id', ParseUUIDPipe) id: string) {
     return this.svc.getHistory(id);
   }
+
+  @Get(':id/events')
+  events(@Param('id', ParseUUIDPipe) id: string) {
+    return this.svc.getEvents(id);
+  }
 }

@@ -12,12 +12,14 @@ import {
   Alert,
   Loader,
   Box,
+  Table,
 } from '@mantine/core';
 import { DateTimePicker } from '@mantine/dates';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useQuery } from '@tanstack/react-query';
+import { usePedrEvents } from '../api/usePedrEvents';
 import type { SubDocType } from '@portlog/schemas';
 import { emailGroupsQueryOptions } from '../../../lib/api/master-data/email-groups';
 import { useEmailDispatch } from '../api/useEmailDispatch';
@@ -79,6 +81,7 @@ export function EmailComposeDrawer({
   const emailGroupsQuery = useQuery(emailGroupsQueryOptions({ pageSize: 100 }));
   const dispatch = useEmailDispatch(pedrId);
   const [resolveError, setResolveError] = useState<string | null>(null);
+  const pedrEventsQuery = usePedrEvents(subDocType === 'SOF' ? pedrId : '');
 
   const {
     register,
@@ -235,6 +238,45 @@ export function EmailComposeDrawer({
       ) : (
         <form onSubmit={(e) => void handleSubmit(onSubmit)(e)}>
           <Stack gap="sm">
+            {/* SOF — read-only event log preview */}
+            {subDocType === 'SOF' && (
+              <Box>
+                <Text fw={600} size="sm" mb={4}>
+                  Event Log
+                </Text>
+                {pedrEventsQuery.isLoading && (
+                  <Box ta="center" py="sm">
+                    <Loader size="xs" />
+                  </Box>
+                )}
+                {!pedrEventsQuery.isLoading &&
+                  (pedrEventsQuery.data?.length === 0 ? (
+                    <Alert color="yellow" title="No events recorded yet">
+                      No events recorded yet — the SOF will be empty.
+                    </Alert>
+                  ) : (
+                    <Table withTableBorder withColumnBorders fz="xs">
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th>Time</Table.Th>
+                          <Table.Th>Event Type</Table.Th>
+                          <Table.Th>Notes</Table.Th>
+                        </Table.Tr>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {pedrEventsQuery.data?.map((ev) => (
+                          <Table.Tr key={ev.id}>
+                            <Table.Td>{new Date(ev.occurredAt).toLocaleString()}</Table.Td>
+                            <Table.Td>{ev.kind.replace(/_/g, ' ')}</Table.Td>
+                            <Table.Td>{ev.note ?? ''}</Table.Td>
+                          </Table.Tr>
+                        ))}
+                      </Table.Tbody>
+                    </Table>
+                  ))}
+              </Box>
+            )}
+
             {/* To — email group multi-select */}
             <div>
               <MultiSelect
