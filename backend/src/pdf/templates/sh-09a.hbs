@@ -1,0 +1,31 @@
+<!-- TODO: replace with canonical client template -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: Arial, sans-serif; font-size: 12px; margin: 24px; }
+  h2 { text-align: center; }
+  .header { margin-bottom: 16px; }
+  .field { margin-bottom: 8px; }
+  label { font-weight: bold; display: inline-block; width: 140px; }
+  .body-text { margin-top: 16px; padding: 12px; border: 1px solid #ccc; min-height: 80px; }
+  .footer { margin-top: 16px; font-size: 10px; color: #888; }
+</style>
+</head>
+<body>
+  <h2>SH-09A — Doctor Guarantee</h2>
+  <div class="header">
+    <strong>Vessel:</strong> {{nomination.vesselName}} &nbsp;|&nbsp;
+    <strong>IMO:</strong> {{nomination.imo}} &nbsp;|&nbsp;
+    <strong>Correlativo:</strong> {{nomination.correlative}}
+  </div>
+  <div class="field"><label>Patient Name:</label> {{doc.patientName}}</div>
+  {{#if doc.rank}}<div class="field"><label>Rank:</label> {{doc.rank}}</div>{{/if}}
+  {{#if doc.vesselName}}<div class="field"><label>Vessel:</label> {{doc.vesselName}}</div>{{/if}}
+  {{#if doc.diagnosis}}<div class="field"><label>Diagnosis:</label> {{doc.diagnosis}}</div>{{/if}}
+  {{#if doc.issuedAt}}<div class="field"><label>Issued At:</label> {{doc.issuedAt}}</div>{{/if}}
+  <div class="body-text">{{{doc.body}}}</div>
+  <div class="footer">Generated: {{generatedAt}}</div>
+</body>
+</html>
