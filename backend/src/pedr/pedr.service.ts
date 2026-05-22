@@ -263,4 +263,21 @@ export class PedrService {
       include: { changedBy: { select: { id: true, email: true } } },
     });
   }
+
+  async getEvents(id: string) {
+    const pedr = await this.prisma.pedr.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!pedr) {
+      throw new NotFoundException(`PEDR ${id} not found.`);
+    }
+
+    return this.prisma.pedrEvent.findMany({
+      where: { pedrId: id },
+      orderBy: { occurredAt: 'asc' },
+      include: { recordedBy: { select: { id: true, email: true } } },
+    });
+  }
 }

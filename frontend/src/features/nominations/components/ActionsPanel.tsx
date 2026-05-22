@@ -53,7 +53,6 @@ const ACTIONS: SubDocAction[] = [
     type: 'SOF',
     label: 'Statement of Facts',
     subjectTemplate: (v) => `Statement of Facts — ${v}`,
-    future: true,
   },
   {
     type: 'NOR',
