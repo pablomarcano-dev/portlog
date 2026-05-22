@@ -1,0 +1,49 @@
+// ---------------------------------------------------------------------------
+// M5 — SH-xx Documents
+// ---------------------------------------------------------------------------
+
+enum SHDocumentType {
+  SH_66A
+  SH_09A
+  SH_28A
+  SH_29A
+  COMMENT
+  OTHER
+}
+
+enum SHDocumentStatus {
+  DRAFT
+  FINALIZED
+  SENT
+}
+
+model SHDocument {
+  id            String           @id @default(uuid()) @db.Uuid
+  nominationId  String           @db.Uuid
+  nomination    Nomination       @relation(fields: [nominationId], references: [id], onDelete: Cascade)
+
+  type          SHDocumentType
+  status        SHDocumentStatus @default(DRAFT)
+
+  // Type-specific form contents — discriminated union validated in @portlog/schemas
+  data          Json             @default("{}")
+
+  // Populated once the Generate action produces a PDF
+  minioKey      String?          @unique
+  pdfGeneratedAt DateTime?       @db.Timestamptz(6)
+
+  // Populated after email dispatch
+  sentAt        DateTime?        @db.Timestamptz(6)
+
+  // Human-readable label shown in lists (e.g. "Overtime 2026-05-21")
+  title         String?
+
+  createdById   String
+  createdBy     User             @relation("SHDocCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt     DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime         @updatedAt      @db.Timestamptz(6)
+
+  @@index([nominationId, type])
+  @@index([nominationId, status])
+  @@map("sh_documents")
+}

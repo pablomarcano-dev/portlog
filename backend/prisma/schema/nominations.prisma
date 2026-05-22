@@ -111,6 +111,9 @@ model Nomination {
   pedr      Pedr?
   documents Document[]
 
+  // SH-xx back-relations (M5)
+  shDocuments SHDocument[]
+
   @@index([status])
   @@index([shipParticularId])
   @@index([dateNominated])
