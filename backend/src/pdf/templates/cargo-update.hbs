@@ -12,18 +12,18 @@
 </style>
 </head>
 <body>
-<h1>CARGO UPDATE</h1>
+<h1>CARGO UPDATE No. {{updateNumber}}</h1>
 <table>
   <tr><th>Vessel</th><td>{{vesselName}}</td></tr>
+  <tr><th>IMO Number</th><td>{{imoNumber}}</td></tr>
   <tr><th>Port</th><td>{{portName}}</td></tr>
   <tr><th>Voyage No.</th><td>{{correlative}}</td></tr>
-  <tr><th>Date of Update</th><td>{{updateDate}}</td></tr>
+  <tr><th>Charterer</th><td>{{chartererName}}</td></tr>
   <tr><th>Cargo</th><td>{{cargoName}}</td></tr>
-  <tr><th>Loaded / Discharged (MT)</th><td>{{operatedQuantity}}</td></tr>
-  <tr><th>Cumulative (MT)</th><td>{{cumulativeQuantity}}</td></tr>
-  <tr><th>Remaining (MT)</th><td>{{remainingQuantity}}</td></tr>
-  <tr><th>Operation Rate (MT/h)</th><td>{{operationRate}}</td></tr>
-  <tr><th>ETC</th><td>{{etc}}</td></tr>
+  <tr><th>BL Quantity (MT)</th><td>{{blQuantity}}</td></tr>
+  <tr><th>BL Date</th><td>{{blDate}}</td></tr>
+  <tr><th>Vessel Figure (MT)</th><td>{{vesselFigure}}</td></tr>
+  <tr><th>Shore Figure (MT)</th><td>{{shoreFigure}}</td></tr>
 </table>
 {{#if remarks}}
 <p><strong>Remarks:</strong> {{remarks}}</p>

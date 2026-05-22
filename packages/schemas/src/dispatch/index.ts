@@ -26,6 +26,11 @@ export const subDocExtraDataSchema = z.object({
   norTenderedAt: z.string().optional(), // NOR: when NOR was tendered (required for NOR dispatch)
   norAcceptedAt: z.string().optional(), // NOR: when NOR was accepted (optional)
   layTimeCommences: z.string().optional(), // NOR: when lay time commences (optional)
+  blQuantity: z.number().optional(), // CARGO_UPDATE: bill of lading quantity
+  blDate: z.string().optional(), // CARGO_UPDATE: bill of lading date (ISO date string)
+  vesselFigure: z.number().optional(), // CARGO_UPDATE: vessel figure (optional)
+  shoreFigure: z.number().optional(), // CARGO_UPDATE: shore figure (optional)
+  remarks: z.string().optional(), // CARGO_UPDATE: remarks (optional)
 });
 export type SubDocExtraData = z.infer<typeof subDocExtraDataSchema>;
 
