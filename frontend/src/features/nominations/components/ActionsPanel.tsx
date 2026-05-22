@@ -59,7 +59,6 @@ const ACTIONS: SubDocAction[] = [
     type: 'NOR',
     label: 'NOR',
     subjectTemplate: (v) => `Notice of Readiness — ${v}`,
-    future: true,
   },
 ];
 
