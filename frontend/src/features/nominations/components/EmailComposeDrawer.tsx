@@ -13,7 +13,8 @@ import {
   Loader,
   Box,
 } from '@mantine/core';
-import { useForm } from 'react-hook-form';
+import { DateTimePicker } from '@mantine/dates';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useQuery } from '@tanstack/react-query';
@@ -52,6 +53,10 @@ const composeSchema = z.object({
   ccFreeText: z.string().default(''),
   subject: z.string().min(1, 'Subject is required'),
   bodyHtml: z.string().default(''),
+  // ETA/ETB extra fields — only used when subDocType === 'ETA_ETB'
+  etb: z.date().nullable().optional(),
+  berthNumber: z.string().optional(),
+  etcDate: z.date().nullable().optional(),
 });
 type ComposeForm = z.infer<typeof composeSchema>;
 
@@ -77,6 +82,7 @@ export function EmailComposeDrawer({
     setValue,
     watch,
     reset,
+    control,
     formState: { errors },
   } = useForm<ComposeForm>({
     resolver: zodResolver(composeSchema),
@@ -85,6 +91,9 @@ export function EmailComposeDrawer({
       ccFreeText: '',
       subject: defaultSubject,
       bodyHtml: defaultBody,
+      etb: null,
+      berthNumber: '',
+      etcDate: null,
     },
   });
 
@@ -103,6 +112,9 @@ export function EmailComposeDrawer({
       ccFreeText: '',
       subject: defaultSubject,
       bodyHtml: defaultBody,
+      etb: null,
+      berthNumber: '',
+      etcDate: null,
     });
     setResolveError(null);
     onClose();
@@ -158,6 +170,15 @@ export function EmailComposeDrawer({
           .filter(Boolean)
       : [];
 
+    const extraData =
+      subDocType === 'ETA_ETB'
+        ? {
+            etb: values.etb ? values.etb.toISOString() : undefined,
+            berthNumber: values.berthNumber || undefined,
+            etcDate: values.etcDate ? values.etcDate.toISOString() : undefined,
+          }
+        : undefined;
+
     dispatch.mutate(
       {
         subDocType,
@@ -165,6 +186,7 @@ export function EmailComposeDrawer({
         ccAddresses,
         subject: values.subject,
         bodyHtml: values.bodyHtml || undefined,
+        extraData,
       },
       {
         onSuccess: () => {
@@ -247,6 +269,49 @@ export function EmailComposeDrawer({
               {...register('bodyHtml')}
               error={errors.bodyHtml?.message}
             />
+
+            {/* ETA/ETB-specific extra fields */}
+            {subDocType === 'ETA_ETB' && (
+              <>
+                <Controller
+                  name="etb"
+                  control={control}
+                  render={({ field }) => (
+                    <DateTimePicker
+                      label="ETB (Estimated Time of Berthing)"
+                      description="Optional — when the vessel is expected to berth"
+                      placeholder="Select date and time"
+                      value={field.value ?? null}
+                      onChange={field.onChange}
+                      clearable
+                      error={errors.etb?.message}
+                    />
+                  )}
+                />
+                <TextInput
+                  label="Berth No."
+                  description="Optional — berth assignment"
+                  placeholder="e.g. B-12"
+                  {...register('berthNumber')}
+                  error={errors.berthNumber?.message}
+                />
+                <Controller
+                  name="etcDate"
+                  control={control}
+                  render={({ field }) => (
+                    <DateTimePicker
+                      label="ETC (Estimated Time of Completion)"
+                      description="Optional — when cargo operations are expected to complete"
+                      placeholder="Select date and time"
+                      value={field.value ?? null}
+                      onChange={field.onChange}
+                      clearable
+                      error={errors.etcDate?.message}
+                    />
+                  )}
+                />
+              </>
+            )}
 
             {/* Attachment chip */}
             <Box>

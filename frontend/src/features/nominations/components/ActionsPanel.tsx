@@ -42,7 +42,6 @@ const ACTIONS: SubDocAction[] = [
     type: 'ETA_ETB',
     label: 'E.T.A.',
     subjectTemplate: (v) => `ETA/ETB Notice — ${v}`,
-    future: true,
   },
   {
     type: 'CARGO_UPDATE',

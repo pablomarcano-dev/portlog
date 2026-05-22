@@ -70,6 +70,10 @@ model Pedr {
   // ADM-editable free-text checklist / requirements per stage
   requirements String?   @db.Text
 
+  // Operational metadata — mutable JSON bag for alert flags and computed state.
+  // Used by the ETA stale-alert cron to record { etaStaleAlert, etaLastSent }.
+  metadata     Json?
+
   createdById String
   createdBy   User      @relation("PedrCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   createdAt   DateTime  @default(now()) @db.Timestamptz(6)

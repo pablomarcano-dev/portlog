@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { PdfService } from '../pdf/pdf.service.js';
 import { StorageService } from '../storage/storage.service.js';
-import type { SendSubDocumentInput } from '@portlog/schemas';
+import type { SendSubDocumentInput, SubDocExtraData } from '@portlog/schemas';
 import type { PedrSubDocumentType } from '@portlog/schemas';
 
 // Full nomination include needed to build PDF template data
@@ -35,7 +35,7 @@ export class DispatchService {
   ) {}
 
   async sendSubDocument(pedrId: string, dto: SendSubDocumentInput, userId: string) {
-    const { subDocType, toAddresses, ccAddresses, subject, bodyHtml } = dto;
+    const { subDocType, toAddresses, ccAddresses, subject, bodyHtml, extraData } = dto;
 
     // 1. Fetch PEDR + nomination data
     const pedr = await this.prisma.pedr.findUnique({
@@ -83,6 +83,7 @@ export class DispatchService {
       subDocType as PedrSubDocumentType,
       baseData,
       nomination,
+      extraData,
     );
 
     // 3. Generate PDF
@@ -218,6 +219,7 @@ export class DispatchService {
       nextPort?: { name: string } | null | undefined;
       features?: unknown;
     },
+    extraData?: SubDocExtraData,
   ): Record<string, unknown> {
     switch (type) {
       case 'ACKNOWLEDGEMENT':
@@ -242,6 +244,16 @@ export class DispatchService {
           requirements: null,
         };
 
+      case 'ETA_ETB':
+        return {
+          ...base,
+          // base already contains eta from nomination.etaDate
+          etb: extraData?.etb ?? '',
+          berthNumber: extraData?.berthNumber ?? '',
+          etcDate: extraData?.etcDate ?? '',
+          remarks: null,
+        };
+
       default:
         return base;
     }
@@ -264,6 +276,8 @@ export class DispatchService {
         return `<p>Please find attached the Acknowledgement of Nomination for vessel <strong>${vessel}</strong> at port <strong>${port}</strong>.</p>`;
       case 'PREARRIVAL':
         return `<p>Please find attached the Pre-Arrival Notification for vessel <strong>${vessel}</strong> at port <strong>${port}</strong>.</p>`;
+      case 'ETA_ETB':
+        return `<p>Please find attached the ETA/ETB Notice for vessel <strong>${vessel}</strong> at port <strong>${port}</strong>.</p>`;
       default:
         return `<p>Please find the attached document for vessel <strong>${vessel}</strong>.</p>`;
     }
