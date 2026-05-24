@@ -29,6 +29,7 @@ import { PdfModule } from './pdf/pdf.module.js';
 import { DatalasticModule } from './datalastic/datalastic.module.js';
 import { FleetModule } from './fleet/fleet.module.js';
 import { DispatchModule } from './dispatch/dispatch.module.js';
+import { BranchesModule } from './master-data/branches/branches.module.js';
 import { SHDocumentsModule } from './sh-documents/sh-documents.module.js';
 
 @Module({
@@ -88,6 +89,7 @@ import { SHDocumentsModule } from './sh-documents/sh-documents.module.js';
     FleetModule,
     DispatchModule,
     SHDocumentsModule,
+    BranchesModule,
   ],
   providers: [
     // ThrottlerGuard must run first (before auth) so rate limits apply to all routes.

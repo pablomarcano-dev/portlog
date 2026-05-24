@@ -14,6 +14,8 @@ import {
   type NominationUpdateInput,
   type NominationStatusTransition,
   type NominationListQuery,
+  type NominationClientCreate,
+  type NominationClientUpdate,
 } from '@portlog/schemas';
 
 function formatSnOt(correlative: number, dateNominated: Date): string {
@@ -30,17 +32,20 @@ const DETAIL_INCLUDE = {
   owner: { select: { id: true, name: true } },
   shipper: { select: { id: true, name: true } },
   agent: { select: { id: true, name: true } },
+  branch: { select: { id: true, name: true, code: true } },
   opPort: { select: { id: true, name: true, abbreviation: true } },
   berthPort: { select: { id: true, name: true, abbreviation: true } },
   lastPort: { select: { id: true, name: true, abbreviation: true } },
   nextPort: { select: { id: true, name: true, abbreviation: true } },
   disPort: { select: { id: true, name: true, abbreviation: true } },
+  externalPort: { select: { id: true, name: true, abbreviation: true } },
   createdBy: { select: { id: true, email: true } },
   nominatedBy: { select: { id: true, email: true } },
   statusHistory: {
     orderBy: { createdAt: 'desc' as const },
     include: { changedBy: { select: { id: true, email: true } } },
   },
+  nominationClients: { orderBy: { sortOrder: 'asc' as const } },
 } satisfies Prisma.NominationInclude;
 
 const LIST_INCLUDE = {
@@ -234,6 +239,63 @@ export class NominationsService {
     throw new MethodNotAllowedException(
       'Nominations cannot be deleted. Use POST /:id/transition with toStatus=CANCELLED.',
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // NominationClient CRUD
+  // ---------------------------------------------------------------------------
+
+  async listClients(nominationId: string) {
+    await this.assertNominationExists(nominationId);
+    return this.prisma.nominationClient.findMany({
+      where: { nominationId },
+      orderBy: { sortOrder: 'asc' },
+    });
+  }
+
+  async addClient(nominationId: string, dto: NominationClientCreate) {
+    await this.assertNominationExists(nominationId);
+    return this.prisma.nominationClient.create({
+      data: { ...dto, nominationId },
+    });
+  }
+
+  async updateClient(nominationId: string, clientId: string, dto: NominationClientUpdate) {
+    await this.assertClientExists(nominationId, clientId);
+    return this.prisma.nominationClient.update({
+      where: { id: clientId },
+      data: dto,
+    });
+  }
+
+  async removeClient(nominationId: string, clientId: string) {
+    await this.assertClientExists(nominationId, clientId);
+    await this.prisma.nominationClient.delete({ where: { id: clientId } });
+    this.logger.log({ event: 'nomination.client.removed', nominationId, clientId });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
+
+  private async assertNominationExists(id: string): Promise<void> {
+    const exists = await this.prisma.nomination.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!exists) {
+      throw new NotFoundException(`Nomination ${id} not found.`);
+    }
+  }
+
+  private async assertClientExists(nominationId: string, clientId: string): Promise<void> {
+    const exists = await this.prisma.nominationClient.findFirst({
+      where: { id: clientId, nominationId },
+      select: { id: true },
+    });
+    if (!exists) {
+      throw new NotFoundException(`Client ${clientId} not found on nomination ${nominationId}.`);
+    }
   }
 
   private isFkViolation(err: unknown): boolean {
