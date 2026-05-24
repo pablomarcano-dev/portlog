@@ -14,12 +14,12 @@ import { OthersTab } from './OthersTab';
 
 type TabId = 'COMMENT' | 'SH_66A' | 'SH_09A' | 'SH_28A' | 'SH_29A' | 'OTHER';
 
-const TABS: Array<{ id: TabId; label: string }> = [
+const TABS: Array<{ id: TabId; label: string; dataCy?: string }> = [
   { id: 'COMMENT', label: 'Comentarios' },
-  { id: 'SH_66A', label: 'SH-66A' },
-  { id: 'SH_09A', label: 'SH-09A' },
-  { id: 'SH_28A', label: 'SH-28A' },
-  { id: 'SH_29A', label: 'SH-29A' },
+  { id: 'SH_66A', label: 'SH-66A', dataCy: 'sh-tab-66a' },
+  { id: 'SH_09A', label: 'SH-09A', dataCy: 'sh-tab-09a' },
+  { id: 'SH_28A', label: 'SH-28A', dataCy: 'sh-tab-28a' },
+  { id: 'SH_29A', label: 'SH-29A', dataCy: 'sh-tab-29a' },
   { id: 'OTHER', label: 'Otros' },
 ];
 
@@ -72,7 +72,7 @@ export function DocumentsTabs({ nominationId }: DocumentsTabsProps) {
         {TABS.map((tab) => {
           const doc = docsByType[tab.id];
           return (
-            <Tabs.Tab key={tab.id} value={tab.id}>
+            <Tabs.Tab key={tab.id} value={tab.id} data-cy={tab.dataCy}>
               <Group gap={6} wrap="nowrap">
                 <Text size="sm">{tab.label}</Text>
                 {doc && <ShDocStatusBadge status={doc.status} />}

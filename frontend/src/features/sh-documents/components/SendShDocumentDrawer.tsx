@@ -121,6 +121,7 @@ export function SendShDocumentDrawer({
               description="Direcciones de correo separadas por coma"
               placeholder="destinatario@ejemplo.com, otro@ejemplo.com"
               required
+              data-cy="sh-send-to"
               {...register('toAddresses')}
               error={errors.toAddresses?.message}
             />
@@ -161,7 +162,7 @@ export function SendShDocumentDrawer({
               <Button variant="default" onClick={handleClose} disabled={sendDoc.isPending}>
                 Cancelar
               </Button>
-              <Button type="submit" loading={sendDoc.isPending}>
+              <Button type="submit" loading={sendDoc.isPending} data-cy="sh-send-submit">
                 Enviar
               </Button>
             </Group>

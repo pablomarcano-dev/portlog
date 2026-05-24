@@ -123,6 +123,7 @@ export function Sh66aForm({ nominationId, doc, isLoading }: Sh66aFormProps) {
           size="xs"
           variant="light"
           loading={createDoc.isPending}
+          data-cy="sh-create"
           onClick={() => {
             createDoc.mutate({
               type: 'SH_66A',
@@ -156,7 +157,9 @@ export function Sh66aForm({ nominationId, doc, isLoading }: Sh66aFormProps) {
             <Text fw={600} size="sm">
               SH-66A — Horas Extras
             </Text>
-            <ShDocStatusBadge status={doc.status} />
+            <span data-cy="sh-status">
+              <ShDocStatusBadge status={doc.status} />
+            </span>
           </Group>
 
           {isSent && (
@@ -262,6 +265,7 @@ export function Sh66aForm({ nominationId, doc, isLoading }: Sh66aFormProps) {
               <Button
                 size="xs"
                 variant="default"
+                data-cy="sh-add-row"
                 onClick={() => append({ date: '', from: '', to: '', activity: '' })}
               >
                 Agregar fila
@@ -272,7 +276,7 @@ export function Sh66aForm({ nominationId, doc, isLoading }: Sh66aFormProps) {
           {/* Action buttons */}
           <Group gap="xs" wrap="wrap">
             {!isDisabled && (
-              <Button type="submit" size="xs" loading={updateDoc.isPending}>
+              <Button type="submit" size="xs" loading={updateDoc.isPending} data-cy="sh-save">
                 Guardar
               </Button>
             )}
@@ -284,6 +288,7 @@ export function Sh66aForm({ nominationId, doc, isLoading }: Sh66aFormProps) {
                 color="yellow"
                 loading={finalizeDoc.isPending}
                 onClick={() => finalizeDoc.mutate(doc.id)}
+                data-cy="sh-finalize"
               >
                 Finalizar
               </Button>
@@ -296,13 +301,14 @@ export function Sh66aForm({ nominationId, doc, isLoading }: Sh66aFormProps) {
                 color="teal"
                 loading={generateDoc.isPending}
                 onClick={() => generateDoc.mutate(doc.id)}
+                data-cy="sh-generate"
               >
                 Generar PDF
               </Button>
             )}
 
             {doc.minioKey && pdfUrlQuery.data && (
-              <Anchor href={pdfUrlQuery.data.url} target="_blank" size="xs">
+              <Anchor href={pdfUrlQuery.data.url} target="_blank" size="xs" data-cy="sh-open-pdf">
                 Abrir PDF
               </Anchor>
             )}
@@ -313,6 +319,7 @@ export function Sh66aForm({ nominationId, doc, isLoading }: Sh66aFormProps) {
                 variant="light"
                 color="green"
                 onClick={() => setSendDrawerOpen(true)}
+                data-cy="sh-send"
               >
                 Enviar
               </Button>
