@@ -18,6 +18,7 @@ import { TransitionButtons } from '../../../features/nominations/components/Tran
 import { StatusHistoryTimeline } from '../../../features/nominations/components/StatusHistoryTimeline';
 import { MessagesNav } from '../../../features/nominations/components/MessagesNav';
 import { ActionsPanel } from '../../../features/nominations/components/ActionsPanel';
+import { ClientsSection } from '../../../features/nominations/components/ClientsSection';
 import { useNomination } from '../../../features/nominations/hooks/useNomination';
 import { useUpdateNomination } from '../../../features/nominations/hooks/useUpdateNomination';
 import { usePedrByNomination } from '../../../features/nominations/api/usePedrByNomination';
@@ -85,6 +86,11 @@ function NominationDetailPage() {
     shipperId: nomination.shipperId ?? undefined,
     shipperVariant: nomination.shipperVariant ?? undefined,
     shipperContactId: nomination.shipperContactId ?? undefined,
+    branchId: nomination.branchId ?? undefined,
+    nomReply: nomination.nomReply ?? undefined,
+    externalPortId: nomination.externalPortId ?? undefined,
+    mobileOnBoard: nomination.mobileOnBoard ?? undefined,
+    referenceNo: nomination.referenceNo ?? undefined,
     contactBlackBerry: nomination.contactBlackBerry ?? undefined,
     blindCopy: nomination.blindCopy ?? undefined,
     opPortId: nomination.opPortId ?? undefined,
@@ -166,6 +172,11 @@ function NominationDetailPage() {
               isSubmitting={updateNomination.isPending}
               isReadOnly={isReadOnly}
             />
+
+            <Divider />
+
+            {/* Client list section */}
+            <ClientsSection nominationId={id} />
 
             <Divider />
 

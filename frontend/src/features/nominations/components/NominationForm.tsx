@@ -61,11 +61,13 @@ export function NominationForm({
   const [charterSearch, setCharterSearch] = useState('');
   const [ownerSearch, setOwnerSearch] = useState('');
   const [shipperSearch, setShipperSearch] = useState('');
+  const [branchSearch, setBranchSearch] = useState('');
   const [opPortSearch, setOpPortSearch] = useState('');
   const [berthPortSearch, setBerthPortSearch] = useState('');
   const [lastPortSearch, setLastPortSearch] = useState('');
   const [nextPortSearch, setNextPortSearch] = useState('');
   const [disPortSearch, setDisPortSearch] = useState('');
+  const [externalPortSearch, setExternalPortSearch] = useState('');
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate>
@@ -272,6 +274,27 @@ export function NominationForm({
               </Grid.Col>
             </Grid>
 
+            {/* Branch */}
+            <Grid>
+              <Grid.Col span={6}>
+                <Controller
+                  name="branchId"
+                  control={control}
+                  render={({ field, fieldState }) => (
+                    <EntityPicker
+                      endpoint="/master-data/branches"
+                      label="Branch (Sucursal)"
+                      value={field.value ?? null}
+                      onChange={field.onChange}
+                      searchValue={branchSearch}
+                      onSearchChange={setBranchSearch}
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+              </Grid.Col>
+            </Grid>
+
             <Grid>
               <Grid.Col span={6}>
                 <TextInput
@@ -390,6 +413,25 @@ export function NominationForm({
                 />
               </Grid.Col>
             </Grid>
+            <Grid>
+              <Grid.Col span={4}>
+                <Controller
+                  name="externalPortId"
+                  control={control}
+                  render={({ field, fieldState }) => (
+                    <EntityPicker
+                      endpoint="/master-data/ports"
+                      label="External Port"
+                      value={field.value ?? null}
+                      onChange={field.onChange}
+                      searchValue={externalPortSearch}
+                      onSearchChange={setExternalPortSearch}
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+              </Grid.Col>
+            </Grid>
           </Stack>
         </Fieldset>
 
@@ -461,6 +503,22 @@ export function NominationForm({
                 )}
               />
             </Grid.Col>
+            <Grid.Col span={6}>
+              <Controller
+                name="nomReply"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <DatePickerInput
+                    label="Nom. Reply (UTC)"
+                    disabled={isReadOnly}
+                    value={field.value instanceof Date ? field.value : null}
+                    onChange={(val) => field.onChange(val)}
+                    error={fieldState.error?.message}
+                    clearable
+                  />
+                )}
+              />
+            </Grid.Col>
           </Grid>
         </Fieldset>
 
@@ -519,6 +577,24 @@ export function NominationForm({
                 disabled={isReadOnly}
                 error={formState.errors.inspector?.message}
                 {...register('inspector')}
+              />
+            </Grid.Col>
+            <Grid.Col span={6}>
+              <TextInput
+                label="Mobile on Board"
+                placeholder="e.g. +1 555 0100"
+                disabled={isReadOnly}
+                error={formState.errors.mobileOnBoard?.message}
+                {...register('mobileOnBoard')}
+              />
+            </Grid.Col>
+            <Grid.Col span={6}>
+              <TextInput
+                label="Reference N°"
+                placeholder="Reference number"
+                disabled={isReadOnly}
+                error={formState.errors.referenceNo?.message}
+                {...register('referenceNo')}
               />
             </Grid.Col>
           </Grid>
