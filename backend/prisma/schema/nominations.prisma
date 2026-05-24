@@ -59,6 +59,17 @@ model Nomination {
   agentId String?
   agent   Agent?  @relation(fields: [agentId], references: [id], onDelete: Restrict)
 
+  // Branch (Sucursal) — resolves Open Question #5; screenshot confirms dropdown FK
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  // Supplementary fields from legacy General Info tab
+  nomReply       DateTime? @db.Timestamptz(6)   // "Nom. Reply" — date nomination was acknowledged
+  externalPortId String?
+  externalPort   Port? @relation("NominationExternalPort", fields: [externalPortId], references: [id], onDelete: Restrict)
+  mobileOnBoard  String?   // mobile number for person on board
+  referenceNo    String?   // "Reference N°" free-text
+
   contactBlackBerry String?
   blindCopy         String?
 
@@ -114,6 +125,9 @@ model Nomination {
   // SH-xx back-relations (M5)
   shDocuments SHDocument[]
 
+  // Client list back-relation (M6)
+  nominationClients NominationClient[]
+
   @@index([status])
   @@index([shipParticularId])
   @@index([dateNominated])
@@ -136,4 +150,26 @@ model NominationStatusHistory {
 
   @@index([nominationId, createdAt])
   @@map("nomination_status_history")
+}
+
+// ---------------------------------------------------------------------------
+// NominationClient — CLIENT LIST rows on a nomination
+// Represents the Type / Name / Voy / Ref No / Broker table from the legacy UI.
+// One nomination can have many client entries (Time Charter, Receivers, etc.)
+// ---------------------------------------------------------------------------
+model NominationClient {
+  id           String     @id @default(uuid()) @db.Uuid
+  nominationId String     @db.Uuid
+  nomination   Nomination @relation(fields: [nominationId], references: [id], onDelete: Cascade)
+  type         String     // "Time Charter", "Receivers", etc. — free-text; no enum, client varies
+  name         String
+  voyageRef    String?
+  referenceNo  String?
+  broker       String?
+  sortOrder    Int        @default(0)
+  createdAt    DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime   @updatedAt @db.Timestamptz(6)
+
+  @@index([nominationId])
+  @@map("nomination_clients")
 }
