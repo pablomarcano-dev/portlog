@@ -21,6 +21,7 @@ import { ActionsPanel } from '../../../features/nominations/components/ActionsPa
 import { useNomination } from '../../../features/nominations/hooks/useNomination';
 import { useUpdateNomination } from '../../../features/nominations/hooks/useUpdateNomination';
 import { usePedrByNomination } from '../../../features/nominations/api/usePedrByNomination';
+import { DocumentsTabs } from '../../../features/sh-documents';
 import type { NominationCreateInput, NominationStatus } from '@portlog/schemas';
 
 export const Route = createFileRoute('/_protected/nominations/$id')({
@@ -165,6 +166,14 @@ function NominationDetailPage() {
               isSubmitting={updateNomination.isPending}
               isReadOnly={isReadOnly}
             />
+
+            <Divider />
+
+            {/* Documents section — SH-xx forms */}
+            <Stack gap="xs">
+              <Title order={5}>Documentos</Title>
+              <DocumentsTabs nominationId={id} />
+            </Stack>
           </Stack>
         </Container>
       </Box>
