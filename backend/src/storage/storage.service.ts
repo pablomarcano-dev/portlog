@@ -4,10 +4,10 @@ import * as Minio from 'minio';
 import { type PedrStage } from '@portlog/schemas';
 
 const STAGE_FOLDER: Record<PedrStage, string> = {
-  PREARRIBO: '01-prearribo',
-  ATENCION: '02-atencion',
-  DESPACHO: '03-despacho',
-  CIERRE: '04-cierre',
+  PRE_ARRIVAL: '01-pre-arrival',
+  ATTENDING: '02-attending',
+  DISPATCH: '03-dispatch',
+  CLOSING: '04-closing',
 };
 
 @Injectable()

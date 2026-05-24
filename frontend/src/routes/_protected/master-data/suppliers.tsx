@@ -36,16 +36,16 @@ function SuppliersScreen() {
     const supplier = await suppliersApi.get(id);
     return {
       name: supplier.name,
-      contactos: supplier.contactos ?? undefined,
-      direccion: supplier.direccion ?? undefined,
-      servicios: supplier.servicios ?? undefined,
+      contacts: supplier.contacts ?? undefined,
+      address: supplier.address ?? undefined,
+      services: supplier.services ?? undefined,
       kyc: supplier.kyc ?? undefined,
-      telefonos: supplier.telefonos ?? undefined,
-      correosElectronicos: supplier.correosElectronicos ?? undefined,
-      certificados: supplier.certificados ?? undefined,
-      tarifas: supplier.tarifas ?? undefined,
-      contratoDeServicios: supplier.contratoDeServicios ?? undefined,
-      acuerdos: supplier.acuerdos ?? undefined,
+      phones: supplier.phones ?? undefined,
+      emails: supplier.emails ?? undefined,
+      certificates: supplier.certificates ?? undefined,
+      rates: supplier.rates ?? undefined,
+      serviceContract: supplier.serviceContract ?? undefined,
+      agreements: supplier.agreements ?? undefined,
       comments: supplier.comments ?? undefined,
     };
   }, []);
@@ -101,18 +101,18 @@ function SupplierFields({
         {...form.register('name')}
       />
       <TextInput
-        label="Address / Dirección"
+        label="Address"
         placeholder="Full mailing address"
-        error={form.formState.errors.direccion?.message}
-        {...form.register('direccion')}
+        error={form.formState.errors.address?.message}
+        {...form.register('address')}
       />
       <Textarea
-        label="Services / Servicios"
+        label="Services"
         placeholder="Types of services provided"
         autosize
         minRows={3}
-        error={form.formState.errors.servicios?.message}
-        {...form.register('servicios')}
+        error={form.formState.errors.services?.message}
+        {...form.register('services')}
       />
       <Textarea
         label="KYC"
@@ -123,56 +123,56 @@ function SupplierFields({
         {...form.register('kyc')}
       />
       <TextInput
-        label="Phones / Teléfonos"
+        label="Phones"
         placeholder="e.g. +1 555 0100, +1 555 0101"
-        error={form.formState.errors.telefonos?.message}
-        {...form.register('telefonos')}
+        error={form.formState.errors.phones?.message}
+        {...form.register('phones')}
       />
       <TextInput
-        label="Emails / Correos Electrónicos"
+        label="Emails"
         placeholder="e.g. ops@acme.com, billing@acme.com"
-        error={form.formState.errors.correosElectronicos?.message}
-        {...form.register('correosElectronicos')}
+        error={form.formState.errors.emails?.message}
+        {...form.register('emails')}
       />
       <Textarea
-        label="Certificates / Certificados"
+        label="Certificates"
         placeholder="Certifications and compliance documents"
         autosize
         minRows={3}
-        error={form.formState.errors.certificados?.message}
-        {...form.register('certificados')}
+        error={form.formState.errors.certificates?.message}
+        {...form.register('certificates')}
       />
       <Textarea
-        label="Rates / Tarifas"
+        label="Rates"
         placeholder="Rate schedules and pricing"
         autosize
         minRows={3}
-        error={form.formState.errors.tarifas?.message}
-        {...form.register('tarifas')}
+        error={form.formState.errors.rates?.message}
+        {...form.register('rates')}
       />
       <Textarea
-        label="Service Contract / Contrato de Servicios"
+        label="Service Contract"
         placeholder="Contract terms and references"
         autosize
         minRows={3}
-        error={form.formState.errors.contratoDeServicios?.message}
-        {...form.register('contratoDeServicios')}
+        error={form.formState.errors.serviceContract?.message}
+        {...form.register('serviceContract')}
       />
       <Textarea
-        label="Agreements / Acuerdos"
+        label="Agreements"
         placeholder="Side agreements and MOUs"
         autosize
         minRows={3}
-        error={form.formState.errors.acuerdos?.message}
-        {...form.register('acuerdos')}
+        error={form.formState.errors.agreements?.message}
+        {...form.register('agreements')}
       />
       <Textarea
-        label="Contacts / Contactos"
+        label="Contacts"
         placeholder="Key contacts and roles"
         autosize
         minRows={3}
-        error={form.formState.errors.contactos?.message}
-        {...form.register('contactos')}
+        error={form.formState.errors.contacts?.message}
+        {...form.register('contacts')}
       />
       <Textarea
         label="Comments"

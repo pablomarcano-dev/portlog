@@ -4,7 +4,9 @@ import { apiRequest } from '../../lib/api/client';
 
 interface EntityItem {
   id: string;
-  name: string;
+  name?: string;
+  // Some entities (e.g. Owner) use a backend-computed `label` field instead of `name`
+  label?: string;
 }
 
 interface EntityListResponse {
@@ -52,7 +54,7 @@ export function EntityPicker({
 
   const selectData = (data?.items ?? []).map((item) => ({
     value: item.id,
-    label: item.name,
+    label: item.label ?? item.name ?? item.id,
   }));
 
   return (

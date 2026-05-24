@@ -91,7 +91,7 @@ export class PedrService {
       const pedr = await tx.pedr.create({
         data: {
           nominationId,
-          currentStage: 'PREARRIBO',
+          currentStage: 'PRE_ARRIVAL',
           createdById: userId,
         },
         include: DETAIL_INCLUDE,
@@ -101,7 +101,7 @@ export class PedrService {
         data: {
           pedrId: pedr.id,
           fromStage: null,
-          toStage: 'PREARRIBO',
+          toStage: 'PRE_ARRIVAL',
           changedById: userId,
         },
       });

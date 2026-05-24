@@ -8,23 +8,23 @@ import type { OwnerCreateInput, OwnerUpdateInput, OwnerListQuery } from '@portlo
 
 export interface OwnerRecord {
   id: string;
-  nombre: string;
-  listadoContacto?: string | null;
-  cantidad?: number | null;
-  numeroContacto?: string | null;
-  direccionFisica?: string | null;
-  telefonos?: string | null;
-  direccion?: string | null;
-  cargo?: string | null;
-  redesSociales?: string | null;
-  comentarios?: string | null;
-  cumpleanos?: string | null;
-  gustos?: string | null;
-  recomendaciones?: string | null;
+  name: string;
+  contactList?: string | null;
+  quantity?: number | null;
+  contactNumber?: string | null;
+  physicalAddress?: string | null;
+  phones?: string | null;
+  address?: string | null;
+  position?: string | null;
+  socialMedia?: string | null;
+  notes?: string | null;
+  birthday?: string | null;
+  preferences?: string | null;
+  recommendations?: string | null;
   business?: string | null;
   webpage?: string | null;
   // Financial fields — only present when caller has owner.financial permission
-  acuerdos?: string | null;
+  agreements?: string | null;
   historyJson?: Record<string, unknown> | null;
   comments?: string | null;
   label: string;

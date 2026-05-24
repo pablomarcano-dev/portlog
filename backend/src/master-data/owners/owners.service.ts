@@ -5,7 +5,7 @@ import { AuditService } from '../../audit/audit.service.js';
 import type { OwnerCreateInput, OwnerUpdateInput, OwnerListQuery } from '@portlog/schemas';
 
 // Fields that are gated by the "owner.financial" permission.
-const SENSITIVE_FIELDS = ['acuerdos', 'historyJson'] as const;
+const SENSITIVE_FIELDS = ['agreements', 'historyJson'] as const;
 
 type OwnerCtx = { userId: string; ip?: string };
 
@@ -26,20 +26,20 @@ export class OwnersService {
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       where: q
         ? {
-            nombre: {
+            name: {
               contains: q,
               mode: 'insensitive',
             },
           }
         : undefined,
-      orderBy: { nombre: 'asc' },
+      orderBy: { name: 'asc' },
       select: {
         id: true,
-        nombre: true,
-        direccionFisica: true,
-        telefonos: true,
-        direccion: true,
-        comentarios: true,
+        name: true,
+        physicalAddress: true,
+        phones: true,
+        address: true,
+        notes: true,
         comments: true,
       },
     });
@@ -49,7 +49,7 @@ export class OwnersService {
     const nextCursor = hasMore ? (page[page.length - 1]?.id ?? null) : null;
 
     return {
-      items: page.map((o) => ({ ...o, label: o.nombre })),
+      items: page.map((o) => ({ ...o, label: o.name })),
       nextCursor,
       hasMore,
     };
@@ -65,7 +65,7 @@ export class OwnersService {
     if (!requesterPermissions.includes('owner.financial')) {
       // Strip sensitive financial fields before returning
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { acuerdos: _acuerdos, historyJson: _historyJson, ...safe } = owner;
+      const { agreements: _agreements, historyJson: _historyJson, ...safe } = owner;
       return safe;
     }
 
@@ -114,11 +114,11 @@ export class OwnersService {
   async search(q: string) {
     const items = await this.prisma.owner.findMany({
       take: 20,
-      where: { nombre: { contains: q, mode: 'insensitive' } },
-      orderBy: { nombre: 'asc' },
-      select: { id: true, nombre: true },
+      where: { name: { contains: q, mode: 'insensitive' } },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
     });
-    return items.map((o) => ({ id: o.id, label: o.nombre }));
+    return items.map((o) => ({ id: o.id, label: o.name }));
   }
 
   private async assertExists(id: string): Promise<void> {

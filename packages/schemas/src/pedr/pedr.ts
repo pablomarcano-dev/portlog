@@ -3,11 +3,11 @@ import { z } from 'zod';
 // ---------------------------------------------------------------------------
 // PedrStage enum
 // ---------------------------------------------------------------------------
-export const pedrStageSchema = z.enum(['PREARRIBO', 'ATENCION', 'DESPACHO', 'CIERRE']);
+export const pedrStageSchema = z.enum(['PRE_ARRIVAL', 'ATTENDING', 'DISPATCH', 'CLOSING']);
 export type PedrStage = z.infer<typeof pedrStageSchema>;
 
 // Stage ordering for forward-only transition validation
-const STAGE_ORDER: PedrStage[] = ['PREARRIBO', 'ATENCION', 'DESPACHO', 'CIERRE'];
+const STAGE_ORDER: PedrStage[] = ['PRE_ARRIVAL', 'ATTENDING', 'DISPATCH', 'CLOSING'];
 
 /**
  * Returns true only if `to` is the immediate next stage after `from`.

@@ -96,10 +96,10 @@ export function useFleet(unlocode: string | null | undefined): UseFleetResult {
   });
 
   const zarpeMutation = useMutation({
-    mutationFn: ({ imo, zarpeSince }: { imo: string; zarpeSince: number | null }) =>
+    mutationFn: ({ imo, departureSince }: { imo: string; departureSince: number | null }) =>
       apiRequest<void>(`/fleet/${imo}`, {
         method: 'PATCH',
-        body: JSON.stringify({ unlocode, zarpeSince }),
+        body: JSON.stringify({ unlocode, departureSince }),
       }),
     onSuccess: invalidate,
   });
@@ -130,8 +130,8 @@ export function useFleet(unlocode: string | null | undefined): UseFleetResult {
     (imo) => {
       if (!unlocode) return;
       const entry = entriesRef.current.find((e) => e.imo === imo);
-      if (!entry || entry.zarpeSince) return;
-      zarpeMutation.mutate({ imo, zarpeSince: Date.now() });
+      if (!entry || entry.departureSince) return;
+      zarpeMutation.mutate({ imo, departureSince: Date.now() });
     },
     [unlocode, zarpeMutation],
   );
@@ -140,8 +140,8 @@ export function useFleet(unlocode: string | null | undefined): UseFleetResult {
     (imo) => {
       if (!unlocode) return;
       const entry = entriesRef.current.find((e) => e.imo === imo);
-      if (!entry || !entry.zarpeSince) return;
-      zarpeMutation.mutate({ imo, zarpeSince: null });
+      if (!entry || !entry.departureSince) return;
+      zarpeMutation.mutate({ imo, departureSince: null });
     },
     [unlocode, zarpeMutation],
   );

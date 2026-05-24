@@ -17,10 +17,10 @@
 // ---------------------------------------------------------------------------
 
 enum PedrStage {
-  PREARRIBO
-  ATENCION
-  DESPACHO
-  CIERRE
+  PRE_ARRIVAL
+  ATTENDING
+  DISPATCH
+  CLOSING
 }
 
 enum PedrSubDocumentType {
@@ -65,7 +65,7 @@ model Pedr {
   nominationId String    @unique @db.Uuid
   nomination   Nomination @relation(fields: [nominationId], references: [id], onDelete: Restrict)
 
-  currentStage PedrStage @default(PREARRIBO)
+  currentStage PedrStage @default(PRE_ARRIVAL)
 
   // ADM-editable free-text checklist / requirements per stage
   requirements String?   @db.Text

@@ -31,7 +31,7 @@ function OwnersScreen() {
     ...listQuery,
     data: listQuery.data
       ? {
-          items: listQuery.data.items.map((o): ListItem => ({ id: o.id, label: o.nombre })),
+          items: listQuery.data.items.map((o): ListItem => ({ id: o.id, label: o.name })),
         }
       : undefined,
   } as Parameters<typeof MasterDetailShell>[0]['listQuery'];
@@ -39,23 +39,25 @@ function OwnersScreen() {
   const loadById = useCallback(async (id: string): Promise<OwnerCreateInput> => {
     const owner = await ownersApi.get(id);
     return {
-      nombre: owner.nombre,
-      listadoContacto: owner.listadoContacto ?? undefined,
-      cantidad: owner.cantidad ?? undefined,
-      numeroContacto: owner.numeroContacto ?? undefined,
-      direccionFisica: owner.direccionFisica ?? undefined,
-      telefonos: owner.telefonos ?? undefined,
-      direccion: owner.direccion ?? undefined,
-      cargo: owner.cargo ?? undefined,
-      redesSociales: owner.redesSociales ?? undefined,
-      comentarios: owner.comentarios ?? undefined,
-      cumpleanos: owner.cumpleanos ?? undefined,
-      gustos: owner.gustos ?? undefined,
-      recomendaciones: owner.recomendaciones ?? undefined,
+      name: owner.name,
+      contactList: owner.contactList ?? undefined,
+      quantity: owner.quantity ?? undefined,
+      contactNumber: owner.contactNumber ?? undefined,
+      physicalAddress: owner.physicalAddress ?? undefined,
+      phones: owner.phones ?? undefined,
+      address: owner.address ?? undefined,
+      position: owner.position ?? undefined,
+      socialMedia: owner.socialMedia ?? undefined,
+      notes: owner.notes ?? undefined,
+      birthday: owner.birthday ?? undefined,
+      preferences: owner.preferences ?? undefined,
+      recommendations: owner.recommendations ?? undefined,
       business: owner.business ?? undefined,
       webpage: owner.webpage ?? undefined,
-      acuerdos: owner.acuerdos ?? undefined,
-      historyJson: owner.historyJson ?? undefined,
+      agreements: owner.agreements ?? undefined,
+      historyJson: owner.historyJson
+        ? (JSON.stringify(owner.historyJson, null, 2) as unknown as Record<string, unknown>)
+        : undefined,
       comments: owner.comments ?? undefined,
     };
   }, []);
@@ -107,64 +109,64 @@ function OwnerFields({
     <Stack gap="sm">
       {/* Personal block */}
       <TextInput
-        label="Nombre"
+        label="Name"
         placeholder="e.g. Armadores del Pacífico SA"
         required
-        error={form.formState.errors.nombre?.message}
-        {...form.register('nombre')}
+        error={form.formState.errors.name?.message}
+        {...form.register('name')}
       />
       <TextInput
-        label="Dirección Física"
-        placeholder="Dirección física"
-        error={form.formState.errors.direccionFisica?.message}
-        {...form.register('direccionFisica')}
+        label="Physical Address"
+        placeholder="Physical address"
+        error={form.formState.errors.physicalAddress?.message}
+        {...form.register('physicalAddress')}
       />
       <TextInput
-        label="Dirección (correspondencia)"
-        placeholder="Dirección postal"
-        error={form.formState.errors.direccion?.message}
-        {...form.register('direccion')}
+        label="Address (correspondence)"
+        placeholder="Mailing address"
+        error={form.formState.errors.address?.message}
+        {...form.register('address')}
       />
       <TextInput
-        label="Teléfonos"
+        label="Phones"
         placeholder="+1 555 0100"
-        error={form.formState.errors.telefonos?.message}
-        {...form.register('telefonos')}
+        error={form.formState.errors.phones?.message}
+        {...form.register('phones')}
       />
       <TextInput
-        label="Número de Contacto"
-        placeholder="Número de contacto principal"
-        error={form.formState.errors.numeroContacto?.message}
-        {...form.register('numeroContacto')}
+        label="Contact Number"
+        placeholder="Primary contact number"
+        error={form.formState.errors.contactNumber?.message}
+        {...form.register('contactNumber')}
       />
       <TextInput
-        label="Listado de Contacto"
-        placeholder="Listado de contacto"
-        error={form.formState.errors.listadoContacto?.message}
-        {...form.register('listadoContacto')}
+        label="Contact List"
+        placeholder="Contact list"
+        error={form.formState.errors.contactList?.message}
+        {...form.register('contactList')}
       />
 
       {/* CRM block */}
       <TextInput
-        label="Cumpleaños"
+        label="Birthday"
         placeholder="dd/mm/yyyy"
-        error={form.formState.errors.cumpleanos?.message}
-        {...form.register('cumpleanos')}
+        error={form.formState.errors.birthday?.message}
+        {...form.register('birthday')}
       />
       <Textarea
-        label="Gustos"
-        placeholder="Preferencias y gustos"
+        label="Preferences"
+        placeholder="Preferences and interests"
         autosize
         minRows={2}
-        error={form.formState.errors.gustos?.message}
-        {...form.register('gustos')}
+        error={form.formState.errors.preferences?.message}
+        {...form.register('preferences')}
       />
       <Textarea
-        label="Recomendaciones"
+        label="Recommendations"
         autosize
         minRows={2}
-        error={form.formState.errors.recomendaciones?.message}
-        {...form.register('recomendaciones')}
+        error={form.formState.errors.recommendations?.message}
+        {...form.register('recommendations')}
       />
       <Textarea
         label="Business"
@@ -183,15 +185,15 @@ function OwnerFields({
       {/* Sensitive CRM — gated by owner.financial */}
       {hasFinancialPermission ? (
         <Textarea
-          label="Acuerdos"
-          placeholder="Acuerdos financieros"
+          label="Agreements"
+          placeholder="Financial agreements"
           autosize
           minRows={3}
-          error={form.formState.errors.acuerdos?.message}
-          {...form.register('acuerdos')}
+          error={form.formState.errors.agreements?.message}
+          {...form.register('agreements')}
         />
       ) : (
-        <Alert color="yellow" title="Acuerdos">
+        <Alert color="yellow" title="Agreements">
           Requires owner.financial permission to view or edit.
         </Alert>
       )}
@@ -199,7 +201,7 @@ function OwnerFields({
       {/* History block — gated by owner.financial */}
       {hasFinancialPermission ? (
         <Textarea
-          label="Historial (Buques / OTs / Factura / Pagos)"
+          label="History (Vessels / OTs / Invoice / Payments)"
           placeholder='{"buques": [], "ots": []}'
           autosize
           minRows={4}
@@ -207,18 +209,18 @@ function OwnerFields({
           {...form.register('historyJson')}
         />
       ) : (
-        <Alert color="yellow" title="Historial (Buques / OTs / Factura / Pagos)">
+        <Alert color="yellow" title="History (Vessels / OTs / Invoice / Payments)">
           Requires owner.financial permission to view or edit.
         </Alert>
       )}
 
       <Textarea
-        label="Comentarios"
-        placeholder="Comentarios internos"
+        label="Notes"
+        placeholder="Internal notes (legacy field)"
         autosize
         minRows={2}
-        error={form.formState.errors.comentarios?.message}
-        {...form.register('comentarios')}
+        error={form.formState.errors.notes?.message}
+        {...form.register('notes')}
       />
       <Textarea
         label="Comments"

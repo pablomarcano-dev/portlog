@@ -11,22 +11,22 @@ import { AuditService } from '../../audit/audit.service.js';
 
 const mockOwnerBase = {
   id: 'owner-cuid-1',
-  nombre: 'Armadores SA',
-  listadoContacto: null,
-  cantidad: null,
-  numeroContacto: null,
-  direccionFisica: '1 Port Ave',
-  telefonos: '+1 555 0100',
-  direccion: null,
-  cargo: null,
-  redesSociales: null,
-  comentarios: null,
-  cumpleanos: null,
-  gustos: null,
-  recomendaciones: null,
+  name: 'Armadores SA',
+  contactList: null,
+  quantity: null,
+  contactNumber: null,
+  physicalAddress: '1 Port Ave',
+  phones: '+1 555 0100',
+  address: null,
+  position: null,
+  socialMedia: null,
+  notes: null,
+  birthday: null,
+  preferences: null,
+  recommendations: null,
   business: null,
   webpage: null,
-  acuerdos: 'Confidential agreement text',
+  agreements: 'Confidential agreement text',
   historyJson: { buques: [] },
   comments: null,
   createdAt: new Date(),
@@ -77,9 +77,9 @@ describe('OwnersService', () => {
 
       const result = await service.findById('owner-cuid-1', []);
 
-      expect(result).not.toHaveProperty('acuerdos');
+      expect(result).not.toHaveProperty('agreements');
       expect(result).not.toHaveProperty('historyJson');
-      expect((result as { nombre: string }).nombre).toBe('Armadores SA');
+      expect((result as { name: string }).name).toBe('Armadores SA');
     });
 
     it('returns the full owner record when caller has owner.financial', async () => {
@@ -87,7 +87,7 @@ describe('OwnersService', () => {
 
       const result = await service.findById('owner-cuid-1', ['owner.financial']);
 
-      expect(result).toHaveProperty('acuerdos', 'Confidential agreement text');
+      expect(result).toHaveProperty('agreements', 'Confidential agreement text');
       expect(result).toHaveProperty('historyJson');
     });
   });
@@ -101,7 +101,7 @@ describe('OwnersService', () => {
       mockAudit.record.mockResolvedValue(undefined);
 
       await expect(
-        service.update('owner-cuid-1', { acuerdos: 'new agreement' }, [], { userId: 'user-1' }),
+        service.update('owner-cuid-1', { agreements: 'new agreement' }, [], { userId: 'user-1' }),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -110,7 +110,7 @@ describe('OwnersService', () => {
       mockAudit.record.mockResolvedValue(undefined);
 
       await expect(
-        service.update('owner-cuid-1', { acuerdos: 'new agreement' }, [], {
+        service.update('owner-cuid-1', { agreements: 'new agreement' }, [], {
           userId: 'user-1',
           ip: '127.0.0.1',
         }),

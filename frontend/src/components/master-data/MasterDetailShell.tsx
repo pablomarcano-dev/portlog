@@ -53,7 +53,7 @@ import { notifications } from '@mantine/notifications';
 import { useForm, FormProvider } from 'react-hook-form';
 import type { UseFormReturn, FieldValues } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { ZodSchema } from 'zod';
+import type { ZodType, ZodTypeDef } from 'zod';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useCurrentUser } from '../../lib/auth/queries';
 import { FlashSearch } from './FlashSearch';
@@ -70,7 +70,7 @@ export interface MasterDetailShellProps<TForm extends FieldValues> {
   /** Unique key for this entity type — used for query keys and aria labels. */
   entityKey: string;
   /** Zod schema for the form. Must include an optional `comments` field. */
-  schema: ZodSchema<TForm>;
+  schema: ZodType<TForm, ZodTypeDef, unknown>;
   /** TanStack Query result providing the full list of records. */
   listQuery: UseQueryResult<{ items: ListItem[] }>;
   /** Currently selected record id, or null if none selected / new record. */

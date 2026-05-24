@@ -8,13 +8,13 @@ function toEntry(v: {
   imo: string;
   name: string | null;
   addedAt: Date;
-  zarpeSince: Date | null;
+  departureSince: Date | null;
 }): FleetEntry {
   return {
     imo: v.imo,
     ...(v.name != null ? { name: v.name } : {}),
     addedAt: v.addedAt.getTime(),
-    ...(v.zarpeSince != null ? { zarpeSince: v.zarpeSince.getTime() } : {}),
+    ...(v.departureSince != null ? { departureSince: v.departureSince.getTime() } : {}),
   };
 }
 
@@ -26,13 +26,13 @@ export class FleetService {
     // Prune stale zarpe entries on every list call
     const cutoff = new Date(Date.now() - ZARPE_PRUNE_TTL_MS);
     await this.prisma.fleetVessel.deleteMany({
-      where: { userId, portUnlocode: unlocode, zarpeSince: { lt: cutoff } },
+      where: { userId, portUnlocode: unlocode, departureSince: { lt: cutoff } },
     });
 
     const rows = await this.prisma.fleetVessel.findMany({
       where: { userId, portUnlocode: unlocode },
       orderBy: { addedAt: 'asc' },
-      select: { imo: true, name: true, addedAt: true, zarpeSince: true },
+      select: { imo: true, name: true, addedAt: true, departureSince: true },
     });
 
     return rows.map(toEntry);
@@ -53,7 +53,7 @@ export class FleetService {
 
     const rows = await this.prisma.fleetVessel.findMany({
       where: { userId, portUnlocode: unlocode, imo: { in: imos } },
-      select: { imo: true, name: true, addedAt: true, zarpeSince: true },
+      select: { imo: true, name: true, addedAt: true, departureSince: true },
     });
 
     return rows.map(toEntry);
@@ -75,11 +75,11 @@ export class FleetService {
     userId: string,
     unlocode: string,
     imo: string,
-    zarpeSince: number | null,
+    departureSince: number | null,
   ): Promise<void> {
     await this.prisma.fleetVessel.updateMany({
       where: { userId, portUnlocode: unlocode, imo },
-      data: { zarpeSince: zarpeSince != null ? new Date(zarpeSince) : null },
+      data: { departureSince: departureSince != null ? new Date(departureSince) : null },
     });
   }
 }

@@ -173,31 +173,31 @@ model Operator {
 // ---------------------------------------------------------------------------
 // Owner — vessel owners
 // Contains CRM and financial fields.
-// Access to acuerdos + historyJson is gated by the "owner.financial" permission
+// Access to agreements + historyJson is gated by the "owner.financial" permission
 // (enforced in the service layer — guard implementation is in M2-S12).
-// comentarios: free-text separate from the standard comments field (per legacy form).
+// notes: free-text separate from the standard comments field (per legacy form).
 // historyJson: JSON blob for Buques/OTs/Factura/PagosRecibidos — full normalization deferred.
 // ---------------------------------------------------------------------------
 model Owner {
   id              String   @id @default(cuid())
-  listadoContacto String?
-  cantidad        Int?
-  numeroContacto  String?
-  nombre          String
-  direccionFisica String?
-  telefonos       String?
-  direccion       String?
-  cargo           String?
-  redesSociales   String?
+  contactList     String?
+  quantity        Int?
+  contactNumber   String?
+  name            String
+  physicalAddress String?
+  phones          String?
+  address         String?
+  position        String?
+  socialMedia     String?
   // Free-text CRM field separate from the standard `comments` column (per legacy form spec)
-  comentarios     String?  @db.Text
-  cumpleanos      String?
-  gustos          String?  @db.Text
-  recomendaciones String?  @db.Text
+  notes           String?  @db.Text
+  birthday        String?
+  preferences     String?  @db.Text
+  recommendations String?  @db.Text
   business        String?  @db.Text
   webpage         String?
   // Financial fields — access gated by "owner.financial" permission (M2-S12)
-  acuerdos        String?  @db.Text
+  agreements      String?  @db.Text
   // JSON blob for Buques / OTs / Factura / PagosRecibidos history.
   // Full relational normalization deferred to a future milestone.
   historyJson     Json?
@@ -209,7 +209,7 @@ model Owner {
   shipParticulars ShipParticular[]
   nominations     Nomination[]
 
-  @@index([nombre])
+  @@index([name])
   @@map("owners")
 }
 
@@ -217,21 +217,21 @@ model Owner {
 // Supplier — service providers (Proveedores)
 // ---------------------------------------------------------------------------
 model Supplier {
-  id                  String   @id @default(cuid())
-  name                String
-  contactos           String?  @db.Text
-  direccion           String?
-  servicios           String?  @db.Text
-  kyc                 String?  @db.Text
-  telefonos           String?
-  correosElectronicos String?  @db.Text
-  certificados        String?  @db.Text
-  tarifas             String?  @db.Text
-  contratoDeServicios String?  @db.Text
-  acuerdos            String?  @db.Text
-  comments            String?  @db.Text
-  createdAt           DateTime @default(now()) @db.Timestamptz
-  updatedAt           DateTime @updatedAt @db.Timestamptz
+  id              String   @id @default(cuid())
+  name            String
+  contacts        String?  @db.Text
+  address         String?
+  services        String?  @db.Text
+  kyc             String?  @db.Text
+  phones          String?
+  emails          String?  @db.Text
+  certificates    String?  @db.Text
+  rates           String?  @db.Text
+  serviceContract String?  @db.Text
+  agreements      String?  @db.Text
+  comments        String?  @db.Text
+  createdAt       DateTime @default(now()) @db.Timestamptz
+  updatedAt       DateTime @updatedAt @db.Timestamptz
 
   @@index([name])
   @@map("suppliers")

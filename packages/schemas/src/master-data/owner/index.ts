@@ -1,28 +1,37 @@
 import { z } from 'zod';
 import { ListQuerySchema } from '../../common/pagination';
 
-// Owner has many Spanish-named fields matching the legacy form spec.
+// Owner fields.
 // historyJson: JSON blob for Buques / OTs / Factura / PagosRecibidos — full
 //   relational normalization deferred to a future milestone.
-// acuerdos: financial field, access gated by "owner.financial" permission (M2-S12).
+// agreements: financial field, access gated by "owner.financial" permission (M2-S12).
 export const OwnerCreateSchema = z.object({
-  nombre: z.string().min(1).max(120),
-  listadoContacto: z.string().min(1).max(120).optional(),
-  cantidad: z.number().int().nonnegative().optional(),
-  numeroContacto: z.string().min(1).max(50).optional(),
-  direccionFisica: z.string().min(1).max(500).optional(),
-  telefonos: z.string().min(1).max(200).optional(),
-  direccion: z.string().min(1).max(500).optional(),
-  cargo: z.string().min(1).max(120).optional(),
-  redesSociales: z.string().min(1).max(500).optional(),
-  comentarios: z.string().max(10_000).optional(),
-  cumpleanos: z.string().min(1).max(50).optional(),
-  gustos: z.string().max(10_000).optional(),
-  recomendaciones: z.string().max(10_000).optional(),
+  name: z.string().min(1).max(120),
+  contactList: z.string().min(1).max(120).optional(),
+  quantity: z.number().int().nonnegative().optional(),
+  contactNumber: z.string().min(1).max(50).optional(),
+  physicalAddress: z.string().min(1).max(500).optional(),
+  phones: z.string().min(1).max(200).optional(),
+  address: z.string().min(1).max(500).optional(),
+  position: z.string().min(1).max(120).optional(),
+  socialMedia: z.string().min(1).max(500).optional(),
+  notes: z.string().max(10_000).optional(),
+  birthday: z.string().min(1).max(50).optional(),
+  preferences: z.string().max(10_000).optional(),
+  recommendations: z.string().max(10_000).optional(),
   business: z.string().max(10_000).optional(),
   webpage: z.string().url().optional(),
-  acuerdos: z.string().max(10_000).optional(),
-  historyJson: z.record(z.unknown()).optional(),
+  agreements: z.string().max(10_000).optional(),
+  historyJson: z.preprocess((v) => {
+    if (typeof v !== 'string') return v;
+    const t = v.trim();
+    if (!t) return undefined;
+    try {
+      return JSON.parse(t);
+    } catch {
+      return v;
+    }
+  }, z.record(z.unknown()).optional()),
   comments: z.string().max(10_000).optional(),
 });
 

@@ -9,16 +9,16 @@ import type { SupplierCreateInput, SupplierUpdateInput, SupplierListQuery } from
 export interface SupplierRecord {
   id: string;
   name: string;
-  contactos?: string | null;
-  direccion?: string | null;
-  servicios?: string | null;
+  contacts?: string | null;
+  address?: string | null;
+  services?: string | null;
   kyc?: string | null;
-  telefonos?: string | null;
-  correosElectronicos?: string | null;
-  certificados?: string | null;
-  tarifas?: string | null;
-  contratoDeServicios?: string | null;
-  acuerdos?: string | null;
+  phones?: string | null;
+  emails?: string | null;
+  certificates?: string | null;
+  rates?: string | null;
+  serviceContract?: string | null;
+  agreements?: string | null;
   comments?: string | null;
   label: string;
 }

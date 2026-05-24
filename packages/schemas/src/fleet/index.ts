@@ -9,7 +9,7 @@ export type AddFleetVesselsInput = z.infer<typeof addFleetVesselsSchema>;
 
 export const updateFleetVesselSchema = z.object({
   unlocode: z.string().min(1),
-  zarpeSince: z.number().nullable(),
+  departureSince: z.number().nullable(),
 });
 
 export type UpdateFleetVesselInput = z.infer<typeof updateFleetVesselSchema>;

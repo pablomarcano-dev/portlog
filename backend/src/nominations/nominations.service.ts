@@ -16,8 +16,6 @@ import {
   type NominationListQuery,
 } from '@portlog/schemas';
 
-// Owner model uses 'nombre' (not 'name') — it pre-dates the M2 naming convention.
-
 function formatSnOt(correlative: number, dateNominated: Date): string {
   const yy = String(dateNominated.getFullYear()).slice(-2);
   return `SN-${yy}/${String(correlative).padStart(4, '0')}`;
@@ -29,7 +27,7 @@ const DETAIL_INCLUDE = {
   },
   operator: { select: { id: true, name: true } },
   charter: { select: { id: true, name: true } },
-  owner: { select: { id: true, nombre: true } },
+  owner: { select: { id: true, name: true } },
   shipper: { select: { id: true, name: true } },
   agent: { select: { id: true, name: true } },
   opPort: { select: { id: true, name: true, abbreviation: true } },

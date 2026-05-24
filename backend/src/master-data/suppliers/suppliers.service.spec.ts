@@ -10,16 +10,16 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 const mockSupplier = {
   id: 'supplier-cuid-1',
   name: 'Acme Suppliers S.A.',
-  contactos: null,
-  direccion: 'Calle Puerto 123',
-  servicios: 'Stevedoring, pilotage',
+  contacts: null,
+  address: 'Calle Puerto 123',
+  services: 'Stevedoring, pilotage',
   kyc: null,
-  telefonos: '+1 555 0200',
-  correosElectronicos: null,
-  certificados: null,
-  tarifas: null,
-  contratoDeServicios: null,
-  acuerdos: null,
+  phones: '+1 555 0200',
+  emails: null,
+  certificates: null,
+  rates: null,
+  serviceContract: null,
+  agreements: null,
   comments: null,
   label: 'Acme Suppliers S.A.',
 };
@@ -114,12 +114,12 @@ describe('SuppliersService', () => {
       mockPrisma.supplier.findUnique.mockResolvedValue(mockSupplier);
       mockPrisma.supplier.update.mockResolvedValue({
         ...mockSupplier,
-        direccion: 'Avenida Nueva 456',
+        address: 'Avenida Nueva 456',
       });
 
-      const result = await service.update('supplier-cuid-1', { direccion: 'Avenida Nueva 456' });
+      const result = await service.update('supplier-cuid-1', { address: 'Avenida Nueva 456' });
 
-      expect(result.direccion).toBe('Avenida Nueva 456');
+      expect(result.address).toBe('Avenida Nueva 456');
     });
 
     it('throws NotFoundException when supplier does not exist', async () => {

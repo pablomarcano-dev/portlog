@@ -6,7 +6,7 @@ model FleetVessel {
   imo          String
   name         String?
   addedAt      DateTime  @default(now()) @db.Timestamptz
-  zarpeSince   DateTime? @db.Timestamptz
+  departureSince DateTime? @db.Timestamptz
 
   @@unique([userId, portUnlocode, imo])
   @@index([userId, portUnlocode])

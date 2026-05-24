@@ -56,6 +56,6 @@ export class FleetController {
     @Body(new ZodValidationPipe(updateFleetVesselSchema)) body: UpdateFleetVesselInput,
     @Req() req: { user: RequestUser },
   ) {
-    return this.svc.updateZarpe(req.user.sub, body.unlocode, imo, body.zarpeSince);
+    return this.svc.updateZarpe(req.user.sub, body.unlocode, imo, body.departureSince);
   }
 }

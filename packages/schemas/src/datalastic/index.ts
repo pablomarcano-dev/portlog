@@ -163,7 +163,7 @@ export const fleetEntrySchema = z.object({
   imo: z.string(),
   addedAt: z.number(),
   name: z.string().optional(),
-  zarpeSince: z.number().optional(),
+  departureSince: z.number().optional(),
 });
 
 export type FleetEntry = z.infer<typeof fleetEntrySchema>;

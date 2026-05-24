@@ -14,6 +14,8 @@ export function useCurrentUser() {
       const raw = await apiRequest<unknown>('/auth/me');
       return CurrentUserSchema.parse(raw);
     },
+    staleTime: 5 * 60_000, // treat the current user as fresh for 5 min — avoids stampede on mount
+    retry: false, // don't retry on 401; the silent-refresh in main.tsx handles that
   });
 }
 
