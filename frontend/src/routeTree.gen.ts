@@ -14,6 +14,7 @@ import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
 import { Route as ProtectedNominationsRouteImport } from './routes/_protected/nominations'
 import { Route as ProtectedMasterDataRouteImport } from './routes/_protected/master-data'
+import { Route as ProtectedAllSentRouteImport } from './routes/_protected/all-sent'
 import { Route as ProtectedVesselsIndexRouteImport } from './routes/_protected/vessels/index'
 import { Route as ProtectedNominationsIndexRouteImport } from './routes/_protected/nominations/index'
 import { Route as ProtectedVesselsImoRouteImport } from './routes/_protected/vessels/$imo'
@@ -56,6 +57,11 @@ const ProtectedNominationsRoute = ProtectedNominationsRouteImport.update({
 const ProtectedMasterDataRoute = ProtectedMasterDataRouteImport.update({
   id: '/master-data',
   path: '/master-data',
+  getParentRoute: () => ProtectedRoute,
+} as any)
+const ProtectedAllSentRoute = ProtectedAllSentRouteImport.update({
+  id: '/all-sent',
+  path: '/all-sent',
   getParentRoute: () => ProtectedRoute,
 } as any)
 const ProtectedVesselsIndexRoute = ProtectedVesselsIndexRouteImport.update({
@@ -171,6 +177,7 @@ const ProtectedMasterData_demoRoute =
 export interface FileRoutesByFullPath {
   '/': typeof ProtectedIndexRoute
   '/login': typeof LoginRoute
+  '/all-sent': typeof ProtectedAllSentRoute
   '/master-data': typeof ProtectedMasterData_demoRoute
   '/nominations': typeof ProtectedNominationsRouteWithChildren
   '/master-data/activities': typeof ProtectedMasterDataActivitiesRoute
@@ -194,6 +201,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
+  '/all-sent': typeof ProtectedAllSentRoute
   '/master-data': typeof ProtectedMasterData_demoRoute
   '/': typeof ProtectedIndexRoute
   '/master-data/activities': typeof ProtectedMasterDataActivitiesRoute
@@ -219,6 +227,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_protected': typeof ProtectedRouteWithChildren
   '/login': typeof LoginRoute
+  '/_protected/all-sent': typeof ProtectedAllSentRoute
   '/_protected/master-data': typeof ProtectedMasterDataRouteWithChildren
   '/_protected/nominations': typeof ProtectedNominationsRouteWithChildren
   '/_protected/': typeof ProtectedIndexRoute
@@ -247,6 +256,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/all-sent'
     | '/master-data'
     | '/nominations'
     | '/master-data/activities'
@@ -270,6 +280,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
+    | '/all-sent'
     | '/master-data'
     | '/'
     | '/master-data/activities'
@@ -294,6 +305,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_protected'
     | '/login'
+    | '/_protected/all-sent'
     | '/_protected/master-data'
     | '/_protected/nominations'
     | '/_protected/'
@@ -358,6 +370,13 @@ declare module '@tanstack/react-router' {
       path: '/master-data'
       fullPath: '/master-data'
       preLoaderRoute: typeof ProtectedMasterDataRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
+    '/_protected/all-sent': {
+      id: '/_protected/all-sent'
+      path: '/all-sent'
+      fullPath: '/all-sent'
+      preLoaderRoute: typeof ProtectedAllSentRouteImport
       parentRoute: typeof ProtectedRoute
     }
     '/_protected/vessels/': {
@@ -550,6 +569,7 @@ const ProtectedNominationsRouteWithChildren =
   ProtectedNominationsRoute._addFileChildren(ProtectedNominationsRouteChildren)
 
 interface ProtectedRouteChildren {
+  ProtectedAllSentRoute: typeof ProtectedAllSentRoute
   ProtectedMasterDataRoute: typeof ProtectedMasterDataRouteWithChildren
   ProtectedNominationsRoute: typeof ProtectedNominationsRouteWithChildren
   ProtectedIndexRoute: typeof ProtectedIndexRoute
@@ -558,6 +578,7 @@ interface ProtectedRouteChildren {
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
+  ProtectedAllSentRoute: ProtectedAllSentRoute,
   ProtectedMasterDataRoute: ProtectedMasterDataRouteWithChildren,
   ProtectedNominationsRoute: ProtectedNominationsRouteWithChildren,
   ProtectedIndexRoute: ProtectedIndexRoute,

@@ -112,6 +112,59 @@ export const SendShDocumentSchema = z.object({
 export type SendShDocumentInput = z.infer<typeof SendShDocumentSchema>;
 
 // ---------------------------------------------------------------------------
+// All-Sent dashboard schemas
+// ---------------------------------------------------------------------------
+
+export const AllSentFiltersSchema = z.object({
+  from: z.string().datetime({ offset: true }).optional(),
+  to: z.string().datetime({ offset: true }).optional(),
+  portId: z.string().cuid().optional(),
+});
+export type AllSentFilters = z.infer<typeof AllSentFiltersSchema>;
+
+const TRACKER_TYPES = ['SH_66A', 'SH_09A', 'SH_28A', 'SH_29A'] as const;
+export type TrackerDocType = (typeof TRACKER_TYPES)[number];
+
+export const CellStatusSchema = z.discriminatedUnion('status', [
+  z.object({
+    status: z.literal('PENDING'),
+    shDocumentId: z.string().optional(),
+  }),
+  z.object({
+    status: z.literal('SENT'),
+    shDocumentId: z.string(),
+    sentAt: z.string().datetime({ offset: true }),
+  }),
+  z.object({
+    status: z.literal('FAILED'),
+    shDocumentId: z.string(),
+    error: z.string(),
+  }),
+]);
+export type CellStatus = z.infer<typeof CellStatusSchema>;
+
+export const AllSentRowSchema = z.object({
+  nominationId: z.string(),
+  correlative: z.string(),
+  vesselName: z.string().nullable(),
+  portName: z.string().nullable(),
+  portAbbreviation: z.string().nullable(),
+  etaDate: z.string().nullable(),
+  cells: z.object({
+    SH_66A: CellStatusSchema,
+    SH_09A: CellStatusSchema,
+    SH_28A: CellStatusSchema,
+    SH_29A: CellStatusSchema,
+  }),
+});
+export type AllSentRow = z.infer<typeof AllSentRowSchema>;
+
+export const AllSentResponseSchema = z.object({
+  rows: z.array(AllSentRowSchema),
+});
+export type AllSentResponse = z.infer<typeof AllSentResponseSchema>;
+
+// ---------------------------------------------------------------------------
 // DTO (output shape)
 // ---------------------------------------------------------------------------
 

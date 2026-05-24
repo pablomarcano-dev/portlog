@@ -22,6 +22,7 @@ const NAV_LINKS = [
   { label: 'Vessels', to: '/vessels' },
   { label: 'Master Data', to: '/master-data/flags' },
   { label: 'Suppliers', to: '/master-data/suppliers' },
+  { label: 'All Sent', to: '/all-sent' },
 ] as const;
 
 interface AppShellProps {
