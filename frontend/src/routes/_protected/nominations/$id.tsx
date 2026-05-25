@@ -65,7 +65,8 @@ function NominationDetailPage() {
   const [pendingDrawer, setPendingDrawer] = useState<SubDocType | null>(null);
 
   function handleRefreshAis() {
-    void queryClient.invalidateQueries({ queryKey: ['ais'] });
+    const imo = nomination?.shipParticular.imoNumber;
+    void queryClient.invalidateQueries({ queryKey: imo ? ['ais', imo] : ['ais'] });
   }
 
   function handleMessagesNavAction(slug: string) {
@@ -201,6 +202,7 @@ function NominationDetailPage() {
               onSubmit={handleUpdate}
               isSubmitting={updateNomination.isPending}
               isReadOnly={isReadOnly}
+              imoNumber={nomination.shipParticular.imoNumber}
             />
 
             <Divider />
