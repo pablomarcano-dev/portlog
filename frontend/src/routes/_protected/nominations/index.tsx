@@ -87,7 +87,11 @@ function NominationListPage() {
         </Alert>
       )}
 
-      <NominationTable items={filteredItems} isLoading={isLoading} />
+      <NominationTable
+        items={filteredItems}
+        isLoading={isLoading}
+        onRowClick={(id) => void navigate({ to: '/nominations/$id', params: { id } })}
+      />
 
       {data && data.total > 0 && (
         <Group justify="space-between" align="center">
