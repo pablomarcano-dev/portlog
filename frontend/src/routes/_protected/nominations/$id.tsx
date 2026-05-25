@@ -18,6 +18,7 @@ import { TransitionButtons } from '../../../features/nominations/components/Tran
 import { StatusHistoryTimeline } from '../../../features/nominations/components/StatusHistoryTimeline';
 import { MessagesNav } from '../../../features/nominations/components/MessagesNav';
 import { ActionsPanel } from '../../../features/nominations/components/ActionsPanel';
+import { EmailActionsPanel } from '../../../features/nominations/components/EmailActionsPanel';
 import { ClientsSection } from '../../../features/nominations/components/ClientsSection';
 import { useNomination } from '../../../features/nominations/hooks/useNomination';
 import { useUpdateNomination } from '../../../features/nominations/hooks/useUpdateNomination';
@@ -181,7 +182,7 @@ function NominationDetailPage() {
             <Divider />
 
             {/* Documents section — SH-xx forms */}
-            <Stack gap="xs">
+            <Stack gap="xs" id="sh-documents">
               <Title order={5}>Documentos</Title>
               <DocumentsTabs nominationId={id} />
             </Stack>
@@ -189,7 +190,7 @@ function NominationDetailPage() {
         </Container>
       </Box>
 
-      {/* Right rail: Status history + Actions panel */}
+      {/* Right rail: Nomination hub actions + Status history + Email actions */}
       <Box
         style={{
           width: 280,
@@ -199,15 +200,20 @@ function NominationDetailPage() {
           padding: 'var(--mantine-spacing-md)',
         }}
       >
+        {/* Nomination hub actions — always visible */}
+        <ActionsPanel nominationId={id} vesselName={nomination.shipParticular.name} />
+
+        <Divider my="md" />
+
         <Text fw={700} size="sm" mb="sm">
           Status History
         </Text>
         <StatusHistoryTimeline history={nomination.statusHistory} />
 
-        {/* Actions panel — shown when a PEDR exists for this nomination */}
+        {/* Email dispatch actions — shown only when a PEDR exists */}
         {pedr && (
           <Box mt="lg">
-            <ActionsPanel pedrId={pedr.id} vesselName={nomination.shipParticular.name} />
+            <EmailActionsPanel pedrId={pedr.id} vesselName={nomination.shipParticular.name} />
           </Box>
         )}
       </Box>
