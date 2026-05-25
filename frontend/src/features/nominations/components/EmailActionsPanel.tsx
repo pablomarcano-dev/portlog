@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Stack, Text, Button, Divider, Loader, Box, Badge, Group } from '@mantine/core';
 import type { SubDocType } from '@portlog/schemas';
 import { EmailComposeDrawer } from './EmailComposeDrawer';
@@ -9,10 +9,12 @@ import { useDispatchLog } from '../api/useDispatchLog';
 // ---------------------------------------------------------------------------
 
 interface EmailActionsPanelProps {
-  /** PEDR id — used to scope dispatch actions and the dispatch log */
   pedrId: string;
-  /** Vessel name used to pre-fill email subject */
   vesselName?: string;
+  /** When set, immediately opens the drawer for this sub-doc type */
+  externalOpen?: SubDocType | null;
+  /** Called after the externally-triggered drawer is opened (so caller can clear externalOpen) */
+  onExternalOpenHandled?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -64,8 +66,20 @@ const ACTIONS: SubDocAction[] = [
 // Component
 // ---------------------------------------------------------------------------
 
-export function EmailActionsPanel({ pedrId, vesselName = '' }: EmailActionsPanelProps) {
+export function EmailActionsPanel({
+  pedrId,
+  vesselName = '',
+  externalOpen,
+  onExternalOpenHandled,
+}: EmailActionsPanelProps) {
   const [activeDrawer, setActiveDrawer] = useState<SubDocType | null>(null);
+
+  useEffect(() => {
+    if (externalOpen) {
+      setActiveDrawer(externalOpen);
+      onExternalOpenHandled?.();
+    }
+  }, [externalOpen, onExternalOpenHandled]);
   const dispatchLog = useDispatchLog(pedrId);
 
   function openDrawer(type: SubDocType) {
