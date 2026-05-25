@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { NominationStatusSchema, NominationTypeSchema } from './enums.js';
-import { NominationFeatureSchema } from './feature.js';
+import { NominationFeatureSchema, NominationFeatureReadSchema } from './feature.js';
 import { BranchSummarySchema } from '../master-data/branch/index.js';
 import { NominationClientSchema } from './client.js';
 
@@ -311,8 +311,8 @@ export const NominationSchema = z.object({
   nominationType: NominationTypeSchema,
   subject: z.string().nullable(),
 
-  // Features
-  features: z.array(NominationFeatureSchema),
+  // Features — lenient read schema; strict validation only on create/update
+  features: z.array(NominationFeatureReadSchema),
 
   // Client list rows
   nominationClients: z.array(NominationClientSchema).default([]),

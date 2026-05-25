@@ -24,7 +24,7 @@ import { useNomination } from '../../../features/nominations/hooks/useNomination
 import { useUpdateNomination } from '../../../features/nominations/hooks/useUpdateNomination';
 import { usePedrByNomination } from '../../../features/nominations/api/usePedrByNomination';
 import { DocumentsTabs } from '../../../features/sh-documents';
-import type { NominationCreateInput, NominationStatus } from '@portlog/schemas';
+import type { NominationCreateInput, NominationStatus, NominationFeature } from '@portlog/schemas';
 
 export const Route = createFileRoute('/_protected/nominations/$id')({
   component: NominationDetailPage,
@@ -111,7 +111,10 @@ function NominationDetailPage() {
     inspector: nomination.inspector ?? undefined,
     nominationType: nomination.nominationType,
     subject: nomination.subject ?? undefined,
-    features: nomination.features,
+    features: (nomination.features ?? []).filter(
+      (f): f is NominationFeature =>
+        typeof f.quantity === 'number' && typeof f.operation === 'string',
+    ),
   };
 
   const handleUpdate = (vals: NominationCreateInput) => {
