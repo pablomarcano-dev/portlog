@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Alert, Container, Stack, Title } from '@mantine/core';
+import { Alert, Container, Stack, Text, Title } from '@mantine/core';
 import { NominationForm } from '../../../features/nominations/components/NominationForm';
 import { useCreateNomination } from '../../../features/nominations/hooks/useCreateNomination';
 import type { NominationCreateInput } from '@portlog/schemas';
@@ -31,6 +31,9 @@ function NewNominationPage() {
           onSubmit={handleSubmit}
           isSubmitting={createNomination.isPending}
         />
+        <Text size="sm" c="dimmed">
+          Save the nomination first to manage the Client List.
+        </Text>
       </Stack>
     </Container>
   );

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { NominationStatusSchema, NominationTypeSchema } from './enums.js';
 import { NominationFeatureSchema } from './feature.js';
 import { BranchSummarySchema } from '../master-data/branch/index.js';
+import { NominationClientSchema } from './client.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -312,6 +313,9 @@ export const NominationSchema = z.object({
 
   // Features
   features: z.array(NominationFeatureSchema),
+
+  // Client list rows
+  nominationClients: z.array(NominationClientSchema).default([]),
 
   // State machine
   status: NominationStatusSchema,

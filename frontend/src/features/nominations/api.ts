@@ -2,15 +2,20 @@ import { apiRequest } from '../../lib/api/client';
 import {
   NominationListResponseSchema,
   NominationSchema,
+  NominationClientSchema,
   AisVesselSchema,
   type NominationListQuery,
   type NominationListResponse,
   type NominationCreateInput,
   type NominationUpdateInput,
   type NominationStatusTransition,
+  type NominationClient,
+  type NominationClientCreate,
+  type NominationClientUpdate,
   type Nomination,
   type AisVessel,
 } from '@portlog/schemas';
+import { z } from 'zod';
 
 export const nominationsApi = {
   list: async (q: Partial<NominationListQuery>): Promise<NominationListResponse> => {
@@ -54,6 +59,40 @@ export const nominationsApi = {
       body: JSON.stringify(body),
     });
     return NominationSchema.parse(raw);
+  },
+
+  listClients: async (nominationId: string): Promise<NominationClient[]> => {
+    const raw = await apiRequest<unknown>(`/nominations/${nominationId}/clients`);
+    return z.array(NominationClientSchema).parse(raw);
+  },
+
+  addClient: async (
+    nominationId: string,
+    data: NominationClientCreate,
+  ): Promise<NominationClient> => {
+    const raw = await apiRequest<unknown>(`/nominations/${nominationId}/clients`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return NominationClientSchema.parse(raw);
+  },
+
+  updateClient: async (
+    nominationId: string,
+    clientId: string,
+    data: NominationClientUpdate,
+  ): Promise<NominationClient> => {
+    const raw = await apiRequest<unknown>(`/nominations/${nominationId}/clients/${clientId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+    return NominationClientSchema.parse(raw);
+  },
+
+  removeClient: async (nominationId: string, clientId: string): Promise<void> => {
+    await apiRequest<unknown>(`/nominations/${nominationId}/clients/${clientId}`, {
+      method: 'DELETE',
+    });
   },
 };
 

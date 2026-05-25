@@ -7,8 +7,8 @@ import { z } from 'zod';
 
 export const NominationClientSchema = z.object({
   id: z.string().uuid().optional(),
-  type: z.string().min(1).max(100),
-  name: z.string().min(1).max(200),
+  type: z.string().max(100),
+  name: z.string().max(200),
   voyageRef: z.string().max(50).optional(),
   referenceNo: z.string().max(100).optional(),
   broker: z.string().max(200).optional(),
