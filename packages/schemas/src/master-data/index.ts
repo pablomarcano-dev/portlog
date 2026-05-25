@@ -1,5 +1,6 @@
 export * from './flag';
 export * from './activity';
+export * from './branch';
 export * from './cargo';
 export * from './port';
 export * from './charterer';

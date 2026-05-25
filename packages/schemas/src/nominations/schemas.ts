@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { NominationStatusSchema, NominationTypeSchema } from './enums.js';
 import { NominationFeatureSchema } from './feature.js';
+import { BranchSummarySchema } from '../master-data/branch/index.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -42,6 +43,15 @@ export const NominationCreateSchema = z
     shipperContactId: cuidFk.optional(),
 
     agentId: cuidFk.optional(),
+
+    // Branch — resolves Open Question #5
+    branchId: cuidFk.optional(),
+
+    // Supplementary fields from legacy General Info tab
+    nomReply: z.coerce.date().optional(),
+    externalPortId: cuidFk.optional(),
+    mobileOnBoard: z.string().max(50).optional(),
+    referenceNo: z.string().max(100).optional(),
 
     contactBlackBerry: z.string().max(255).optional().nullable(),
     blindCopy: z.string().max(255).optional().nullable(),
@@ -248,6 +258,23 @@ export const NominationSchema = z.object({
 
   agentId: cuidFk.nullable(),
   agent: PartySummarySchema,
+
+  // Branch — resolves Open Question #5
+  branchId: z.string().nullable(),
+  branch: BranchSummarySchema.nullable(),
+
+  // Supplementary fields from legacy General Info tab
+  nomReply: z.coerce.date().nullable(),
+  externalPortId: z.string().nullable(),
+  externalPort: z
+    .object({
+      id: cuidFk,
+      name: z.string(),
+      abbreviation: z.string().nullable(),
+    })
+    .nullable(),
+  mobileOnBoard: z.string().nullable(),
+  referenceNo: z.string().nullable(),
 
   contactBlackBerry: z.string().nullable(),
   blindCopy: z.string().nullable(),
