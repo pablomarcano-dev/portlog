@@ -54,6 +54,7 @@ export function NominationTable({ items, isLoading, onRowClick }: NominationTabl
             key={item.id}
             onClick={() => onRowClick?.(item.id)}
             style={{ cursor: onRowClick ? 'pointer' : undefined }}
+            data-cy="nomination-row"
           >
             <Table.Td>
               <Text size="sm" ff="monospace">

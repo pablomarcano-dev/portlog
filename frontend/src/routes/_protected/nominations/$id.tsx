@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import {
   Alert,
   Badge,
@@ -12,18 +12,25 @@ import {
   Text,
   Title,
 } from '@mantine/core';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { NominationForm } from '../../../features/nominations/components/NominationForm';
 import { TransitionButtons } from '../../../features/nominations/components/TransitionButtons';
 import { StatusHistoryTimeline } from '../../../features/nominations/components/StatusHistoryTimeline';
 import { MessagesNav } from '../../../features/nominations/components/MessagesNav';
 import { ActionsPanel } from '../../../features/nominations/components/ActionsPanel';
+import { EmailActionsPanel } from '../../../features/nominations/components/EmailActionsPanel';
 import { ClientsSection } from '../../../features/nominations/components/ClientsSection';
 import { useNomination } from '../../../features/nominations/hooks/useNomination';
 import { useUpdateNomination } from '../../../features/nominations/hooks/useUpdateNomination';
 import { usePedrByNomination } from '../../../features/nominations/api/usePedrByNomination';
 import { DocumentsTabs } from '../../../features/sh-documents';
-import type { NominationCreateInput, NominationStatus } from '@portlog/schemas';
+import type {
+  NominationCreateInput,
+  NominationStatus,
+  NominationFeature,
+  SubDocType,
+} from '@portlog/schemas';
 
 export const Route = createFileRoute('/_protected/nominations/$id')({
   component: NominationDetailPage,
@@ -39,15 +46,36 @@ const STATUS_COLORS: Record<NominationStatus, string> = {
   CANCELLED: 'red',
 };
 
+const SLUG_TO_SUBDOC: Record<string, SubDocType> = {
+  acknowledgement: 'ACKNOWLEDGEMENT',
+  prearrival: 'PREARRIVAL',
+  eta: 'ETA_ETB',
+  sof: 'SOF',
+  'cargo-update': 'CARGO_UPDATE',
+  nor: 'NOR',
+};
+
 function NominationDetailPage() {
   const { id } = Route.useParams();
+  const navigate = useNavigate();
   const { data: nomination, isLoading, isError, error } = useNomination(id);
   const updateNomination = useUpdateNomination(id);
   const queryClient = useQueryClient();
   const { data: pedr } = usePedrByNomination(id);
+  const [pendingDrawer, setPendingDrawer] = useState<SubDocType | null>(null);
 
   function handleRefreshAis() {
-    void queryClient.invalidateQueries({ queryKey: ['ais'] });
+    const imo = nomination?.shipParticular.imoNumber;
+    void queryClient.invalidateQueries({ queryKey: imo ? ['ais', imo] : ['ais'] });
+  }
+
+  function handleMessagesNavAction(slug: string) {
+    if (slug === 'all-sent') {
+      void navigate({ to: '/all-sent' });
+      return;
+    }
+    const subDocType = SLUG_TO_SUBDOC[slug];
+    if (subDocType) setPendingDrawer(subDocType);
   }
 
   if (isLoading) {
@@ -110,7 +138,10 @@ function NominationDetailPage() {
     inspector: nomination.inspector ?? undefined,
     nominationType: nomination.nominationType,
     subject: nomination.subject ?? undefined,
-    features: nomination.features,
+    features: (nomination.features ?? []).filter(
+      (f): f is NominationFeature =>
+        typeof f.quantity === 'number' && typeof f.operation === 'string',
+    ),
   };
 
   const handleUpdate = (vals: NominationCreateInput) => {
@@ -127,7 +158,7 @@ function NominationDetailPage() {
           overflowY: 'auto',
         }}
       >
-        <MessagesNav />
+        <MessagesNav onAction={handleMessagesNavAction} />
       </Box>
 
       {/* Main content */}
@@ -171,6 +202,7 @@ function NominationDetailPage() {
               onSubmit={handleUpdate}
               isSubmitting={updateNomination.isPending}
               isReadOnly={isReadOnly}
+              imoNumber={nomination.shipParticular.imoNumber}
             />
 
             <Divider />
@@ -181,7 +213,7 @@ function NominationDetailPage() {
             <Divider />
 
             {/* Documents section — SH-xx forms */}
-            <Stack gap="xs">
+            <Stack gap="xs" id="sh-documents">
               <Title order={5}>Documentos</Title>
               <DocumentsTabs nominationId={id} />
             </Stack>
@@ -189,7 +221,7 @@ function NominationDetailPage() {
         </Container>
       </Box>
 
-      {/* Right rail: Status history + Actions panel */}
+      {/* Right rail: Nomination hub actions + Status history + Email actions */}
       <Box
         style={{
           width: 280,
@@ -199,15 +231,25 @@ function NominationDetailPage() {
           padding: 'var(--mantine-spacing-md)',
         }}
       >
+        {/* Nomination hub actions — always visible */}
+        <ActionsPanel nominationId={id} vesselName={nomination.shipParticular.name} />
+
+        <Divider my="md" />
+
         <Text fw={700} size="sm" mb="sm">
           Status History
         </Text>
         <StatusHistoryTimeline history={nomination.statusHistory} />
 
-        {/* Actions panel — shown when a PEDR exists for this nomination */}
+        {/* Email dispatch actions — shown only when a PEDR exists */}
         {pedr && (
           <Box mt="lg">
-            <ActionsPanel pedrId={pedr.id} vesselName={nomination.shipParticular.name} />
+            <EmailActionsPanel
+              pedrId={pedr.id}
+              vesselName={nomination.shipParticular.name}
+              externalOpen={pendingDrawer}
+              onExternalOpenHandled={() => setPendingDrawer(null)}
+            />
           </Box>
         )}
       </Box>

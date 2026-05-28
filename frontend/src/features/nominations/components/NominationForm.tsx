@@ -18,6 +18,8 @@ interface NominationFormProps {
   onSubmit: (vals: NominationCreateInput) => void;
   isSubmitting: boolean;
   isReadOnly?: boolean;
+  /** IMO number pre-supplied by the parent (edit mode). Skips the secondary ship fetch. */
+  imoNumber?: string | null;
 }
 
 export function NominationForm({
@@ -26,6 +28,7 @@ export function NominationForm({
   onSubmit,
   isSubmitting,
   isReadOnly = false,
+  imoNumber: imoNumberProp,
 }: NominationFormProps) {
   const navigate = useNavigate();
 
@@ -42,18 +45,21 @@ export function NominationForm({
 
   const { register, handleSubmit, control, reset, formState, watch } = form;
 
-  // Watch the selected vessel so we can fetch its IMO for AIS lookup
+  // Watch the selected vessel so we can fetch its IMO for AIS lookup.
+  // In edit mode the parent passes imoNumberProp directly (already loaded),
+  // so the secondary fetch is skipped entirely.
   const shipParticularId = watch('shipParticularId');
 
   const selectedShipQuery = useQuery({
     queryKey: ['ship-particulars', shipParticularId],
     queryFn: () =>
       apiRequest<{ imoNumber: string | null }>(`/master-data/ship-particulars/${shipParticularId}`),
-    enabled: !!shipParticularId,
+    enabled: imoNumberProp === undefined && !!shipParticularId,
     staleTime: 60_000,
   });
 
-  const imo = selectedShipQuery.data?.imoNumber ?? null;
+  const imo =
+    imoNumberProp !== undefined ? imoNumberProp : (selectedShipQuery.data?.imoNumber ?? null);
 
   // Search state for each EntityPicker
   const [shipSearch, setShipSearch] = useState('');

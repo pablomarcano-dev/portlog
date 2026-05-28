@@ -102,8 +102,8 @@ export const AisVesselSchema = z.object({
       unlocode: z.string().nullable(),
     })
     .nullable(),
-  /** Data provider — always 'vesselfinder' in M3 */
-  provider: z.literal('vesselfinder'),
+  /** Data provider */
+  provider: z.enum(['vesselfinder', 'datalastic']),
   /** ISO 8601 UTC timestamp of when this record was fetched */
   fetchedAt: z.string(),
 });

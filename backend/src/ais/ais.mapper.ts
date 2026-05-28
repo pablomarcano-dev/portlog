@@ -1,52 +1,60 @@
-import type { VesselFinderRaw } from '@portlog/schemas/ais';
 import type { AisVessel } from '@portlog/schemas';
 
-/**
- * mapVesselFinderToAisVessel — pure function that converts a validated
- * VesselFinderRaw object into the normalized AisVessel shape.
- *
- * Defensive about missing fields: inland vessels often omit dimensions,
- * position fixes may be absent for vessels in port with AIS off.
- */
-export function mapVesselFinderToAisVessel(raw: VesselFinderRaw): AisVessel {
+/** Minimal shape of the `data` object from Datalastic vessel_pro endpoint */
+export interface VesselProData {
+  imo: string;
+  mmsi?: string | null;
+  name?: string | null;
+  country_iso?: string | null;
+  type?: string | null;
+  lat?: number | null;
+  lon?: number | null;
+  speed?: number | null;
+  course?: number | null;
+  navigation_status?: number | null;
+  last_position_UTC?: string | null;
+  eta_UTC?: string | null;
+  dep_port?: string | null;
+  dep_port_unlocode?: string | null;
+  dest_port?: string | null;
+  dest_port_unlocode?: string | null;
+}
+
+export function mapDatalasticToAisVessel(data: VesselProData): AisVessel {
+  const hasPosition = data.lat != null && data.lon != null;
+
   return {
-    imo: raw.imo,
-    mmsi: raw.mmsi ?? null,
-    name: raw.name,
-    callSign: raw.callsign ?? null,
-    flag: raw.flag ?? null,
-    vesselType: raw.type_name ?? null,
-    loa: raw.length ?? null,
-    beam: raw.beam ?? null,
-    draught: raw.draught ?? null,
-    gt: raw.gt ?? null,
-    dwt: raw.dwt ?? null,
-    lastPosition: raw.position
+    imo: data.imo,
+    mmsi: data.mmsi ?? null,
+    name: data.name ?? data.imo,
+    callSign: null,
+    flag: data.country_iso ?? null,
+    vesselType: data.type ?? null,
+    loa: null,
+    beam: null,
+    draught: null,
+    gt: null,
+    dwt: null,
+    lastPosition: hasPosition
       ? {
-          lat: raw.position.lat,
-          lon: raw.position.lon,
-          sog: raw.position.speed ?? null,
-          cog: raw.position.course ?? null,
-          navStatus: raw.position.status ?? null,
-          timestampUtc: raw.position.timestamp ?? null,
+          lat: data.lat as number,
+          lon: data.lon as number,
+          sog: data.speed ?? null,
+          cog: data.course ?? null,
+          navStatus: data.navigation_status ?? null,
+          timestampUtc: data.last_position_UTC ?? null,
         }
       : null,
-    eta: raw.eta ?? null,
+    eta: data.eta_UTC ?? null,
     lastPort:
-      raw.last_port != null
-        ? {
-            name: raw.last_port,
-            unlocode: raw.last_port_unlocode ?? null,
-          }
+      data.dep_port != null
+        ? { name: data.dep_port, unlocode: data.dep_port_unlocode ?? null }
         : null,
     nextPort:
-      raw.destination != null
-        ? {
-            name: raw.destination,
-            unlocode: raw.destination_unlocode ?? null,
-          }
+      data.dest_port != null
+        ? { name: data.dest_port, unlocode: data.dest_port_unlocode ?? null }
         : null,
-    provider: 'vesselfinder',
+    provider: 'datalastic',
     fetchedAt: new Date().toISOString(),
   };
 }
