@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import {
   Alert,
   Badge,
@@ -25,6 +25,8 @@ import { useNomination } from '../../../features/nominations/hooks/useNomination
 import { useUpdateNomination } from '../../../features/nominations/hooks/useUpdateNomination';
 import { usePedrByNomination } from '../../../features/nominations/api/usePedrByNomination';
 import { DocumentsTabs } from '../../../features/sh-documents';
+import { AllSentGrid } from '../../../features/all-sent/components/AllSentGrid';
+import { useAllSent } from '../../../features/all-sent/api';
 import type {
   NominationCreateInput,
   NominationStatus,
@@ -57,12 +59,12 @@ const SLUG_TO_SUBDOC: Record<string, SubDocType> = {
 
 function NominationDetailPage() {
   const { id } = Route.useParams();
-  const navigate = useNavigate();
   const { data: nomination, isLoading, isError, error } = useNomination(id);
   const updateNomination = useUpdateNomination(id);
   const queryClient = useQueryClient();
   const { data: pedr } = usePedrByNomination(id);
   const [pendingDrawer, setPendingDrawer] = useState<SubDocType | null>(null);
+  const { data: allSentData } = useAllSent({ nominationId: id });
 
   function handleRefreshAis() {
     const imo = nomination?.shipParticular.imoNumber;
@@ -71,7 +73,7 @@ function NominationDetailPage() {
 
   function handleMessagesNavAction(slug: string) {
     if (slug === 'all-sent') {
-      void navigate({ to: '/all-sent' });
+      document.getElementById('all-sent-section')?.scrollIntoView({ behavior: 'smooth' });
       return;
     }
     const subDocType = SLUG_TO_SUBDOC[slug];
@@ -99,8 +101,6 @@ function NominationDetailPage() {
   const isReadOnly = TERMINAL_STATUSES.includes(nomination.status);
 
   const defaultValues: Partial<NominationCreateInput> = {
-    voyageNumber: nomination.voyageNumber,
-    voyageCode: nomination.voyageCode ?? undefined,
     shipParticularId: nomination.shipParticularId,
     operatorId: nomination.operatorId ?? undefined,
     operatorVariant: nomination.operatorVariant ?? undefined,
@@ -122,7 +122,7 @@ function NominationDetailPage() {
     contactBlackBerry: nomination.contactBlackBerry ?? undefined,
     blindCopy: nomination.blindCopy ?? undefined,
     opPortId: nomination.opPortId ?? undefined,
-    berthPortId: nomination.berthPortId ?? undefined,
+    pierId: nomination.pierId ?? undefined,
     lastPortId: nomination.lastPortId ?? undefined,
     nextPortId: nomination.nextPortId ?? undefined,
     disPortId: nomination.disPortId ?? undefined,
@@ -203,6 +203,7 @@ function NominationDetailPage() {
               isSubmitting={updateNomination.isPending}
               isReadOnly={isReadOnly}
               imoNumber={nomination.shipParticular.imoNumber}
+              correlative={nomination.correlative}
             />
 
             <Divider />
@@ -216,6 +217,14 @@ function NominationDetailPage() {
             <Stack gap="xs" id="sh-documents">
               <Title order={5}>Documentos</Title>
               <DocumentsTabs nominationId={id} />
+            </Stack>
+
+            <Divider />
+
+            {/* All Sent tracker — scoped to this nomination */}
+            <Stack gap="xs" id="all-sent-section">
+              <Title order={5}>All Sent</Title>
+              <AllSentGrid rows={allSentData?.rows ?? []} />
             </Stack>
           </Stack>
         </Container>

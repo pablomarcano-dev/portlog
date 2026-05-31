@@ -1,8 +1,24 @@
 import { useState } from 'react';
-import { Anchor, Center, Checkbox, Collapse, Skeleton, Table, Text } from '@mantine/core';
+import {
+  ActionIcon,
+  Anchor,
+  Center,
+  Checkbox,
+  Collapse,
+  Group,
+  Loader,
+  Menu,
+  Skeleton,
+  Table,
+  Text,
+  Tooltip,
+} from '@mantine/core';
+import { notifications } from '@mantine/notifications';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import type { VesselOwnership } from '@portlog/schemas';
 import type { EnrichedVessel } from '../lib/types';
+import { useOwnershipForImo } from '../api/useVesselOwnership';
+import { contactsApi } from '../../../lib/api/master-data/contacts';
 
 type SectionType = 'arribo' | 'fondeado' | 'zarpe';
 
@@ -11,9 +27,10 @@ interface VesselTableProps {
   vessels: EnrichedVessel[];
   loading: boolean;
   section: SectionType;
-  ownershipMap?: Map<string, VesselOwnership>;
   selectedImos?: Set<string>;
   onToggle?: (imo: string) => void;
+  onSaveToDb?: (vessel: EnrichedVessel) => void;
+  onAddToFleet?: (vessel: EnrichedVessel) => void;
 }
 
 function formatEpoch(epoch: number | null | undefined): string {
@@ -21,30 +38,69 @@ function formatEpoch(epoch: number | null | undefined): string {
   return new Date(epoch * 1_000).toLocaleString();
 }
 
-function OwnershipRow({
-  vessel,
-  colSpan,
-  ownershipMap,
-}: {
-  vessel: EnrichedVessel;
-  colSpan: number;
-  ownershipMap: Map<string, VesselOwnership> | undefined;
-}) {
-  const ownership = ownershipMap?.get(vessel.imo);
-  const beneficialOwner = ownership?.beneficial_owner ?? vessel.beneficial_owner ?? '—';
-  const operator = ownership?.operator ?? vessel.operator_name ?? '—';
-  const technicalManager = ownership?.technical_manager ?? vessel.technical_manager ?? '—';
-  const commercialManager = ownership?.commercial_manager ?? vessel.commercial_manager ?? '—';
+// Fetches its own ownership data — only mounts when a row is expanded,
+// so the Datalastic call fires on demand rather than for every row upfront.
+function OwnershipRow({ vessel, colSpan }: { vessel: EnrichedVessel; colSpan: number }) {
+  const { data: ownership, isLoading } = useOwnershipForImo(vessel.imo);
+  const qc = useQueryClient();
+  const [saved, setSaved] = useState<Set<string>>(new Set());
+
+  const addContact = useMutation({
+    mutationFn: (name: string) => contactsApi.create({ name }),
+    onSuccess: (_, name) => {
+      void qc.invalidateQueries({ queryKey: ['contacts'] });
+      setSaved((prev) => new Set(prev).add(name));
+      notifications.show({ color: 'green', message: `"${name}" added to Contacts.` });
+    },
+    onError: (_, name) => {
+      notifications.show({ color: 'red', message: `Failed to add "${name}" as contact.` });
+    },
+  });
+
+  const beneficialOwner = ownership?.beneficial_owner;
+  const operator = ownership?.operator;
+  const technicalManager = ownership?.technical_manager;
+  const commercialManager = ownership?.commercial_manager;
+
+  const fields: { label: string; value: string | null | undefined }[] = [
+    { label: 'Beneficial Owner', value: beneficialOwner },
+    { label: 'Operator', value: operator },
+    { label: 'Technical Manager', value: technicalManager },
+    { label: 'Commercial Manager', value: commercialManager },
+  ];
 
   return (
     <Table.Tr style={{ background: 'var(--mantine-color-gray-0)' }}>
       <Table.Td colSpan={colSpan} px="md" py="xs">
-        <Text size="xs" c="dimmed">
-          <strong>Beneficial Owner:</strong> {beneficialOwner || '—'} &nbsp;|&nbsp;
-          <strong>Operator:</strong> {operator || '—'} &nbsp;|&nbsp;
-          <strong>Technical Manager:</strong> {technicalManager || '—'} &nbsp;|&nbsp;
-          <strong>Commercial Manager:</strong> {commercialManager || '—'}
-        </Text>
+        {isLoading ? (
+          <Loader size="xs" />
+        ) : (
+          <Group gap="xl" wrap="nowrap">
+            {fields.map(({ label, value }) => (
+              <Group key={label} gap={4} align="center" wrap="nowrap">
+                <Text size="xs" c="dimmed">
+                  <strong>{label}:</strong> {value || '—'}
+                </Text>
+                {value && (
+                  <Tooltip
+                    label={saved.has(value) ? 'Added to Contacts' : 'Add as contact'}
+                    withArrow
+                  >
+                    <ActionIcon
+                      size="xs"
+                      variant="subtle"
+                      color={saved.has(value) ? 'green' : 'gray'}
+                      disabled={saved.has(value) || addContact.isPending}
+                      onClick={() => addContact.mutate(value)}
+                    >
+                      {saved.has(value) ? '✓' : '+'}
+                    </ActionIcon>
+                  </Tooltip>
+                )}
+              </Group>
+            ))}
+          </Group>
+        )}
       </Table.Td>
     </Table.Tr>
   );
@@ -55,9 +111,10 @@ export function VesselTable({
   vessels,
   loading,
   section,
-  ownershipMap,
   selectedImos,
   onToggle,
+  onSaveToDb,
+  onAddToFleet,
 }: VesselTableProps) {
   const navigate = useNavigate();
   const [expandedImos, setExpandedImos] = useState<Set<string>>(new Set());
@@ -71,10 +128,11 @@ export function VesselTable({
     });
   }
 
+  const hasActions = !!(onSaveToDb ?? onAddToFleet);
   const hasCheckbox = !!onToggle;
   const extraCols = section === 'arribo' || section === 'zarpe' ? 4 : 2;
-  // base cols: checkbox(opt) + name + imo + type + flag + dist + section-extra
-  const totalCols = (hasCheckbox ? 1 : 0) + 5 + extraCols;
+  // base cols: checkbox(opt) + name + imo + type + flag + dist + section-extra + actions(opt)
+  const totalCols = (hasCheckbox ? 1 : 0) + 5 + extraCols + (hasActions ? 1 : 0);
 
   return (
     <>
@@ -118,6 +176,7 @@ export function VesselTable({
                 <Table.Th>Status</Table.Th>
               </>
             )}
+            {hasActions && <Table.Th style={{ width: 44 }} />}
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -234,16 +293,32 @@ export function VesselTable({
                         </Table.Td>
                       </>
                     )}
+
+                    {hasActions && (
+                      <Table.Td>
+                        <Menu shadow="sm" width={160} position="bottom-end" withinPortal>
+                          <Menu.Target>
+                            <ActionIcon variant="subtle" size="sm" aria-label="Row actions">
+                              ⋯
+                            </ActionIcon>
+                          </Menu.Target>
+                          <Menu.Dropdown>
+                            {onAddToFleet && (
+                              <Menu.Item onClick={() => onAddToFleet(v)}>Add to Fleet</Menu.Item>
+                            )}
+                            {onSaveToDb && (
+                              <Menu.Item onClick={() => onSaveToDb(v)}>Save to Ships</Menu.Item>
+                            )}
+                          </Menu.Dropdown>
+                        </Menu>
+                      </Table.Td>
+                    )}
                   </Table.Tr>
                   {isExpanded && (
                     <Table.Tr key={`${v.uuid}-ownership`}>
                       <Table.Td colSpan={totalCols} p={0}>
                         <Collapse in={isExpanded}>
-                          <OwnershipRow
-                            vessel={v}
-                            colSpan={totalCols}
-                            ownershipMap={ownershipMap}
-                          />
+                          <OwnershipRow vessel={v} colSpan={totalCols} />
                         </Collapse>
                       </Table.Td>
                     </Table.Tr>

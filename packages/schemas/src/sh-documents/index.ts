@@ -119,6 +119,7 @@ export const AllSentFiltersSchema = z.object({
   from: z.string().datetime({ offset: true }).optional(),
   to: z.string().datetime({ offset: true }).optional(),
   portId: z.string().cuid().optional(),
+  nominationId: z.string().uuid().optional(),
 });
 export type AllSentFilters = z.infer<typeof AllSentFiltersSchema>;
 

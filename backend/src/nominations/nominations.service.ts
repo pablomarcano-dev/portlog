@@ -34,7 +34,7 @@ const DETAIL_INCLUDE = {
   agent: { select: { id: true, name: true } },
   branch: { select: { id: true, name: true, code: true } },
   opPort: { select: { id: true, name: true, abbreviation: true } },
-  berthPort: { select: { id: true, name: true, abbreviation: true } },
+  pier: { select: { id: true, name: true } },
   lastPort: { select: { id: true, name: true, abbreviation: true } },
   nextPort: { select: { id: true, name: true, abbreviation: true } },
   disPort: { select: { id: true, name: true, abbreviation: true } },
@@ -62,9 +62,20 @@ export class NominationsService {
   async create(dto: NominationCreateInput, userId: string) {
     return this.prisma.$transaction(async (tx) => {
       const nomination = await tx.nomination.create({
-        data: { ...(dto as unknown as Prisma.NominationUncheckedCreateInput), createdById: userId },
+        data: {
+          ...(dto as unknown as Prisma.NominationUncheckedCreateInput),
+          voyageNumber: dto.voyageNumber ?? '',
+          createdById: userId,
+        },
         include: DETAIL_INCLUDE,
       });
+      if (!dto.voyageNumber) {
+        await tx.nomination.update({
+          where: { id: nomination.id },
+          data: { voyageNumber: String(nomination.correlative) },
+        });
+        nomination.voyageNumber = String(nomination.correlative);
+      }
       await tx.nominationStatusHistory.create({
         data: {
           nominationId: nomination.id,
@@ -94,7 +105,7 @@ export class NominationsService {
     if (portId) {
       where.OR = [
         { opPortId: portId },
-        { berthPortId: portId },
+        { pier: { portId } },
         { lastPortId: portId },
         { nextPortId: portId },
         { disPortId: portId },

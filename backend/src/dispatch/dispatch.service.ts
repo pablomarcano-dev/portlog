@@ -18,7 +18,7 @@ const NOMINATION_INCLUDE = {
   charter: { select: { id: true, name: true } },
   owner: { select: { id: true, name: true } },
   opPort: { select: { id: true, name: true, abbreviation: true } },
-  berthPort: { select: { id: true, name: true } },
+  pier: { select: { id: true, name: true } },
   lastPort: { select: { id: true, name: true } },
   nextPort: { select: { id: true, name: true } },
 } as const;
@@ -245,7 +245,7 @@ export class DispatchService {
     type: PedrSubDocumentType,
     base: Record<string, unknown>,
     nomination: {
-      berthPort?: { name: string } | null | undefined;
+      pier?: { name: string } | null | undefined;
       lastPort?: { name: string } | null | undefined;
       nextPort?: { name: string } | null | undefined;
       features?: unknown;
@@ -271,7 +271,7 @@ export class DispatchService {
       case 'PREARRIVAL':
         return {
           ...base,
-          berthPort: nomination.berthPort?.name ?? '',
+          berthPort: nomination.pier?.name ?? '',
           lastPort: nomination.lastPort?.name ?? '',
           nextPort: nomination.nextPort?.name ?? '',
           // prearrival.hbs uses cargoName, agentName
@@ -295,7 +295,7 @@ export class DispatchService {
       case 'NOR':
         return {
           ...base,
-          berthPort: nomination.berthPort?.name ?? '',
+          berthPort: nomination.pier?.name ?? '',
           cargoName: this.extractCargoName(nomination.features),
           norTenderedAt: extraData?.norTenderedAt ?? '',
           norAcceptedAt: extraData?.norAcceptedAt ?? '',
@@ -306,7 +306,7 @@ export class DispatchService {
         return {
           ...base,
           cargoName: this.extractCargoName(nomination.features),
-          berth: nomination.berthPort?.name ?? '',
+          berth: nomination.pier?.name ?? '',
           blQuantity: '',
           outturnQuantity: '',
           generatedAt: new Date().toISOString(),

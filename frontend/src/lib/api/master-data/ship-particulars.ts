@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
 import { apiRequest } from '../client';
+import { ApiError } from '../errors';
 import type {
   ShipParticularCreateInput,
   ShipParticularUpdateInput,
@@ -74,6 +75,16 @@ export const shipParticularsApi = {
 
   delete: (id: string) =>
     apiRequest<void>(`/master-data/ship-particulars/${id}`, { method: 'DELETE' }),
+
+  // Returns null when no ship particular with that IMO exists (404 → null).
+  getByImo: async (imo: string): Promise<ShipParticularRecord | null> => {
+    try {
+      return await apiRequest<ShipParticularRecord>(`/master-data/ship-particulars/by-imo/${imo}`);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) return null;
+      throw err;
+    }
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -118,6 +129,16 @@ export function useSaveShipParticular(selectedId: string | null) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['ship-particulars'] });
     },
+  });
+}
+
+export function useShipParticularByImo(imo: string | null) {
+  return useQuery({
+    queryKey: ['ship-particulars', 'by-imo', imo],
+    queryFn: () => shipParticularsApi.getByImo(imo!),
+    enabled: imo !== null,
+    staleTime: 30_000,
+    retry: false,
   });
 }
 

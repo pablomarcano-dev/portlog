@@ -14,6 +14,7 @@ import {
   shipParticularsApi,
 } from '../../../lib/api/master-data/ship-particulars';
 import { DatalasticImoLookup } from '../../../features/master-data/ship-particulars/DatalasticImoLookup';
+import { DatalasticRefreshButton } from '../../../features/master-data/ship-particulars/DatalasticRefreshButton';
 
 export const Route = createFileRoute('/_protected/master-data/ship-particulars')({
   component: ShipParticularsScreen,
@@ -149,6 +150,9 @@ function ShipParticularFields({
           />
         </Grid.Col>
       </Grid>
+
+      {/* Refresh from Datalastic (shows only when a valid IMO is set and differs from saved data) */}
+      <DatalasticRefreshButton form={form} />
 
       {/* IMO Lookup from Datalastic */}
       <DatalasticImoLookup form={form} />

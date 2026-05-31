@@ -12,17 +12,10 @@ import {
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCurrentUser, useLogout } from '../lib/auth/queries';
 
-// Suppliers is a top-level nav entry (not in the MasterDataTabs strip) because
-// it is a cross-cutting entity used across the PDA workflow rather than being
-// owned by a single master-data tab group. Placing it here keeps the tab strip
-// focused on entities managed exclusively inside Master Data.
 const NAV_LINKS = [
-  { label: 'Home', to: '/' },
   { label: 'Nominations', to: '/nominations' },
   { label: 'Vessels', to: '/vessels' },
   { label: 'Master Data', to: '/master-data/flags' },
-  { label: 'Suppliers', to: '/master-data/suppliers' },
-  { label: 'All Sent', to: '/all-sent' },
 ] as const;
 
 interface AppShellProps {
@@ -56,15 +49,7 @@ export function AppShell({ children }: AppShellProps) {
           <Group gap="lg">
             <Text fw={600}>Portlog</Text>
             {NAV_LINKS.map((link) => {
-              const isActive =
-                link.to === '/'
-                  ? currentPath === '/'
-                  : // Suppliers uses an exact-prefix match so it doesn't also
-                    // light up when any /master-data/* route is active.
-                    link.to === '/master-data/suppliers'
-                    ? currentPath.startsWith('/master-data/suppliers')
-                    : currentPath.startsWith(link.to.split('/').slice(0, 2).join('/')) &&
-                      !currentPath.startsWith('/master-data/suppliers');
+              const isActive = currentPath.startsWith(link.to.split('/').slice(0, 2).join('/'));
               return (
                 <UnstyledButton
                   key={link.to}

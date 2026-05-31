@@ -50,6 +50,7 @@ export class ShipParticularsService {
             OR: [
               { name: { contains: q, mode: 'insensitive' } },
               { callSign: { contains: q, mode: 'insensitive' } },
+              { imoNumber: { contains: q, mode: 'insensitive' } },
             ],
           }
         : undefined,
@@ -66,6 +67,15 @@ export class ShipParticularsService {
       nextCursor,
       hasMore,
     };
+  }
+
+  async findByImo(imo: string) {
+    const ship = await this.prisma.shipParticular.findUnique({
+      where: { imoNumber: imo },
+      select: SELECT,
+    });
+    if (!ship) throw new NotFoundException(`No ship particular with IMO ${imo}.`);
+    return ship;
   }
 
   async getById(id: string) {
@@ -122,6 +132,7 @@ export class ShipParticularsService {
         OR: [
           { name: { contains: q, mode: 'insensitive' } },
           { callSign: { contains: q, mode: 'insensitive' } },
+          { imoNumber: { contains: q, mode: 'insensitive' } },
         ],
       },
       orderBy: { name: 'asc' },

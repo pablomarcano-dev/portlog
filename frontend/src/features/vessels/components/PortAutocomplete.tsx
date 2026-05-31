@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Autocomplete, Badge, Group, Paper, Stack, Text } from '@mantine/core';
 import type { PortDetail, PortResult } from '@portlog/schemas';
 import { usePortSearch } from '../api/usePortSearch';
@@ -12,6 +12,16 @@ interface PortAutocompleteProps {
 export function PortAutocomplete({ onPortSelect, selectedPort }: PortAutocompleteProps) {
   const [query, setQuery] = useState('');
   const results = usePortSearch(query);
+
+  // When selectedPort is set externally (e.g. restored from URL on back-navigation),
+  // sync the text input so the user sees which port is active.
+  useEffect(() => {
+    if (selectedPort) {
+      setQuery(`${selectedPort.port_name} (${selectedPort.unlocode})`);
+    } else {
+      setQuery('');
+    }
+  }, [selectedPort?.unlocode]);
 
   const autocompleteData = results.map((p: PortResult) => ({
     value: p.uuid,

@@ -7,12 +7,13 @@ interface TabDef {
 }
 
 /**
- * The 10-entity tab strip for the Data Base / master-data section.
+ * Tab strip for the master-data section.
  * Active tab is derived from the current route pathname so it stays in sync
- * with browser navigation. Owner and Supplier are separate routes (not tabs).
+ * with browser navigation.
  */
 const TABS: TabDef[] = [
   { label: 'Ship Particulars', path: '/master-data/ship-particulars' },
+  { label: 'Owners', path: '/master-data/owners' },
   { label: 'Flags', path: '/master-data/flags' },
   { label: 'Activities', path: '/master-data/activities' },
   { label: 'Cargoes', path: '/master-data/cargoes' },
@@ -22,6 +23,7 @@ const TABS: TabDef[] = [
   { label: 'Agents', path: '/master-data/agents' },
   { label: 'Operators', path: '/master-data/operators' },
   { label: 'Contacts', path: '/master-data/contacts' },
+  { label: 'Suppliers', path: '/master-data/suppliers' },
   { label: 'Branches', path: '/master-data/branches' },
   { label: 'Email Groups', path: '/master-data/email-groups' },
 ];

@@ -26,9 +26,8 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
   const token = accessTokenStore.get();
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(options.body != null ? { 'Content-Type': 'application/json' } : {}),
     ...(token !== null ? { Authorization: `Bearer ${token}` } : {}),
-    // Allow caller to override headers
     ...(options.headers as Record<string, string> | undefined),
   };
 
@@ -71,11 +70,19 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
       throw new ApiError(retryRes.status, await retryRes.text());
     }
 
+    if (retryRes.status === 204 || retryRes.headers.get('content-length') === '0') {
+      return undefined as T;
+    }
+
     return retryRes.json() as Promise<T>;
   }
 
   if (!res.ok) {
     throw new ApiError(res.status, await res.text());
+  }
+
+  if (res.status === 204 || res.headers.get('content-length') === '0') {
+    return undefined as T;
   }
 
   return res.json() as Promise<T>;

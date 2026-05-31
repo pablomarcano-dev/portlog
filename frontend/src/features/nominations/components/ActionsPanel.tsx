@@ -1,5 +1,4 @@
 import { Stack, Text, Button, Divider, Tooltip } from '@mantine/core';
-import { useNavigate } from '@tanstack/react-router';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -31,8 +30,6 @@ interface HubAction {
 // ---------------------------------------------------------------------------
 
 export function ActionsPanel({ nominationId, vesselName: _vesselName }: ActionsPanelProps) {
-  const navigate = useNavigate();
-
   function scrollToShDocuments() {
     document.getElementById('sh-documents')?.scrollIntoView({ behavior: 'smooth' });
   }
@@ -51,7 +48,8 @@ export function ActionsPanel({ nominationId, vesselName: _vesselName }: ActionsP
     {
       label: 'All Sent',
       active: true,
-      onAction: () => void navigate({ to: '/all-sent' }),
+      onAction: () =>
+        document.getElementById('all-sent-section')?.scrollIntoView({ behavior: 'smooth' }),
     },
     {
       label: 'Vessel Expense List',

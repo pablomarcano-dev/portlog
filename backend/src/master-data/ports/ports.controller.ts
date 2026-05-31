@@ -22,11 +22,6 @@ import type { PortListQuery } from '@portlog/schemas';
 export class PortsController {
   constructor(private readonly portsService: PortsService) {}
 
-  @Get('tree')
-  getTree() {
-    return this.portsService.getTree();
-  }
-
   @Get('search')
   search(@Query('q') q: string) {
     return this.portsService.search(q ?? '');

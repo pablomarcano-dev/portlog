@@ -12,7 +12,7 @@ export function useDatalastic<T>(
   endpoint: string,
   params: Record<string, string>,
   options?: { enabled?: boolean },
-): { data: T | undefined; isLoading: boolean; isError: boolean } {
+): { data: T | undefined; isLoading: boolean; isError: boolean; error: unknown } {
   const searchParams = new URLSearchParams(params).toString();
   const url = `/datalastic/${endpoint}${searchParams ? `?${searchParams}` : ''}`;
 
@@ -27,5 +27,6 @@ export function useDatalastic<T>(
     data: query.data,
     isLoading: query.isLoading,
     isError: query.isError,
+    error: query.error,
   };
 }

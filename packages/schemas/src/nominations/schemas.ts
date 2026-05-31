@@ -22,9 +22,8 @@ export const NominationCreateSchema = z
     // Vessel — required
     shipParticularId: cuidFk,
 
-    // Voyage
-    voyageNumber: z.string().min(1).max(20),
-    voyageCode: z.string().max(20).optional(),
+    // Voyage — voyageNumber is auto-assigned from correlative if omitted
+    voyageNumber: z.string().max(20).optional(),
 
     // Parties — all optional cuid FKs into M2 entities
     operatorId: cuidFk.optional(),
@@ -57,9 +56,9 @@ export const NominationCreateSchema = z
     contactBlackBerry: z.string().max(255).optional().nullable(),
     blindCopy: z.string().max(255).optional().nullable(),
 
-    // Ports — five named relations; all optional cuid FKs
+    // Ports — all optional cuid FKs; pierId references Pier (child of opPort)
     opPortId: cuidFk.optional(),
-    berthPortId: cuidFk.optional(),
+    pierId: cuidFk.optional(),
     lastPortId: cuidFk.optional(),
     nextPortId: cuidFk.optional(),
     disPortId: cuidFk.optional(),
@@ -283,8 +282,8 @@ export const NominationSchema = z.object({
   // Ports
   opPortId: cuidFk.nullable(),
   opPort: PortSummarySchema,
-  berthPortId: cuidFk.nullable(),
-  berthPort: PortSummarySchema,
+  pierId: cuidFk.nullable(),
+  pier: z.object({ id: z.string(), name: z.string() }).nullable(),
   lastPortId: cuidFk.nullable(),
   lastPort: PortSummarySchema,
   nextPortId: cuidFk.nullable(),

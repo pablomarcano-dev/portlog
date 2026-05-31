@@ -23,6 +23,8 @@ interface EntityPickerProps {
   required?: boolean;
   error?: string;
   placeholder?: string;
+  extraParams?: Record<string, string>;
+  disabled?: boolean;
 }
 
 /**
@@ -41,12 +43,17 @@ export function EntityPicker({
   required,
   error,
   placeholder,
+  extraParams,
+  disabled: disabledProp,
 }: EntityPickerProps) {
   const { data, isLoading } = useQuery({
-    queryKey: ['entity-picker', endpoint, searchValue],
+    queryKey: ['entity-picker', endpoint, searchValue, extraParams],
     queryFn: () => {
       const params = new URLSearchParams({ limit: '50' });
       if (searchValue) params.set('q', searchValue);
+      if (extraParams) {
+        for (const [k, v] of Object.entries(extraParams)) params.set(k, v);
+      }
       return apiRequest<EntityListResponse>(`${endpoint}?${params.toString()}`);
     },
     staleTime: 30_000,
@@ -69,7 +76,7 @@ export function EntityPicker({
       searchable
       searchValue={searchValue}
       onSearchChange={onSearchChange}
-      disabled={isLoading}
+      disabled={disabledProp ?? isLoading}
       clearable
       nothingFoundMessage={isLoading ? 'Loading...' : 'No results found'}
     />

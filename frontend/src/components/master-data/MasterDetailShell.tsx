@@ -207,7 +207,7 @@ export function MasterDetailShell<TForm extends FieldValues>({
   const canNavigate = items.length > 1;
 
   return (
-    <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} noValidate>
+    <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} noValidate style={{ height: '100%' }}>
       <FormProvider {...form}>
         <Grid h="100%" gutter={0}>
           {/* Left rail — record list + Flash Search */}

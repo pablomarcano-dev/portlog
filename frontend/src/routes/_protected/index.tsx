@@ -1,22 +1,5 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { Stack, Title, Text } from '@mantine/core';
-import { useCurrentUser } from '../../lib/auth/queries';
+import { createFileRoute, Navigate } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/_protected/')({
-  component: HomePage,
+  component: () => <Navigate to="/nominations" search={{ page: 1, pageSize: 25 }} />,
 });
-
-function HomePage() {
-  const { data: currentUser } = useCurrentUser();
-
-  return (
-    <Stack p="xl" gap="sm">
-      <Title order={2}>Home</Title>
-      {currentUser !== undefined && (
-        <Text>
-          Welcome, {currentUser.email} ({currentUser.role})
-        </Text>
-      )}
-    </Stack>
-  );
-}

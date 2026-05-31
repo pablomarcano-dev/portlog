@@ -34,6 +34,11 @@ export class ShipParticularsController {
     return this.shipParticularsService.search(q ?? '');
   }
 
+  @Get('by-imo/:imo')
+  findByImo(@Param('imo') imo: string) {
+    return this.shipParticularsService.findByImo(imo);
+  }
+
   @Get(':id')
   getById(@Param('id') id: string) {
     return this.shipParticularsService.getById(id);

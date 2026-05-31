@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { routeTree } from './routeTree.gen';
 import { attemptSilentRefresh } from './lib/auth/queries';
+import { accessTokenStore } from './lib/auth/accessTokenStore';
 import './styles/globals.css';
 
 const queryClient = new QueryClient({
@@ -35,10 +36,11 @@ declare module '@tanstack/react-router' {
 const rootEl = document.getElementById('root');
 if (!rootEl) throw new Error('Root element not found');
 
-// Attempt to restore session from httpOnly refresh-token cookie before first render.
-// If it succeeds the access token is stored in-memory and all subsequent queries
-// will be authenticated. If it fails (no cookie / expired) we render unauthenticated.
-attemptSilentRefresh().finally(() => {
+// If a valid token is already in localStorage (within the 5-minute window) skip
+// the network round-trip. Otherwise attempt a silent refresh from the httpOnly
+// refresh-token cookie before first render.
+const boot = accessTokenStore.get() !== null ? Promise.resolve() : attemptSilentRefresh();
+boot.finally(() => {
   createRoot(rootEl).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>

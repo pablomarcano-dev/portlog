@@ -91,6 +91,9 @@ export class DatalasticService {
         durationMs: Date.now() - start,
         statusCode: res.status,
       });
+      if (res.status === 404) {
+        throw new NotFoundException(`No Datalastic record found for endpoint ${endpoint}`);
+      }
       throw new BadGatewayException(`Datalastic returned ${res.status} for endpoint ${endpoint}`);
     }
 

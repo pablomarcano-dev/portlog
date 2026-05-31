@@ -5,6 +5,7 @@ import type { UseFormReturn } from 'react-hook-form';
 import type { ShipParticularCreateInput } from '@portlog/schemas';
 import type { VesselInfo } from '@portlog/schemas';
 import { useDatalastic } from '../../vessels/api/useDatalastic';
+import { ApiError } from '../../../lib/api/errors';
 
 interface VesselInfoResponse {
   data: VesselInfo;
@@ -43,7 +44,7 @@ export function DatalasticImoLookup({ form }: DatalasticImoLookupProps) {
 
   const isValidImo = typeof imoNumber === 'string' && /^\d{7}$/.test(imoNumber);
 
-  const { data, isLoading, isError } = useDatalastic<VesselInfoResponse>(
+  const { data, isLoading, isError, error } = useDatalastic<VesselInfoResponse>(
     'vessel_info',
     isValidImo ? { imo: imoNumber } : {},
     { enabled: isValidImo },
@@ -65,9 +66,24 @@ export function DatalasticImoLookup({ form }: DatalasticImoLookupProps) {
   }
 
   if (isError) {
+    const status = error instanceof ApiError ? error.status : 0;
+    if (status === 404) {
+      return (
+        <Text size="sm" c="dimmed">
+          No Datalastic record found for IMO {imoNumber}.
+        </Text>
+      );
+    }
+    if (status === 503) {
+      return (
+        <Alert color="yellow" title="Datalastic not configured">
+          DATALASTIC_API_KEY is not set on the server.
+        </Alert>
+      );
+    }
     return (
-      <Alert color="yellow" title="Datalastic lookup unavailable">
-        Could not load vessel data for this IMO. Check that DATALASTIC_API_KEY is configured.
+      <Alert color="yellow" title="Datalastic unavailable">
+        Could not fetch vessel data right now. The form can still be saved manually.
       </Alert>
     );
   }

@@ -9,9 +9,9 @@ export const NominationClientSchema = z.object({
   id: z.string().uuid().optional(),
   type: z.string().max(100),
   name: z.string().max(200),
-  voyageRef: z.string().max(50).optional(),
-  referenceNo: z.string().max(100).optional(),
-  broker: z.string().max(200).optional(),
+  voyageRef: z.string().max(50).optional().nullable(),
+  referenceNo: z.string().max(100).optional().nullable(),
+  broker: z.string().max(200).optional().nullable(),
   sortOrder: z.number().int().default(0),
 });
 

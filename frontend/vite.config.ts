@@ -1,12 +1,15 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite';
+import path from 'path';
 
 export default defineConfig({
   plugins: [TanStackRouterVite(), react()],
-  optimizeDeps: {
-    // @portlog/schemas ships as CJS; tell Vite to pre-bundle it so named exports work in the browser
-    include: ['@portlog/schemas'],
+  resolve: {
+    alias: {
+      // Resolve schemas from TS source so Vite always sees changes immediately
+      '@portlog/schemas': path.resolve(__dirname, '../packages/schemas/src/index.ts'),
+    },
   },
   build: {
     sourcemap: true,

@@ -3,6 +3,7 @@ export * from './activity';
 export * from './branch';
 export * from './cargo';
 export * from './port';
+export * from './pier';
 export * from './charterer';
 export * from './shipper';
 export * from './agent';

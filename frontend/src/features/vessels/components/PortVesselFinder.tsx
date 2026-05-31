@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import {
   Badge,
   Button,
@@ -26,8 +27,8 @@ import { apiRequest } from '../../../lib/api/client';
 import { PortAutocomplete } from './PortAutocomplete';
 import { VesselTable } from './VesselTable';
 import { FleetPanel } from './FleetPanel';
+import { SaveVesselModal } from './SaveVesselModal';
 import { useVesselsInRadius } from '../api/useVesselsInRadius';
-import { useVesselOwnership } from '../api/useVesselOwnership';
 import { categorizeVessel, isRelevantVessel } from '../lib/categorize';
 import { useFleet, useFleetPruneJob } from '../lib/fleet';
 import { proToRadiusVessel } from '../lib/proToRadiusVessel';
@@ -37,6 +38,8 @@ import { vesselToLineupRow, LINEUP_COLUMNS, DEPARTURE_COLUMNS } from '../lib/exp
 
 const DEFAULT_RADIUS = 8; // nautical miles
 const TERMINAL_RADIUS = 5; // nautical miles
+
+const routeApi = getRouteApi('/_protected/vessels/');
 
 interface VesselProResponse {
   data: VesselProData | null;
@@ -51,6 +54,9 @@ interface VesselInfoResponse {
 export function PortVesselFinder() {
   useFleetPruneJob();
 
+  const navigate = useNavigate();
+  const search = routeApi.useSearch();
+
   const [selectedPort, setSelectedPort] = useState<PortDetail | null>(null);
   const [selectedTerminal, setSelectedTerminal] = useState<Terminal | null>(null);
   const [showArribo, setShowArribo] = useState(true);
@@ -60,6 +66,34 @@ export function PortVesselFinder() {
   const [cargoFilter, setCargoFilter] = useState('');
   const [selectedImos, setSelectedImos] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
+  const [saveTarget, setSaveTarget] = useState<EnrichedVessel | null>(null);
+
+  // Restore port + terminal from URL params on mount / when unlocode changes.
+  // A ref prevents double-fetching in React StrictMode's double-invoke.
+  const restoringUnlocode = useRef<string | null>(null);
+  useEffect(() => {
+    const { unlocode, terminal } = search;
+    if (!unlocode) return;
+    if (selectedPort?.unlocode === unlocode) return;
+    if (restoringUnlocode.current === unlocode) return;
+    restoringUnlocode.current = unlocode;
+
+    apiRequest<{ data: PortDetail }>(`/datalastic/port?unlocode=${unlocode}`)
+      .then((res) => {
+        setSelectedPort(res.data);
+        if (terminal && res.data.terminals) {
+          const term = res.data.terminals.find((t) => t.terminal_code === terminal);
+          setSelectedTerminal(term ?? null);
+        }
+      })
+      .catch(() => {
+        // Stale unlocode in URL — clear it so the page doesn't look stuck
+        void navigate({ to: '/vessels', search: {}, replace: true });
+      })
+      .finally(() => {
+        restoringUnlocode.current = null;
+      });
+  }, [search.unlocode]); // Only re-run when the URL unlocode changes, not on every selectedPort update
 
   // Resolve query coords and radius
   const queryLat = selectedTerminal?.lat ?? selectedPort?.lat ?? null;
@@ -69,7 +103,7 @@ export function PortVesselFinder() {
   const { vessels: radiusVessels, isLoading } = useVesselsInRadius(queryLat, queryLon, queryRadius);
 
   // Fleet integration
-  const { imos: fleetImos, markZarpe, clearZarpe } = useFleet(selectedPort?.unlocode);
+  const { imos: fleetImos, addImos, markZarpe, clearZarpe } = useFleet(selectedPort?.unlocode);
 
   const radiusImoSet = useMemo(() => new Set(radiusVessels.map((v) => v.imo)), [radiusVessels]);
 
@@ -110,15 +144,6 @@ export function PortVesselFinder() {
     return out;
   }, [fleetProMap, queryLat, queryLon]);
 
-  // Collect all IMOs for ownership fetch
-  const allVesselImos = useMemo(() => {
-    const all = [...radiusVessels.map((v) => v.imo), ...fleetRadiusVessels.map((v) => v.imo)];
-    return all.filter((imo) => imo && imo !== '0');
-  }, [radiusVessels, fleetRadiusVessels]);
-
-  // FIX 5: Ownership enrichment
-  const ownershipMap = useVesselOwnership(allVesselImos);
-
   const fleetImoSet = useMemo(() => new Set(fleetImos), [fleetImos]);
 
   // Categorize all vessels (radius + fleet)
@@ -144,8 +169,7 @@ export function PortVesselFinder() {
       const inFleet = fleetImoSet.has(v.imo);
       const effectiveSource = inFleet ? 'fleet' : source;
       const pro = fleetProMap.get(v.imo);
-      const ownership = ownershipMap.get(v.imo);
-      const enriched = enrichVessel(v, ownership, { source: effectiveSource, pro });
+      const enriched = enrichVessel(v, undefined, { source: effectiveSource, pro });
       const cat = categorizeVessel(v, { portName, portUnlocode, terminalName, pro });
 
       // Apply cargo type filter
@@ -175,7 +199,6 @@ export function PortVesselFinder() {
   }, [
     radiusVessels,
     fleetRadiusVessels,
-    ownershipMap,
     fleetProMap,
     fleetImoSet,
     selectedPort,
@@ -197,6 +220,11 @@ export function PortVesselFinder() {
     setSelectedPort(port);
     setSelectedTerminal(null);
     setSelectedImos(new Set());
+    void navigate({
+      to: '/vessels',
+      search: port ? { unlocode: port.unlocode } : {},
+      replace: true,
+    });
   }
 
   function toggleImo(imo: string) {
@@ -347,9 +375,19 @@ export function PortVesselFinder() {
                 onChange={(val) => {
                   if (!val) {
                     setSelectedTerminal(null);
+                    void navigate({
+                      to: '/vessels',
+                      search: { unlocode: selectedPort.unlocode },
+                      replace: true,
+                    });
                   } else {
                     const term = selectedPort.terminals?.find((t) => t.terminal_code === val);
                     setSelectedTerminal(term ?? null);
+                    void navigate({
+                      to: '/vessels',
+                      search: { unlocode: selectedPort.unlocode, terminal: val },
+                      replace: true,
+                    });
                   }
                 }}
               />
@@ -429,9 +467,10 @@ export function PortVesselFinder() {
                     vessels={arribo}
                     loading={false}
                     section="arribo"
-                    ownershipMap={ownershipMap}
                     selectedImos={selectedImos}
                     onToggle={toggleImo}
+                    onSaveToDb={setSaveTarget}
+                    onAddToFleet={(v) => addImos(v.imo)}
                   />
                 )}
                 {showFondeado && (
@@ -440,9 +479,10 @@ export function PortVesselFinder() {
                     vessels={fondeado}
                     loading={false}
                     section="fondeado"
-                    ownershipMap={ownershipMap}
                     selectedImos={selectedImos}
                     onToggle={toggleImo}
+                    onSaveToDb={setSaveTarget}
+                    onAddToFleet={(v) => addImos(v.imo)}
                   />
                 )}
                 {showZarpe && (
@@ -451,9 +491,10 @@ export function PortVesselFinder() {
                     vessels={zarpe}
                     loading={false}
                     section="zarpe"
-                    ownershipMap={ownershipMap}
                     selectedImos={selectedImos}
                     onToggle={toggleImo}
+                    onSaveToDb={setSaveTarget}
+                    onAddToFleet={(v) => addImos(v.imo)}
                   />
                 )}
               </Stack>
@@ -463,6 +504,12 @@ export function PortVesselFinder() {
           </>
         )}
       </Stack>
+
+      <SaveVesselModal
+        vessel={saveTarget}
+        opened={saveTarget !== null}
+        onClose={() => setSaveTarget(null)}
+      />
     </Container>
   );
 }

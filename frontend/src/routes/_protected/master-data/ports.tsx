@@ -4,7 +4,6 @@ import {
   Grid,
   Stack,
   Paper,
-  Box,
   Text,
   ScrollArea,
   Loader,
@@ -13,7 +12,8 @@ import {
   Divider,
   NavLink,
   TextInput,
-  Select,
+  ActionIcon,
+  Group,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useForm, FormProvider } from 'react-hook-form';
@@ -24,70 +24,125 @@ import { useCurrentUser } from '../../../lib/auth/queries';
 import { ButtonBar } from '../../../components/master-data/ButtonBar';
 import { CommentarioField } from '../../../components/master-data/CommentarioField';
 import {
-  usePortsTree,
   useSavePort,
   useDeletePort,
+  usePiers,
+  useSavePier,
   portsApi,
+  piersApi,
 } from '../../../lib/api/master-data/ports';
-import type { PortTreeNode } from '../../../lib/api/master-data/ports';
 
 export const Route = createFileRoute('/_protected/master-data/ports')({
   component: PortsScreen,
 });
 
 // ---------------------------------------------------------------------------
-// Recursive NavLink tree component
+// Simple flat port list for the left rail
 // ---------------------------------------------------------------------------
 
-interface PortNavTreeProps {
-  nodes: PortTreeNode[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  depth?: number;
+interface FlatPortItem {
+  id: string;
+  name: string;
+  abbreviation?: string | null;
 }
 
-function PortNavTree({ nodes, selectedId, onSelect, depth = 0 }: PortNavTreeProps) {
+function PortNavList({
+  items,
+  selectedId,
+  onSelect,
+}: {
+  items: FlatPortItem[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}) {
   return (
     <>
-      {nodes.map((node) => (
+      {items.map((p) => (
         <NavLink
-          key={node.id}
-          label={node.name}
-          description={node.abbreviation ?? undefined}
-          active={node.id === selectedId}
-          onClick={() => onSelect(node.id)}
-          pl={depth * 12 + 8}
+          key={p.id}
+          label={p.name}
+          description={p.abbreviation ?? undefined}
+          active={p.id === selectedId}
+          onClick={() => onSelect(p.id)}
+          pl={8}
           styles={{ root: { borderRadius: 4 } }}
-          childrenOffset={0}
-          defaultOpened={depth < 2}
-        >
-          {node.children.length > 0 && (
-            <PortNavTree
-              nodes={node.children}
-              selectedId={selectedId}
-              onSelect={onSelect}
-              depth={depth + 1}
-            />
-          )}
-        </NavLink>
+        />
       ))}
     </>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Flatten tree to ordered list (for Prior/Next/First/Last navigation)
+// Pier list editor — inline add/remove
 // ---------------------------------------------------------------------------
 
-function flattenTree(nodes: PortTreeNode[]): PortTreeNode[] {
-  const result: PortTreeNode[] = [];
-  for (const node of nodes) {
-    result.push(node);
-    if (node.children.length > 0) {
-      result.push(...flattenTree(node.children));
-    }
+interface PierListEditorProps {
+  portId: string;
+  pendingDeletes: string[];
+  onMarkDelete: (pierId: string) => void;
+}
+
+function PierListEditor({ portId, pendingDeletes, onMarkDelete }: PierListEditorProps) {
+  const piersQuery = usePiers(portId);
+  const savePier = useSavePier(portId);
+  const [newName, setNewName] = useState('');
+
+  async function handleAdd() {
+    const name = newName.trim();
+    if (!name) return;
+    await savePier.mutateAsync({ name });
+    setNewName('');
   }
-  return result;
+
+  const visiblePiers = (piersQuery.data?.items ?? []).filter((p) => !pendingDeletes.includes(p.id));
+
+  return (
+    <Stack gap="xs">
+      <Text size="sm" fw={500}>
+        Piers
+      </Text>
+      {piersQuery.isPending && <Loader size="xs" />}
+      {visiblePiers.map((pier) => (
+        <Group key={pier.id} justify="space-between" gap="xs">
+          <Text size="sm">{pier.name}</Text>
+          <ActionIcon
+            type="button"
+            size="xs"
+            variant="subtle"
+            color="red"
+            onClick={() => onMarkDelete(pier.id)}
+          >
+            ×
+          </ActionIcon>
+        </Group>
+      ))}
+      <Group gap="xs" align="flex-end">
+        <TextInput
+          size="xs"
+          placeholder="New pier name…"
+          value={newName}
+          onChange={(e) => setNewName(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              void handleAdd();
+            }
+          }}
+          style={{ flex: 1 }}
+        />
+        <ActionIcon
+          type="button"
+          size="sm"
+          variant="light"
+          onClick={() => void handleAdd()}
+          loading={savePier.isPending}
+          disabled={!newName.trim()}
+        >
+          +
+        </ActionIcon>
+      </Group>
+    </Stack>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -96,13 +151,15 @@ function flattenTree(nodes: PortTreeNode[]): PortTreeNode[] {
 
 function PortsScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [portList, setPortList] = useState<FlatPortItem[]>([]);
+  const [isLoadingList, setIsLoadingList] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [pendingPierDeletes, setPendingPierDeletes] = useState<string[]>([]);
 
   const { data: currentUser } = useCurrentUser();
   const isAdm = currentUser?.role === 'ADM';
 
-  const treeQuery = usePortsTree();
   const savePort = useSavePort(selectedId);
   const deletePort = useDeletePort();
 
@@ -110,7 +167,30 @@ function PortsScreen() {
     resolver: zodResolver(PortCreateSchema),
   });
 
-  const { handleSubmit, reset, formState, watch, setValue } = form;
+  const { handleSubmit, reset, formState } = form;
+
+  // Load flat port list on mount
+  useEffect(() => {
+    setIsLoadingList(true);
+    portsApi
+      .list({ limit: 200 })
+      .then((res) => setPortList(res.items))
+      .catch(() => setPortList([]))
+      .finally(() => setIsLoadingList(false));
+  }, []);
+
+  // Reload list helper
+  const reloadList = useCallback(() => {
+    portsApi
+      .list({ limit: 200 })
+      .then((res) => setPortList(res.items))
+      .catch(() => null);
+  }, []);
+
+  // Reset pending pier deletes when navigating to a different port
+  useEffect(() => {
+    setPendingPierDeletes([]);
+  }, [selectedId]);
 
   // Load detail whenever selectedId changes
   useEffect(() => {
@@ -127,78 +207,76 @@ function PortsScreen() {
         reset({
           name: port.name,
           abbreviation: port.abbreviation ?? undefined,
-          location: port.location ?? undefined,
-          parentId: port.parentId ?? undefined,
+          country: port.country ?? undefined,
+          emailGroup: port.emailGroup ?? undefined,
           comments: port.comments ?? undefined,
         });
       })
-      .catch(() => {
-        setLoadError('Failed to load record. Please try again.');
-      })
-      .finally(() => {
-        setIsLoadingDetail(false);
-      });
+      .catch(() => setLoadError('Failed to load record. Please try again.'))
+      .finally(() => setIsLoadingDetail(false));
   }, [selectedId, reset]);
 
   const onSubmit = useCallback(
     async (values: PortCreateInput) => {
-      await savePort.mutateAsync(values);
+      const result = await savePort.mutateAsync(values);
+      const portId = selectedId ?? (result as { id: string }).id;
+      await Promise.all(pendingPierDeletes.map((pierId) => piersApi.delete(portId, pierId)));
+      setPendingPierDeletes([]);
       notifications.show({ message: 'Record saved successfully.', color: 'green' });
+      if (selectedId === null) {
+        setSelectedId(portId);
+      }
+      reloadList();
     },
-    [savePort],
+    [savePort, selectedId, pendingPierDeletes, reloadList],
   );
 
   const onDelete = useCallback(
     async (id: string) => {
       await deletePort.mutateAsync(id);
       setSelectedId(null);
+      reloadList();
     },
-    [deletePort],
+    [deletePort, reloadList],
   );
 
-  // Navigation helpers over flattened tree
-  const flatNodes = treeQuery.data ? flattenTree(treeQuery.data) : [];
-  const currentIndex = selectedId !== null ? flatNodes.findIndex((n) => n.id === selectedId) : -1;
-  const canNavigate = flatNodes.length > 1;
+  const currentIndex = selectedId !== null ? portList.findIndex((n) => n.id === selectedId) : -1;
+  const canNavigate = portList.length > 1;
 
   function handleFirst() {
-    const first = flatNodes[0];
-    if (first) setSelectedId(first.id);
+    const f = portList[0];
+    if (f) setSelectedId(f.id);
   }
   function handleLast() {
-    const last = flatNodes[flatNodes.length - 1];
-    if (last) setSelectedId(last.id);
+    const l = portList[portList.length - 1];
+    if (l) setSelectedId(l.id);
   }
   function handlePrior() {
-    if (currentIndex > 0) {
-      const prior = flatNodes[currentIndex - 1];
-      if (prior) setSelectedId(prior.id);
-    }
+    if (currentIndex > 0) setSelectedId(portList[currentIndex - 1]!.id);
   }
   function handleNext() {
-    if (currentIndex >= 0 && currentIndex < flatNodes.length - 1) {
-      const next = flatNodes[currentIndex + 1];
-      if (next) setSelectedId(next.id);
-    }
+    if (currentIndex >= 0 && currentIndex < portList.length - 1)
+      setSelectedId(portList[currentIndex + 1]!.id);
   }
   function handleNew() {
     setSelectedId(null);
     reset(undefined);
   }
   function handleCancel() {
+    setPendingPierDeletes([]);
     if (selectedId !== null) {
       setIsLoadingDetail(true);
       portsApi
         .get(selectedId)
-        .then((port) => {
+        .then((port) =>
           reset({
             name: port.name,
             abbreviation: port.abbreviation ?? undefined,
-            location: port.location ?? undefined,
-            parentId: port.parentId ?? undefined,
+            country: port.country ?? undefined,
+            emailGroup: port.emailGroup ?? undefined,
             comments: port.comments ?? undefined,
-          });
-        })
+          }),
+        )
         .catch(() => setLoadError('Failed to reload record.'))
         .finally(() => setIsLoadingDetail(false));
     } else {
@@ -206,18 +284,11 @@ function PortsScreen() {
     }
   }
 
-  // Build parent picker options from flat tree (excluding self)
-  const parentOptions = flatNodes
-    .filter((n) => n.id !== selectedId)
-    .map((n) => ({ value: n.id, label: n.name }));
-
-  const currentParentId = watch('parentId');
-
   return (
     <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} noValidate>
       <FormProvider {...form}>
         <Grid h="100%" gutter={0}>
-          {/* Left rail — hierarchical tree */}
+          {/* Left rail — flat port list */}
           <Grid.Col
             span={3}
             style={{
@@ -229,42 +300,28 @@ function PortsScreen() {
           >
             <Stack gap="xs" p="sm" style={{ flexShrink: 0 }}>
               <Text size="xs" fw={600} tt="uppercase" c="dimmed">
-                Ports Hierarchy
+                Port List
               </Text>
             </Stack>
-
             <Divider />
-
             <ScrollArea flex={1} p="xs">
-              {treeQuery.isPending && (
+              {isLoadingList && (
                 <Center py="xl">
                   <Loader size="sm" />
                 </Center>
               )}
-              {treeQuery.isError && (
-                <Text size="sm" c="red">
-                  Failed to load hierarchy.
-                </Text>
-              )}
-              {treeQuery.data && treeQuery.data.length === 0 && (
+              {!isLoadingList && portList.length === 0 && (
                 <Text size="sm" c="dimmed" p="sm">
                   No ports found.
                 </Text>
               )}
-              {treeQuery.data && (
-                <PortNavTree
-                  nodes={treeQuery.data}
-                  selectedId={selectedId}
-                  onSelect={setSelectedId}
-                />
-              )}
+              <PortNavList items={portList} selectedId={selectedId} onSelect={setSelectedId} />
             </ScrollArea>
           </Grid.Col>
 
           {/* Right panel — detail form */}
           <Grid.Col span={9}>
             <Stack h="100%" gap={0}>
-              {/* Button bar */}
               <Paper
                 px="md"
                 py="xs"
@@ -286,7 +343,6 @@ function PortsScreen() {
                 />
               </Paper>
 
-              {/* Form body */}
               <ScrollArea flex={1} p="md">
                 {isLoadingDetail && (
                   <Center py="xl">
@@ -300,13 +356,18 @@ function PortsScreen() {
                 )}
                 {!isLoadingDetail && (
                   <Stack gap="md">
-                    <PortFields
-                      form={form}
-                      parentOptions={parentOptions}
-                      currentParentId={currentParentId ?? null}
-                      onParentChange={(val) => setValue('parentId', val ?? undefined)}
-                    />
+                    <PortFields form={form} />
                     <CommentarioField />
+                    {selectedId !== null && (
+                      <>
+                        <Divider />
+                        <PierListEditor
+                          portId={selectedId}
+                          pendingDeletes={pendingPierDeletes}
+                          onMarkDelete={(id) => setPendingPierDeletes((prev) => [...prev, id])}
+                        />
+                      </>
+                    )}
                   </Stack>
                 )}
               </ScrollArea>
@@ -322,43 +383,48 @@ function PortsScreen() {
 // Port entity fields
 // ---------------------------------------------------------------------------
 
-interface PortFieldsProps {
-  form: ReturnType<typeof useForm<PortCreateInput>>;
-  parentOptions: Array<{ value: string; label: string }>;
-  currentParentId: string | null;
-  onParentChange: (val: string | null) => void;
-}
-
-function PortFields({ form, parentOptions, currentParentId, onParentChange }: PortFieldsProps) {
+function PortFields({ form }: { form: ReturnType<typeof useForm<PortCreateInput>> }) {
   const { register, formState } = form;
 
   return (
     <Stack gap="sm">
-      <TextInput
-        label="Name"
-        placeholder="e.g. Rotterdam"
-        required
-        error={formState.errors.name?.message}
-        {...register('name')}
-      />
-      <TextInput
-        label="Abbreviation"
-        placeholder="e.g. RTM"
-        error={formState.errors.abbreviation?.message}
-        {...register('abbreviation')}
-      />
-      <Box>
-        <Select
-          label="Parent (Country / Port)"
-          placeholder="None — top-level entry"
-          data={parentOptions}
-          value={currentParentId}
-          onChange={onParentChange}
-          clearable
-          searchable
-          error={formState.errors.parentId?.message}
-        />
-      </Box>
+      <Grid gutter="sm">
+        <Grid.Col span={8}>
+          <TextInput
+            label="Name"
+            placeholder="e.g. Rotterdam"
+            required
+            error={formState.errors.name?.message}
+            {...register('name')}
+          />
+        </Grid.Col>
+        <Grid.Col span={4}>
+          <TextInput
+            label="Acronym"
+            placeholder="e.g. RTM"
+            error={formState.errors.abbreviation?.message}
+            {...register('abbreviation')}
+          />
+        </Grid.Col>
+      </Grid>
+      <Grid gutter="sm">
+        <Grid.Col span={6}>
+          <TextInput
+            label="Country"
+            placeholder="e.g. Netherlands"
+            error={formState.errors.country?.message}
+            {...register('country')}
+          />
+        </Grid.Col>
+        <Grid.Col span={6}>
+          <TextInput
+            label="Email Group"
+            placeholder="e.g. rotterdam-ops"
+            error={formState.errors.emailGroup?.message}
+            {...register('emailGroup')}
+          />
+        </Grid.Col>
+      </Grid>
     </Stack>
   );
 }

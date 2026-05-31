@@ -54,25 +54,22 @@ model Cargo {
 }
 
 // ---------------------------------------------------------------------------
-// Port — port directory with self-referential hierarchy
-// parentId enables country → port → terminal/berth nesting
+// Port — flat port directory; piers are a child table (Pier)
 // ---------------------------------------------------------------------------
 model Port {
   id           String   @id @default(cuid())
   name         String
   abbreviation String?
-  location     String?
-  // Self-referential: a port can belong to a parent (country or terminal grouping)
-  parentId     String?
-  parent       Port?    @relation("PortHierarchy", fields: [parentId], references: [id])
-  children     Port[]   @relation("PortHierarchy")
+  country      String?
+  emailGroup   String?
   comments     String?  @db.Text
   createdAt    DateTime @default(now()) @db.Timestamptz
   updatedAt    DateTime @updatedAt @db.Timestamptz
 
+  piers Pier[]
+
   // Named back-relations for the port FK fields on Nomination
   nominationsAsOpPort       Nomination[] @relation("NominationOpPort")
-  nominationsAsBerthPort    Nomination[] @relation("NominationBerthPort")
   nominationsAsLastPort     Nomination[] @relation("NominationLastPort")
   nominationsAsNextPort     Nomination[] @relation("NominationNextPort")
   nominationsAsDisPort      Nomination[] @relation("NominationDisPort")
@@ -80,6 +77,23 @@ model Port {
 
   @@index([name])
   @@map("ports")
+}
+
+// ---------------------------------------------------------------------------
+// Pier — simple name list under a port; nominations reference a specific pier
+// ---------------------------------------------------------------------------
+model Pier {
+  id        String   @id @default(cuid())
+  name      String
+  portId    String
+  port      Port     @relation(fields: [portId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  nominations Nomination[]
+
+  @@index([portId])
+  @@map("piers")
 }
 
 // ---------------------------------------------------------------------------

@@ -10,18 +10,19 @@ export interface PortRecord {
   id: string;
   name: string;
   abbreviation?: string | null;
-  location?: string | null;
-  parentId?: string | null;
+  country?: string | null;
+  emailGroup?: string | null;
   comments?: string | null;
 }
 
-export interface PortDetailRecord extends PortRecord {
-  parent: { id: string; name: string; abbreviation?: string | null } | null;
-  children: Array<{ id: string; name: string; abbreviation?: string | null }>;
+export interface PierRecord {
+  id: string;
+  name: string;
+  portId: string;
 }
 
-export interface PortTreeNode extends PortRecord {
-  children: PortTreeNode[];
+export interface PortDetailRecord extends PortRecord {
+  piers: PierRecord[];
 }
 
 export interface PortListResponse {
@@ -31,24 +32,20 @@ export interface PortListResponse {
 }
 
 // ---------------------------------------------------------------------------
-// API functions
+// Port API functions
 // ---------------------------------------------------------------------------
 
 export const portsApi = {
-  list: (params?: { q?: string; limit?: number; cursor?: string; parentId?: string | null }) => {
+  list: (params?: { q?: string; limit?: number; cursor?: string }) => {
     const qs = new URLSearchParams();
     if (params?.q) qs.set('q', params.q);
     if (params?.limit != null) qs.set('limit', String(params.limit));
     if (params?.cursor) qs.set('cursor', params.cursor);
-    if (params?.parentId === null) qs.set('parentId', 'null');
-    else if (params?.parentId) qs.set('parentId', params.parentId);
     const query = qs.toString();
     return apiRequest<PortListResponse>(`/master-data/ports${query ? `?${query}` : ''}`);
   },
 
   get: (id: string) => apiRequest<PortDetailRecord>(`/master-data/ports/${id}`),
-
-  tree: () => apiRequest<PortTreeNode[]>(`/master-data/ports/tree`),
 
   search: (q: string) =>
     apiRequest<Array<{ id: string; label: string }>>(
@@ -71,15 +68,32 @@ export const portsApi = {
 };
 
 // ---------------------------------------------------------------------------
-// Query options
+// Pier API functions
 // ---------------------------------------------------------------------------
 
-export const portsTreeQueryOptions = () =>
-  queryOptions({
-    queryKey: ['ports', 'tree'],
-    queryFn: () => portsApi.tree(),
-    staleTime: 30_000,
-  });
+export const piersApi = {
+  list: (portId: string) =>
+    apiRequest<{ items: PierRecord[] }>(`/master-data/ports/${portId}/piers`),
+
+  create: (portId: string, name: string) =>
+    apiRequest<PierRecord>(`/master-data/ports/${portId}/piers`, {
+      method: 'POST',
+      body: JSON.stringify({ name, portId }),
+    }),
+
+  update: (portId: string, pierId: string, name: string) =>
+    apiRequest<PierRecord>(`/master-data/ports/${portId}/piers/${pierId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    }),
+
+  delete: (portId: string, pierId: string) =>
+    apiRequest<void>(`/master-data/ports/${portId}/piers/${pierId}`, { method: 'DELETE' }),
+};
+
+// ---------------------------------------------------------------------------
+// Port query options + hooks
+// ---------------------------------------------------------------------------
 
 export const portQueryOptions = (id: string) =>
   queryOptions({
@@ -87,14 +101,6 @@ export const portQueryOptions = (id: string) =>
     queryFn: () => portsApi.get(id),
     staleTime: 30_000,
   });
-
-// ---------------------------------------------------------------------------
-// TanStack Query hooks
-// ---------------------------------------------------------------------------
-
-export function usePortsTree() {
-  return useQuery(portsTreeQueryOptions());
-}
 
 export function usePort(id: string) {
   return useQuery(portQueryOptions(id));
@@ -121,6 +127,44 @@ export function useDeletePort() {
     mutationFn: (id: string) => portsApi.delete(id),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['ports'] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Pier hooks
+// ---------------------------------------------------------------------------
+
+export function usePiers(portId: string | null) {
+  return useQuery({
+    queryKey: ['piers', portId],
+    queryFn: () => piersApi.list(portId!),
+    enabled: portId !== null,
+    staleTime: 30_000,
+  });
+}
+
+export function useSavePier(portId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }: { id?: string; name: string }) => {
+      if (id) return piersApi.update(portId, id, name);
+      return piersApi.create(portId, name);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['piers', portId] });
+      void qc.invalidateQueries({ queryKey: ['ports', portId] });
+    },
+  });
+}
+
+export function useDeletePier(portId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (pierId: string) => piersApi.delete(portId, pierId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['piers', portId] });
+      void qc.invalidateQueries({ queryKey: ['ports', portId] });
     },
   });
 }

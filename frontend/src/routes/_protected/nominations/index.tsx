@@ -46,9 +46,7 @@ function NominationListPage() {
     <Stack p="xl" gap="md">
       <Group justify="space-between" align="center">
         <Title order={2}>Nominated Vessels</Title>
-        <Button component="a" href="/nominations/new">
-          New Nomination
-        </Button>
+        <Button onClick={() => void navigate({ to: '/nominations/new' })}>New Nomination</Button>
       </Group>
 
       <NominationFilters

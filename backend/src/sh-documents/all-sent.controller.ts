@@ -35,13 +35,12 @@ export class AllSentController {
       : new Date(toDate.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     const nominations = await this.prisma.nomination.findMany({
-      where: {
-        dateNominated: {
-          gte: fromDate,
-          lte: toDate,
-        },
-        ...(filters.portId ? { opPortId: filters.portId } : {}),
-      },
+      where: filters.nominationId
+        ? { id: filters.nominationId }
+        : {
+            dateNominated: { gte: fromDate, lte: toDate },
+            ...(filters.portId ? { opPortId: filters.portId } : {}),
+          },
       include: {
         shipParticular: { select: { name: true } },
         opPort: { select: { name: true, abbreviation: true } },

@@ -1,4 +1,4 @@
-import { useQueries } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '../../../lib/api/client';
 import type { VesselOwnership } from '@portlog/schemas';
 
@@ -8,25 +8,21 @@ interface OwnershipResponse {
 }
 
 /**
- * Fan-out ownership fetch: one query per IMO via the ownership Datalastic endpoint.
- * Returns a stable Map<imo, VesselOwnership>.
+ * Fetches ownership data for a single IMO.
+ * Intended to be called inside OwnershipRow, which only mounts when a row is
+ * expanded — making the call naturally lazy (no upfront N+1 fan-out).
  */
-export function useVesselOwnership(imos: string[]): Map<string, VesselOwnership> {
-  const results = useQueries({
-    queries: imos.map((imo) => ({
-      queryKey: ['datalastic', 'ownership', imo],
-      queryFn: () => apiRequest<OwnershipResponse>(`/datalastic/ownership?imo=${imo}`),
-      staleTime: 5 * 60 * 1_000,
-      enabled: !!imo && imo !== '0',
-    })),
+export function useOwnershipForImo(imo: string): {
+  data: VesselOwnership | undefined;
+  isLoading: boolean;
+} {
+  const { data, isLoading } = useQuery({
+    queryKey: ['datalastic', 'ownership', imo],
+    queryFn: () => apiRequest<OwnershipResponse>(`/datalastic/ownership?imo=${imo}`),
+    staleTime: 5 * 60 * 1_000,
+    enabled: !!imo && imo !== '0',
+    retry: false,
   });
 
-  const map = new Map<string, VesselOwnership>();
-  results.forEach((result, i) => {
-    const imo = imos[i];
-    if (result.data?.data?.[0] && imo) {
-      map.set(imo, result.data.data[0]);
-    }
-  });
-  return map;
+  return { data: data?.data?.[0] ?? undefined, isLoading };
 }

@@ -75,12 +75,12 @@ model Nomination {
 
   // Ports — five named relations to the Port table; cuid() PKs so plain String FKs
   opPortId    String?
-  berthPortId String?
+  pierId      String?
   lastPortId  String?
   nextPortId  String?
   disPortId   String?
   opPort      Port? @relation("NominationOpPort", fields: [opPortId], references: [id], onDelete: Restrict)
-  berthPort   Port? @relation("NominationBerthPort", fields: [berthPortId], references: [id], onDelete: Restrict)
+  pier        Pier? @relation(fields: [pierId], references: [id], onDelete: Restrict)
   lastPort    Port? @relation("NominationLastPort", fields: [lastPortId], references: [id], onDelete: Restrict)
   nextPort    Port? @relation("NominationNextPort", fields: [nextPortId], references: [id], onDelete: Restrict)
   disPort     Port? @relation("NominationDisPort", fields: [disPortId], references: [id], onDelete: Restrict)
