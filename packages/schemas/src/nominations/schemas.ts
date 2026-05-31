@@ -25,25 +25,6 @@ export const NominationCreateSchema = z
     // Voyage — voyageNumber is auto-assigned from correlative if omitted
     voyageNumber: z.string().max(20).optional(),
 
-    // Parties — all optional cuid FKs into M2 entities
-    operatorId: cuidFk.optional(),
-    operatorVariant: z.string().max(255).optional(),
-    operatorContactId: cuidFk.optional(),
-
-    charterId: cuidFk.optional(),
-    charterVariant: z.string().max(255).optional(),
-    charterContactId: cuidFk.optional(),
-
-    ownerId: cuidFk.optional(),
-    ownerVariant: z.string().max(255).optional(),
-    ownerContactId: cuidFk.optional(),
-
-    shipperId: cuidFk.optional(),
-    shipperVariant: z.string().max(255).optional(),
-    shipperContactId: cuidFk.optional(),
-
-    agentId: cuidFk.optional(),
-
     // Branch — resolves Open Question #5
     branchId: cuidFk.optional(),
 
@@ -211,13 +192,6 @@ const PortSummarySchema = z
   })
   .nullable();
 
-const PartySummarySchema = z
-  .object({
-    id: cuidFk,
-    name: z.string(),
-  })
-  .nullable();
-
 const UserSummarySchema = z
   .object({
     id: cuidFk,
@@ -242,30 +216,6 @@ export const NominationSchema = z.object({
     imoNumber: z.string().nullable(),
     abbreviation: z.string().nullable(),
   }),
-
-  // Parties
-  operatorId: cuidFk.nullable(),
-  operator: PartySummarySchema,
-  operatorVariant: z.string().nullable(),
-  operatorContactId: cuidFk.nullable(),
-
-  charterId: cuidFk.nullable(),
-  charter: PartySummarySchema,
-  charterVariant: z.string().nullable(),
-  charterContactId: cuidFk.nullable(),
-
-  ownerId: cuidFk.nullable(),
-  owner: PartySummarySchema,
-  ownerVariant: z.string().nullable(),
-  ownerContactId: cuidFk.nullable(),
-
-  shipperId: cuidFk.nullable(),
-  shipper: PartySummarySchema,
-  shipperVariant: z.string().nullable(),
-  shipperContactId: cuidFk.nullable(),
-
-  agentId: cuidFk.nullable(),
-  agent: PartySummarySchema,
 
   // Branch — resolves Open Question #5
   branchId: z.string().nullable(),

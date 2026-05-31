@@ -27,11 +27,6 @@ const DETAIL_INCLUDE = {
   shipParticular: {
     select: { id: true, name: true, callSign: true, imoNumber: true, abbreviation: true },
   },
-  operator: { select: { id: true, name: true } },
-  charter: { select: { id: true, name: true } },
-  owner: { select: { id: true, name: true } },
-  shipper: { select: { id: true, name: true } },
-  agent: { select: { id: true, name: true } },
   branch: { select: { id: true, name: true, code: true } },
   opPort: { select: { id: true, name: true, abbreviation: true } },
   pier: { select: { id: true, name: true } },

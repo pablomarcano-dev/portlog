@@ -183,10 +183,6 @@ export function NominationForm({
 
   // Search state for each EntityPicker
   const [shipSearch, setShipSearch] = useState('');
-  const [operatorSearch, setOperatorSearch] = useState('');
-  const [charterSearch, setCharterSearch] = useState('');
-  const [ownerSearch, setOwnerSearch] = useState('');
-  const [shipperSearch, setShipperSearch] = useState('');
   const [branchSearch, setBranchSearch] = useState('');
   const [opPortSearch, setOpPortSearch] = useState('');
   const [pierSearch, setPierSearch] = useState('');
@@ -590,124 +586,6 @@ export function NominationForm({
             error={formState.errors.subject?.message}
             {...register('subject')}
           />
-
-          {/* Parties */}
-          <Fieldset legend="Parties">
-            <Stack gap="xs">
-              <Grid gutter="xs" align="flex-end">
-                <Grid.Col span={5}>
-                  <Controller
-                    name="operatorId"
-                    control={control}
-                    render={({ field, fieldState }) => (
-                      <EntityPicker
-                        endpoint="/master-data/operators"
-                        label="Operator"
-                        value={field.value ?? null}
-                        onChange={field.onChange}
-                        searchValue={operatorSearch}
-                        onSearchChange={setOperatorSearch}
-                        error={fieldState.error?.message}
-                      />
-                    )}
-                  />
-                </Grid.Col>
-                <Grid.Col span={4}>
-                  <TextInput
-                    label="Variant"
-                    placeholder="Variant"
-                    disabled={isReadOnly}
-                    error={formState.errors.operatorVariant?.message}
-                    {...register('operatorVariant')}
-                  />
-                </Grid.Col>
-              </Grid>
-              <Grid gutter="xs" align="flex-end">
-                <Grid.Col span={5}>
-                  <Controller
-                    name="charterId"
-                    control={control}
-                    render={({ field, fieldState }) => (
-                      <EntityPicker
-                        endpoint="/master-data/charterers"
-                        label="Charterer"
-                        value={field.value ?? null}
-                        onChange={field.onChange}
-                        searchValue={charterSearch}
-                        onSearchChange={setCharterSearch}
-                        error={fieldState.error?.message}
-                      />
-                    )}
-                  />
-                </Grid.Col>
-                <Grid.Col span={4}>
-                  <TextInput
-                    label="Variant"
-                    placeholder="Variant"
-                    disabled={isReadOnly}
-                    error={formState.errors.charterVariant?.message}
-                    {...register('charterVariant')}
-                  />
-                </Grid.Col>
-              </Grid>
-              <Grid gutter="xs" align="flex-end">
-                <Grid.Col span={5}>
-                  <Controller
-                    name="ownerId"
-                    control={control}
-                    render={({ field, fieldState }) => (
-                      <EntityPicker
-                        endpoint="/master-data/owners"
-                        label="Owner"
-                        value={field.value ?? null}
-                        onChange={field.onChange}
-                        searchValue={ownerSearch}
-                        onSearchChange={setOwnerSearch}
-                        error={fieldState.error?.message}
-                      />
-                    )}
-                  />
-                </Grid.Col>
-                <Grid.Col span={4}>
-                  <TextInput
-                    label="Variant"
-                    placeholder="Variant"
-                    disabled={isReadOnly}
-                    error={formState.errors.ownerVariant?.message}
-                    {...register('ownerVariant')}
-                  />
-                </Grid.Col>
-              </Grid>
-              <Grid gutter="xs" align="flex-end">
-                <Grid.Col span={5}>
-                  <Controller
-                    name="shipperId"
-                    control={control}
-                    render={({ field, fieldState }) => (
-                      <EntityPicker
-                        endpoint="/master-data/shippers"
-                        label="Shipper"
-                        value={field.value ?? null}
-                        onChange={field.onChange}
-                        searchValue={shipperSearch}
-                        onSearchChange={setShipperSearch}
-                        error={fieldState.error?.message}
-                      />
-                    )}
-                  />
-                </Grid.Col>
-                <Grid.Col span={4}>
-                  <TextInput
-                    label="Variant"
-                    placeholder="Variant"
-                    disabled={isReadOnly}
-                    error={formState.errors.shipperVariant?.message}
-                    {...register('shipperVariant')}
-                  />
-                </Grid.Col>
-              </Grid>
-            </Stack>
-          </Fieldset>
 
           {/* Clients — inline table, create mode only */}
           {mode === 'create' && (

@@ -94,18 +94,6 @@ function NominationDetailPage() {
 
   const defaultValues: Partial<NominationCreateInput> = {
     shipParticularId: nomination.shipParticularId,
-    operatorId: nomination.operatorId ?? undefined,
-    operatorVariant: nomination.operatorVariant ?? undefined,
-    operatorContactId: nomination.operatorContactId ?? undefined,
-    charterId: nomination.charterId ?? undefined,
-    charterVariant: nomination.charterVariant ?? undefined,
-    charterContactId: nomination.charterContactId ?? undefined,
-    ownerId: nomination.ownerId ?? undefined,
-    ownerVariant: nomination.ownerVariant ?? undefined,
-    ownerContactId: nomination.ownerContactId ?? undefined,
-    shipperId: nomination.shipperId ?? undefined,
-    shipperVariant: nomination.shipperVariant ?? undefined,
-    shipperContactId: nomination.shipperContactId ?? undefined,
     branchId: nomination.branchId ?? undefined,
     nomReply: nomination.nomReply ?? undefined,
     externalPortId: nomination.externalPortId ?? undefined,

@@ -35,30 +35,6 @@ model Nomination {
   shipParticularId String
   shipParticular   ShipParticular @relation(fields: [shipParticularId], references: [id], onDelete: Restrict)
 
-  // Parties — all optional; cuid() PKs so plain String FKs
-  operatorId        String?
-  operator          Operator? @relation(fields: [operatorId], references: [id], onDelete: Restrict)
-  operatorVariant   String?   // "V. Oper." override text
-  operatorContactId String?   // contact cuid — not a FK (contacts table is not a hard dep here)
-
-  charterId         String?
-  charter           Charterer? @relation(fields: [charterId], references: [id], onDelete: Restrict)
-  charterVariant    String?
-  charterContactId  String?
-
-  ownerId        String?
-  owner          Owner?  @relation(fields: [ownerId], references: [id], onDelete: Restrict)
-  ownerVariant   String?
-  ownerContactId String?
-
-  shipperId        String?
-  shipper          Shipper? @relation(fields: [shipperId], references: [id], onDelete: Restrict)
-  shipperVariant   String?
-  shipperContactId String?
-
-  agentId String?
-  agent   Agent?  @relation(fields: [agentId], references: [id], onDelete: Restrict)
-
   // Branch (Sucursal) — resolves Open Question #5; screenshot confirms dropdown FK
   branchId String?
   branch   Branch? @relation(fields: [branchId], references: [id], onDelete: Restrict)
