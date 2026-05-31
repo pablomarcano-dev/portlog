@@ -6,6 +6,8 @@ import type { ShipParticularCreateInput } from '@portlog/schemas';
 import type { VesselInfo } from '@portlog/schemas';
 import { useDatalastic } from '../../vessels/api/useDatalastic';
 import { ApiError } from '../../../lib/api/errors';
+import { useFlags, flagsApi } from '../../../lib/api/master-data/flags';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface VesselInfoResponse {
   data: VesselInfo;
@@ -41,6 +43,7 @@ type SuggestionField = StringSuggestionField | NumericSuggestionField;
  */
 export function DatalasticImoLookup({ form }: DatalasticImoLookupProps) {
   const imoNumber = useWatch({ control: form.control, name: 'imoNumber' });
+  const qc = useQueryClient();
 
   const isValidImo = typeof imoNumber === 'string' && /^\d{7}$/.test(imoNumber);
 
@@ -49,6 +52,8 @@ export function DatalasticImoLookup({ form }: DatalasticImoLookupProps) {
     isValidImo ? { imo: imoNumber } : {},
     { enabled: isValidImo },
   );
+
+  const { data: flagsData } = useFlags({ limit: 200 });
 
   const vesselInfo = data?.data;
 
@@ -92,6 +97,14 @@ export function DatalasticImoLookup({ form }: DatalasticImoLookupProps) {
 
   const currentValues = form.getValues();
 
+  // Resolve flag from Datalastic's country_iso against our flags list
+  const flagRecord = flagsData?.items.find(
+    (f) => f.abbreviation?.toUpperCase() === vesselInfo.country_iso?.toUpperCase(),
+  );
+  const flagMissing = !currentValues.flagId && vesselInfo.country_iso;
+  const flagDiffers = currentValues.flagId && flagRecord && currentValues.flagId !== flagRecord.id;
+  const needsFlagSuggestion = !!(flagMissing || flagDiffers);
+
   const strFields: StringSuggestionField[] = [
     {
       label: 'Name',
@@ -134,7 +147,9 @@ export function DatalasticImoLookup({ form }: DatalasticImoLookupProps) {
     (f) => String(f.datalasticValue) !== String(f.currentValue ?? ''),
   );
 
-  if (diffFields.length === 0) {
+  const hasAnySuggestion = diffFields.length > 0 || needsFlagSuggestion;
+
+  if (!hasAnySuggestion) {
     return (
       <Card withBorder p="sm" radius="sm" bg="green.0">
         <Text size="sm" c="green.7">
@@ -142,6 +157,28 @@ export function DatalasticImoLookup({ form }: DatalasticImoLookupProps) {
         </Text>
       </Card>
     );
+  }
+
+  const countryIso = vesselInfo.country_iso;
+  const countryName = vesselInfo.country_name;
+
+  async function applyFlag() {
+    if (!countryIso) return;
+    let resolvedId = flagRecord?.id;
+    if (!resolvedId) {
+      const newFlag = await flagsApi.create({
+        name: countryName ?? countryIso,
+        abbreviation: countryIso,
+      });
+      resolvedId = newFlag.id;
+      void qc.invalidateQueries({ queryKey: ['flags'] });
+      notifications.show({
+        color: 'blue',
+        message: `Flag "${countryIso}" auto-created.`,
+      });
+    }
+    form.setValue('flagId', resolvedId);
+    notifications.show({ color: 'green', message: 'Flag updated from Datalastic' });
   }
 
   function applyField(field: SuggestionField) {
@@ -161,14 +198,18 @@ export function DatalasticImoLookup({ form }: DatalasticImoLookupProps) {
     });
   }
 
-  function applyAll() {
+  async function applyAll() {
     for (const f of diffFields) {
       applyField(f);
     }
-    notifications.show({
-      color: 'green',
-      message: 'All fields updated from Datalastic',
-    });
+    if (needsFlagSuggestion) {
+      await applyFlag();
+    } else {
+      notifications.show({
+        color: 'green',
+        message: 'All fields updated from Datalastic',
+      });
+    }
   }
 
   return (
@@ -184,7 +225,7 @@ export function DatalasticImoLookup({ form }: DatalasticImoLookupProps) {
               {vesselInfo.year_built ?? '—'}
             </Text>
           </Box>
-          <Button size="xs" variant="filled" onClick={applyAll}>
+          <Button size="xs" variant="filled" onClick={() => void applyAll()}>
             Apply All
           </Button>
         </Group>
@@ -203,6 +244,27 @@ export function DatalasticImoLookup({ form }: DatalasticImoLookupProps) {
               </Button>
             </Group>
           ))}
+          {needsFlagSuggestion && (
+            <Group justify="space-between" align="center">
+              <Box>
+                <Text size="xs" c="dimmed" fw={500}>
+                  Flag
+                </Text>
+                <Text size="sm">
+                  {countryName ?? countryIso}
+                  {!flagRecord && (
+                    <Text span size="xs" c="dimmed">
+                      {' '}
+                      (will be created)
+                    </Text>
+                  )}
+                </Text>
+              </Box>
+              <Button size="xs" variant="light" onClick={() => void applyFlag()}>
+                Apply
+              </Button>
+            </Group>
+          )}
         </SimpleGrid>
       </Stack>
     </Card>

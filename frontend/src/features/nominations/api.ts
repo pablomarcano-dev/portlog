@@ -3,7 +3,6 @@ import {
   NominationListResponseSchema,
   NominationSchema,
   NominationClientSchema,
-  AisVesselSchema,
   type NominationListQuery,
   type NominationListResponse,
   type NominationCreateInput,
@@ -13,7 +12,6 @@ import {
   type NominationClientCreate,
   type NominationClientUpdate,
   type Nomination,
-  type AisVessel,
 } from '@portlog/schemas';
 import { z } from 'zod';
 
@@ -95,8 +93,3 @@ export const nominationsApi = {
     });
   },
 };
-
-export async function fetchAisVessel(imo: string): Promise<AisVessel> {
-  const raw = await apiRequest<unknown>(`/ais/vessels/${imo}`);
-  return AisVesselSchema.parse(raw);
-}

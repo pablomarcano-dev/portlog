@@ -73,6 +73,11 @@ model Nomination {
   contactBlackBerry String?
   blindCopy         String?
 
+  // Email recipients — populated at nomination creation and used by all email sends in this nomination flow
+  emailTo  String[]
+  emailCc  String[]
+  emailBcc String[]
+
   // Ports — five named relations to the Port table; cuid() PKs so plain String FKs
   opPortId    String?
   pierId      String?
@@ -165,6 +170,7 @@ model NominationClient {
   name         String
   voyageRef    String?
   referenceNo  String?
+  proforma     String?
   broker       String?
   sortOrder    Int        @default(0)
   createdAt    DateTime   @default(now()) @db.Timestamptz(6)

@@ -82,6 +82,19 @@ function ClientRow({ client, isUpdating, isRemoving, onUpdate, onRemove }: Clien
       <Table.Td>
         <TextInput
           size="xs"
+          defaultValue={client.proforma ?? ''}
+          disabled={isBusy}
+          onBlur={(e) => {
+            const val = e.currentTarget.value.trim();
+            if (val !== (client.proforma ?? '')) {
+              onUpdate(clientId, 'proforma', val);
+            }
+          }}
+        />
+      </Table.Td>
+      <Table.Td>
+        <TextInput
+          size="xs"
           defaultValue={client.broker ?? ''}
           disabled={isBusy}
           onBlur={(e) => {
@@ -119,10 +132,8 @@ export function ClientsSection({ nominationId }: ClientsSectionProps) {
   const updateClient = useUpdateClient(nominationId);
   const removeClient = useRemoveClient(nominationId);
 
-  // Track which clientId is currently being removed to show per-row loading
   const removingId = useRef<string | null>(null);
   const updatingId = useRef<string | null>(null);
-  // Force re-render when ref changes would otherwise not trigger it
   const [, setTick] = useState(0);
 
   function handleUpdate(
@@ -177,8 +188,9 @@ export function ClientsSection({ nominationId }: ClientsSectionProps) {
             <Table.Tr>
               <Table.Th>Type</Table.Th>
               <Table.Th>Name</Table.Th>
-              <Table.Th>Voy</Table.Th>
-              <Table.Th>Ref No</Table.Th>
+              <Table.Th>Voy.</Table.Th>
+              <Table.Th>Ref. No.</Table.Th>
+              <Table.Th>Proforma</Table.Th>
               <Table.Th>Broker</Table.Th>
               <Table.Th style={{ width: 40 }} />
             </Table.Tr>

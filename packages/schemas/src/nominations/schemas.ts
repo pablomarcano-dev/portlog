@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { NominationStatusSchema, NominationTypeSchema } from './enums.js';
 import { NominationFeatureSchema, NominationFeatureReadSchema } from './feature.js';
 import { BranchSummarySchema } from '../master-data/branch/index.js';
-import { NominationClientSchema } from './client.js';
+import { NominationClientSchema, NominationClientCreateSchema } from './client.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -56,6 +56,11 @@ export const NominationCreateSchema = z
     contactBlackBerry: z.string().max(255).optional().nullable(),
     blindCopy: z.string().max(255).optional().nullable(),
 
+    // Email recipients — saved at creation and used by all email sends in this nomination flow
+    emailTo: z.array(z.string().email()).default([]),
+    emailCc: z.array(z.string().email()).default([]),
+    emailBcc: z.array(z.string().email()).default([]),
+
     // Ports — all optional cuid FKs; pierId references Pier (child of opPort)
     opPortId: cuidFk.optional(),
     pierId: cuidFk.optional(),
@@ -83,6 +88,9 @@ export const NominationCreateSchema = z
 
     // Features (JSON array of Product/Qtty/Unit/Oper rows)
     features: z.array(NominationFeatureSchema).default([]),
+
+    // Client list rows — created atomically with the nomination
+    nominationClients: z.array(NominationClientCreateSchema).default([]),
   })
   .superRefine((data, ctx) => {
     if (
@@ -278,6 +286,11 @@ export const NominationSchema = z.object({
 
   contactBlackBerry: z.string().nullable(),
   blindCopy: z.string().nullable(),
+
+  // Email recipients — used by all email sends in this nomination flow
+  emailTo: z.array(z.string()).default([]),
+  emailCc: z.array(z.string()).default([]),
+  emailBcc: z.array(z.string()).default([]),
 
   // Ports
   opPortId: cuidFk.nullable(),

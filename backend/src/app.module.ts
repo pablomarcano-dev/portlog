@@ -20,7 +20,6 @@ import { PortsModule } from './master-data/ports/ports.module.js';
 import { ContactsModule } from './master-data/contacts/contacts.module.js';
 import { OwnersModule } from './master-data/owners/owners.module.js';
 import { ShipParticularsModule } from './master-data/ship-particulars/ship-particulars.module.js';
-import { AisModule } from './ais/ais.module.js';
 import { NominationsModule } from './nominations/nominations.module.js';
 import { EmailGroupsModule } from './master-data/email-groups/email-groups.module.js';
 import { PedrModule } from './pedr/pedr.module.js';
@@ -30,6 +29,7 @@ import { DatalasticModule } from './datalastic/datalastic.module.js';
 import { FleetModule } from './fleet/fleet.module.js';
 import { DispatchModule } from './dispatch/dispatch.module.js';
 import { BranchesModule } from './master-data/branches/branches.module.js';
+import { ClientsModule } from './master-data/clients/clients.module.js';
 import { SHDocumentsModule } from './sh-documents/sh-documents.module.js';
 
 @Module({
@@ -79,7 +79,6 @@ import { SHDocumentsModule } from './sh-documents/sh-documents.module.js';
     ContactsModule,
     OwnersModule,
     ShipParticularsModule,
-    AisModule,
     NominationsModule,
     EmailGroupsModule,
     PedrModule,
@@ -90,6 +89,7 @@ import { SHDocumentsModule } from './sh-documents/sh-documents.module.js';
     DispatchModule,
     SHDocumentsModule,
     BranchesModule,
+    ClientsModule,
   ],
   providers: [
     // ThrottlerGuard must run first (before auth) so rate limits apply to all routes.

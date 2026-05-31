@@ -124,6 +124,7 @@ Guard/decorator implementation is deferred to M2-S12 (Owner CRUD story).
   - Detail view as the hub linking to PEDR, documents, services
 - **External Dependencies**: AIS Integration (vessel lookup), Master Data
 - **Outputs**: Trigger for PEDR creation, source for SH-xx documents
+- **Email Recipients**: `nominations.emailTo`, `nominations.emailCc`, `nominations.emailBcc` (all `String[]`) are set at nomination creation. **All email sends originating from the nomination flow (PEDR sub-documents, NOR, SOF, etc.) must pre-populate their To/CC/BCC from these fields.** Do not use the legacy `contactBlackBerry` / `blindCopy` fields for new email sends.
 - **Open Questions**:
   - [ ] Exact state machine — full list of states and allowed transitions?
   - [ ] Can a nomination be cloned for repeat calls?

@@ -3,7 +3,6 @@ import {
   Alert,
   Badge,
   Box,
-  Button,
   Container,
   Divider,
   Group,
@@ -13,7 +12,6 @@ import {
   Title,
 } from '@mantine/core';
 import { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { NominationForm } from '../../../features/nominations/components/NominationForm';
 import { TransitionButtons } from '../../../features/nominations/components/TransitionButtons';
 import { StatusHistoryTimeline } from '../../../features/nominations/components/StatusHistoryTimeline';
@@ -61,15 +59,9 @@ function NominationDetailPage() {
   const { id } = Route.useParams();
   const { data: nomination, isLoading, isError, error } = useNomination(id);
   const updateNomination = useUpdateNomination(id);
-  const queryClient = useQueryClient();
   const { data: pedr } = usePedrByNomination(id);
   const [pendingDrawer, setPendingDrawer] = useState<SubDocType | null>(null);
   const { data: allSentData } = useAllSent({ nominationId: id });
-
-  function handleRefreshAis() {
-    const imo = nomination?.shipParticular.imoNumber;
-    void queryClient.invalidateQueries({ queryKey: imo ? ['ais', imo] : ['ais'] });
-  }
 
   function handleMessagesNavAction(slug: string) {
     if (slug === 'all-sent') {
@@ -121,6 +113,9 @@ function NominationDetailPage() {
     referenceNo: nomination.referenceNo ?? undefined,
     contactBlackBerry: nomination.contactBlackBerry ?? undefined,
     blindCopy: nomination.blindCopy ?? undefined,
+    emailTo: nomination.emailTo ?? [],
+    emailCc: nomination.emailCc ?? [],
+    emailBcc: nomination.emailBcc ?? [],
     opPortId: nomination.opPortId ?? undefined,
     pierId: nomination.pierId ?? undefined,
     lastPortId: nomination.lastPortId ?? undefined,
@@ -178,12 +173,7 @@ function NominationDetailPage() {
                   <Badge color={STATUS_COLORS[nomination.status]}>{nomination.status}</Badge>
                 </Group>
               </Stack>
-              <Group gap="xs">
-                <Button size="xs" variant="default" onClick={handleRefreshAis}>
-                  Refresh AIS
-                </Button>
-                <TransitionButtons nominationId={nomination.id} currentStatus={nomination.status} />
-              </Group>
+              <TransitionButtons nominationId={nomination.id} currentStatus={nomination.status} />
             </Group>
 
             <Divider />
@@ -202,7 +192,6 @@ function NominationDetailPage() {
               onSubmit={handleUpdate}
               isSubmitting={updateNomination.isPending}
               isReadOnly={isReadOnly}
-              imoNumber={nomination.shipParticular.imoNumber}
               correlative={nomination.correlative}
             />
 

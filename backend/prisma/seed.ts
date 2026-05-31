@@ -2134,6 +2134,58 @@ async function main(): Promise<void> {
   const nom9Record = await prisma.nomination.findUnique({ where: { correlative: 9 } });
   const nom10Record = await prisma.nomination.findUnique({ where: { correlative: 10 } });
 
+  // ---------------------------------------------------------------------------
+  // Nomination Client Default Types (12 per nomination = 120 total)
+  // These represent the standard client-type slots for every nomination.
+  // Each row seeds with an empty name so operators can fill them in later.
+  // ---------------------------------------------------------------------------
+  const defaultClientTypes = [
+    'Head Owner',
+    'Charterer',
+    'Disponent Owner',
+    'Technical Operator',
+    'Commercial Operator',
+    'Manning Agents',
+    'Catering Agents',
+    'Ship Management',
+    'Hub Agents',
+    'Administrative Agents',
+    'Time Charter',
+    'Receivers',
+  ];
+
+  const allNominationIds: string[] = [
+    nom1.id,
+    nom2.id,
+    ...(nom3Record ? [nom3Record.id] : []),
+    nom4.id,
+    nom5.id,
+    ...(nom6Record ? [nom6Record.id] : []),
+    ...(nom7Record ? [nom7Record.id] : []),
+    ...(nom8Record ? [nom8Record.id] : []),
+    ...(nom9Record ? [nom9Record.id] : []),
+    ...(nom10Record ? [nom10Record.id] : []),
+  ];
+
+  for (const nominationId of allNominationIds) {
+    for (let i = 0; i < defaultClientTypes.length; i++) {
+      const type = defaultClientTypes[i]!;
+      await findOrCreate(
+        () =>
+          prisma.nominationClient.findFirst({
+            where: { nominationId, type, name: '' },
+          }),
+        () =>
+          prisma.nominationClient.create({
+            data: { nominationId, type, name: '', sortOrder: i },
+          }),
+      );
+    }
+  }
+  console.log(
+    `Seeded default client type slots (${defaultClientTypes.length} types × ${allNominationIds.length} nominations)`,
+  );
+
   if (nom3Record) {
     await findOrCreate(
       () => prisma.pedr.findUnique({ where: { nominationId: nom3Record.id } }),

@@ -253,6 +253,32 @@ model Supplier {
 }
 
 // ---------------------------------------------------------------------------
+// Client — port agency clients (Clientes)
+// ---------------------------------------------------------------------------
+model Client {
+  id              String   @id @default(cuid())
+  name            String
+  phone           String?
+  phone2          String?
+  physicalAddress String?
+  billingAddress  String?
+  postalAddress   String?
+  taxAddress      String?
+  otherAddress    String?
+  fax             String?
+  mobile          String?
+  email           String?
+  emailGroup      String?
+  tariff          String?  @db.Text
+  instructions    String?  @db.Text
+  createdAt       DateTime @default(now()) @db.Timestamptz
+  updatedAt       DateTime @updatedAt @db.Timestamptz
+
+  @@index([name])
+  @@map("clients")
+}
+
+// ---------------------------------------------------------------------------
 // Contact — generic contacts directory
 // Cross-linked to Shipper / Operator / Owner / Charterer via four nullable FKs.
 // Business rule: at most ONE of the four entity FKs may be non-null per row.

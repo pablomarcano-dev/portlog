@@ -60,16 +60,17 @@ export class NominationsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: NominationCreateInput, userId: string) {
+    const { nominationClients: clientRows, ...nominationData } = dto;
     return this.prisma.$transaction(async (tx) => {
       const nomination = await tx.nomination.create({
         data: {
-          ...(dto as unknown as Prisma.NominationUncheckedCreateInput),
-          voyageNumber: dto.voyageNumber ?? '',
+          ...(nominationData as unknown as Prisma.NominationUncheckedCreateInput),
+          voyageNumber: nominationData.voyageNumber ?? '',
           createdById: userId,
         },
         include: DETAIL_INCLUDE,
       });
-      if (!dto.voyageNumber) {
+      if (!nominationData.voyageNumber) {
         await tx.nomination.update({
           where: { id: nomination.id },
           data: { voyageNumber: String(nomination.correlative) },
@@ -84,6 +85,19 @@ export class NominationsService {
           changedById: userId,
         },
       });
+      if (clientRows && clientRows.length > 0) {
+        await tx.nominationClient.createMany({
+          data: clientRows.map((row, i) => ({
+            ...row,
+            nominationId: nomination.id,
+            sortOrder: row.sortOrder ?? i,
+          })),
+        });
+        nomination.nominationClients = await tx.nominationClient.findMany({
+          where: { nominationId: nomination.id },
+          orderBy: { sortOrder: 'asc' },
+        });
+      }
       this.logger.log({
         event: 'nomination.created',
         nominationId: nomination.id,

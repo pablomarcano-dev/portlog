@@ -28,6 +28,7 @@ import { Route as ProtectedMasterDataOperatorsRouteImport } from './routes/_prot
 import { Route as ProtectedMasterDataFlagsRouteImport } from './routes/_protected/master-data/flags'
 import { Route as ProtectedMasterDataEmailGroupsRouteImport } from './routes/_protected/master-data/email-groups'
 import { Route as ProtectedMasterDataContactsRouteImport } from './routes/_protected/master-data/contacts'
+import { Route as ProtectedMasterDataClientsRouteImport } from './routes/_protected/master-data/clients'
 import { Route as ProtectedMasterDataCharterersRouteImport } from './routes/_protected/master-data/charterers'
 import { Route as ProtectedMasterDataCargoesRouteImport } from './routes/_protected/master-data/cargoes'
 import { Route as ProtectedMasterDataBranchesRouteImport } from './routes/_protected/master-data/branches'
@@ -139,6 +140,12 @@ const ProtectedMasterDataContactsRoute =
     path: '/contacts',
     getParentRoute: () => ProtectedMasterDataRoute,
   } as any)
+const ProtectedMasterDataClientsRoute =
+  ProtectedMasterDataClientsRouteImport.update({
+    id: '/clients',
+    path: '/clients',
+    getParentRoute: () => ProtectedMasterDataRoute,
+  } as any)
 const ProtectedMasterDataCharterersRoute =
   ProtectedMasterDataCharterersRouteImport.update({
     id: '/charterers',
@@ -185,6 +192,7 @@ export interface FileRoutesByFullPath {
   '/master-data/branches': typeof ProtectedMasterDataBranchesRoute
   '/master-data/cargoes': typeof ProtectedMasterDataCargoesRoute
   '/master-data/charterers': typeof ProtectedMasterDataCharterersRoute
+  '/master-data/clients': typeof ProtectedMasterDataClientsRoute
   '/master-data/contacts': typeof ProtectedMasterDataContactsRoute
   '/master-data/email-groups': typeof ProtectedMasterDataEmailGroupsRoute
   '/master-data/flags': typeof ProtectedMasterDataFlagsRoute
@@ -209,6 +217,7 @@ export interface FileRoutesByTo {
   '/master-data/branches': typeof ProtectedMasterDataBranchesRoute
   '/master-data/cargoes': typeof ProtectedMasterDataCargoesRoute
   '/master-data/charterers': typeof ProtectedMasterDataCharterersRoute
+  '/master-data/clients': typeof ProtectedMasterDataClientsRoute
   '/master-data/contacts': typeof ProtectedMasterDataContactsRoute
   '/master-data/email-groups': typeof ProtectedMasterDataEmailGroupsRoute
   '/master-data/flags': typeof ProtectedMasterDataFlagsRoute
@@ -237,6 +246,7 @@ export interface FileRoutesById {
   '/_protected/master-data/branches': typeof ProtectedMasterDataBranchesRoute
   '/_protected/master-data/cargoes': typeof ProtectedMasterDataCargoesRoute
   '/_protected/master-data/charterers': typeof ProtectedMasterDataCharterersRoute
+  '/_protected/master-data/clients': typeof ProtectedMasterDataClientsRoute
   '/_protected/master-data/contacts': typeof ProtectedMasterDataContactsRoute
   '/_protected/master-data/email-groups': typeof ProtectedMasterDataEmailGroupsRoute
   '/_protected/master-data/flags': typeof ProtectedMasterDataFlagsRoute
@@ -264,6 +274,7 @@ export interface FileRouteTypes {
     | '/master-data/branches'
     | '/master-data/cargoes'
     | '/master-data/charterers'
+    | '/master-data/clients'
     | '/master-data/contacts'
     | '/master-data/email-groups'
     | '/master-data/flags'
@@ -288,6 +299,7 @@ export interface FileRouteTypes {
     | '/master-data/branches'
     | '/master-data/cargoes'
     | '/master-data/charterers'
+    | '/master-data/clients'
     | '/master-data/contacts'
     | '/master-data/email-groups'
     | '/master-data/flags'
@@ -315,6 +327,7 @@ export interface FileRouteTypes {
     | '/_protected/master-data/branches'
     | '/_protected/master-data/cargoes'
     | '/_protected/master-data/charterers'
+    | '/_protected/master-data/clients'
     | '/_protected/master-data/contacts'
     | '/_protected/master-data/email-groups'
     | '/_protected/master-data/flags'
@@ -471,6 +484,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedMasterDataContactsRouteImport
       parentRoute: typeof ProtectedMasterDataRoute
     }
+    '/_protected/master-data/clients': {
+      id: '/_protected/master-data/clients'
+      path: '/clients'
+      fullPath: '/master-data/clients'
+      preLoaderRoute: typeof ProtectedMasterDataClientsRouteImport
+      parentRoute: typeof ProtectedMasterDataRoute
+    }
     '/_protected/master-data/charterers': {
       id: '/_protected/master-data/charterers'
       path: '/charterers'
@@ -523,6 +543,7 @@ interface ProtectedMasterDataRouteChildren {
   ProtectedMasterDataBranchesRoute: typeof ProtectedMasterDataBranchesRoute
   ProtectedMasterDataCargoesRoute: typeof ProtectedMasterDataCargoesRoute
   ProtectedMasterDataCharterersRoute: typeof ProtectedMasterDataCharterersRoute
+  ProtectedMasterDataClientsRoute: typeof ProtectedMasterDataClientsRoute
   ProtectedMasterDataContactsRoute: typeof ProtectedMasterDataContactsRoute
   ProtectedMasterDataEmailGroupsRoute: typeof ProtectedMasterDataEmailGroupsRoute
   ProtectedMasterDataFlagsRoute: typeof ProtectedMasterDataFlagsRoute
@@ -541,6 +562,7 @@ const ProtectedMasterDataRouteChildren: ProtectedMasterDataRouteChildren = {
   ProtectedMasterDataBranchesRoute: ProtectedMasterDataBranchesRoute,
   ProtectedMasterDataCargoesRoute: ProtectedMasterDataCargoesRoute,
   ProtectedMasterDataCharterersRoute: ProtectedMasterDataCharterersRoute,
+  ProtectedMasterDataClientsRoute: ProtectedMasterDataClientsRoute,
   ProtectedMasterDataContactsRoute: ProtectedMasterDataContactsRoute,
   ProtectedMasterDataEmailGroupsRoute: ProtectedMasterDataEmailGroupsRoute,
   ProtectedMasterDataFlagsRoute: ProtectedMasterDataFlagsRoute,

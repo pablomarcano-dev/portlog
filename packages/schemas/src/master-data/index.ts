@@ -11,5 +11,6 @@ export * from './operator';
 export * from './contact';
 export * from './owner';
 export * from './supplier';
+export * from './client';
 export * from './ship-particular';
 export * from './email-group';

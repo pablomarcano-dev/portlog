@@ -11,6 +11,7 @@ export const NominationClientSchema = z.object({
   name: z.string().max(200),
   voyageRef: z.string().max(50).optional().nullable(),
   referenceNo: z.string().max(100).optional().nullable(),
+  proforma: z.string().max(200).optional().nullable(),
   broker: z.string().max(200).optional().nullable(),
   sortOrder: z.number().int().default(0),
 });

@@ -40,7 +40,8 @@ function formatEpoch(epoch: number | null | undefined): string {
 
 // Fetches its own ownership data — only mounts when a row is expanded,
 // so the Datalastic call fires on demand rather than for every row upfront.
-function OwnershipRow({ vessel, colSpan }: { vessel: EnrichedVessel; colSpan: number }) {
+// Returns content only (no Table.Tr) — the caller wraps this in Tr > Td > Collapse.
+function OwnershipRowContent({ vessel }: { vessel: EnrichedVessel }) {
   const { data: ownership, isLoading } = useOwnershipForImo(vessel.imo);
   const qc = useQueryClient();
   const [saved, setSaved] = useState<Set<string>>(new Set());
@@ -57,52 +58,38 @@ function OwnershipRow({ vessel, colSpan }: { vessel: EnrichedVessel; colSpan: nu
     },
   });
 
-  const beneficialOwner = ownership?.beneficial_owner;
-  const operator = ownership?.operator;
-  const technicalManager = ownership?.technical_manager;
-  const commercialManager = ownership?.commercial_manager;
-
   const fields: { label: string; value: string | null | undefined }[] = [
-    { label: 'Beneficial Owner', value: beneficialOwner },
-    { label: 'Operator', value: operator },
-    { label: 'Technical Manager', value: technicalManager },
-    { label: 'Commercial Manager', value: commercialManager },
+    { label: 'Beneficial Owner', value: ownership?.beneficial_owner },
+    { label: 'Operator', value: ownership?.operator },
+    { label: 'Technical Manager', value: ownership?.technical_manager },
+    { label: 'Commercial Manager', value: ownership?.commercial_manager },
   ];
 
+  if (isLoading) return <Loader size="xs" />;
+
   return (
-    <Table.Tr style={{ background: 'var(--mantine-color-gray-0)' }}>
-      <Table.Td colSpan={colSpan} px="md" py="xs">
-        {isLoading ? (
-          <Loader size="xs" />
-        ) : (
-          <Group gap="xl" wrap="nowrap">
-            {fields.map(({ label, value }) => (
-              <Group key={label} gap={4} align="center" wrap="nowrap">
-                <Text size="xs" c="dimmed">
-                  <strong>{label}:</strong> {value || '—'}
-                </Text>
-                {value && (
-                  <Tooltip
-                    label={saved.has(value) ? 'Added to Contacts' : 'Add as contact'}
-                    withArrow
-                  >
-                    <ActionIcon
-                      size="xs"
-                      variant="subtle"
-                      color={saved.has(value) ? 'green' : 'gray'}
-                      disabled={saved.has(value) || addContact.isPending}
-                      onClick={() => addContact.mutate(value)}
-                    >
-                      {saved.has(value) ? '✓' : '+'}
-                    </ActionIcon>
-                  </Tooltip>
-                )}
-              </Group>
-            ))}
-          </Group>
-        )}
-      </Table.Td>
-    </Table.Tr>
+    <Group gap="xl" wrap="nowrap">
+      {fields.map(({ label, value }) => (
+        <Group key={label} gap={4} align="center" wrap="nowrap">
+          <Text size="xs" c="dimmed">
+            <strong>{label}:</strong> {value || '—'}
+          </Text>
+          {value && (
+            <Tooltip label={saved.has(value) ? 'Added to Contacts' : 'Add as contact'} withArrow>
+              <ActionIcon
+                size="xs"
+                variant="subtle"
+                color={saved.has(value) ? 'green' : 'gray'}
+                disabled={saved.has(value) || addContact.isPending}
+                onClick={() => addContact.mutate(value)}
+              >
+                {saved.has(value) ? '✓' : '+'}
+              </ActionIcon>
+            </Tooltip>
+          )}
+        </Group>
+      ))}
+    </Group>
   );
 }
 
@@ -316,9 +303,14 @@ export function VesselTable({
                   </Table.Tr>
                   {isExpanded && (
                     <Table.Tr key={`${v.uuid}-ownership`}>
-                      <Table.Td colSpan={totalCols} p={0}>
+                      <Table.Td
+                        colSpan={totalCols}
+                        px="md"
+                        py="xs"
+                        style={{ background: 'var(--mantine-color-gray-0)' }}
+                      >
                         <Collapse in={isExpanded}>
-                          <OwnershipRow vessel={v} colSpan={totalCols} />
+                          <OwnershipRowContent vessel={v} />
                         </Collapse>
                       </Table.Td>
                     </Table.Tr>

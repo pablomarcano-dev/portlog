@@ -7,21 +7,26 @@ import {
   Group,
   Select,
   Stack,
+  Table,
+  TagsInput,
   Textarea,
   TextInput,
   Tooltip,
+  Text,
 } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import { DatePickerInput } from '@mantine/dates';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { NominationCreateSchema } from '@portlog/schemas';
+import { NominationCreateSchema, vesselProDataSchema } from '@portlog/schemas';
 import type { NominationCreateInput } from '@portlog/schemas';
 import { apiRequest } from '../../../lib/api/client';
 import { EntityPicker } from '../../../components/master-data/EntityPicker';
+import { ContactNamePicker } from '../../../components/master-data/ContactNamePicker';
+import { ClientNamePicker } from '../../../components/master-data/ClientNamePicker';
 import { FeaturesFieldArray } from './FeaturesFieldArray';
-import { AisSuggestionPanel } from './AisSuggestionPanel';
 import { NewShipParticularModal } from './NewShipParticularModal';
 
 const NOMINATION_TYPE_OPTIONS = [
@@ -30,14 +35,44 @@ const NOMINATION_TYPE_OPTIONS = [
   { value: 'CHARTERERS_AGENTS_ONLY', label: "Charterer's Agents" },
 ];
 
+function matchPort(
+  ports: { id: string; name: string; abbreviation: string | null }[],
+  name: string | null | undefined,
+): string | null {
+  if (!name) return null;
+  const norm = name.toLowerCase().trim();
+  return (
+    ports.find(
+      (p) =>
+        p.name.toLowerCase() === norm ||
+        p.abbreviation?.toLowerCase() === norm ||
+        p.name.toLowerCase().includes(norm) ||
+        norm.includes(p.name.toLowerCase()),
+    )?.id ?? null
+  );
+}
+
+const DEFAULT_CLIENT_TYPES = [
+  'Head Owner',
+  'Charterer',
+  'Disponent Owner',
+  'Technical Operator',
+  'Commercial Operator',
+  'Manning Agents',
+  'Catering Agents',
+  'Ship Management',
+  'Hub Agents',
+  'Administrative Agents',
+  'Time Charter',
+  'Receivers',
+];
+
 interface NominationFormProps {
   mode: 'create' | 'edit';
   defaultValues?: Partial<NominationCreateInput>;
   onSubmit: (vals: NominationCreateInput) => void;
   isSubmitting: boolean;
   isReadOnly?: boolean;
-  /** IMO number pre-supplied by the parent (edit mode). Skips the secondary ship fetch. */
-  imoNumber?: string | null;
   /** Auto-assigned correlative number to show as read-only in edit mode. */
   correlative?: number;
 }
@@ -48,36 +83,103 @@ export function NominationForm({
   onSubmit,
   isSubmitting,
   isReadOnly = false,
-  imoNumber: imoNumberProp,
   correlative,
 }: NominationFormProps) {
   const navigate = useNavigate();
   const [newShipModalOpen, setNewShipModalOpen] = useState(false);
+
+  const defaultClients =
+    mode === 'create'
+      ? DEFAULT_CLIENT_TYPES.map((type, i) => ({ type, name: '', sortOrder: i }))
+      : [];
 
   const form = useForm<NominationCreateInput>({
     resolver: zodResolver(NominationCreateSchema),
     defaultValues: {
       nominationType: 'FULL_AGENCY',
       features: [],
+      nominationClients: defaultClients,
       ...defaultValues,
     },
   });
 
   const { register, handleSubmit, control, reset, formState, watch, setValue } = form;
 
+  const { fields: clientFields } = useFieldArray({ control, name: 'nominationClients' });
+
   const shipParticularId = watch('shipParticularId');
   const opPortId = watch('opPortId') ?? null;
 
-  const selectedShipQuery = useQuery({
+  // Fetch IMO for the selected vessel (needed for the vessel data fetch button)
+  const shipQuery = useQuery({
     queryKey: ['ship-particulars', shipParticularId],
     queryFn: () =>
       apiRequest<{ imoNumber: string | null }>(`/master-data/ship-particulars/${shipParticularId}`),
-    enabled: imoNumberProp === undefined && !!shipParticularId,
+    enabled: !!shipParticularId,
     staleTime: 60_000,
   });
+  const shipImo = shipQuery.data?.imoNumber ?? null;
+  const hasValidImo = !!shipImo && /^\d{7}$/.test(shipImo);
 
-  const imo =
-    imoNumberProp !== undefined ? imoNumberProp : (selectedShipQuery.data?.imoNumber ?? null);
+  // Ports list for name-matching when applying vessel data
+  const portsQuery = useQuery({
+    queryKey: ['ports-for-vessel-fetch'],
+    queryFn: () =>
+      apiRequest<{ items: { id: string; name: string; abbreviation: string | null }[] }>(
+        '/master-data/ports?limit=200',
+      ),
+    staleTime: 5 * 60_000,
+    enabled: hasValidImo,
+  });
+
+  const [isFetchingVessel, setIsFetchingVessel] = useState(false);
+
+  async function handleFetchFromVessel() {
+    if (!shipImo) return;
+    setIsFetchingVessel(true);
+    try {
+      const raw = await apiRequest<unknown>(`/datalastic/vessel_pro?imo=${shipImo}`);
+      const envelope = raw as { data: unknown };
+      const parsed = vesselProDataSchema.safeParse(envelope?.data ?? raw);
+      if (!parsed.success || parsed.data == null) {
+        notifications.show({ color: 'yellow', message: 'No vessel data available for this IMO.' });
+        return;
+      }
+      const v = parsed.data;
+      const ports = portsQuery.data?.items ?? [];
+
+      let filled = 0;
+      if (v.eta_UTC) {
+        setValue('etaDate', new Date(v.eta_UTC), { shouldDirty: true });
+        filled++;
+      }
+      const lastPortId = matchPort(ports, v.dep_port);
+      if (lastPortId) {
+        setValue('lastPortId', lastPortId, { shouldDirty: true });
+        filled++;
+      }
+      const nextPortId = matchPort(ports, v.dest_port);
+      if (nextPortId) {
+        setValue('nextPortId', nextPortId, { shouldDirty: true });
+        filled++;
+      }
+
+      notifications.show({
+        color: filled > 0 ? 'green' : 'yellow',
+        message:
+          filled > 0
+            ? `Updated ${filled} field${filled > 1 ? 's' : ''} from vessel data.`
+            : 'Vessel found but no matching fields to fill.',
+      });
+    } catch {
+      notifications.show({
+        color: 'red',
+        message: 'Failed to fetch vessel data. Please try again.',
+      });
+    } finally {
+      setIsFetchingVessel(false);
+    }
+  }
 
   // Search state for each EntityPicker
   const [shipSearch, setShipSearch] = useState('');
@@ -211,6 +313,24 @@ export function NominationForm({
                     </ActionIcon>
                   </Tooltip>
                 )}
+                {!isReadOnly && hasValidImo && (
+                  <Tooltip label="Fetch ETA and port info from Datalastic" withArrow>
+                    <Button
+                      size="sm"
+                      variant="default"
+                      loading={isFetchingVessel}
+                      onClick={() => void handleFetchFromVessel()}
+                      style={{ alignSelf: 'flex-end' }}
+                    >
+                      Fetch from vessel
+                    </Button>
+                  </Tooltip>
+                )}
+                {!isReadOnly && shipParticularId && !hasValidImo && !shipQuery.isLoading && (
+                  <Text size="xs" c="dimmed" style={{ alignSelf: 'flex-end' }}>
+                    No IMO
+                  </Text>
+                )}
               </Group>
             </Grid.Col>
             <Grid.Col span={3}>
@@ -263,9 +383,6 @@ export function NominationForm({
               />
             </Grid.Col>
           </Grid>
-
-          {/* AIS suggestion panel */}
-          {imo && /^\d{7}$/.test(imo) && <AisSuggestionPanel imo={imo} form={form} />}
 
           {/* Row 3 — Op. Port / Berth / External Port */}
           <Grid gutter="xs" align="flex-end">
@@ -383,21 +500,35 @@ export function NominationForm({
           {/* Row 5 — M.I.C. / Boarding / Mobile on Board */}
           <Grid gutter="xs" align="flex-end">
             <Grid.Col span={4}>
-              <TextInput
-                label="M.I.C."
-                placeholder="MIC officer"
-                disabled={isReadOnly}
-                error={formState.errors.mic?.message}
-                {...register('mic')}
+              <Controller
+                name="mic"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <ContactNamePicker
+                    label="M.I.C."
+                    placeholder="MIC officer"
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                    error={fieldState.error?.message}
+                    disabled={isReadOnly}
+                  />
+                )}
               />
             </Grid.Col>
             <Grid.Col span={4}>
-              <TextInput
-                label="Boarding"
-                placeholder="Boarding clerk"
-                disabled={isReadOnly}
-                error={formState.errors.boardingClerk?.message}
-                {...register('boardingClerk')}
+              <Controller
+                name="boardingClerk"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <ContactNamePicker
+                    label="Boarding"
+                    placeholder="Boarding clerk"
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                    error={fieldState.error?.message}
+                    disabled={isReadOnly}
+                  />
+                )}
               />
             </Grid.Col>
             <Grid.Col span={4}>
@@ -423,12 +554,19 @@ export function NominationForm({
               />
             </Grid.Col>
             <Grid.Col span={4}>
-              <TextInput
-                label="Inspector"
-                placeholder="Inspector name"
-                disabled={isReadOnly}
-                error={formState.errors.inspector?.message}
-                {...register('inspector')}
+              <Controller
+                name="inspector"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <ContactNamePicker
+                    label="Inspector"
+                    placeholder="Inspector name"
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                    error={fieldState.error?.message}
+                    disabled={isReadOnly}
+                  />
+                )}
               />
             </Grid.Col>
             <Grid.Col span={4}>
@@ -571,9 +709,135 @@ export function NominationForm({
             </Stack>
           </Fieldset>
 
+          {/* Clients — inline table, create mode only */}
+          {mode === 'create' && (
+            <Fieldset legend="Clients">
+              <Table withColumnBorders withTableBorder striped>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th style={{ width: 180 }}>Type</Table.Th>
+                    <Table.Th>Name</Table.Th>
+                    <Table.Th style={{ width: 100 }}>Voy.</Table.Th>
+                    <Table.Th style={{ width: 120 }}>Ref. No.</Table.Th>
+                    <Table.Th style={{ width: 120 }}>Proforma</Table.Th>
+                    <Table.Th style={{ width: 160 }}>Broker</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {clientFields.map((field, index) => (
+                    <Table.Tr key={field.id}>
+                      <Table.Td>
+                        <TextInput
+                          size="xs"
+                          variant="unstyled"
+                          readOnly
+                          value={field.type}
+                          styles={{ input: { fontWeight: 500 } }}
+                        />
+                      </Table.Td>
+                      <Table.Td>
+                        <Controller
+                          control={control}
+                          name={`nominationClients.${index}.name`}
+                          render={({ field }) => (
+                            <ClientNamePicker
+                              placeholder="Name"
+                              value={field.value}
+                              onChange={field.onChange}
+                              size="xs"
+                            />
+                          )}
+                        />
+                      </Table.Td>
+                      <Table.Td>
+                        <TextInput
+                          size="xs"
+                          placeholder="Voy."
+                          {...register(`nominationClients.${index}.voyageRef`)}
+                        />
+                      </Table.Td>
+                      <Table.Td>
+                        <TextInput
+                          size="xs"
+                          placeholder="Ref. No."
+                          {...register(`nominationClients.${index}.referenceNo`)}
+                        />
+                      </Table.Td>
+                      <Table.Td>
+                        <TextInput
+                          size="xs"
+                          placeholder="Proforma"
+                          {...register(`nominationClients.${index}.proforma`)}
+                        />
+                      </Table.Td>
+                      <Table.Td>
+                        <TextInput
+                          size="xs"
+                          placeholder="Broker"
+                          {...register(`nominationClients.${index}.broker`)}
+                        />
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </Fieldset>
+          )}
+
           {/* Cargo Features */}
           <Fieldset legend="Cargo Features">
             <FeaturesFieldArray control={control} disabled={isReadOnly} />
+          </Fieldset>
+
+          {/* Email Recipients */}
+          <Fieldset legend="Email Recipients">
+            <Stack gap="xs">
+              <Controller
+                name="emailTo"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <TagsInput
+                    label="To"
+                    placeholder="Type an email and press Enter"
+                    disabled={isReadOnly}
+                    value={field.value ?? []}
+                    onChange={field.onChange}
+                    error={fieldState.error?.message}
+                    splitChars={[',']}
+                  />
+                )}
+              />
+              <Controller
+                name="emailCc"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <TagsInput
+                    label="CC"
+                    placeholder="Type an email and press Enter"
+                    disabled={isReadOnly}
+                    value={field.value ?? []}
+                    onChange={field.onChange}
+                    error={fieldState.error?.message}
+                    splitChars={[',']}
+                  />
+                )}
+              />
+              <Controller
+                name="emailBcc"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <TagsInput
+                    label="BCC"
+                    placeholder="Type an email and press Enter"
+                    disabled={isReadOnly}
+                    value={field.value ?? []}
+                    onChange={field.onChange}
+                    error={fieldState.error?.message}
+                    splitChars={[',']}
+                  />
+                )}
+              />
+            </Stack>
           </Fieldset>
 
           {/* Action buttons */}
