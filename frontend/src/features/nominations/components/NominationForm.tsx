@@ -30,6 +30,7 @@ import { apiRequest } from '../../../lib/api/client';
 import { EntityPicker } from '../../../components/master-data/EntityPicker';
 import { ContactNamePicker } from '../../../components/master-data/ContactNamePicker';
 import { ClientNamePicker } from '../../../components/master-data/ClientNamePicker';
+import { ClientPickerModal } from '../../../components/master-data/ClientPickerModal';
 import { FeaturesFieldArray } from './FeaturesFieldArray';
 import { NewShipParticularModal } from './NewShipParticularModal';
 
@@ -170,6 +171,7 @@ export function NominationForm({
   }, [shipQuery.data, branchQuery.data, opPortId, voyageNumber]);
 
   const [isFetchingVessel, setIsFetchingVessel] = useState(false);
+  const [clientPickerIndex, setClientPickerIndex] = useState<number | null>(null);
 
   async function handleFetchFromVessel() {
     if (!shipImo) return;
@@ -278,6 +280,15 @@ export function NominationForm({
         opened={newShipModalOpen}
         onClose={() => setNewShipModalOpen(false)}
         onCreated={(id) => handleShipCreated(id)}
+      />
+      <ClientPickerModal
+        opened={clientPickerIndex !== null}
+        onClose={() => setClientPickerIndex(null)}
+        onSelect={(name) => {
+          if (clientPickerIndex !== null) {
+            setValue(`nominationClients.${clientPickerIndex}.name`, name, { shouldDirty: true });
+          }
+        }}
       />
 
       <form id="nomination-form" onSubmit={handleSubmit(onSubmit)} noValidate>
@@ -691,13 +702,7 @@ export function NominationForm({
                   {clientFields.map((field, index) => (
                     <Table.Tr key={field.id}>
                       <Table.Td>
-                        <TextInput
-                          size="xs"
-                          variant="unstyled"
-                          readOnly
-                          value={field.type}
-                          styles={{ input: { fontWeight: 500 } }}
-                        />
+                        <TextInput size="xs" value={field.type} readOnly disabled />
                       </Table.Td>
                       <Table.Td>
                         <Controller
@@ -709,6 +714,16 @@ export function NominationForm({
                               value={field.value}
                               onChange={field.onChange}
                               size="xs"
+                              rightSection={
+                                <ActionIcon
+                                  size="xs"
+                                  variant="subtle"
+                                  onClick={() => setClientPickerIndex(index)}
+                                  title="Browse clients"
+                                >
+                                  ⌕
+                                </ActionIcon>
+                              }
                             />
                           )}
                         />

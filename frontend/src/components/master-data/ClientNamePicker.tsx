@@ -1,4 +1,4 @@
-import { Autocomplete } from '@mantine/core';
+import { Autocomplete, type AutocompleteProps } from '@mantine/core';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { clientsApi } from '../../lib/api/master-data/clients';
@@ -11,6 +11,7 @@ interface ClientNamePickerProps {
   error?: string;
   disabled?: boolean;
   size?: string;
+  rightSection?: AutocompleteProps['rightSection'];
 }
 
 /**
@@ -25,6 +26,7 @@ export function ClientNamePicker({
   error,
   disabled,
   size,
+  rightSection,
 }: ClientNamePickerProps) {
   const [search, setSearch] = useState('');
 
@@ -50,6 +52,7 @@ export function ClientNamePicker({
       disabled={disabled}
       error={error}
       size={size as 'xs' | 'sm' | 'md' | 'lg' | 'xl' | undefined}
+      rightSection={rightSection}
       comboboxProps={{ withinPortal: true }}
     />
   );
