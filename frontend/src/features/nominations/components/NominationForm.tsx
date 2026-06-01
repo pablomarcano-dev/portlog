@@ -20,7 +20,11 @@ import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { NominationCreateSchema, vesselProDataSchema } from '@portlog/schemas';
+import {
+  NominationCreateSchema,
+  vesselProDataSchema,
+  vesselOwnershipSchema,
+} from '@portlog/schemas';
 import type { NominationCreateInput } from '@portlog/schemas';
 import { apiRequest } from '../../../lib/api/client';
 import { EntityPicker } from '../../../components/master-data/EntityPicker';
@@ -109,19 +113,32 @@ export function NominationForm({
 
   const shipParticularId = watch('shipParticularId');
   const opPortId = watch('opPortId') ?? null;
+  const branchId = watch('branchId');
+  const voyageNumber = watch('voyageNumber') ?? '';
 
-  // Fetch IMO for the selected vessel (needed for the vessel data fetch button)
+  // Fetch vessel details (IMO + name + abbreviation) for vessel data fetch and subject generation
   const shipQuery = useQuery({
     queryKey: ['ship-particulars', shipParticularId],
     queryFn: () =>
-      apiRequest<{ imoNumber: string | null }>(`/master-data/ship-particulars/${shipParticularId}`),
+      apiRequest<{ imoNumber: string | null; name: string; abbreviation: string | null }>(
+        `/master-data/ship-particulars/${shipParticularId}`,
+      ),
     enabled: !!shipParticularId,
     staleTime: 60_000,
   });
   const shipImo = shipQuery.data?.imoNumber ?? null;
   const hasValidImo = !!shipImo && /^\d{7}$/.test(shipImo);
 
-  // Ports list for name-matching when applying vessel data
+  // Fetch branch details for subject generation (code field)
+  const branchQuery = useQuery({
+    queryKey: ['branch', branchId],
+    queryFn: () =>
+      apiRequest<{ id: string; name: string; code: string }>(`/master-data/branches/${branchId}`),
+    enabled: !!branchId,
+    staleTime: 5 * 60_000,
+  });
+
+  // Ports list — used for vessel-data port matching and subject generation
   const portsQuery = useQuery({
     queryKey: ['ports-for-vessel-fetch'],
     queryFn: () =>
@@ -129,8 +146,28 @@ export function NominationForm({
         '/master-data/ports?limit=200',
       ),
     staleTime: 5 * 60_000,
-    enabled: hasValidImo,
   });
+
+  function buildSubject(): string {
+    const ship = shipQuery.data;
+    const branch = branchQuery.data;
+    const port = portsQuery.data?.items.find((p) => p.id === opPortId);
+    const shipAbbr = ship?.abbreviation ?? ship?.name ?? '';
+    const portName = port?.abbreviation ?? port?.name ?? '';
+    const branchCode = branch?.code ?? '';
+    const yy = String(new Date().getFullYear()).slice(-2);
+    const corrStr = correlative != null ? String(correlative) : '';
+    return `7-SEAS VOY. ${voyageNumber} - CALLING TO ${portName} TERMINAL ${branchCode} ${shipAbbr}${corrStr}/${yy}/${branchCode}`;
+  }
+
+  // Auto-fill subject in create mode when it's still empty and we have enough data
+  useEffect(() => {
+    if (mode !== 'create') return;
+    if (!shipQuery.data || !branchQuery.data || !opPortId) return;
+    const current = (form.getValues('subject') ?? '').trim();
+    if (current !== '') return;
+    setValue('subject', buildSubject(), { shouldDirty: true });
+  }, [shipQuery.data, branchQuery.data, opPortId, voyageNumber]);
 
   const [isFetchingVessel, setIsFetchingVessel] = useState(false);
 
@@ -138,39 +175,73 @@ export function NominationForm({
     if (!shipImo) return;
     setIsFetchingVessel(true);
     try {
-      const raw = await apiRequest<unknown>(`/datalastic/vessel_pro?imo=${shipImo}`);
-      const envelope = raw as { data: unknown };
-      const parsed = vesselProDataSchema.safeParse(envelope?.data ?? raw);
-      if (!parsed.success || parsed.data == null) {
-        notifications.show({ color: 'yellow', message: 'No vessel data available for this IMO.' });
-        return;
-      }
-      const v = parsed.data;
-      const ports = portsQuery.data?.items ?? [];
+      const [proRaw, ownerRaw] = await Promise.allSettled([
+        apiRequest<unknown>(`/datalastic/vessel_pro?imo=${shipImo}`),
+        apiRequest<unknown>(`/datalastic/ownership?imo=${shipImo}`),
+      ]);
 
       let filled = 0;
-      if (v.eta_UTC) {
-        setValue('etaDate', new Date(v.eta_UTC), { shouldDirty: true });
-        filled++;
-      }
-      const lastPortId = matchPort(ports, v.dep_port);
-      if (lastPortId) {
-        setValue('lastPortId', lastPortId, { shouldDirty: true });
-        filled++;
-      }
-      const nextPortId = matchPort(ports, v.dest_port);
-      if (nextPortId) {
-        setValue('nextPortId', nextPortId, { shouldDirty: true });
-        filled++;
+      const ports = portsQuery.data?.items ?? [];
+
+      // vessel_pro → ETA and ports
+      if (proRaw.status === 'fulfilled') {
+        const envelope = proRaw.value as { data: unknown };
+        const parsed = vesselProDataSchema.safeParse(envelope?.data ?? proRaw.value);
+        if (parsed.success && parsed.data != null) {
+          const v = parsed.data;
+          if (v.eta_UTC) {
+            setValue('etaDate', new Date(v.eta_UTC), { shouldDirty: true });
+            filled++;
+          }
+          const lastPortId = matchPort(ports, v.dep_port);
+          if (lastPortId) {
+            setValue('lastPortId', lastPortId, { shouldDirty: true });
+            filled++;
+          }
+          const nextPortId = matchPort(ports, v.dest_port);
+          if (nextPortId) {
+            setValue('nextPortId', nextPortId, { shouldDirty: true });
+            filled++;
+          }
+        }
       }
 
-      notifications.show({
-        color: filled > 0 ? 'green' : 'yellow',
-        message:
-          filled > 0
-            ? `Updated ${filled} field${filled > 1 ? 's' : ''} from vessel data.`
-            : 'Vessel found but no matching fields to fill.',
-      });
+      // ownership → fill matching client rows by type
+      if (ownerRaw.status === 'fulfilled') {
+        const ownerEnvelope = ownerRaw.value as { data: unknown };
+        const ownerData = Array.isArray(ownerEnvelope?.data)
+          ? ownerEnvelope.data[0]
+          : ownerEnvelope?.data;
+        const ownership = vesselOwnershipSchema.safeParse(ownerData);
+        if (ownership.success && ownership.data != null) {
+          const o = ownership.data;
+          // Map Datalastic ownership fields to our default client type names
+          const typeToName: Record<string, string | null | undefined> = {
+            'Head Owner': o.beneficial_owner,
+            'Technical Operator': o.technical_manager,
+            'Commercial Operator': o.commercial_manager ?? o.operator,
+          };
+          clientFields.forEach((field, index) => {
+            const name = typeToName[field.type];
+            if (name) {
+              setValue(`nominationClients.${index}.name`, name, { shouldDirty: true });
+              filled++;
+            }
+          });
+        }
+      }
+
+      if (filled === 0) {
+        notifications.show({
+          color: 'yellow',
+          message: 'Vessel found but no matching fields to fill.',
+        });
+      } else {
+        notifications.show({
+          color: 'green',
+          message: `Updated ${filled} field${filled > 1 ? 's' : ''} from vessel data.`,
+        });
+      }
     } catch {
       notifications.show({
         color: 'red',
@@ -577,15 +648,30 @@ export function NominationForm({
           </Grid>
 
           {/* Row 7 — Subject */}
-          <Textarea
-            label="Subject"
-            placeholder="Email subject or notes"
-            autosize
-            minRows={2}
-            disabled={isReadOnly}
-            error={formState.errors.subject?.message}
-            {...register('subject')}
-          />
+          <Stack gap={4}>
+            <Group justify="space-between" align="center">
+              <Text size="sm" fw={500}>
+                Subject
+              </Text>
+              {!isReadOnly && (
+                <Button
+                  size="compact-xs"
+                  variant="subtle"
+                  onClick={() => setValue('subject', buildSubject(), { shouldDirty: true })}
+                >
+                  Generate
+                </Button>
+              )}
+            </Group>
+            <Textarea
+              placeholder="Email subject or notes"
+              autosize
+              minRows={2}
+              disabled={isReadOnly}
+              error={formState.errors.subject?.message}
+              {...register('subject')}
+            />
+          </Stack>
 
           {/* Clients — inline table, create mode only */}
           {mode === 'create' && (
