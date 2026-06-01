@@ -14,13 +14,11 @@ import type { PedrSubDocumentType } from '@portlog/schemas';
 // Full nomination include needed to build PDF template data
 const NOMINATION_INCLUDE = {
   shipParticular: { select: { id: true, name: true, imoNumber: true } },
-  operator: { select: { id: true, name: true } },
-  charter: { select: { id: true, name: true } },
-  owner: { select: { id: true, name: true } },
   opPort: { select: { id: true, name: true, abbreviation: true } },
   pier: { select: { id: true, name: true } },
   lastPort: { select: { id: true, name: true } },
   nextPort: { select: { id: true, name: true } },
+  nominationClients: { orderBy: { sortOrder: 'asc' as const } },
 } as const;
 
 @Injectable()
@@ -71,10 +69,10 @@ export class DispatchService {
       eta: nomination.etaDate ? nomination.etaDate.toISOString() : '',
       correlative: nomination.correlative,
       voyageNumber: nomination.voyageNumber,
-      charterer: nomination.charter?.name ?? '',
-      chartererName: nomination.charter?.name ?? '',
-      owner: nomination.owner?.name ?? '',
-      operator: nomination.operator?.name ?? '',
+      charterer: '',
+      chartererName: '',
+      owner: '',
+      operator: '',
       agentName: '',
       sentAt: new Date().toISOString(),
     };

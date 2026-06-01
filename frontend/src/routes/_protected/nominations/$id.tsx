@@ -3,6 +3,8 @@ import {
   Alert,
   Badge,
   Box,
+  Button,
+  Collapse,
   Container,
   Divider,
   Group,
@@ -10,6 +12,7 @@ import {
   Stack,
   Text,
   Title,
+  UnstyledButton,
 } from '@mantine/core';
 import { useState } from 'react';
 import { NominationForm } from '../../../features/nominations/components/NominationForm';
@@ -62,6 +65,16 @@ function NominationDetailPage() {
   const { data: pedr } = usePedrByNomination(id);
   const [pendingDrawer, setPendingDrawer] = useState<SubDocType | null>(null);
   const { data: allSentData } = useAllSent({ nominationId: id });
+
+  const [leftOpen, setLeftOpen] = useState(true);
+  const [rightOpen, setRightOpen] = useState(true);
+  const [formOpen, setFormOpen] = useState(true);
+  const [clientsOpen, setClientsOpen] = useState(true);
+  const [docsOpen, setDocsOpen] = useState(true);
+  const [allSentOpen, setAllSentOpen] = useState(true);
+  const [actionsOpen, setActionsOpen] = useState(true);
+  const [historyOpen, setHistoryOpen] = useState(true);
+  const [emailOpen, setEmailOpen] = useState(true);
 
   function handleMessagesNavAction(slug: string) {
     if (slug === 'all-sent') {
@@ -138,10 +151,31 @@ function NominationDetailPage() {
         style={{
           borderRight: '1px solid var(--mantine-color-gray-3)',
           flexShrink: 0,
-          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        <MessagesNav onAction={handleMessagesNavAction} />
+        <UnstyledButton
+          onClick={() => setLeftOpen((o) => !o)}
+          style={{
+            padding: '8px 10px',
+            borderBottom: '1px solid var(--mantine-color-gray-3)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 12,
+            color: 'var(--mantine-color-dimmed)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span>{leftOpen ? '◀' : '▶'}</span>
+          {leftOpen && <span>Messages</span>}
+        </UnstyledButton>
+        {leftOpen && (
+          <Box style={{ overflowY: 'auto', flex: 1 }}>
+            <MessagesNav onAction={handleMessagesNavAction} />
+          </Box>
+        )}
       </Box>
 
       {/* Main content */}
@@ -174,68 +208,255 @@ function NominationDetailPage() {
               </Alert>
             )}
 
-            <NominationForm
-              mode="edit"
-              defaultValues={defaultValues}
-              onSubmit={handleUpdate}
-              isSubmitting={updateNomination.isPending}
-              isReadOnly={isReadOnly}
-              correlative={nomination.correlative}
-            />
-
-            <Divider />
-
-            {/* Client list section */}
-            <ClientsSection nominationId={id} />
-
-            <Divider />
-
-            {/* Documents section — SH-xx forms */}
-            <Stack gap="xs" id="sh-documents">
-              <Title order={5}>Documentos</Title>
-              <DocumentsTabs nominationId={id} />
+            {/* Nomination form — collapsible */}
+            <Stack gap={0}>
+              <UnstyledButton
+                onClick={() => setFormOpen((o) => !o)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '6px 0',
+                  userSelect: 'none',
+                }}
+              >
+                <Title order={5}>Nomination Details</Title>
+                <Text size="xs" c="dimmed">
+                  {formOpen ? '▲' : '▼'}
+                </Text>
+              </UnstyledButton>
+              <Collapse in={formOpen}>
+                <Box pt="xs">
+                  <NominationForm
+                    mode="edit"
+                    defaultValues={defaultValues}
+                    onSubmit={handleUpdate}
+                    isSubmitting={updateNomination.isPending}
+                    isReadOnly={isReadOnly}
+                    correlative={nomination.correlative}
+                  />
+                </Box>
+              </Collapse>
             </Stack>
 
             <Divider />
 
-            {/* All Sent tracker — scoped to this nomination */}
-            <Stack gap="xs" id="all-sent-section">
-              <Title order={5}>All Sent</Title>
-              <AllSentGrid rows={allSentData?.rows ?? []} />
+            {/* Client list section — collapsible */}
+            <Stack gap={0}>
+              <UnstyledButton
+                onClick={() => setClientsOpen((o) => !o)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '6px 0',
+                  userSelect: 'none',
+                }}
+              >
+                <Title order={5}>Clients</Title>
+                <Text size="xs" c="dimmed">
+                  {clientsOpen ? '▲' : '▼'}
+                </Text>
+              </UnstyledButton>
+              <Collapse in={clientsOpen}>
+                <Box pt="xs">
+                  <ClientsSection nominationId={id} />
+                </Box>
+              </Collapse>
+            </Stack>
+
+            <Divider />
+
+            {/* Documents section — collapsible */}
+            <Stack gap={0} id="sh-documents">
+              <UnstyledButton
+                onClick={() => setDocsOpen((o) => !o)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '6px 0',
+                  userSelect: 'none',
+                }}
+              >
+                <Title order={5}>Documentos</Title>
+                <Text size="xs" c="dimmed">
+                  {docsOpen ? '▲' : '▼'}
+                </Text>
+              </UnstyledButton>
+              <Collapse in={docsOpen}>
+                <Box pt="xs">
+                  <DocumentsTabs nominationId={id} />
+                </Box>
+              </Collapse>
+            </Stack>
+
+            <Divider />
+
+            {/* All Sent tracker — collapsible */}
+            <Stack gap={0} id="all-sent-section">
+              <UnstyledButton
+                onClick={() => setAllSentOpen((o) => !o)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '6px 0',
+                  userSelect: 'none',
+                }}
+              >
+                <Title order={5}>All Sent</Title>
+                <Text size="xs" c="dimmed">
+                  {allSentOpen ? '▲' : '▼'}
+                </Text>
+              </UnstyledButton>
+              <Collapse in={allSentOpen}>
+                <Box pt="xs">
+                  <AllSentGrid rows={allSentData?.rows ?? []} />
+                </Box>
+              </Collapse>
             </Stack>
           </Stack>
         </Container>
       </Box>
 
-      {/* Right rail: Nomination hub actions + Status history + Email actions */}
+      {/* Right rail: Save button + hub actions + status history + email actions */}
       <Box
         style={{
-          width: 280,
+          width: rightOpen ? 280 : 42,
           borderLeft: '1px solid var(--mantine-color-gray-3)',
           flexShrink: 0,
-          overflowY: 'auto',
-          padding: 'var(--mantine-spacing-md)',
+          display: 'flex',
+          flexDirection: 'column',
+          transition: 'width 150ms ease',
         }}
       >
-        {/* Nomination hub actions — always visible */}
-        <ActionsPanel nominationId={id} vesselName={nomination.shipParticular.name} />
+        {/* Toggle + Save button row — always visible */}
+        <Box
+          style={{
+            padding: '8px',
+            borderBottom: '1px solid var(--mantine-color-gray-3)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            flexShrink: 0,
+          }}
+        >
+          <UnstyledButton
+            onClick={() => setRightOpen((o) => !o)}
+            style={{
+              fontSize: 12,
+              color: 'var(--mantine-color-dimmed)',
+              flexShrink: 0,
+            }}
+          >
+            {rightOpen ? '▶' : '◀'}
+          </UnstyledButton>
+          {!isReadOnly && (
+            <Button
+              size="xs"
+              form="nomination-form"
+              type="submit"
+              loading={updateNomination.isPending}
+              style={{ flex: 1, display: rightOpen ? undefined : 'none' }}
+            >
+              Save Changes
+            </Button>
+          )}
+        </Box>
 
-        <Divider my="md" />
+        {/* Scrollable right rail content */}
+        {rightOpen && (
+          <Box style={{ overflowY: 'auto', flex: 1, padding: 'var(--mantine-spacing-md)' }}>
+            {/* Actions — collapsible */}
+            <Stack gap={0} mb="md">
+              <UnstyledButton
+                onClick={() => setActionsOpen((o) => !o)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '4px 0',
+                  userSelect: 'none',
+                }}
+              >
+                <Text fw={700} size="sm">
+                  Actions
+                </Text>
+                <Text size="xs" c="dimmed">
+                  {actionsOpen ? '▲' : '▼'}
+                </Text>
+              </UnstyledButton>
+              <Collapse in={actionsOpen}>
+                <Box pt="xs">
+                  <ActionsPanel nominationId={id} vesselName={nomination.shipParticular.name} />
+                </Box>
+              </Collapse>
+            </Stack>
 
-        <Text fw={700} size="sm" mb="sm">
-          Status History
-        </Text>
-        <StatusHistoryTimeline history={nomination.statusHistory} />
+            <Divider my="sm" />
 
-        {/* Email dispatch actions — shown only when a PEDR exists */}
-        {pedr && (
-          <Box mt="lg">
-            <EmailActionsPanel
-              pedrId={pedr.id}
-              vesselName={nomination.shipParticular.name}
-              externalOpen={pendingDrawer}
-              onExternalOpenHandled={() => setPendingDrawer(null)}
-            />
+            {/* Status History — collapsible */}
+            <Stack gap={0} mb="md">
+              <UnstyledButton
+                onClick={() => setHistoryOpen((o) => !o)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '4px 0',
+                  userSelect: 'none',
+                }}
+              >
+                <Text fw={700} size="sm">
+                  Status History
+                </Text>
+                <Text size="xs" c="dimmed">
+                  {historyOpen ? '▲' : '▼'}
+                </Text>
+              </UnstyledButton>
+              <Collapse in={historyOpen}>
+                <Box pt="xs">
+                  <StatusHistoryTimeline history={nomination.statusHistory} />
+                </Box>
+              </Collapse>
+            </Stack>
+
+            {/* Email dispatch — collapsible, shown only when a PEDR exists */}
+            {pedr && (
+              <>
+                <Divider my="sm" />
+                <Stack gap={0}>
+                  <UnstyledButton
+                    onClick={() => setEmailOpen((o) => !o)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '4px 0',
+                      userSelect: 'none',
+                    }}
+                  >
+                    <Text fw={700} size="sm">
+                      Email Dispatch
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      {emailOpen ? '▲' : '▼'}
+                    </Text>
+                  </UnstyledButton>
+                  <Collapse in={emailOpen}>
+                    <Box pt="xs">
+                      <EmailActionsPanel
+                        pedrId={pedr.id}
+                        vesselName={nomination.shipParticular.name}
+                        externalOpen={pendingDrawer}
+                        onExternalOpenHandled={() => setPendingDrawer(null)}
+                      />
+                    </Box>
+                  </Collapse>
+                </Stack>
+              </>
+            )}
           </Box>
         )}
       </Box>

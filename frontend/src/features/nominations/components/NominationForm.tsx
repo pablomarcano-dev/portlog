@@ -209,7 +209,7 @@ export function NominationForm({
         onCreated={(id) => handleShipCreated(id)}
       />
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate>
+      <form id="nomination-form" onSubmit={handleSubmit(onSubmit)} noValidate>
         <Stack gap="xs">
           {/* Row 1 — Number / Branch / Lay Days */}
           <Grid gutter="xs" align="flex-end">
@@ -718,32 +718,24 @@ export function NominationForm({
             </Stack>
           </Fieldset>
 
-          {/* Action buttons */}
-          {!isReadOnly && (
+          {/* Action buttons — create mode only; edit mode save button lives in the page right rail */}
+          {!isReadOnly && mode === 'create' && (
             <Group justify="flex-end" mt="xs">
-              {mode === 'create' ? (
-                <>
-                  <Button variant="default" onClick={() => reset()} disabled={isSubmitting}>
-                    Clear
-                  </Button>
-                  <Button
-                    variant="default"
-                    onClick={() =>
-                      void navigate({ to: '/nominations', search: { page: 1, pageSize: 25 } })
-                    }
-                    disabled={isSubmitting}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" loading={isSubmitting}>
-                    Create
-                  </Button>
-                </>
-              ) : (
-                <Button type="submit" loading={isSubmitting}>
-                  Save Changes
-                </Button>
-              )}
+              <Button variant="default" onClick={() => reset()} disabled={isSubmitting}>
+                Clear
+              </Button>
+              <Button
+                variant="default"
+                onClick={() =>
+                  void navigate({ to: '/nominations', search: { page: 1, pageSize: 25 } })
+                }
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" loading={isSubmitting}>
+                Create
+              </Button>
             </Group>
           )}
         </Stack>

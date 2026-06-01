@@ -1,7 +1,17 @@
 import { useFieldArray, Controller } from 'react-hook-form';
 import type { Control } from 'react-hook-form';
-import { Button, Group, NumberInput, Stack, Text, TextInput } from '@mantine/core';
+import { Button, Group, NumberInput, Select, Stack, Text, TextInput } from '@mantine/core';
 import type { NominationCreateInput } from '@portlog/schemas';
+import { CargoNamePicker } from './CargoNamePicker';
+
+const OPERATION_OPTIONS = [
+  { value: 'Disch', label: 'Disch' },
+  { value: 'Load', label: 'Load' },
+  { value: 'Transit', label: 'Transit' },
+  { value: 'STSD', label: 'STSD' },
+  { value: 'STSL', label: 'STSL' },
+  { value: 'Bunker', label: 'Bunker' },
+];
 
 interface FeaturesFieldArrayProps {
   control: Control<NominationCreateInput>;
@@ -27,13 +37,14 @@ export function FeaturesFieldArray({ control, disabled }: FeaturesFieldArrayProp
             control={control}
             name={`features.${index}.product`}
             render={({ field: f, fieldState }) => (
-              <TextInput
+              <CargoNamePicker
                 label={index === 0 ? 'Product' : undefined}
                 placeholder="e.g. Soybeans"
                 style={{ flex: 3 }}
                 disabled={disabled}
                 error={fieldState.error?.message}
-                {...f}
+                value={f.value}
+                onChange={f.onChange}
               />
             )}
           />
@@ -71,13 +82,16 @@ export function FeaturesFieldArray({ control, disabled }: FeaturesFieldArrayProp
             control={control}
             name={`features.${index}.operation`}
             render={({ field: f, fieldState }) => (
-              <TextInput
+              <Select
                 label={index === 0 ? 'Operation' : undefined}
-                placeholder="LOAD / DISCHARGE"
+                placeholder="Select..."
+                data={OPERATION_OPTIONS}
                 style={{ flex: 2 }}
                 disabled={disabled}
                 error={fieldState.error?.message}
-                {...f}
+                value={f.value ?? null}
+                onChange={(val) => f.onChange(val ?? '')}
+                comboboxProps={{ withinPortal: true }}
               />
             )}
           />

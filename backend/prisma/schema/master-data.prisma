@@ -108,8 +108,7 @@ model Charterer {
   createdAt   DateTime @default(now()) @db.Timestamptz
   updatedAt   DateTime @updatedAt @db.Timestamptz
 
-  contacts    Contact[]
-  nominations Nomination[]
+  contacts Contact[]
 
   @@index([name])
   @@map("charterers")
@@ -129,8 +128,7 @@ model Shipper {
   createdAt     DateTime @default(now()) @db.Timestamptz
   updatedAt     DateTime @updatedAt @db.Timestamptz
 
-  contacts    Contact[]
-  nominations Nomination[]
+  contacts Contact[]
 
   @@index([name])
   @@map("shippers")
@@ -147,8 +145,6 @@ model Agent {
   comments    String?  @db.Text
   createdAt   DateTime @default(now()) @db.Timestamptz
   updatedAt   DateTime @updatedAt @db.Timestamptz
-
-  nominations Nomination[]
 
   @@index([name])
   @@map("agents")
@@ -179,7 +175,6 @@ model Operator {
 
   contacts        Contact[]
   shipParticulars ShipParticular[]
-  nominations     Nomination[]
 
   @@index([name])
   @@map("operators")
@@ -222,7 +217,6 @@ model Owner {
 
   contacts        Contact[]
   shipParticulars ShipParticular[]
-  nominations     Nomination[]
 
   @@index([name])
   @@map("owners")
