@@ -446,13 +446,13 @@ export class NominationsService {
       agent_email: agentEmail,
     };
 
-    const templatePath = resolve(process.cwd(), 'templates', `${actionType.toLowerCase()}.html`);
+    const templatePath = resolve(process.cwd(), 'templates', `${actionType.toLowerCase()}.hbs`);
     const templateSource = await readFile(templatePath, 'utf8');
     const compiled = Handlebars.compile(templateSource);
     const bodyHtml = compiled(templateVars);
 
-    // Extract subject from <!-- SUBJECT: ... --> comment
-    const subjectMatch = /<!--\s*SUBJECT:\s*(.+?)\s*-->/.exec(bodyHtml);
+    // Extract subject from {{!-- Subject: ... --}} comment
+    const subjectMatch = /\{\{!--\s*Subject:\s*(.+?)\s*--\}\}/.exec(bodyHtml);
     const subject = subjectMatch?.[1] ?? nomination.subject ?? ref_line;
 
     return {

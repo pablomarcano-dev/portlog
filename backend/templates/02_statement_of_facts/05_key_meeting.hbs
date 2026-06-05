@@ -1,0 +1,65 @@
+{{!-- Subject: {{ref_line}} - Key Meeting Info --}}
+
+Vessel    : {{vessel_name}}      Flag: {{flag}}
+Last Port : {{last_port}}
+Next Port : {{next_port}}
+Oper Port : {{oper_port}}
+Operation : {{operation}}
+Lay Days  : {{lay_days}}
+
+Log.-
+{{t_eosp}} End Of Sea Passage
+{{t_arr_off}} Arrived Off-harbour
+{{t_anchor}} Anchored Aw. Port Authorities / Tanks Preparation
+{{t_pa_ob}} Port Authorities On Board  Boat: {{pa_boat}}
+{{t_clearance}} Clearance by Port Authorities
+{{t_pa_off}} Agent and Port Authorities Disembarked
+{{t_tanks_done}} Completed Cargo Tanks Preparations
+{{t_nor}} NOR Tendered
+{{t_berth_inst}} Terminal Berthing Instructions Received
+{{t_aweigh}} Anchor Aweigh
+{{t_pilot_sta}} Arrived At Pilot Station
+{{t_pilot_ob}} Pilot On Board ({{pilot_name}}) - Boat: {{pilot_boat}}
+{{t_tugs_fast}} Tugs Made Fast ({{tugs}})
+{{t_first_line}} First Line Ashore, Mooring Boat: {{mooring_boat}}
+{{t_all_fast}} All Fast at {{berth}}
+{{t_tugs_left}} Tugs Left
+{{t_gangway}} Shore Gangway Placed
+{{t_pilot_off}} Pilot Off
+{{t_team_ob}} Loading Master / Surveyor / Cargo Representative / Agent On Board
+{{t_km_start}} Commenced Key Meeting
+{{t_km_end}} Completed Key Meeting
+{{t_tank_insp_start}} Commenced Tanks Inspection
+{{t_tank_insp_end}} Completed Tanks Inspection / Commenced Calculations
+{{t_calc_done}} Completed Calculations (OBQ: {{obq}})
+{{t_arm_start}} Commenced Arm Connection
+{{t_arm_done}} Completed Arm Connection {{arm_size}}
+{{t_nor_acc}} N.O.R Accepted
+{{t_load_eta}} ET Commenced Loading
+{{t_etc}} ETC
+{{t_etd_berth}} ETD From Berth
+{{t_etd}} ETD
+
+--------------------------------------------------------
+KEY MEETING DETAILS AGREEMENT - {{cargo_grade}}
+--------------------------------------------------------
+Quantity Requested by Vessel    : {{qty_requested}} Bbls
+Quantity Offered by Terminal    : {{qty_offered}} Bbls +/- 10%
+Loading Rate Requested by Vessel: {{rate_requested}} Bbls/Hr
+Loading Rate Offered by Terminal: {{rate_offered}} Bbls/Hr
+------------------------------------------------------
+API : {{api}}    Approx
+Temp: {{temp}}   Approx
+------------------------------------------------------
+Ship will stop loading due to load-port draft restriction ({{draft_restriction}})
+
+BEST REGARDS,
+{{agent_name}}
+{{agent_title}}
+SERVICIOS NAVIERAMAR, C.A. (As Agents Only)
+{{branch_office}}
+Covering/Attending: {{branch_coverage}}
+
+Address: {{branch_address}}
+Mobile 24 hrs: {{agent_mobile}}
+Email: {{agent_email}}
