@@ -401,6 +401,7 @@ export class NominationsService {
           correlative: true,
           layDaysFirst: true,
           layDaysLast: true,
+          etaDate: true,
           shipParticular: { select: { name: true } },
           opPort: { select: { name: true } },
           branch: {
@@ -434,6 +435,7 @@ export class NominationsService {
     // ---------------------------------------------------------------------------
     const TEMPLATE_PATHS: Record<string, string> = {
       ACKNOWLEDGEMENT: '01_prearrival/00_nomination_acceptance.hbs',
+      PREARRIVAL: '01_prearrival/10_prearrival_notification.hbs',
     };
     const relPath = TEMPLATE_PATHS[actionType.toUpperCase()] ?? `${actionType.toLowerCase()}.hbs`;
     const templatePath = resolve(process.cwd(), 'templates', relPath);
@@ -464,6 +466,7 @@ export class NominationsService {
           ? `${fmtDate(nomination.layDaysFirst)} - ${fmtDate(nomination.layDaysLast)}`
           : '',
       nomination_date: fmtDate(nomination.dateNominated),
+      eta_date: fmtDate(nomination.etaDate ?? null),
       agent_name: agent?.displayName ?? agentEmail.split('@')[0] ?? agentEmail,
       agent_email: branch?.email ?? agentEmail,
       agent_mobile: agent?.mobile ?? branch?.mobile24h ?? '',

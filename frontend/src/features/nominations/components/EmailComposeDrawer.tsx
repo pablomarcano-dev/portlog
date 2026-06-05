@@ -96,7 +96,7 @@ export function EmailComposeDrawer({
   const composeQuery = useNominationCompose(nominationId, subDocType, opened);
   const dispatch = useEmailDispatch(pedrId, nominationId);
   const nominationSend = useNominationSendEmail(nominationId);
-  const isNominationLevel = subDocType === 'ACKNOWLEDGEMENT';
+  const isNominationLevel = subDocType === 'ACKNOWLEDGEMENT' || subDocType === 'PREARRIVAL';
   const pedrEventsQuery = usePedrEvents(subDocType === 'SOF' ? pedrId : '');
   const emailGroupsQuery = useEmailGroups({ pageSize: 100 });
   const iframeRef = useRef<HTMLIFrameElement>(null);
