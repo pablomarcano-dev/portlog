@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Modal,
   Stack,
@@ -8,21 +8,25 @@ import {
   Textarea,
   TextInput,
   TagsInput,
+  MultiSelect,
   Alert,
   Loader,
   Box,
   Table,
   Divider,
+  SegmentedControl,
+  NumberInput,
 } from '@mantine/core';
 import { DateTimePicker, DatePickerInput } from '@mantine/dates';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { usePedrEvents } from '../api/usePedrEvents';
 import type { SubDocType } from '@portlog/schemas';
 import { useEmailDispatch } from '../api/useEmailDispatch';
 import { useNominationCompose } from '../api/useNominationCompose';
-import { NumberInput } from '@mantine/core';
+import { useEmailGroups, emailGroupQueryOptions } from '../../../lib/api/master-data/email-groups';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -57,15 +61,12 @@ const composeSchema = z.object({
   bccAddresses: z.array(z.string()).default([]),
   subject: z.string().min(1, 'Subject is required'),
   bodyHtml: z.string().default(''),
-  // ETA/ETB extra fields
   etb: z.date().nullable().optional(),
   berthNumber: z.string().optional(),
   etcDate: z.date().nullable().optional(),
-  // NOR extra fields
   norTenderedAt: z.date().nullable().optional(),
   norAcceptedAt: z.date().nullable().optional(),
   layTimeCommences: z.date().nullable().optional(),
-  // CARGO_UPDATE extra fields
   blQuantity: z.number().nullable().optional(),
   blDate: z.date().nullable().optional(),
   vesselFigure: z.number().nullable().optional(),
@@ -73,6 +74,9 @@ const composeSchema = z.object({
   cargoUpdateRemarks: z.string().optional(),
 });
 type ComposeForm = z.infer<typeof composeSchema>;
+
+type BodyMode = 'preview' | 'edit';
+type RecipientField = 'toAddresses' | 'ccAddresses' | 'bccAddresses';
 
 // ---------------------------------------------------------------------------
 // Component
@@ -87,10 +91,16 @@ export function EmailComposeDrawer({
   defaultSubject,
   defaultBody = '',
 }: EmailComposeDrawerProps) {
+  const qc = useQueryClient();
   const composeQuery = useNominationCompose(nominationId, subDocType, opened);
   const dispatch = useEmailDispatch(pedrId, nominationId);
   const pedrEventsQuery = usePedrEvents(subDocType === 'SOF' ? pedrId : '');
+  const emailGroupsQuery = useEmailGroups({ pageSize: 100 });
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  const [bodyMode, setBodyMode] = useState<BodyMode>('preview');
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+  const [isResolvingGroups, setIsResolvingGroups] = useState(false);
 
   const {
     register,
@@ -137,12 +147,33 @@ export function EmailComposeDrawer({
   const toAddresses = watch('toAddresses');
   const ccAddresses = watch('ccAddresses');
   const bccAddresses = watch('bccAddresses');
+  const bodyHtml = watch('bodyHtml');
   const norTenderedAt = watch('norTenderedAt');
   const blQuantity = watch('blQuantity');
   const blDate = watch('blDate');
 
+  // Resolve selected group IDs → emails, append to the target field (deduplicated)
+  async function handleAddGroups(field: RecipientField) {
+    if (!selectedGroupIds.length) return;
+    setIsResolvingGroups(true);
+    try {
+      const fullGroups = await Promise.all(
+        selectedGroupIds.map((id) => qc.fetchQuery(emailGroupQueryOptions(id))),
+      );
+      const newEmails = fullGroups.flatMap((g) => g.members.map((m) => m.email));
+      const existing = watch(field);
+      const merged = Array.from(new Set([...existing, ...newEmails]));
+      setValue(field, merged, { shouldValidate: true });
+      setSelectedGroupIds([]);
+    } finally {
+      setIsResolvingGroups(false);
+    }
+  }
+
   function handleClose() {
     reset();
+    setBodyMode('preview');
+    setSelectedGroupIds([]);
     onClose();
   }
 
@@ -186,6 +217,12 @@ export function EmailComposeDrawer({
     );
   }
 
+  const groupSelectData =
+    emailGroupsQuery.data?.items.map((g) => ({
+      value: g.id,
+      label: `${g.name} (${g.memberCount})`,
+    })) ?? [];
+
   const isLoading = composeQuery.isLoading && !!nominationId;
 
   return (
@@ -197,7 +234,7 @@ export function EmailComposeDrawer({
           {SUB_DOC_LABELS[subDocType]}
         </Text>
       }
-      size="lg"
+      size="xl"
       padding="lg"
     >
       {isLoading ? (
@@ -207,70 +244,117 @@ export function EmailComposeDrawer({
       ) : (
         <form onSubmit={(e) => void handleSubmit(onSubmit)(e)}>
           <Stack gap="sm">
-            {/* SOF — read-only event log preview */}
+            {/* SOF event log preview */}
             {subDocType === 'SOF' && (
               <Box>
                 <Text fw={600} size="sm" mb={4}>
                   Event Log
                 </Text>
-                {pedrEventsQuery.isLoading && (
+                {pedrEventsQuery.isLoading ? (
                   <Box ta="center" py="sm">
                     <Loader size="xs" />
                   </Box>
-                )}
-                {!pedrEventsQuery.isLoading &&
-                  (pedrEventsQuery.data?.length === 0 ? (
-                    <Alert color="yellow" title="No events recorded yet">
-                      No events recorded yet — the SOF will be empty.
-                    </Alert>
-                  ) : (
-                    <Table withTableBorder withColumnBorders fz="xs">
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th>Time</Table.Th>
-                          <Table.Th>Event Type</Table.Th>
-                          <Table.Th>Notes</Table.Th>
+                ) : pedrEventsQuery.data?.length === 0 ? (
+                  <Alert color="yellow" title="No events recorded yet">
+                    The SOF will be empty.
+                  </Alert>
+                ) : (
+                  <Table withTableBorder withColumnBorders fz="xs">
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Time</Table.Th>
+                        <Table.Th>Event Type</Table.Th>
+                        <Table.Th>Notes</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {pedrEventsQuery.data?.map((ev) => (
+                        <Table.Tr key={ev.id}>
+                          <Table.Td>{new Date(ev.occurredAt).toLocaleString()}</Table.Td>
+                          <Table.Td>{ev.kind.replace(/_/g, ' ')}</Table.Td>
+                          <Table.Td>{ev.note ?? ''}</Table.Td>
                         </Table.Tr>
-                      </Table.Thead>
-                      <Table.Tbody>
-                        {pedrEventsQuery.data?.map((ev) => (
-                          <Table.Tr key={ev.id}>
-                            <Table.Td>{new Date(ev.occurredAt).toLocaleString()}</Table.Td>
-                            <Table.Td>{ev.kind.replace(/_/g, ' ')}</Table.Td>
-                            <Table.Td>{ev.note ?? ''}</Table.Td>
-                          </Table.Tr>
-                        ))}
-                      </Table.Tbody>
-                    </Table>
-                  ))}
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                )}
                 <Divider mt="sm" />
               </Box>
             )}
 
-            {/* To */}
+            {/* Recipients */}
             <TagsInput
               label="To"
-              placeholder="Add email address and press Enter"
+              placeholder="Type an email and press Enter"
               value={toAddresses}
               onChange={(val) => setValue('toAddresses', val, { shouldValidate: true })}
               error={errors.toAddresses?.message}
             />
-
-            {/* CC */}
             <TagsInput
               label="CC"
-              placeholder="Add email address and press Enter"
+              placeholder="Type an email and press Enter"
               value={ccAddresses}
               onChange={(val) => setValue('ccAddresses', val)}
             />
-
-            {/* BCC */}
             <TagsInput
               label="BCC"
-              placeholder="Add email address and press Enter"
+              placeholder="Type an email and press Enter"
               value={bccAddresses}
               onChange={(val) => setValue('bccAddresses', val)}
             />
+
+            {/* Add from group */}
+            <Box
+              p="xs"
+              style={{
+                border: '1px solid var(--mantine-color-gray-2)',
+                borderRadius: 'var(--mantine-radius-sm)',
+                background: 'var(--mantine-color-gray-0)',
+              }}
+            >
+              <Text size="xs" c="dimmed" mb={6}>
+                Add from group
+              </Text>
+              <Group gap="xs" align="flex-end">
+                <MultiSelect
+                  style={{ flex: 1 }}
+                  placeholder="Search groups…"
+                  data={groupSelectData}
+                  value={selectedGroupIds}
+                  onChange={setSelectedGroupIds}
+                  searchable
+                  clearable
+                  size="xs"
+                />
+                <Button
+                  size="xs"
+                  variant="light"
+                  disabled={!selectedGroupIds.length}
+                  loading={isResolvingGroups}
+                  onClick={() => void handleAddGroups('toAddresses')}
+                >
+                  + To
+                </Button>
+                <Button
+                  size="xs"
+                  variant="light"
+                  disabled={!selectedGroupIds.length}
+                  loading={isResolvingGroups}
+                  onClick={() => void handleAddGroups('ccAddresses')}
+                >
+                  + CC
+                </Button>
+                <Button
+                  size="xs"
+                  variant="light"
+                  disabled={!selectedGroupIds.length}
+                  loading={isResolvingGroups}
+                  onClick={() => void handleAddGroups('bccAddresses')}
+                >
+                  + BCC
+                </Button>
+              </Group>
+            </Box>
 
             {/* Subject */}
             <TextInput
@@ -280,36 +364,57 @@ export function EmailComposeDrawer({
               error={errors.subject?.message}
             />
 
-            {/* Body — rendered preview */}
+            {/* Body — preview / edit */}
             <Box>
-              <Text size="sm" fw={500} mb={4}>
-                Body
-              </Text>
-              <Box
-                style={{
-                  border: '1px solid var(--mantine-color-gray-3)',
-                  borderRadius: 'var(--mantine-radius-sm)',
-                  overflow: 'hidden',
-                }}
-              >
-                <iframe
-                  ref={iframeRef}
-                  srcDoc={
-                    watch('bodyHtml') || '<p style="color:#999;padding:16px">No body yet.</p>'
-                  }
-                  style={{ width: '100%', minHeight: 320, border: 'none', display: 'block' }}
-                  onLoad={() => {
-                    const iframe = iframeRef.current;
-                    if (iframe?.contentDocument?.body) {
-                      iframe.style.height = iframe.contentDocument.body.scrollHeight + 'px';
-                    }
-                  }}
-                  title="Email preview"
+              <Group justify="space-between" mb={6}>
+                <Text size="sm" fw={500}>
+                  Body
+                </Text>
+                <SegmentedControl
+                  size="xs"
+                  value={bodyMode}
+                  onChange={(v) => setBodyMode(v as BodyMode)}
+                  data={[
+                    { value: 'preview', label: 'Preview' },
+                    { value: 'edit', label: 'Edit HTML' },
+                  ]}
                 />
-              </Box>
+              </Group>
+
+              {bodyMode === 'preview' ? (
+                <Box
+                  style={{
+                    border: '1px solid var(--mantine-color-gray-3)',
+                    borderRadius: 'var(--mantine-radius-sm)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <iframe
+                    ref={iframeRef}
+                    srcDoc={bodyHtml || '<p style="color:#999;padding:16px">No body yet.</p>'}
+                    style={{ width: '100%', minHeight: 320, border: 'none', display: 'block' }}
+                    onLoad={() => {
+                      const iframe = iframeRef.current;
+                      if (iframe?.contentDocument?.body) {
+                        iframe.style.height = iframe.contentDocument.body.scrollHeight + 'px';
+                      }
+                    }}
+                    title="Email preview"
+                  />
+                </Box>
+              ) : (
+                <Textarea
+                  value={bodyHtml}
+                  onChange={(e) => setValue('bodyHtml', e.currentTarget.value)}
+                  minRows={16}
+                  autosize
+                  styles={{ input: { fontFamily: 'monospace', fontSize: 12 } }}
+                  placeholder="HTML email body…"
+                />
+              )}
             </Box>
 
-            {/* ETA/ETB-specific extra fields */}
+            {/* ETA/ETB extra fields */}
             {subDocType === 'ETA_ETB' && (
               <>
                 <Divider label="ETA / ETB Details" labelPosition="left" />
@@ -350,7 +455,7 @@ export function EmailComposeDrawer({
               </>
             )}
 
-            {/* NOR-specific extra fields */}
+            {/* NOR extra fields */}
             {subDocType === 'NOR' && (
               <>
                 <Divider label="NOR Details" labelPosition="left" />
@@ -399,7 +504,7 @@ export function EmailComposeDrawer({
               </>
             )}
 
-            {/* CARGO_UPDATE-specific extra fields */}
+            {/* CARGO_UPDATE extra fields */}
             {subDocType === 'CARGO_UPDATE' && (
               <>
                 <Divider label="Cargo Update Details" labelPosition="left" />
@@ -463,7 +568,7 @@ export function EmailComposeDrawer({
                 />
                 <Textarea
                   label="Remarks"
-                  placeholder="Enter any remarks..."
+                  placeholder="Enter any remarks…"
                   minRows={2}
                   autosize
                   {...register('cargoUpdateRemarks')}
@@ -472,7 +577,7 @@ export function EmailComposeDrawer({
               </>
             )}
 
-            {/* Errors */}
+            {/* Send error */}
             {dispatch.isError && (
               <Alert color="red" title="Send failed">
                 {dispatch.error instanceof Error
