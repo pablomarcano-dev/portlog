@@ -25,6 +25,10 @@ model User {
   id            String    @id @default(cuid())
   email         String    @unique
   passwordHash  String
+  displayName   String?             // full name for email signatures e.g. "Carlos Ferrer"
+  phone         String?             // office direct line
+  mobile        String?             // personal / 24h mobile
+  fax           String?             // office fax
   role          Role      @default(OPS)
   isActive      Boolean   @default(true)
   // permissions is a flexible array of permission strings.

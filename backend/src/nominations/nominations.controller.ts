@@ -95,6 +95,24 @@ export class NominationsController {
     return this.svc.getComposeData(id, actionType, req.user.email);
   }
 
+  @Post(':id/send-email')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  sendEmail(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body()
+    body: {
+      subDocType: string;
+      toAddresses: string[];
+      ccAddresses: string[];
+      bccAddresses: string[];
+      subject: string;
+      bodyHtml: string;
+    },
+    @Req() req: { user: RequestUser },
+  ) {
+    return this.svc.sendEmail(id, body, req.user.sub);
+  }
+
   @Get(':id/clients')
   listClients(@Param('id', ParseUUIDPipe) id: string) {
     return this.svc.listClients(id);

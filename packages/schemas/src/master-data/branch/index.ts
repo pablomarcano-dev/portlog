@@ -3,8 +3,6 @@ import { ListQuerySchema } from '../../common/pagination';
 
 // ---------------------------------------------------------------------------
 // Branch — company branch (Sucursal) master-data entity
-// Resolves SCOPE.md Open Question #5: Branch is a dropdown FK on every
-// nomination, not a label derived from Port.
 // ---------------------------------------------------------------------------
 
 export const BranchSchema = z.object({
@@ -12,12 +10,34 @@ export const BranchSchema = z.object({
   name: z.string(),
   code: z.string(),
   comments: z.string().nullable().optional(),
+  email: z.string().nullable().optional(),
+  address: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  fax: z.string().nullable().optional(),
+  mobile24h: z.string().nullable().optional(),
+  coverage: z.string().nullable().optional(),
+  contactName: z.string().nullable().optional(),
+  contactTitle: z.string().nullable().optional(),
+  contactMobile: z.string().nullable().optional(),
+  contactEmail: z.string().nullable().optional(),
+  centralEmails: z.array(z.string()).default([]),
 });
 
 export const BranchCreateSchema = z.object({
   name: z.string().min(1).max(200),
   code: z.string().min(1).max(20),
   comments: z.string().optional(),
+  email: z.string().email().optional(),
+  address: z.string().optional(),
+  phone: z.string().optional(),
+  fax: z.string().optional(),
+  mobile24h: z.string().optional(),
+  coverage: z.string().optional(),
+  contactName: z.string().optional(),
+  contactTitle: z.string().optional(),
+  contactMobile: z.string().optional(),
+  contactEmail: z.string().email().optional(),
+  centralEmails: z.array(z.string().email()).default([]),
 });
 
 export const BranchUpdateSchema = BranchCreateSchema.partial();

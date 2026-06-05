@@ -26,6 +26,7 @@ import { usePedrEvents } from '../api/usePedrEvents';
 import type { SubDocType } from '@portlog/schemas';
 import { useEmailDispatch } from '../api/useEmailDispatch';
 import { useNominationCompose } from '../api/useNominationCompose';
+import { useNominationSendEmail } from '../api/useNominationSendEmail';
 import { useEmailGroups, emailGroupQueryOptions } from '../../../lib/api/master-data/email-groups';
 
 // ---------------------------------------------------------------------------
@@ -94,6 +95,8 @@ export function EmailComposeDrawer({
   const qc = useQueryClient();
   const composeQuery = useNominationCompose(nominationId, subDocType, opened);
   const dispatch = useEmailDispatch(pedrId, nominationId);
+  const nominationSend = useNominationSendEmail(nominationId);
+  const isNominationLevel = subDocType === 'ACKNOWLEDGEMENT';
   const pedrEventsQuery = usePedrEvents(subDocType === 'SOF' ? pedrId : '');
   const emailGroupsQuery = useEmailGroups({ pageSize: 100 });
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -203,18 +206,32 @@ export function EmailComposeDrawer({
               }
             : undefined;
 
-    dispatch.mutate(
-      {
-        subDocType,
-        toAddresses: values.toAddresses,
-        ccAddresses: values.ccAddresses,
-        bccAddresses: values.bccAddresses,
-        subject: values.subject,
-        bodyHtml: values.bodyHtml || undefined,
-        extraData,
-      },
-      { onSuccess: () => handleClose() },
-    );
+    if (isNominationLevel) {
+      nominationSend.mutate(
+        {
+          subDocType,
+          toAddresses: values.toAddresses,
+          ccAddresses: values.ccAddresses,
+          bccAddresses: values.bccAddresses,
+          subject: values.subject,
+          bodyHtml: values.bodyHtml || '',
+        },
+        { onSuccess: () => handleClose() },
+      );
+    } else {
+      dispatch.mutate(
+        {
+          subDocType,
+          toAddresses: values.toAddresses,
+          ccAddresses: values.ccAddresses,
+          bccAddresses: values.bccAddresses,
+          subject: values.subject,
+          bodyHtml: values.bodyHtml || undefined,
+          extraData,
+        },
+        { onSuccess: () => handleClose() },
+      );
+    }
   }
 
   const groupSelectData =
@@ -578,17 +595,22 @@ export function EmailComposeDrawer({
             )}
 
             {/* Send error */}
-            {dispatch.isError && (
+            {(isNominationLevel ? nominationSend.isError : dispatch.isError) && (
               <Alert color="red" title="Send failed">
-                {dispatch.error instanceof Error
-                  ? dispatch.error.message
-                  : 'An unexpected error occurred.'}
+                {(() => {
+                  const err = isNominationLevel ? nominationSend.error : dispatch.error;
+                  return err instanceof Error ? err.message : 'An unexpected error occurred.';
+                })()}
               </Alert>
             )}
 
             {/* Actions */}
             <Group justify="flex-end" mt="sm">
-              <Button variant="default" onClick={handleClose} disabled={dispatch.isPending}>
+              <Button
+                variant="default"
+                onClick={handleClose}
+                disabled={(isNominationLevel ? nominationSend : dispatch).isPending}
+              >
                 Close
               </Button>
               <Button variant="default" disabled>
@@ -596,7 +618,7 @@ export function EmailComposeDrawer({
               </Button>
               <Button
                 type="submit"
-                loading={dispatch.isPending}
+                loading={(isNominationLevel ? nominationSend : dispatch).isPending}
                 disabled={
                   (subDocType === 'NOR' && !norTenderedAt) ||
                   (subDocType === 'CARGO_UPDATE' && (blQuantity == null || !blDate))

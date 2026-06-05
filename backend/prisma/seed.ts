@@ -27,102 +27,176 @@ async function main(): Promise<void> {
   // ---------------------------------------------------------------------------
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@portlog.local' },
-    update: {},
+    update: { displayName: 'Admin Portlog' },
     create: {
       email: 'admin@portlog.local',
       passwordHash: await bcrypt.hash('portlog_admin_dev', 12),
       role: Role.ADM,
       isActive: true,
+      displayName: 'Admin Portlog',
     },
   });
   const opsUser = await prisma.user.upsert({
     where: { email: 'ops@portlog.local' },
-    update: {},
+    update: {
+      displayName: 'Carlos Ferrer',
+      phone: '+598 2915 4400',
+      mobile: '+598 99 123 456',
+      fax: '+598 2915 4401',
+    },
     create: {
       email: 'ops@portlog.local',
       passwordHash: await bcrypt.hash('portlog_ops_dev', 10),
       role: Role.OPS,
       isActive: true,
+      displayName: 'Carlos Ferrer',
+      phone: '+598 2915 4400',
+      mobile: '+598 99 123 456',
+      fax: '+598 2915 4401',
     },
   });
   const user3 = await prisma.user.upsert({
     where: { email: 'laura.gomez@portlog.local' },
-    update: {},
+    update: {
+      displayName: 'Laura Gómez',
+      phone: '+598 2915 4402',
+      mobile: '+598 99 234 567',
+      fax: '+598 2915 4401',
+    },
     create: {
       email: 'laura.gomez@portlog.local',
       passwordHash: await bcrypt.hash('portlog_dev_2026', 10),
       role: Role.OPS,
       isActive: true,
+      displayName: 'Laura Gómez',
+      phone: '+598 2915 4402',
+      mobile: '+598 99 234 567',
+      fax: '+598 2915 4401',
     },
   });
   const user4 = await prisma.user.upsert({
     where: { email: 'martin.silva@portlog.local' },
-    update: {},
+    update: {
+      displayName: 'Martín Silva',
+      phone: '+598 473 22000',
+      mobile: '+598 99 345 678',
+      fax: '+598 473 22001',
+    },
     create: {
       email: 'martin.silva@portlog.local',
       passwordHash: await bcrypt.hash('portlog_dev_2026', 10),
       role: Role.OPS,
       isActive: true,
+      displayName: 'Martín Silva',
+      phone: '+598 473 22000',
+      mobile: '+598 99 345 678',
+      fax: '+598 473 22001',
     },
   });
   await prisma.user.upsert({
     where: { email: 'diego.perez@portlog.local' },
-    update: {},
+    update: {
+      displayName: 'Diego Pérez',
+      phone: '+598 473 22002',
+      mobile: '+598 99 456 789',
+      fax: '+598 473 22001',
+    },
     create: {
       email: 'diego.perez@portlog.local',
       passwordHash: await bcrypt.hash('portlog_dev_2026', 10),
       role: Role.OPS,
       isActive: true,
+      displayName: 'Diego Pérez',
+      phone: '+598 473 22002',
+      mobile: '+598 99 456 789',
+      fax: '+598 473 22001',
     },
   });
   await prisma.user.upsert({
     where: { email: 'sofia.rodriguez@portlog.local' },
-    update: {},
+    update: {
+      displayName: 'Sofía Rodríguez',
+      phone: '+598 2915 4403',
+      mobile: '+598 99 567 890',
+      fax: '+598 2915 4401',
+    },
     create: {
       email: 'sofia.rodriguez@portlog.local',
       passwordHash: await bcrypt.hash('portlog_dev_2026', 10),
       role: Role.ADM,
       isActive: true,
+      displayName: 'Sofía Rodríguez',
+      phone: '+598 2915 4403',
+      mobile: '+598 99 567 890',
+      fax: '+598 2915 4401',
     },
   });
   await prisma.user.upsert({
     where: { email: 'andres.fernandez@portlog.local' },
-    update: {},
+    update: { displayName: 'Andrés Fernández' },
     create: {
       email: 'andres.fernandez@portlog.local',
       passwordHash: await bcrypt.hash('portlog_dev_2026', 10),
       role: Role.OPS,
       isActive: false,
+      displayName: 'Andrés Fernández',
     },
   });
   await prisma.user.upsert({
     where: { email: 'valentina.torres@portlog.local' },
-    update: {},
+    update: {
+      displayName: 'Valentina Torres',
+      phone: '+598 2915 4404',
+      mobile: '+598 99 678 901',
+      fax: '+598 2915 4401',
+    },
     create: {
       email: 'valentina.torres@portlog.local',
       passwordHash: await bcrypt.hash('portlog_dev_2026', 10),
       role: Role.OPS,
       isActive: true,
+      displayName: 'Valentina Torres',
+      phone: '+598 2915 4404',
+      mobile: '+598 99 678 901',
+      fax: '+598 2915 4401',
     },
   });
   await prisma.user.upsert({
     where: { email: 'carlos.mendez@portlog.local' },
-    update: {},
+    update: {
+      displayName: 'Carlos Méndez',
+      phone: '+598 2915 4405',
+      mobile: '+598 99 789 012',
+      fax: '+598 2915 4401',
+    },
     create: {
       email: 'carlos.mendez@portlog.local',
       passwordHash: await bcrypt.hash('portlog_dev_2026', 10),
       role: Role.ADM,
       isActive: true,
+      displayName: 'Carlos Méndez',
+      phone: '+598 2915 4405',
+      mobile: '+598 99 789 012',
+      fax: '+598 2915 4401',
     },
   });
   await prisma.user.upsert({
     where: { email: 'paula.diaz@portlog.local' },
-    update: {},
+    update: {
+      displayName: 'Paula Díaz',
+      phone: '+598 2915 4406',
+      mobile: '+598 99 890 123',
+      fax: '+598 2915 4401',
+    },
     create: {
       email: 'paula.diaz@portlog.local',
       passwordHash: await bcrypt.hash('portlog_dev_2026', 10),
       role: Role.OPS,
       isActive: true,
+      displayName: 'Paula Díaz',
+      phone: '+598 2915 4406',
+      mobile: '+598 99 890 123',
+      fax: '+598 2915 4401',
     },
   });
   console.log('Seeded 10 users');
@@ -613,7 +687,7 @@ async function main(): Promise<void> {
         },
       }),
   );
-  const ch4 = await findOrCreate(
+  await await findOrCreate(
     () => prisma.charterer.findFirst({ where: { name: 'Viterra Uruguay S.A.' } }),
     () =>
       prisma.charterer.create({
@@ -624,7 +698,7 @@ async function main(): Promise<void> {
         },
       }),
   );
-  const ch5 = await findOrCreate(
+  await await findOrCreate(
     () => prisma.charterer.findFirst({ where: { name: 'Cofco International' } }),
     () =>
       prisma.charterer.create({
@@ -695,7 +769,7 @@ async function main(): Promise<void> {
   // ---------------------------------------------------------------------------
   // Shippers (10)
   // ---------------------------------------------------------------------------
-  const sh1 = await findOrCreate(
+  await await findOrCreate(
     () => prisma.shipper.findFirst({ where: { name: 'ADN Exportaciones S.A.' } }),
     () =>
       prisma.shipper.create({
@@ -707,7 +781,7 @@ async function main(): Promise<void> {
         },
       }),
   );
-  const sh2 = await findOrCreate(
+  await await findOrCreate(
     () => prisma.shipper.findFirst({ where: { name: 'Granel Export S.R.L.' } }),
     () =>
       prisma.shipper.create({
@@ -719,7 +793,7 @@ async function main(): Promise<void> {
         },
       }),
   );
-  const sh3 = await findOrCreate(
+  await await findOrCreate(
     () => prisma.shipper.findFirst({ where: { name: 'Celulosa Argentina S.A.' } }),
     () =>
       prisma.shipper.create({
@@ -820,7 +894,7 @@ async function main(): Promise<void> {
   // ---------------------------------------------------------------------------
   // Agents (10)
   // ---------------------------------------------------------------------------
-  const agent1 = await findOrCreate(
+  await await findOrCreate(
     () => prisma.agent.findFirst({ where: { name: 'Sudamer Agencia Marítima' } }),
     () =>
       prisma.agent.create({
@@ -831,7 +905,7 @@ async function main(): Promise<void> {
         },
       }),
   );
-  const agent2 = await findOrCreate(
+  await await findOrCreate(
     () => prisma.agent.findFirst({ where: { name: 'Wilson Sons Agência Marítima' } }),
     () =>
       prisma.agent.create({
@@ -842,7 +916,7 @@ async function main(): Promise<void> {
         },
       }),
   );
-  const agent3 = await findOrCreate(
+  await await findOrCreate(
     () => prisma.agent.findFirst({ where: { name: 'GAC Uruguay S.A.' } }),
     () =>
       prisma.agent.create({
@@ -1145,25 +1219,98 @@ async function main(): Promise<void> {
   // ---------------------------------------------------------------------------
   const branchMVD = await prisma.branch.upsert({
     where: { code: 'MVD' },
-    update: {},
-    create: { name: 'Montevideo', code: 'MVD', comments: 'Sede central. Puerto de Montevideo.' },
+    update: {
+      email: 'mvd@portlog.local',
+      address: 'Rambla 25 de Agosto de 1825 s/n, Puerto de Montevideo, Uruguay.',
+      phone: '+598 2915 4400',
+      fax: '+598 2915 4401',
+      mobile24h: '+598 99 100 200',
+      coverage: 'Puerto de Montevideo, Terminal TCP y Grandes Lagos.',
+      contactName: 'Sr. Roberto Álvarez',
+      contactTitle: 'Operations Manager',
+      contactMobile: '+598 99 111 222',
+      contactEmail: 'ops.mvd@portlog.local',
+      centralEmails: ['admin@portlog.local', 'ops@portlog.local'],
+    },
+    create: {
+      name: 'Montevideo',
+      code: 'MVD',
+      comments: 'Sede central. Puerto de Montevideo.',
+      email: 'mvd@portlog.local',
+      address: 'Rambla 25 de Agosto de 1825 s/n, Puerto de Montevideo, Uruguay.',
+      phone: '+598 2915 4400',
+      fax: '+598 2915 4401',
+      mobile24h: '+598 99 100 200',
+      coverage: 'Puerto de Montevideo, Terminal TCP y Grandes Lagos.',
+      contactName: 'Sr. Roberto Álvarez',
+      contactTitle: 'Operations Manager',
+      contactMobile: '+598 99 111 222',
+      contactEmail: 'ops.mvd@portlog.local',
+      centralEmails: ['admin@portlog.local', 'ops@portlog.local'],
+    },
   });
   const branchNPA = await prisma.branch.upsert({
     where: { code: 'NPA' },
-    update: {},
+    update: {
+      email: 'npa@portlog.local',
+      address: 'Av. Artigas 350, Nueva Palmira, Colonia, Uruguay.',
+      phone: '+598 4554 2100',
+      fax: '+598 4554 2101',
+      mobile24h: '+598 99 300 400',
+      coverage: 'Terminal Granelera de Nueva Palmira, Zona Franca UP-River.',
+      contactName: 'Sr. Jorge Pereira',
+      contactTitle: 'Branch Supervisor',
+      contactMobile: '+598 99 333 444',
+      contactEmail: 'ops.npa@portlog.local',
+      centralEmails: ['admin@portlog.local', 'ops@portlog.local'],
+    },
     create: {
       name: 'Nueva Palmira',
       code: 'NPA',
       comments: 'Terminal granelera del litoral uruguayo.',
+      email: 'npa@portlog.local',
+      address: 'Av. Artigas 350, Nueva Palmira, Colonia, Uruguay.',
+      phone: '+598 4554 2100',
+      fax: '+598 4554 2101',
+      mobile24h: '+598 99 300 400',
+      coverage: 'Terminal Granelera de Nueva Palmira, Zona Franca UP-River.',
+      contactName: 'Sr. Jorge Pereira',
+      contactTitle: 'Branch Supervisor',
+      contactMobile: '+598 99 333 444',
+      contactEmail: 'ops.npa@portlog.local',
+      centralEmails: ['admin@portlog.local', 'ops@portlog.local'],
     },
   });
   const branchFBT = await prisma.branch.upsert({
     where: { code: 'FBT' },
-    update: {},
+    update: {
+      email: 'fbt@portlog.local',
+      address: 'Puerto de Fray Bentos, Río Uruguay, Uruguay.',
+      phone: '+598 4562 3200',
+      fax: '+598 4562 3201',
+      mobile24h: '+598 99 500 600',
+      coverage: 'Puerto de Fray Bentos, Terminal de Celulosa UPM.',
+      contactName: 'Sr. Andrés Cabrera',
+      contactTitle: 'Port Agent',
+      contactMobile: '+598 99 555 666',
+      contactEmail: 'ops.fbt@portlog.local',
+      centralEmails: ['admin@portlog.local', 'ops@portlog.local'],
+    },
     create: {
       name: 'Fray Bentos',
       code: 'FBT',
       comments: 'Puerto fluvial, celulosa y productos forestales.',
+      email: 'fbt@portlog.local',
+      address: 'Puerto de Fray Bentos, Río Uruguay, Uruguay.',
+      phone: '+598 4562 3200',
+      fax: '+598 4562 3201',
+      mobile24h: '+598 99 500 600',
+      coverage: 'Puerto de Fray Bentos, Terminal de Celulosa UPM.',
+      contactName: 'Sr. Andrés Cabrera',
+      contactTitle: 'Port Agent',
+      contactMobile: '+598 99 555 666',
+      contactEmail: 'ops.fbt@portlog.local',
+      centralEmails: ['admin@portlog.local', 'ops@portlog.local'],
     },
   });
   await prisma.branch.upsert({
@@ -1213,7 +1360,41 @@ async function main(): Promise<void> {
     update: {},
     create: { name: 'La Paloma', code: 'PLC', comments: 'Puerto pesquero y deportivo.' },
   });
-  console.log('Seeded 10 branches');
+  await await prisma.branch.upsert({
+    where: { code: 'LGR' },
+    update: {
+      name: 'La Guaira Branch Office',
+      email: 'lgr@navieramar.com',
+      address:
+        'Avenida Principal De Weekend con 3ra Transversal Edificio San Miguel, Piso 1, Oficina 08, Catia La Mar, Estado Vargas, Venezuela.',
+      phone: '+58 212 3520194',
+      fax: '+58 212 3523611',
+      mobile24h: '+58 424 8191810 / +58 416 6841627',
+      coverage: 'Catia La Mar and Tacoa Terminals, Bolipuertos La Guaira.',
+      contactName: 'Ms. Cindy Moreno',
+      contactTitle: 'Branch Manager',
+      contactMobile: '+58 424 1433684',
+      contactEmail: 'lgrmgr@navieramar.com',
+      centralEmails: ['opsmgr@navieramar.com', 'genmgr@navieramar.com', 'asistmgr@navieramar.com'],
+    },
+    create: {
+      name: 'La Guaira Branch Office',
+      code: 'LGR',
+      email: 'lgr@navieramar.com',
+      address:
+        'Avenida Principal De Weekend con 3ra Transversal Edificio San Miguel, Piso 1, Oficina 08, Catia La Mar, Estado Vargas, Venezuela.',
+      phone: '+58 212 3520194',
+      fax: '+58 212 3523611',
+      mobile24h: '+58 424 8191810 / +58 416 6841627',
+      coverage: 'Catia La Mar and Tacoa Terminals, Bolipuertos La Guaira.',
+      contactName: 'Ms. Cindy Moreno',
+      contactTitle: 'Branch Manager',
+      contactMobile: '+58 424 1433684',
+      contactEmail: 'lgrmgr@navieramar.com',
+      centralEmails: ['opsmgr@navieramar.com', 'genmgr@navieramar.com', 'asistmgr@navieramar.com'],
+    },
+  });
+  console.log('Seeded 11 branches');
 
   // ---------------------------------------------------------------------------
   // Ship Particulars (10)
@@ -1586,11 +1767,6 @@ async function main(): Promise<void> {
       pierId: pierMvdC.id,
       lastPortId: baPort.id,
       nextPortId: baPort.id,
-      operatorId: op1.id,
-      ownerId: owner1.id,
-      charterId: ch1.id,
-      shipperId: sh1.id,
-      agentId: agent1.id,
       branchId: branchMVD.id,
       dateNominated: new Date('2026-05-20T10:00:00Z'),
       etaDate: new Date('2026-05-28T06:00:00Z'),
@@ -1598,7 +1774,7 @@ async function main(): Promise<void> {
       status: NominationStatus.DRAFT,
       nominatedById: opsUser.id,
       master: 'Capt. John Anderson',
-      features: [{ product: 'Soja', qtty: '25000', unit: 'MT', oper: 'Carga' }],
+      features: [{ product: 'Soja', quantity: 25000, unit: 'MT', operation: 'Carga' }],
       createdById: opsUser.id,
       statusHistory: {
         create: { fromStatus: null, toStatus: NominationStatus.DRAFT, changedById: opsUser.id },
@@ -1615,9 +1791,6 @@ async function main(): Promise<void> {
       opPortId: mvdPort.id,
       pierId: pierMvdD.id,
       lastPortId: npPort.id,
-      operatorId: op2.id,
-      ownerId: owner2.id,
-      charterId: ch2.id,
       branchId: branchMVD.id,
       dateNominated: new Date('2026-05-15T08:00:00Z'),
       etaDate: new Date('2026-05-22T14:00:00Z'),
@@ -1625,7 +1798,7 @@ async function main(): Promise<void> {
       status: NominationStatus.IN_PROGRESS,
       nominatedById: opsUser.id,
       master: 'Capt. María García',
-      features: [{ product: 'Trigo', qtty: '60000', unit: 'MT', oper: 'Descarga' }],
+      features: [{ product: 'Trigo', quantity: 60000, unit: 'MT', operation: 'Descarga' }],
       createdById: adminUser.id,
       statusHistory: {
         create: [
@@ -1659,7 +1832,7 @@ async function main(): Promise<void> {
       nominationType: NominationType.OWNERS_AGENTS_ONLY,
       status: NominationStatus.CONFIRMED,
       master: 'Capt. Roberto Silva',
-      features: [{ product: 'Celulosa', qtty: '10000', unit: 'MT', oper: 'Carga' }],
+      features: [{ product: 'Celulosa', quantity: 10000, unit: 'MT', operation: 'Carga' }],
       createdById: opsUser.id,
       statusHistory: {
         create: [
@@ -1683,11 +1856,6 @@ async function main(): Promise<void> {
       opPortId: mvdPort.id,
       pierId: pierMvdTCP.id,
       lastPortId: rosarioPort.id,
-      operatorId: op3.id,
-      ownerId: owner3.id,
-      charterId: ch3.id,
-      shipperId: sh2.id,
-      agentId: agent2.id,
       branchId: branchMVD.id,
       dateNominated: new Date('2026-06-01T09:00:00Z'),
       etaDate: new Date('2026-06-08T08:00:00Z'),
@@ -1695,7 +1863,7 @@ async function main(): Promise<void> {
       status: NominationStatus.CONFIRMED,
       nominatedById: user3.id,
       master: 'Capt. Nikos Papadakis',
-      features: [{ product: 'Maíz', qtty: '45000', unit: 'MT', oper: 'Descarga' }],
+      features: [{ product: 'Maíz', quantity: 45000, unit: 'MT', operation: 'Descarga' }],
       createdById: user3.id,
       statusHistory: {
         create: [
@@ -1719,11 +1887,6 @@ async function main(): Promise<void> {
       opPortId: npPort.id,
       pierId: pierNpaFluv.id,
       nextPortId: baPort.id,
-      operatorId: op4.id,
-      ownerId: owner4.id,
-      charterId: ch4.id,
-      shipperId: sh3.id,
-      agentId: agent3.id,
       branchId: branchNPA.id,
       dateNominated: new Date('2026-06-03T14:00:00Z'),
       etaDate: new Date('2026-06-10T06:00:00Z'),
@@ -1732,8 +1895,8 @@ async function main(): Promise<void> {
       nominatedById: user4.id,
       master: 'Capt. Igor Volkov',
       features: [
-        { product: 'Soja', qtty: '28000', unit: 'MT', oper: 'Carga' },
-        { product: 'Maíz', qtty: '5000', unit: 'MT', oper: 'Carga' },
+        { product: 'Soja', quantity: 28000, unit: 'MT', operation: 'Carga' },
+        { product: 'Maíz', quantity: 5000, unit: 'MT', operation: 'Carga' },
       ],
       createdById: user4.id,
       statusHistory: {
@@ -1762,16 +1925,13 @@ async function main(): Promise<void> {
       shipParticularId: vessel6.id,
       opPortId: mvdPort.id,
       pierId: pierMvdGdP.id,
-      operatorId: op1.id,
-      ownerId: owner5.id,
-      charterId: ch5.id,
       branchId: branchMVD.id,
       dateNominated: new Date('2026-06-05T10:00:00Z'),
       etaDate: new Date('2026-06-14T12:00:00Z'),
       nominationType: NominationType.CHARTERERS_AGENTS_ONLY,
       status: NominationStatus.DRAFT,
       master: 'Capt. James Morrison',
-      features: [{ product: 'Fertilizantes', qtty: '32000', unit: 'MT', oper: 'Descarga' }],
+      features: [{ product: 'Fertilizantes', quantity: 32000, unit: 'MT', operation: 'Descarga' }],
       createdById: opsUser.id,
       statusHistory: {
         create: { fromStatus: null, toStatus: NominationStatus.DRAFT, changedById: opsUser.id },
@@ -1788,16 +1948,13 @@ async function main(): Promise<void> {
       opPortId: npPort.id,
       pierId: pierNpaFisc.id,
       lastPortId: baPort.id,
-      operatorId: op2.id,
-      charterId: ch1.id,
-      shipperId: sh1.id,
       branchId: branchFBT.id,
       dateNominated: new Date('2026-06-07T08:00:00Z'),
       etaDate: new Date('2026-06-15T10:00:00Z'),
       nominationType: NominationType.FULL_AGENCY,
       status: NominationStatus.COMPLETED,
       master: 'Capt. Anastasios Dimas',
-      features: [{ product: 'Celulosa', qtty: '55000', unit: 'MT', oper: 'Carga' }],
+      features: [{ product: 'Celulosa', quantity: 55000, unit: 'MT', operation: 'Carga' }],
       createdById: adminUser.id,
       statusHistory: {
         create: [
@@ -1830,16 +1987,13 @@ async function main(): Promise<void> {
       shipParticularId: vessel8.id,
       opPortId: mvdPort.id,
       pierId: pierMvdC.id,
-      operatorId: op1.id,
-      ownerId: owner1.id,
-      agentId: agent1.id,
       branchId: branchMVD.id,
       dateNominated: new Date('2026-06-10T11:00:00Z'),
       etaDate: new Date('2026-06-18T07:00:00Z'),
       nominationType: NominationType.OWNERS_AGENTS_ONLY,
       status: NominationStatus.DRAFT,
       master: 'Capt. Ole Hansen',
-      features: [{ product: 'Carga General', qtty: '8000', unit: 'MT', oper: 'Carga' }],
+      features: [{ product: 'Carga General', quantity: 8000, unit: 'MT', operation: 'Carga' }],
       createdById: user3.id,
       statusHistory: {
         create: { fromStatus: null, toStatus: NominationStatus.DRAFT, changedById: user3.id },
@@ -1856,11 +2010,6 @@ async function main(): Promise<void> {
       opPortId: npPort.id,
       pierId: pierNpaMain.id,
       nextPortId: baPort.id,
-      operatorId: op3.id,
-      ownerId: owner2.id,
-      charterId: ch2.id,
-      shipperId: sh2.id,
-      agentId: agent2.id,
       branchId: branchNPA.id,
       dateNominated: new Date('2026-06-12T09:00:00Z'),
       etaDate: new Date('2026-06-20T06:00:00Z'),
@@ -1868,7 +2017,7 @@ async function main(): Promise<void> {
       status: NominationStatus.CONFIRMED,
       nominatedById: user4.id,
       master: 'Capt. Wei Zhang',
-      features: [{ product: 'Soja', qtty: '72000', unit: 'MT', oper: 'Carga' }],
+      features: [{ product: 'Soja', quantity: 72000, unit: 'MT', operation: 'Carga' }],
       createdById: user4.id,
       statusHistory: {
         create: [
@@ -1892,18 +2041,13 @@ async function main(): Promise<void> {
       opPortId: mvdPort.id,
       pierId: pierMvdD.id,
       lastPortId: bahiaPort.id,
-      operatorId: op4.id,
-      ownerId: owner3.id,
-      charterId: ch3.id,
-      shipperId: sh3.id,
-      agentId: agent3.id,
       branchId: branchMVD.id,
       dateNominated: new Date('2026-06-14T08:00:00Z'),
       etaDate: new Date('2026-06-22T10:00:00Z'),
       nominationType: NominationType.FULL_AGENCY,
       status: NominationStatus.CANCELLED,
       master: 'Capt. Fernando Lima',
-      features: [{ product: 'Trigo', qtty: '24000', unit: 'MT', oper: 'Carga' }],
+      features: [{ product: 'Trigo', quantity: 24000, unit: 'MT', operation: 'Carga' }],
       createdById: opsUser.id,
       statusHistory: {
         create: [

@@ -11,6 +11,7 @@ import {
 import { Prisma } from '@prisma/client';
 import Handlebars from 'handlebars';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { EmailService } from '../email/email.service.js';
 import {
   isValidTransition,
   type NominationCreateInput,
@@ -56,7 +57,10 @@ const LIST_INCLUDE = {
 export class NominationsService {
   private readonly logger = new Logger(NominationsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
+  ) {}
 
   async create(dto: NominationCreateInput, userId: string) {
     const { nominationClients: clientRows, ...nominationData } = dto;
@@ -383,24 +387,45 @@ export class NominationsService {
     actionType: string,
     agentEmail: string,
   ): Promise<ComposeData> {
-    const nomination = await this.prisma.nomination.findUnique({
-      where: { id: nominationId },
-      select: {
-        emailTo: true,
-        emailCc: true,
-        emailBcc: true,
-        subject: true,
-        features: true,
-        dateNominated: true,
-        voyageNumber: true,
-        correlative: true,
-        layDaysFirst: true,
-        layDaysLast: true,
-        shipParticular: { select: { name: true } },
-        opPort: { select: { name: true } },
-        branch: { select: { name: true } },
-      },
-    });
+    const [nomination, agent] = await Promise.all([
+      this.prisma.nomination.findUnique({
+        where: { id: nominationId },
+        select: {
+          emailTo: true,
+          emailCc: true,
+          emailBcc: true,
+          subject: true,
+          features: true,
+          dateNominated: true,
+          voyageNumber: true,
+          correlative: true,
+          layDaysFirst: true,
+          layDaysLast: true,
+          shipParticular: { select: { name: true } },
+          opPort: { select: { name: true } },
+          branch: {
+            select: {
+              name: true,
+              email: true,
+              address: true,
+              phone: true,
+              fax: true,
+              mobile24h: true,
+              coverage: true,
+              contactName: true,
+              contactTitle: true,
+              contactMobile: true,
+              contactEmail: true,
+              centralEmails: true,
+            },
+          },
+        },
+      }),
+      this.prisma.user.findUnique({
+        where: { email: agentEmail },
+        select: { displayName: true, phone: true, mobile: true, fax: true },
+      }),
+    ]);
 
     if (!nomination) throw new NotFoundException(`Nomination ${nominationId} not found.`);
 
@@ -423,16 +448,14 @@ export class NominationsService {
 
     const features = Array.isArray(nomination.features) ? nomination.features : [];
     const firstFeature = (features as Array<Record<string, unknown>>)[0] ?? {};
+    const branch = nomination.branch;
 
     const snRef = formatSnOt(nomination.correlative, nomination.dateNominated);
-    const vesselName = nomination.shipParticular?.name ?? '';
-    const terminalName = nomination.opPort?.name ?? '';
-    const branchName = nomination.branch?.name ?? '';
 
     const templateVars = {
-      vessel_name: vesselName,
+      vessel_name: nomination.shipParticular?.name ?? '',
       voyage_no: nomination.voyageNumber ?? '',
-      terminal_name: terminalName,
+      terminal_name: nomination.opPort?.name ?? '',
       sn_ref: snRef,
       cargo_quantity: String(firstFeature['quantity'] ?? ''),
       cargo_grade: String(firstFeature['product'] ?? ''),
@@ -441,19 +464,19 @@ export class NominationsService {
           ? `${fmtDate(nomination.layDaysFirst)} - ${fmtDate(nomination.layDaysLast)}`
           : '',
       nomination_date: fmtDate(nomination.dateNominated),
-      agent_name: agentEmail.split('@')[0] ?? agentEmail,
-      agent_email: agentEmail,
-      agent_mobile: '',
-      branch_office: branchName,
-      branch_coverage: '',
-      branch_address: '',
-      branch_phone: '',
-      branch_fax: '',
-      contact_person: '',
-      contact_title: '',
-      contact_mobile: '',
-      contact_email: agentEmail,
-      central_emails: '',
+      agent_name: agent?.displayName ?? agentEmail.split('@')[0] ?? agentEmail,
+      agent_email: branch?.email ?? agentEmail,
+      agent_mobile: agent?.mobile ?? branch?.mobile24h ?? '',
+      branch_office: branch?.name ?? '',
+      branch_coverage: branch?.coverage ?? '',
+      branch_address: branch?.address ?? '',
+      branch_phone: agent?.phone ?? branch?.phone ?? '',
+      branch_fax: agent?.fax ?? branch?.fax ?? '',
+      contact_person: branch?.contactName ?? '',
+      contact_title: branch?.contactTitle ?? '',
+      contact_mobile: branch?.contactMobile ?? '',
+      contact_email: branch?.contactEmail ?? '',
+      central_emails: branch?.centralEmails?.join('; ') ?? '',
     };
 
     // ---------------------------------------------------------------------------
@@ -462,7 +485,8 @@ export class NominationsService {
     const templateSource = await readFile(templatePath, 'utf8');
 
     const subjectSourceMatch = /\{\{!--\s*Subject:\s*(.+?)\s*--\}\}/.exec(templateSource);
-    const subjectTemplate = subjectSourceMatch?.[1] ?? nomination.subject ?? vesselName;
+    const subjectTemplate =
+      subjectSourceMatch?.[1] ?? nomination.subject ?? nomination.shipParticular?.name ?? '';
     const subject = Handlebars.compile(subjectTemplate)(templateVars);
 
     const bodyText = Handlebars.compile(templateSource)(templateVars);
@@ -503,6 +527,51 @@ export class NominationsService {
     if (!exists) {
       throw new NotFoundException(`Client ${clientId} not found on nomination ${nominationId}.`);
     }
+  }
+
+  async sendEmail(
+    nominationId: string,
+    body: {
+      subDocType: string;
+      toAddresses: string[];
+      ccAddresses: string[];
+      bccAddresses: string[];
+      subject: string;
+      bodyHtml: string;
+    },
+    userId: string,
+  ): Promise<void> {
+    const pedr = await this.prisma.pedr.findUnique({
+      where: { nominationId },
+      select: { id: true },
+    });
+    if (!pedr) throw new NotFoundException(`No PEDR found for nomination ${nominationId}.`);
+
+    const dispatch = await this.prisma.emailDispatch.create({
+      data: {
+        pedrId: pedr.id,
+        subDocType: body.subDocType as import('@prisma/client').SubDocType,
+        toAddresses: body.toAddresses,
+        ccAddresses: body.ccAddresses,
+        bccAddresses: body.bccAddresses,
+        subject: body.subject,
+        bodyHtml: body.bodyHtml,
+        sentById: userId,
+      },
+    });
+
+    await this.emailService.send({
+      to: body.toAddresses,
+      cc: body.ccAddresses,
+      bcc: body.bccAddresses,
+      subject: body.subject,
+      html: body.bodyHtml,
+    });
+
+    await this.prisma.emailDispatch.update({
+      where: { id: dispatch.id },
+      data: { sentAt: new Date() },
+    });
   }
 
   private isFkViolation(err: unknown): boolean {
