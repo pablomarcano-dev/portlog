@@ -86,6 +86,15 @@ export class NominationsController {
     return this.svc.getNominationMessages(id);
   }
 
+  @Get(':id/compose/:actionType')
+  getComposeData(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('actionType') actionType: string,
+    @Req() req: { user: RequestUser },
+  ) {
+    return this.svc.getComposeData(id, actionType, req.user.email);
+  }
+
   @Get(':id/clients')
   listClients(@Param('id', ParseUUIDPipe) id: string) {
     return this.svc.listClients(id);

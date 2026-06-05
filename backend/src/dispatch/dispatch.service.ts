@@ -33,7 +33,8 @@ export class DispatchService {
   ) {}
 
   async sendSubDocument(pedrId: string, dto: SendSubDocumentInput, userId: string) {
-    const { subDocType, toAddresses, ccAddresses, subject, bodyHtml, extraData } = dto;
+    const { subDocType, toAddresses, ccAddresses, bccAddresses, subject, bodyHtml, extraData } =
+      dto;
 
     // 1. Fetch PEDR + nomination data
     const pedr = await this.prisma.pedr.findUnique({
@@ -158,6 +159,7 @@ export class DispatchService {
         subDocType,
         toAddresses,
         ccAddresses: ccAddresses ?? [],
+        bccAddresses: bccAddresses ?? [],
         subject,
         bodyHtml: bodyHtml ?? null,
         pdfStorageKey,
@@ -172,6 +174,7 @@ export class DispatchService {
       await this.emailService.send({
         to: toAddresses,
         cc: ccAddresses,
+        bcc: bccAddresses,
         subject,
         html: emailBody,
         attachments: [

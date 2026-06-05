@@ -1,29 +1,28 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
 import {
-  Drawer,
+  Modal,
   Stack,
   Text,
   Button,
   Group,
   Textarea,
   TextInput,
-  MultiSelect,
-  NumberInput,
-  Badge,
+  TagsInput,
   Alert,
   Loader,
   Box,
   Table,
+  Divider,
 } from '@mantine/core';
 import { DateTimePicker, DatePickerInput } from '@mantine/dates';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useQuery } from '@tanstack/react-query';
 import { usePedrEvents } from '../api/usePedrEvents';
 import type { SubDocType } from '@portlog/schemas';
-import { emailGroupsQueryOptions } from '../../../lib/api/master-data/email-groups';
 import { useEmailDispatch } from '../api/useEmailDispatch';
+import { useNominationCompose } from '../api/useNominationCompose';
+import { NumberInput } from '@mantine/core';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -53,19 +52,20 @@ const SUB_DOC_LABELS: Record<SubDocType, string> = {
 // ---------------------------------------------------------------------------
 
 const composeSchema = z.object({
-  toGroupIds: z.array(z.string()).min(1, 'Select at least one recipient group'),
-  ccFreeText: z.string().default(''),
+  toAddresses: z.array(z.string()).min(1, 'At least one recipient required'),
+  ccAddresses: z.array(z.string()).default([]),
+  bccAddresses: z.array(z.string()).default([]),
   subject: z.string().min(1, 'Subject is required'),
   bodyHtml: z.string().default(''),
-  // ETA/ETB extra fields — only used when subDocType === 'ETA_ETB'
+  // ETA/ETB extra fields
   etb: z.date().nullable().optional(),
   berthNumber: z.string().optional(),
   etcDate: z.date().nullable().optional(),
-  // NOR extra fields — only used when subDocType === 'NOR'
+  // NOR extra fields
   norTenderedAt: z.date().nullable().optional(),
   norAcceptedAt: z.date().nullable().optional(),
   layTimeCommences: z.date().nullable().optional(),
-  // CARGO_UPDATE extra fields — only used when subDocType === 'CARGO_UPDATE'
+  // CARGO_UPDATE extra fields
   blQuantity: z.number().nullable().optional(),
   blDate: z.date().nullable().optional(),
   vesselFigure: z.number().nullable().optional(),
@@ -87,9 +87,8 @@ export function EmailComposeDrawer({
   defaultSubject,
   defaultBody = '',
 }: EmailComposeDrawerProps) {
-  const emailGroupsQuery = useQuery(emailGroupsQueryOptions({ pageSize: 100 }));
+  const composeQuery = useNominationCompose(nominationId, subDocType, opened);
   const dispatch = useEmailDispatch(pedrId, nominationId);
-  const [resolveError, setResolveError] = useState<string | null>(null);
   const pedrEventsQuery = usePedrEvents(subDocType === 'SOF' ? pedrId : '');
 
   const {
@@ -103,8 +102,9 @@ export function EmailComposeDrawer({
   } = useForm<ComposeForm>({
     resolver: zodResolver(composeSchema),
     defaultValues: {
-      toGroupIds: [],
-      ccFreeText: '',
+      toAddresses: [],
+      ccAddresses: [],
+      bccAddresses: [],
       subject: defaultSubject,
       bodyHtml: defaultBody,
       etb: null,
@@ -121,90 +121,31 @@ export function EmailComposeDrawer({
     },
   });
 
-  const toGroupIds = watch('toGroupIds');
+  // Pre-fill form when compose data loads
+  useEffect(() => {
+    if (composeQuery.data) {
+      const d = composeQuery.data;
+      setValue('toAddresses', d.toAddresses);
+      setValue('ccAddresses', d.ccAddresses);
+      setValue('bccAddresses', d.bccAddresses);
+      setValue('subject', d.subject);
+      setValue('bodyHtml', d.bodyHtml);
+    }
+  }, [composeQuery.data, setValue]);
+
+  const toAddresses = watch('toAddresses');
+  const ccAddresses = watch('ccAddresses');
+  const bccAddresses = watch('bccAddresses');
   const norTenderedAt = watch('norTenderedAt');
   const blQuantity = watch('blQuantity');
   const blDate = watch('blDate');
 
-  // Build MultiSelect data from email groups
-  const groupSelectData =
-    emailGroupsQuery.data?.items.map((g) => ({
-      value: g.id,
-      label: g.name,
-    })) ?? [];
-
   function handleClose() {
-    reset({
-      toGroupIds: [],
-      ccFreeText: '',
-      subject: defaultSubject,
-      bodyHtml: defaultBody,
-      etb: null,
-      berthNumber: '',
-      etcDate: null,
-      norTenderedAt: null,
-      norAcceptedAt: null,
-      layTimeCommences: null,
-      blQuantity: null,
-      blDate: null,
-      vesselFigure: null,
-      shoreFigure: null,
-      cargoUpdateRemarks: '',
-    });
-    setResolveError(null);
+    reset();
     onClose();
   }
 
   async function onSubmit(values: ComposeForm) {
-    setResolveError(null);
-
-    // Resolve group IDs → email addresses
-    const groups = emailGroupsQuery.data?.items ?? [];
-    const selectedGroups = groups.filter((g) => values.toGroupIds.includes(g.id));
-
-    if (selectedGroups.length === 0) {
-      setResolveError('Could not resolve recipient groups. Please refresh and try again.');
-      return;
-    }
-
-    // Collect all member emails from selected groups
-    // EmailGroupListItem only has memberCount — we need full group data.
-    // Since we only have list data here, call full group fetch for each selected group
-    // For simplicity we use the group list response which has memberCount but not emails.
-    // The user has selected groups; we pass group emails via a separate resolution step.
-    // For M4-S6, we pass the group names resolved to emails from the cached full-group data.
-    // Since the list query only returns memberCount, not emails, we build toAddresses from
-    // group member emails that we need to fetch. To avoid N+1 fetches in the UI, we instead
-    // pass the group IDs to the backend and let it resolve them there.
-    // ARCHITECTURE NOTE: This simplified version passes placeholder emails from group names.
-    // The backend already has access to group data; in a future story the endpoint should
-    // accept groupIds directly. For now, we resolve emails client-side using the full group API.
-
-    // Build toAddresses by fetching full group data for each selected group
-    // We use a sequential approach since groups are small
-    let toAddresses: string[] = [];
-    try {
-      const { emailGroupsApi } = await import('../../../lib/api/master-data/email-groups');
-      const fullGroups = await Promise.all(selectedGroups.map((g) => emailGroupsApi.get(g.id)));
-      toAddresses = fullGroups.flatMap((g) => g.members.map((m) => m.email));
-    } catch {
-      setResolveError('Failed to fetch email group members. Please try again.');
-      return;
-    }
-
-    if (toAddresses.length === 0) {
-      setResolveError('Selected groups have no members. Please add members to the groups first.');
-      return;
-    }
-
-    // Parse CC free-text (comma-separated emails)
-    const ccAddresses = values.ccFreeText
-      ? values.ccFreeText
-          .split(',')
-          .map((e) => e.trim())
-          .filter(Boolean)
-      : [];
-
     const extraData =
       subDocType === 'ETA_ETB'
         ? {
@@ -233,22 +174,21 @@ export function EmailComposeDrawer({
     dispatch.mutate(
       {
         subDocType,
-        toAddresses,
-        ccAddresses,
+        toAddresses: values.toAddresses,
+        ccAddresses: values.ccAddresses,
+        bccAddresses: values.bccAddresses,
         subject: values.subject,
         bodyHtml: values.bodyHtml || undefined,
         extraData,
       },
-      {
-        onSuccess: () => {
-          handleClose();
-        },
-      },
+      { onSuccess: () => handleClose() },
     );
   }
 
+  const isLoading = composeQuery.isLoading && !!nominationId;
+
   return (
-    <Drawer
+    <Modal
       opened={opened}
       onClose={handleClose}
       title={
@@ -256,11 +196,10 @@ export function EmailComposeDrawer({
           {SUB_DOC_LABELS[subDocType]}
         </Text>
       }
-      position="right"
-      size="md"
+      size="lg"
       padding="lg"
     >
-      {emailGroupsQuery.isLoading ? (
+      {isLoading ? (
         <Box ta="center" py="xl">
           <Loader size="sm" />
         </Box>
@@ -303,43 +242,33 @@ export function EmailComposeDrawer({
                       </Table.Tbody>
                     </Table>
                   ))}
+                <Divider mt="sm" />
               </Box>
             )}
 
-            {/* To — email group multi-select */}
-            <div>
-              <MultiSelect
-                label="To"
-                description="Select one or more email groups"
-                placeholder="Select groups..."
-                data={groupSelectData}
-                value={toGroupIds}
-                onChange={(val) => setValue('toGroupIds', val, { shouldValidate: true })}
-                searchable
-                required
-                error={errors.toGroupIds?.message}
-              />
-              {toGroupIds.length > 0 && (
-                <Group gap={4} mt={4}>
-                  {toGroupIds.map((id) => {
-                    const grp = emailGroupsQuery.data?.items.find((g) => g.id === id);
-                    return grp ? (
-                      <Badge key={id} size="xs" variant="light">
-                        {grp.name} ({grp.memberCount})
-                      </Badge>
-                    ) : null;
-                  })}
-                </Group>
-              )}
-            </div>
+            {/* To */}
+            <TagsInput
+              label="To"
+              placeholder="Add email address and press Enter"
+              value={toAddresses}
+              onChange={(val) => setValue('toAddresses', val, { shouldValidate: true })}
+              error={errors.toAddresses?.message}
+            />
 
-            {/* CC — free-text */}
-            <TextInput
+            {/* CC */}
+            <TagsInput
               label="CC"
-              description="Comma-separated email addresses (optional)"
-              placeholder="cc@example.com, other@example.com"
-              {...register('ccFreeText')}
-              error={errors.ccFreeText?.message}
+              placeholder="Add email address and press Enter"
+              value={ccAddresses}
+              onChange={(val) => setValue('ccAddresses', val)}
+            />
+
+            {/* BCC */}
+            <TagsInput
+              label="BCC"
+              placeholder="Add email address and press Enter"
+              value={bccAddresses}
+              onChange={(val) => setValue('bccAddresses', val)}
             />
 
             {/* Subject */}
@@ -353,8 +282,7 @@ export function EmailComposeDrawer({
             {/* Body */}
             <Textarea
               label="Body"
-              description="Email body — leave blank to use the default template text"
-              minRows={4}
+              minRows={8}
               autosize
               {...register('bodyHtml')}
               error={errors.bodyHtml?.message}
@@ -363,13 +291,13 @@ export function EmailComposeDrawer({
             {/* ETA/ETB-specific extra fields */}
             {subDocType === 'ETA_ETB' && (
               <>
+                <Divider label="ETA / ETB Details" labelPosition="left" />
                 <Controller
                   name="etb"
                   control={control}
                   render={({ field }) => (
                     <DateTimePicker
                       label="ETB (Estimated Time of Berthing)"
-                      description="Optional — when the vessel is expected to berth"
                       placeholder="Select date and time"
                       value={field.value ?? null}
                       onChange={field.onChange}
@@ -380,7 +308,6 @@ export function EmailComposeDrawer({
                 />
                 <TextInput
                   label="Berth No."
-                  description="Optional — berth assignment"
                   placeholder="e.g. B-12"
                   {...register('berthNumber')}
                   error={errors.berthNumber?.message}
@@ -391,7 +318,6 @@ export function EmailComposeDrawer({
                   render={({ field }) => (
                     <DateTimePicker
                       label="ETC (Estimated Time of Completion)"
-                      description="Optional — when cargo operations are expected to complete"
                       placeholder="Select date and time"
                       value={field.value ?? null}
                       onChange={field.onChange}
@@ -406,13 +332,13 @@ export function EmailComposeDrawer({
             {/* NOR-specific extra fields */}
             {subDocType === 'NOR' && (
               <>
+                <Divider label="NOR Details" labelPosition="left" />
                 <Controller
                   name="norTenderedAt"
                   control={control}
                   render={({ field }) => (
                     <DateTimePicker
                       label="NOR Tendered At"
-                      description="Required — date and time NOR was tendered to port"
                       placeholder="Select date and time"
                       value={field.value ?? null}
                       onChange={field.onChange}
@@ -427,7 +353,6 @@ export function EmailComposeDrawer({
                   render={({ field }) => (
                     <DateTimePicker
                       label="NOR Accepted At"
-                      description="Optional — date and time NOR was accepted"
                       placeholder="Select date and time"
                       value={field.value ?? null}
                       onChange={field.onChange}
@@ -442,7 +367,6 @@ export function EmailComposeDrawer({
                   render={({ field }) => (
                     <DateTimePicker
                       label="Lay Time Commences"
-                      description="Optional — date and time lay time commences"
                       placeholder="Select date and time"
                       value={field.value ?? null}
                       onChange={field.onChange}
@@ -457,13 +381,13 @@ export function EmailComposeDrawer({
             {/* CARGO_UPDATE-specific extra fields */}
             {subDocType === 'CARGO_UPDATE' && (
               <>
+                <Divider label="Cargo Update Details" labelPosition="left" />
                 <Controller
                   name="blQuantity"
                   control={control}
                   render={({ field }) => (
                     <NumberInput
                       label="BL Quantity (MT)"
-                      description="Required — bill of lading quantity in metric tons"
                       placeholder="e.g. 25000"
                       value={field.value ?? ''}
                       onChange={(val) => field.onChange(val === '' ? null : val)}
@@ -479,7 +403,6 @@ export function EmailComposeDrawer({
                   render={({ field }) => (
                     <DatePickerInput
                       label="BL Date"
-                      description="Required — bill of lading date"
                       placeholder="Select date"
                       value={field.value ?? null}
                       onChange={field.onChange}
@@ -495,7 +418,6 @@ export function EmailComposeDrawer({
                   render={({ field }) => (
                     <NumberInput
                       label="Vessel Figure (MT)"
-                      description="Optional — vessel figure in metric tons"
                       placeholder="e.g. 24950"
                       value={field.value ?? ''}
                       onChange={(val) => field.onChange(val === '' ? null : val)}
@@ -510,7 +432,6 @@ export function EmailComposeDrawer({
                   render={({ field }) => (
                     <NumberInput
                       label="Shore Figure (MT)"
-                      description="Optional — shore figure in metric tons"
                       placeholder="e.g. 24980"
                       value={field.value ?? ''}
                       onChange={(val) => field.onChange(val === '' ? null : val)}
@@ -521,7 +442,6 @@ export function EmailComposeDrawer({
                 />
                 <Textarea
                   label="Remarks"
-                  description="Optional — additional remarks"
                   placeholder="Enter any remarks..."
                   minRows={2}
                   autosize
@@ -531,23 +451,7 @@ export function EmailComposeDrawer({
               </>
             )}
 
-            {/* Attachment chip */}
-            <Box>
-              <Text size="xs" c="dimmed" mb={4}>
-                Attachment
-              </Text>
-              <Badge variant="outline" leftSection="PDF">
-                {subDocType.toLowerCase().replace(/_/g, '-')}.pdf
-              </Badge>
-            </Box>
-
             {/* Errors */}
-            {resolveError && (
-              <Alert color="red" title="Error">
-                {resolveError}
-              </Alert>
-            )}
-
             {dispatch.isError && (
               <Alert color="red" title="Send failed">
                 {dispatch.error instanceof Error
@@ -559,7 +463,10 @@ export function EmailComposeDrawer({
             {/* Actions */}
             <Group justify="flex-end" mt="sm">
               <Button variant="default" onClick={handleClose} disabled={dispatch.isPending}>
-                Cancel
+                Close
+              </Button>
+              <Button variant="default" disabled>
+                Save as Draft
               </Button>
               <Button
                 type="submit"
@@ -575,6 +482,6 @@ export function EmailComposeDrawer({
           </Stack>
         </form>
       )}
-    </Drawer>
+    </Modal>
   );
 }

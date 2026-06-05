@@ -23,6 +23,7 @@ model EmailDispatch {
   subDocType    SubDocType
   toAddresses   String[]
   ccAddresses   String[]    @default([])
+  bccAddresses  String[]    @default([])
   subject       String
   bodyHtml      String?     @db.Text
   pdfStorageKey String?

@@ -38,6 +38,7 @@ export const sendSubDocumentSchema = z.object({
   subDocType: subDocTypeSchema,
   toAddresses: z.array(z.string().email()).min(1, 'At least one recipient required'),
   ccAddresses: z.array(z.string().email()).default([]),
+  bccAddresses: z.array(z.string().email()).default([]),
   subject: z.string().min(1).max(500),
   bodyHtml: z.string().optional(),
   extraData: subDocExtraDataSchema.optional(),

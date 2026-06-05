@@ -64,6 +64,7 @@ model ShDocumentDispatch {
   shDocument    SHDocument @relation(fields: [shDocumentId], references: [id], onDelete: Cascade)
   toAddresses   String[]
   ccAddresses   String[]   @default([])
+  bccAddresses  String[]   @default([])
   subject       String
   bodyHtml      String?    @db.Text
   pdfStorageKey String

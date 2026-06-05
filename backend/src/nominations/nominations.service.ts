@@ -1,3 +1,5 @@
+import { readFile } from 'fs/promises';
+import { resolve } from 'path';
 import {
   BadRequestException,
   ConflictException,
@@ -7,6 +9,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import Handlebars from 'handlebars';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   isValidTransition,
@@ -16,6 +19,7 @@ import {
   type NominationListQuery,
   type NominationClientCreate,
   type NominationClientUpdate,
+  type ComposeData,
 } from '@portlog/schemas';
 
 function formatSnOt(correlative: number, dateNominated: Date): string {
@@ -368,6 +372,96 @@ export class NominationsService {
     );
 
     return { items };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Compose — build pre-filled compose data for action modals
+  // ---------------------------------------------------------------------------
+
+  async getComposeData(
+    nominationId: string,
+    actionType: string,
+    agentEmail: string,
+  ): Promise<ComposeData> {
+    const nomination = await this.prisma.nomination.findUnique({
+      where: { id: nominationId },
+      select: {
+        emailTo: true,
+        emailCc: true,
+        emailBcc: true,
+        subject: true,
+        features: true,
+        dateNominated: true,
+        voyageNumber: true,
+        correlative: true,
+        layDaysFirst: true,
+        layDaysLast: true,
+        shipParticular: { select: { name: true } },
+        opPort: { select: { name: true } },
+        branch: { select: { name: true } },
+      },
+    });
+
+    if (!nomination) throw new NotFoundException(`Nomination ${nominationId} not found.`);
+
+    const vesselName = nomination.shipParticular?.name ?? '';
+    const portName = nomination.opPort?.name ?? '';
+    const branchName = nomination.branch?.name ?? '';
+    const voyageNumber = nomination.voyageNumber ?? '';
+
+    const ref_line = `${vesselName} - CALLING TO ${portName} SN${voyageNumber}`;
+
+    const features = Array.isArray(nomination.features) ? nomination.features : [];
+    const cargo_lines = (features as Array<Record<string, unknown>>)
+      .map(
+        (f) =>
+          `${String(f['operation'] ?? 'Loading').toUpperCase()}: ${String(f['quantity'] ?? '')} ${String(f['unit'] ?? '')} ${String(f['product'] ?? '')}\n`,
+      )
+      .join('');
+
+    const fmtDate = (d: Date | null) =>
+      d
+        ? `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+        : '';
+
+    const laycan =
+      nomination.layDaysFirst || nomination.layDaysLast
+        ? `${fmtDate(nomination.layDaysFirst)} - ${fmtDate(nomination.layDaysLast)}`
+        : '';
+
+    const nomination_date = fmtDate(nomination.dateNominated);
+
+    const agent_name = agentEmail.split('@')[0] ?? agentEmail;
+
+    const templateVars = {
+      ref_line,
+      branch_name: branchName,
+      cargo_lines,
+      laycan,
+      nomination_date,
+      port_name: portName,
+      agent_name,
+      agent_title: 'Port Agent',
+      branch_office: branchName,
+      agent_email: agentEmail,
+    };
+
+    const templatePath = resolve(process.cwd(), 'templates', `${actionType.toLowerCase()}.html`);
+    const templateSource = await readFile(templatePath, 'utf8');
+    const compiled = Handlebars.compile(templateSource);
+    const bodyHtml = compiled(templateVars);
+
+    // Extract subject from <!-- SUBJECT: ... --> comment
+    const subjectMatch = /<!--\s*SUBJECT:\s*(.+?)\s*-->/.exec(bodyHtml);
+    const subject = subjectMatch?.[1] ?? nomination.subject ?? ref_line;
+
+    return {
+      subject,
+      toAddresses: nomination.emailTo,
+      ccAddresses: nomination.emailCc,
+      bccAddresses: nomination.emailBcc,
+      bodyHtml,
+    };
   }
 
   // ---------------------------------------------------------------------------
