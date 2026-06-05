@@ -404,56 +404,73 @@ export class NominationsService {
 
     if (!nomination) throw new NotFoundException(`Nomination ${nominationId} not found.`);
 
-    const vesselName = nomination.shipParticular?.name ?? '';
-    const portName = nomination.opPort?.name ?? '';
-    const branchName = nomination.branch?.name ?? '';
-    const voyageNumber = nomination.voyageNumber ?? '';
+    // ---------------------------------------------------------------------------
+    // Template path — map action type to file path within templates/
+    // ---------------------------------------------------------------------------
+    const TEMPLATE_PATHS: Record<string, string> = {
+      ACKNOWLEDGEMENT: '01_prearrival/00_nomination_acceptance.hbs',
+    };
+    const relPath = TEMPLATE_PATHS[actionType.toUpperCase()] ?? `${actionType.toLowerCase()}.hbs`;
+    const templatePath = resolve(process.cwd(), 'templates', relPath);
 
-    const ref_line = `${vesselName} - CALLING TO ${portName} SN${voyageNumber}`;
-
-    const features = Array.isArray(nomination.features) ? nomination.features : [];
-    const cargo_lines = (features as Array<Record<string, unknown>>)
-      .map(
-        (f) =>
-          `${String(f['operation'] ?? 'Loading').toUpperCase()}: ${String(f['quantity'] ?? '')} ${String(f['unit'] ?? '')} ${String(f['product'] ?? '')}\n`,
-      )
-      .join('');
-
+    // ---------------------------------------------------------------------------
+    // Template variables
+    // ---------------------------------------------------------------------------
     const fmtDate = (d: Date | null) =>
       d
         ? `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
         : '';
 
-    const laycan =
-      nomination.layDaysFirst || nomination.layDaysLast
-        ? `${fmtDate(nomination.layDaysFirst)} - ${fmtDate(nomination.layDaysLast)}`
-        : '';
+    const features = Array.isArray(nomination.features) ? nomination.features : [];
+    const firstFeature = (features as Array<Record<string, unknown>>)[0] ?? {};
 
-    const nomination_date = fmtDate(nomination.dateNominated);
-
-    const agent_name = agentEmail.split('@')[0] ?? agentEmail;
+    const snRef = formatSnOt(nomination.correlative, nomination.dateNominated);
+    const vesselName = nomination.shipParticular?.name ?? '';
+    const terminalName = nomination.opPort?.name ?? '';
+    const branchName = nomination.branch?.name ?? '';
 
     const templateVars = {
-      ref_line,
-      branch_name: branchName,
-      cargo_lines,
-      laycan,
-      nomination_date,
-      port_name: portName,
-      agent_name,
-      agent_title: 'Port Agent',
-      branch_office: branchName,
+      vessel_name: vesselName,
+      voyage_no: nomination.voyageNumber ?? '',
+      terminal_name: terminalName,
+      sn_ref: snRef,
+      cargo_quantity: String(firstFeature['quantity'] ?? ''),
+      cargo_grade: String(firstFeature['product'] ?? ''),
+      lay_days:
+        nomination.layDaysFirst || nomination.layDaysLast
+          ? `${fmtDate(nomination.layDaysFirst)} - ${fmtDate(nomination.layDaysLast)}`
+          : '',
+      nomination_date: fmtDate(nomination.dateNominated),
+      agent_name: agentEmail.split('@')[0] ?? agentEmail,
       agent_email: agentEmail,
+      agent_mobile: '',
+      branch_office: branchName,
+      branch_coverage: '',
+      branch_address: '',
+      branch_phone: '',
+      branch_fax: '',
+      contact_person: '',
+      contact_title: '',
+      contact_mobile: '',
+      contact_email: agentEmail,
+      central_emails: '',
     };
 
-    const templatePath = resolve(process.cwd(), 'templates', `${actionType.toLowerCase()}.hbs`);
+    // ---------------------------------------------------------------------------
+    // Render — extract subject from source BEFORE compiling ({{!-- --}} is stripped)
+    // ---------------------------------------------------------------------------
     const templateSource = await readFile(templatePath, 'utf8');
-    const compiled = Handlebars.compile(templateSource);
-    const bodyHtml = compiled(templateVars);
 
-    // Extract subject from {{!-- Subject: ... --}} comment
-    const subjectMatch = /\{\{!--\s*Subject:\s*(.+?)\s*--\}\}/.exec(bodyHtml);
-    const subject = subjectMatch?.[1] ?? nomination.subject ?? ref_line;
+    const subjectSourceMatch = /\{\{!--\s*Subject:\s*(.+?)\s*--\}\}/.exec(templateSource);
+    const subjectTemplate = subjectSourceMatch?.[1] ?? nomination.subject ?? vesselName;
+    const subject = Handlebars.compile(subjectTemplate)(templateVars);
+
+    const bodyText = Handlebars.compile(templateSource)(templateVars);
+
+    // Wrap plain-text output in <pre> for correct iframe rendering
+    const bodyHtml = bodyText.trimStart().startsWith('<')
+      ? bodyText
+      : `<pre style="font-family:'Courier New',Consolas,monospace;font-size:13px;line-height:1.5;white-space:pre-wrap;padding:16px;margin:0;">${bodyText}</pre>`;
 
     return {
       subject,
