@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   Modal,
   Stack,
@@ -90,6 +90,7 @@ export function EmailComposeDrawer({
   const composeQuery = useNominationCompose(nominationId, subDocType, opened);
   const dispatch = useEmailDispatch(pedrId, nominationId);
   const pedrEventsQuery = usePedrEvents(subDocType === 'SOF' ? pedrId : '');
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const {
     register,
@@ -279,14 +280,34 @@ export function EmailComposeDrawer({
               error={errors.subject?.message}
             />
 
-            {/* Body */}
-            <Textarea
-              label="Body"
-              minRows={8}
-              autosize
-              {...register('bodyHtml')}
-              error={errors.bodyHtml?.message}
-            />
+            {/* Body — rendered preview */}
+            <Box>
+              <Text size="sm" fw={500} mb={4}>
+                Body
+              </Text>
+              <Box
+                style={{
+                  border: '1px solid var(--mantine-color-gray-3)',
+                  borderRadius: 'var(--mantine-radius-sm)',
+                  overflow: 'hidden',
+                }}
+              >
+                <iframe
+                  ref={iframeRef}
+                  srcDoc={
+                    watch('bodyHtml') || '<p style="color:#999;padding:16px">No body yet.</p>'
+                  }
+                  style={{ width: '100%', minHeight: 320, border: 'none', display: 'block' }}
+                  onLoad={() => {
+                    const iframe = iframeRef.current;
+                    if (iframe?.contentDocument?.body) {
+                      iframe.style.height = iframe.contentDocument.body.scrollHeight + 'px';
+                    }
+                  }}
+                  title="Email preview"
+                />
+              </Box>
+            </Box>
 
             {/* ETA/ETB-specific extra fields */}
             {subDocType === 'ETA_ETB' && (
