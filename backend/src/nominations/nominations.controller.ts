@@ -81,6 +81,11 @@ export class NominationsController {
   // NominationClient sub-resource
   // ---------------------------------------------------------------------------
 
+  @Get(':id/messages')
+  getMessages(@Param('id', ParseUUIDPipe) id: string) {
+    return this.svc.getNominationMessages(id);
+  }
+
   @Get(':id/clients')
   listClients(@Param('id', ParseUUIDPipe) id: string) {
     return this.svc.listClients(id);

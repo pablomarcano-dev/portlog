@@ -295,6 +295,82 @@ export class NominationsService {
   }
 
   // ---------------------------------------------------------------------------
+  // Messages — unified dispatch log across EmailDispatch (PEDR) and ShDocumentDispatch
+  // ---------------------------------------------------------------------------
+
+  async getNominationMessages(nominationId: string) {
+    await this.assertNominationExists(nominationId);
+
+    // Query email_dispatches via pedr -> nominationId
+    const pedrDispatches = await this.prisma.emailDispatch.findMany({
+      where: { pedr: { nominationId } },
+      include: { sentBy: { select: { id: true, email: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Query sh_document_dispatches via shDocument -> nominationId
+    const shDispatches = await this.prisma.shDocumentDispatch.findMany({
+      where: { shDocument: { nominationId } },
+      include: {
+        sentBy: { select: { id: true, email: true } },
+        shDocument: { select: { type: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    type MessageItem = {
+      id: string;
+      source: 'PEDR_DISPATCH' | 'SH_DISPATCH';
+      type: string;
+      subject: string;
+      toAddresses: string[];
+      ccAddresses: string[];
+      sentAt: string | null;
+      status: 'SENT' | 'FAILED' | 'PENDING';
+      error: string | null;
+      createdAt: string;
+      sentBy: { id: string; email: string };
+      bodyHtml: string | null;
+    };
+
+    const pedrItems: MessageItem[] = pedrDispatches.map((d) => ({
+      id: d.id,
+      source: 'PEDR_DISPATCH',
+      type: d.subDocType,
+      subject: d.subject,
+      toAddresses: d.toAddresses,
+      ccAddresses: d.ccAddresses,
+      sentAt: d.sentAt ? d.sentAt.toISOString() : null,
+      status: d.sentAt ? 'SENT' : d.error ? 'FAILED' : 'PENDING',
+      error: d.error,
+      createdAt: d.createdAt.toISOString(),
+      sentBy: d.sentBy,
+      bodyHtml: d.bodyHtml ?? null,
+    }));
+
+    const shItems: MessageItem[] = shDispatches.map((d) => ({
+      id: d.id,
+      source: 'SH_DISPATCH',
+      type: d.shDocument.type,
+      subject: d.subject,
+      toAddresses: d.toAddresses,
+      ccAddresses: d.ccAddresses,
+      sentAt: d.sentAt ? d.sentAt.toISOString() : null,
+      status: d.sentAt ? 'SENT' : d.error ? 'FAILED' : 'PENDING',
+      error: d.error,
+      createdAt: d.createdAt.toISOString(),
+      sentBy: d.sentBy,
+      bodyHtml: d.bodyHtml ?? null,
+    }));
+
+    const items = [...pedrItems, ...shItems].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+
+    return { items };
+  }
+
+  // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
 

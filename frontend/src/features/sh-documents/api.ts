@@ -179,6 +179,7 @@ export function useSendShDocument(nominationId: string) {
       shDocumentsApi.send(nominationId, shId, body),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: shDocumentsKeys.list(nominationId) });
+      void qc.invalidateQueries({ queryKey: ['nomination', nominationId, 'messages'] });
       notifications.show({
         title: 'Sent',
         message: 'Document sent successfully.',

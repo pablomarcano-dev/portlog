@@ -33,6 +33,7 @@ interface EmailComposeDrawerProps {
   opened: boolean;
   onClose: () => void;
   pedrId: string;
+  nominationId?: string;
   subDocType: SubDocType;
   defaultSubject: string;
   defaultBody?: string;
@@ -81,12 +82,13 @@ export function EmailComposeDrawer({
   opened,
   onClose,
   pedrId,
+  nominationId,
   subDocType,
   defaultSubject,
   defaultBody = '',
 }: EmailComposeDrawerProps) {
   const emailGroupsQuery = useQuery(emailGroupsQueryOptions({ pageSize: 100 }));
-  const dispatch = useEmailDispatch(pedrId);
+  const dispatch = useEmailDispatch(pedrId, nominationId);
   const [resolveError, setResolveError] = useState<string | null>(null);
   const pedrEventsQuery = usePedrEvents(subDocType === 'SOF' ? pedrId : '');
 

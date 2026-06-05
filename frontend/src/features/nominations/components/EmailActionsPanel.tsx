@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Stack, Text, Button, Divider, Loader, Box, Badge, Group } from '@mantine/core';
+import { Stack, Text, Button, Divider } from '@mantine/core';
 import type { SubDocType } from '@portlog/schemas';
 import { EmailComposeDrawer } from './EmailComposeDrawer';
-import { useDispatchLog } from '../api/useDispatchLog';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -10,6 +9,7 @@ import { useDispatchLog } from '../api/useDispatchLog';
 
 interface EmailActionsPanelProps {
   pedrId: string;
+  nominationId: string;
   vesselName?: string;
   /** When set, immediately opens the drawer for this sub-doc type */
   externalOpen?: SubDocType | null;
@@ -68,6 +68,7 @@ const ACTIONS: SubDocAction[] = [
 
 export function EmailActionsPanel({
   pedrId,
+  nominationId,
   vesselName = '',
   externalOpen,
   onExternalOpenHandled,
@@ -80,7 +81,6 @@ export function EmailActionsPanel({
       onExternalOpenHandled?.();
     }
   }, [externalOpen, onExternalOpenHandled]);
-  const dispatchLog = useDispatchLog(pedrId);
 
   function openDrawer(type: SubDocType) {
     setActiveDrawer(type);
@@ -118,50 +118,6 @@ export function EmailActionsPanel({
             )}
           </Button>
         ))}
-
-        <Divider />
-
-        {/* Dispatch log summary */}
-        <Text fw={600} size="xs" c="dimmed">
-          Sent Emails
-        </Text>
-
-        {dispatchLog.isLoading && (
-          <Box ta="center">
-            <Loader size="xs" />
-          </Box>
-        )}
-
-        {dispatchLog.data?.items.length === 0 && (
-          <Text size="xs" c="dimmed">
-            No emails sent yet.
-          </Text>
-        )}
-
-        {dispatchLog.data?.items.map((d) => (
-          <Box
-            key={d.id}
-            style={{
-              padding: '6px 8px',
-              borderRadius: 4,
-              background: 'var(--mantine-color-gray-0)',
-            }}
-          >
-            <Group gap={4} justify="space-between">
-              <Text size="xs" fw={500}>
-                {d.subDocType.replace(/_/g, ' ')}
-              </Text>
-              <Badge size="xs" color={d.sentAt ? 'green' : d.error ? 'red' : 'gray'}>
-                {d.sentAt ? 'Sent' : d.error ? 'Error' : 'Pending'}
-              </Badge>
-            </Group>
-            {d.sentAt && (
-              <Text size="xs" c="dimmed">
-                {new Date(d.sentAt).toLocaleString()}
-              </Text>
-            )}
-          </Box>
-        ))}
       </Stack>
 
       {/* Compose drawer — rendered once, parameterized by activeAction */}
@@ -170,6 +126,7 @@ export function EmailActionsPanel({
           opened={activeDrawer !== null}
           onClose={closeDrawer}
           pedrId={pedrId}
+          nominationId={nominationId}
           subDocType={activeAction.type}
           defaultSubject={activeAction.subjectTemplate(vesselName)}
         />
