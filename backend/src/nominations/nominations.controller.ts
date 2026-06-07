@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
 } from '@nestjs/common';
@@ -20,10 +21,12 @@ import {
   NominationUpdateSchema,
   NominationStatusTransitionSchema,
   NominationListQuerySchema,
+  SofTimesheetInputSchema,
   type NominationCreateInput,
   type NominationUpdateInput,
   type NominationStatusTransition,
   type NominationListQuery,
+  type SofTimesheetInput,
 } from '@portlog/schemas';
 import type { RequestUser } from '../auth/jwt.strategy.js';
 import {
@@ -107,5 +110,22 @@ export class NominationsController {
     @Param('clientId', ParseUUIDPipe) clientId: string,
   ) {
     return this.svc.removeClient(id, clientId);
+  }
+
+  // ---------------------------------------------------------------------------
+  // SOF Timesheet sub-resource
+  // ---------------------------------------------------------------------------
+
+  @Get(':id/sof')
+  getSof(@Param('id', ParseUUIDPipe) id: string) {
+    return this.svc.getSofTimesheet(id);
+  }
+
+  @Put(':id/sof')
+  saveSof(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(SofTimesheetInputSchema)) body: SofTimesheetInput,
+  ) {
+    return this.svc.saveSofTimesheet(id, body);
   }
 }

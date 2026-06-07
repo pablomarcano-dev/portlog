@@ -109,6 +109,9 @@ model Nomination {
   // Client list back-relation (M6)
   nominationClients NominationClient[]
 
+  // SOF Timesheet back-relation
+  sofTimesheet SofTimesheet?
+
   @@index([status])
   @@index([shipParticularId])
   @@index([dateNominated])
@@ -154,4 +157,50 @@ model NominationClient {
 
   @@index([nominationId])
   @@map("nomination_clients")
+}
+
+// ---------------------------------------------------------------------------
+// SofTimesheet — 1-to-1 with Nomination
+// Header fields for the Statement of Facts timesheet.
+// All timestamps are Timestamptz(6) — UTC-only, Golden Rule applies.
+// ---------------------------------------------------------------------------
+model SofTimesheet {
+  id            String     @id @default(cuid())
+  nominationId  String     @unique @db.Uuid
+  nomination    Nomination @relation(fields: [nominationId], references: [id], onDelete: Cascade)
+  lastPortId    String?
+  lastPort      Port?      @relation("SofTimesheetLastPort", fields: [lastPortId], references: [id], onDelete: Restrict)
+  nextPortId    String?
+  nextPort      Port?      @relation("SofTimesheetNextPort", fields: [nextPortId], references: [id], onDelete: Restrict)
+  pierId        String?
+  pier          Pier?      @relation("SofTimesheetPier", fields: [pierId], references: [id], onDelete: Restrict)
+  captain       String?
+  mobileOnBoard String?
+  createdAt     DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime   @updatedAt @db.Timestamptz(6)
+
+  entries SofEntry[]
+
+  @@map("sof_timesheets")
+}
+
+// ---------------------------------------------------------------------------
+// SofEntry — individual activity row within a SofTimesheet
+// occurredAt is full UTC datetime; frontend splits into Date + Time inputs for display.
+// order is 0-based display ordering, not auto-incremented — caller manages sequence.
+// ---------------------------------------------------------------------------
+model SofEntry {
+  id             String       @id @default(cuid())
+  sofTimesheetId String
+  sofTimesheet   SofTimesheet @relation(fields: [sofTimesheetId], references: [id], onDelete: Cascade)
+  occurredAt     DateTime     @db.Timestamptz(6)
+  activityId     String?
+  activity       Activity?    @relation("SofEntryActivity", fields: [activityId], references: [id], onDelete: SetNull)
+  comment        String?
+  order          Int
+  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @db.Timestamptz(6)
+
+  @@index([sofTimesheetId, order])
+  @@map("sof_entries")
 }
