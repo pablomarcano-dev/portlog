@@ -289,14 +289,15 @@ export function CargoUpdateModal({
           Cargo Update
         </Text>
       }
-      size="xl"
       padding="lg"
       styles={{
         content: {
           resize: 'both',
           overflow: 'auto',
+          width: 900,
           minWidth: 600,
           minHeight: 300,
+          maxWidth: '95vw',
         },
       }}
     >
