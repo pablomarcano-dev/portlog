@@ -70,7 +70,7 @@ const mockNomBase = {
   inspector: null,
   nominationType: 'FULL_AGENCY' as const,
   subject: null,
-  features: [],
+  parcels: [],
   status: 'DRAFT' as const,
   statusHistory: [],
   createdById: USER_ID,
@@ -134,7 +134,7 @@ describe('NominationsService', () => {
           voyageNumber: '01/PLC',
           dateNominated: NOW,
           nominationType: 'FULL_AGENCY',
-          features: [],
+          parcels: [],
         },
         USER_ID,
       );

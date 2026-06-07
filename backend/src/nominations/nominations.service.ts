@@ -22,6 +22,7 @@ import {
   type NominationClientUpdate,
   type ComposeData,
   type EtaRecordSaveInput,
+  type SofTimesheetInput,
 } from '@portlog/schemas';
 
 function formatSnOt(correlative: number, dateNominated: Date): string {
@@ -753,6 +754,113 @@ export class NominationsService {
       refMessage: record.refMessage,
       updatedAt: record.updatedAt.toISOString(),
     };
+  }
+
+  // ---------------------------------------------------------------------------
+  // SOF Timesheet
+  // ---------------------------------------------------------------------------
+
+  async getSofTimesheet(nominationId: string) {
+    const nomination = await this.prisma.nomination.findUnique({
+      where: { id: nominationId },
+      select: {
+        id: true,
+        lastPortId: true,
+        nextPortId: true,
+        pierId: true,
+        master: true,
+        sofTimesheet: {
+          include: {
+            lastPort: { select: { id: true, name: true } },
+            nextPort: { select: { id: true, name: true } },
+            pier: { select: { id: true, name: true } },
+            entries: {
+              orderBy: { order: 'asc' },
+              include: { activity: { select: { id: true, name: true } } },
+            },
+          },
+        },
+      },
+    });
+
+    if (!nomination) {
+      throw new NotFoundException(`Nomination ${nominationId} not found.`);
+    }
+
+    if (nomination.sofTimesheet) {
+      return nomination.sofTimesheet;
+    }
+
+    // No timesheet saved yet — return prefilled default from nomination fields
+    return {
+      id: undefined,
+      nominationId,
+      lastPortId: nomination.lastPortId ?? null,
+      lastPort: null,
+      nextPortId: nomination.nextPortId ?? null,
+      nextPort: null,
+      pierId: nomination.pierId ?? null,
+      pier: null,
+      captain: nomination.master ?? null,
+      mobileOnBoard: null,
+      entries: [],
+    };
+  }
+
+  async saveSofTimesheet(nominationId: string, dto: SofTimesheetInput) {
+    await this.assertNominationExists(nominationId);
+
+    return this.prisma.$transaction(async (tx) => {
+      const timesheet = await tx.sofTimesheet.upsert({
+        where: { nominationId },
+        create: {
+          nominationId,
+          lastPortId: dto.lastPortId ?? null,
+          nextPortId: dto.nextPortId ?? null,
+          pierId: dto.pierId ?? null,
+          captain: dto.captain ?? null,
+          mobileOnBoard: dto.mobileOnBoard ?? null,
+        },
+        update: {
+          lastPortId: dto.lastPortId ?? null,
+          nextPortId: dto.nextPortId ?? null,
+          pierId: dto.pierId ?? null,
+          captain: dto.captain ?? null,
+          mobileOnBoard: dto.mobileOnBoard ?? null,
+          updatedAt: new Date(),
+        },
+        select: { id: true },
+      });
+
+      // Full replace of entries
+      await tx.sofEntry.deleteMany({ where: { sofTimesheetId: timesheet.id } });
+
+      if (dto.entries.length > 0) {
+        await tx.sofEntry.createMany({
+          data: dto.entries.map((e) => ({
+            sofTimesheetId: timesheet.id,
+            occurredAt: new Date(e.occurredAt),
+            activityId: e.activityId ?? null,
+            comment: e.comment ?? null,
+            order: e.order,
+          })),
+        });
+      }
+
+      // Return the updated timesheet with all relations
+      return tx.sofTimesheet.findUnique({
+        where: { id: timesheet.id },
+        include: {
+          lastPort: { select: { id: true, name: true } },
+          nextPort: { select: { id: true, name: true } },
+          pier: { select: { id: true, name: true } },
+          entries: {
+            orderBy: { order: 'asc' },
+            include: { activity: { select: { id: true, name: true } } },
+          },
+        },
+      });
+    });
   }
 
   private isFkViolation(err: unknown): boolean {

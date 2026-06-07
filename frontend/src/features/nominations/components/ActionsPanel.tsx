@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Stack, Text, Button, Divider, Tooltip } from '@mantine/core';
+import { SofTimesheetModal } from './SofTimesheetModal';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -30,6 +32,8 @@ interface HubAction {
 // ---------------------------------------------------------------------------
 
 export function ActionsPanel({ nominationId, vesselName: _vesselName }: ActionsPanelProps) {
+  const [sofOpen, setSofOpen] = useState(false);
+
   function scrollToShDocuments() {
     document.getElementById('sh-documents')?.scrollIntoView({ behavior: 'smooth' });
   }
@@ -39,6 +43,11 @@ export function ActionsPanel({ nominationId, vesselName: _vesselName }: ActionsP
       label: 'PEDR',
       active: false,
       disabledReason: 'PEDR page coming soon',
+    },
+    {
+      label: 'Statement of Facts',
+      active: true,
+      onAction: () => setSofOpen(true),
     },
     {
       label: 'SH Documents',
@@ -83,48 +92,52 @@ export function ActionsPanel({ nominationId, vesselName: _vesselName }: ActionsP
     },
   ];
 
-  // Suppress unused variable warning — nominationId is available for future
-  // navigation targets that require it (e.g. /nominations/$id/pedr)
-  void nominationId;
-
   return (
-    <Stack gap="xs">
-      <Text fw={700} size="sm">
-        Actions
-      </Text>
-      <Divider />
+    <>
+      <Stack gap="xs">
+        <Text fw={700} size="sm">
+          Actions
+        </Text>
+        <Divider />
 
-      {actions.map((action) =>
-        action.active ? (
-          <Button
-            key={action.label}
-            variant="light"
-            size="xs"
-            fullWidth
-            onClick={action.onAction}
-            styles={{ root: { justifyContent: 'flex-start' } }}
-          >
-            {action.label}
-          </Button>
-        ) : (
-          <Tooltip
-            key={action.label}
-            label={action.disabledReason ?? 'Coming soon'}
-            position="left"
-            withArrow
-          >
+        {actions.map((action) =>
+          action.active ? (
             <Button
-              variant="subtle"
+              key={action.label}
+              variant="light"
               size="xs"
               fullWidth
-              disabled
+              onClick={action.onAction}
               styles={{ root: { justifyContent: 'flex-start' } }}
             >
               {action.label}
             </Button>
-          </Tooltip>
-        ),
-      )}
-    </Stack>
+          ) : (
+            <Tooltip
+              key={action.label}
+              label={action.disabledReason ?? 'Coming soon'}
+              position="left"
+              withArrow
+            >
+              <Button
+                variant="subtle"
+                size="xs"
+                fullWidth
+                disabled
+                styles={{ root: { justifyContent: 'flex-start' } }}
+              >
+                {action.label}
+              </Button>
+            </Tooltip>
+          ),
+        )}
+      </Stack>
+
+      <SofTimesheetModal
+        nominationId={nominationId}
+        opened={sofOpen}
+        onClose={() => setSofOpen(false)}
+      />
+    </>
   );
 }

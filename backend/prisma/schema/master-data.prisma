@@ -36,6 +36,9 @@ model Activity {
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz
 
+  // SOF back-relation
+  sofEntries SofEntry[] @relation("SofEntryActivity")
+
   @@map("activities")
 }
 
@@ -75,6 +78,10 @@ model Port {
   nominationsAsDisPort      Nomination[] @relation("NominationDisPort")
   nominationsAsExternalPort Nomination[] @relation("NominationExternalPort")
 
+  // SOF back-relations
+  sofTimesheetsAsLastPort SofTimesheet[] @relation("SofTimesheetLastPort")
+  sofTimesheetsAsNextPort SofTimesheet[] @relation("SofTimesheetNextPort")
+
   @@index([name])
   @@map("ports")
 }
@@ -90,7 +97,8 @@ model Pier {
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz
 
-  nominations Nomination[]
+  nominations  Nomination[]
+  sofTimesheets SofTimesheet[] @relation("SofTimesheetPier")
 
   @@index([portId])
   @@map("piers")

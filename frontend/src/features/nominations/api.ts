@@ -3,6 +3,7 @@ import {
   NominationListResponseSchema,
   NominationSchema,
   NominationClientSchema,
+  SofTimesheetResponseSchema,
   type NominationListQuery,
   type NominationListResponse,
   type NominationCreateInput,
@@ -12,6 +13,8 @@ import {
   type NominationClientCreate,
   type NominationClientUpdate,
   type Nomination,
+  type SofTimesheetInput,
+  type SofTimesheetResponse,
 } from '@portlog/schemas';
 import { z } from 'zod';
 
@@ -98,5 +101,18 @@ export const nominationsApi = {
       method: 'PATCH',
       body: JSON.stringify({ parcels }),
     });
+  },
+
+  getSof: async (nominationId: string): Promise<SofTimesheetResponse> => {
+    const raw = await apiRequest<unknown>(`/nominations/${nominationId}/sof`);
+    return SofTimesheetResponseSchema.parse(raw);
+  },
+
+  saveSof: async (nominationId: string, body: SofTimesheetInput): Promise<SofTimesheetResponse> => {
+    const raw = await apiRequest<unknown>(`/nominations/${nominationId}/sof`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    });
+    return SofTimesheetResponseSchema.parse(raw);
   },
 };

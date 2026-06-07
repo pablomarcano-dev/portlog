@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react';
 import { Stack, Text, Button, Divider } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 import type { NominationParcelRead, SubDocType } from '@portlog/schemas';
 import { EmailComposeDrawer } from './EmailComposeDrawer';
 import { EtaAnswerModal } from './EtaAnswerModal';
 import { CargoUpdateModal } from './CargoUpdateModal';
+import { SofTimesheetModal } from './SofTimesheetModal';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 interface EmailActionsPanelProps {
-  pedrId: string;
   nominationId: string;
+  opPortId?: string | null;
+  pedrId: string;
   vesselName?: string;
   parcels?: NominationParcelRead[];
   /** When set, immediately opens the drawer for this sub-doc type */
@@ -71,8 +74,9 @@ const ACTIONS: SubDocAction[] = [
 // ---------------------------------------------------------------------------
 
 export function EmailActionsPanel({
-  pedrId,
   nominationId,
+  opPortId,
+  pedrId,
   vesselName = '',
   parcels = [],
   externalOpen,
@@ -81,19 +85,26 @@ export function EmailActionsPanel({
   const [activeDrawer, setActiveDrawer] = useState<SubDocType | null>(null);
   const [etaOpen, setEtaOpen] = useState(false);
   const [cargoUpdateOpen, setCargoUpdateOpen] = useState(false);
+  const [sofOpened, { open: openSof, close: closeSof }] = useDisclosure(false);
 
   useEffect(() => {
     if (externalOpen) {
-      setActiveDrawer(externalOpen);
+      if (externalOpen === 'SOF') {
+        openSof();
+      } else {
+        setActiveDrawer(externalOpen);
+      }
       onExternalOpenHandled?.();
     }
-  }, [externalOpen, onExternalOpenHandled]);
+  }, [externalOpen, onExternalOpenHandled, openSof]);
 
   function handleActionClick(type: SubDocAction['type']) {
     if (type === 'ETA') {
       setEtaOpen(true);
     } else if (type === 'CARGO_UPDATE') {
       setCargoUpdateOpen(true);
+    } else if (type === 'SOF') {
+      openSof();
     } else {
       setActiveDrawer(type as SubDocType);
     }
@@ -161,6 +172,13 @@ export function EmailActionsPanel({
           defaultSubject={activeAction.subjectTemplate(vesselName)}
         />
       )}
+
+      <SofTimesheetModal
+        nominationId={nominationId}
+        opPortId={opPortId}
+        opened={sofOpened}
+        onClose={closeSof}
+      />
     </>
   );
 }
