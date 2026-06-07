@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Modal,
   Stack,
@@ -14,7 +14,6 @@ import {
   Box,
   Table,
   Divider,
-  SegmentedControl,
   NumberInput,
 } from '@mantine/core';
 import { DateTimePicker, DatePickerInput } from '@mantine/dates';
@@ -76,7 +75,6 @@ const composeSchema = z.object({
 });
 type ComposeForm = z.infer<typeof composeSchema>;
 
-type BodyMode = 'preview' | 'edit';
 type RecipientField = 'toAddresses' | 'ccAddresses' | 'bccAddresses';
 
 // ---------------------------------------------------------------------------
@@ -99,9 +97,6 @@ export function EmailComposeDrawer({
   const isNominationLevel = subDocType === 'ACKNOWLEDGEMENT' || subDocType === 'PREARRIVAL';
   const pedrEventsQuery = usePedrEvents(subDocType === 'SOF' ? pedrId : '');
   const emailGroupsQuery = useEmailGroups({ pageSize: 100 });
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  const [bodyMode, setBodyMode] = useState<BodyMode>('preview');
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
   const [isResolvingGroups, setIsResolvingGroups] = useState(false);
 
@@ -175,7 +170,6 @@ export function EmailComposeDrawer({
 
   function handleClose() {
     reset();
-    setBodyMode('preview');
     setSelectedGroupIds([]);
     onClose();
   }
@@ -381,55 +375,16 @@ export function EmailComposeDrawer({
               error={errors.subject?.message}
             />
 
-            {/* Body — preview / edit */}
-            <Box>
-              <Group justify="space-between" mb={6}>
-                <Text size="sm" fw={500}>
-                  Body
-                </Text>
-                <SegmentedControl
-                  size="xs"
-                  value={bodyMode}
-                  onChange={(v) => setBodyMode(v as BodyMode)}
-                  data={[
-                    { value: 'preview', label: 'Preview' },
-                    { value: 'edit', label: 'Edit HTML' },
-                  ]}
-                />
-              </Group>
-
-              {bodyMode === 'preview' ? (
-                <Box
-                  style={{
-                    border: '1px solid var(--mantine-color-gray-3)',
-                    borderRadius: 'var(--mantine-radius-sm)',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <iframe
-                    ref={iframeRef}
-                    srcDoc={bodyHtml || '<p style="color:#999;padding:16px">No body yet.</p>'}
-                    style={{ width: '100%', minHeight: 320, border: 'none', display: 'block' }}
-                    onLoad={() => {
-                      const iframe = iframeRef.current;
-                      if (iframe?.contentDocument?.body) {
-                        iframe.style.height = iframe.contentDocument.body.scrollHeight + 'px';
-                      }
-                    }}
-                    title="Email preview"
-                  />
-                </Box>
-              ) : (
-                <Textarea
-                  value={bodyHtml}
-                  onChange={(e) => setValue('bodyHtml', e.currentTarget.value)}
-                  minRows={16}
-                  autosize
-                  styles={{ input: { fontFamily: 'monospace', fontSize: 12 } }}
-                  placeholder="HTML email body…"
-                />
-              )}
-            </Box>
+            {/* Body */}
+            <Textarea
+              label="Body"
+              value={bodyHtml}
+              onChange={(e) => setValue('bodyHtml', e.currentTarget.value)}
+              minRows={16}
+              autosize
+              styles={{ input: { fontFamily: 'monospace', fontSize: 12 } }}
+              placeholder="HTML email body…"
+            />
 
             {/* ETA/ETB extra fields */}
             {subDocType === 'ETA_ETB' && (
