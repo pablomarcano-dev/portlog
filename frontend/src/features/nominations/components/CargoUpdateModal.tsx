@@ -464,10 +464,8 @@ export function CargoUpdateModal({
           + Add row
         </Button>
 
-        <Divider />
-
         {/* Actions */}
-        <Group justify="space-between">
+        <Group justify="space-between" mt="sm">
           <Button
             variant="light"
             size="sm"
@@ -477,7 +475,12 @@ export function CargoUpdateModal({
             Send Message
           </Button>
           <Group gap="xs">
-            <Button variant="default" size="sm" onClick={onClose}>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={onClose}
+              disabled={saveMutation.isPending || sendEmail.isPending}
+            >
               Close
             </Button>
             <Button
@@ -486,7 +489,7 @@ export function CargoUpdateModal({
               loading={saveMutation.isPending}
               onClick={() => saveMutation.mutate()}
             >
-              Save
+              Save as Draft
             </Button>
           </Group>
         </Group>
