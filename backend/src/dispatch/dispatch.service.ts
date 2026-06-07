@@ -33,7 +33,8 @@ export class DispatchService {
   ) {}
 
   async sendSubDocument(pedrId: string, dto: SendSubDocumentInput, userId: string) {
-    const { subDocType, toAddresses, ccAddresses, subject, bodyHtml, extraData } = dto;
+    const { subDocType, toAddresses, ccAddresses, bccAddresses, subject, bodyHtml, extraData } =
+      dto;
 
     // 1. Fetch PEDR + nomination data
     const pedr = await this.prisma.pedr.findUnique({
@@ -47,7 +48,7 @@ export class DispatchService {
             correlative: true,
             voyageNumber: true,
             etaDate: true,
-            features: true,
+            parcels: true,
             ...NOMINATION_INCLUDE,
           },
         },
@@ -158,6 +159,7 @@ export class DispatchService {
         subDocType,
         toAddresses,
         ccAddresses: ccAddresses ?? [],
+        bccAddresses: bccAddresses ?? [],
         subject,
         bodyHtml: bodyHtml ?? null,
         pdfStorageKey,
@@ -172,6 +174,7 @@ export class DispatchService {
       await this.emailService.send({
         to: toAddresses,
         cc: ccAddresses,
+        bcc: bccAddresses,
         subject,
         html: emailBody,
         attachments: [
@@ -246,7 +249,7 @@ export class DispatchService {
       pier?: { name: string } | null | undefined;
       lastPort?: { name: string } | null | undefined;
       nextPort?: { name: string } | null | undefined;
-      features?: unknown;
+      parcels?: unknown;
     },
     extraData?: SubDocExtraData,
     sofEvents: Array<{
@@ -262,7 +265,7 @@ export class DispatchService {
         return {
           ...base,
           // acknowledgement.hbs uses chartererName, agentName, cargoName
-          cargoName: this.extractCargoName(nomination.features),
+          cargoName: this.extractCargoName(nomination.parcels),
           remarks: null,
         };
 
@@ -273,7 +276,7 @@ export class DispatchService {
           lastPort: nomination.lastPort?.name ?? '',
           nextPort: nomination.nextPort?.name ?? '',
           // prearrival.hbs uses cargoName, agentName
-          cargoName: this.extractCargoName(nomination.features),
+          cargoName: this.extractCargoName(nomination.parcels),
           flagName: '',
           etb: '',
           quantity: '',
@@ -294,7 +297,7 @@ export class DispatchService {
         return {
           ...base,
           berthPort: nomination.pier?.name ?? '',
-          cargoName: this.extractCargoName(nomination.features),
+          cargoName: this.extractCargoName(nomination.parcels),
           norTenderedAt: extraData?.norTenderedAt ?? '',
           norAcceptedAt: extraData?.norAcceptedAt ?? '',
           layTimeCommences: extraData?.layTimeCommences ?? '',
@@ -303,7 +306,7 @@ export class DispatchService {
       case 'SOF':
         return {
           ...base,
-          cargoName: this.extractCargoName(nomination.features),
+          cargoName: this.extractCargoName(nomination.parcels),
           berth: nomination.pier?.name ?? '',
           blQuantity: '',
           outturnQuantity: '',
@@ -320,7 +323,7 @@ export class DispatchService {
       case 'CARGO_UPDATE':
         return {
           ...base,
-          cargoName: this.extractCargoName(nomination.features),
+          cargoName: this.extractCargoName(nomination.parcels),
           blQuantity: extraData?.blQuantity ?? '',
           blDate: extraData?.blDate ?? '',
           vesselFigure: extraData?.vesselFigure ?? '',
@@ -335,9 +338,9 @@ export class DispatchService {
     }
   }
 
-  private extractCargoName(features: unknown): string {
-    if (!Array.isArray(features)) return '';
-    const first = features[0];
+  private extractCargoName(parcels: unknown): string {
+    if (!Array.isArray(parcels)) return '';
+    const first = parcels[0];
     if (first && typeof first === 'object' && 'product' in first) {
       return String((first as Record<string, unknown>)['product'] ?? '');
     }

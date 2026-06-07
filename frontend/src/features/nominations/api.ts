@@ -92,4 +92,11 @@ export const nominationsApi = {
       method: 'DELETE',
     });
   },
+
+  updateParcels: async (nominationId: string, parcels: unknown[]): Promise<void> => {
+    await apiRequest<unknown>(`/nominations/${nominationId}/parcels`, {
+      method: 'PATCH',
+      body: JSON.stringify({ parcels }),
+    });
+  },
 };

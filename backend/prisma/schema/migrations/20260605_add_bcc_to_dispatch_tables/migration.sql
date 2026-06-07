@@ -1,0 +1,2 @@
+ALTER TABLE "email_dispatches" ADD COLUMN IF NOT EXISTS "bccAddresses" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE "sh_document_dispatches" ADD COLUMN IF NOT EXISTS "bccAddresses" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

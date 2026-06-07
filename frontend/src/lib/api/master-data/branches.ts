@@ -7,6 +7,17 @@ export interface BranchRecord {
   name: string;
   code: string;
   comments?: string | null;
+  email?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  fax?: string | null;
+  mobile24h?: string | null;
+  coverage?: string | null;
+  contactName?: string | null;
+  contactTitle?: string | null;
+  contactMobile?: string | null;
+  contactEmail?: string | null;
+  centralEmails: string[];
   label: string;
 }
 

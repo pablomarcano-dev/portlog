@@ -1,0 +1,72 @@
+{{!-- Subject: {{ref_line}} - FINAL Statement of Facts --}}
+
+Vessel    : {{vessel_name}}      Flag: {{flag}}
+Last Port : {{last_port}}
+Next Port : {{next_port}}
+Oper Port : {{oper_port}}
+Operation : {{operation}}
+Lay Days  : {{lay_days}}
+
+Log.-
+{{statement_of_facts_log}}
+
+Arrival Conditions
+------------------------
+Fuel Oil   : {{arr_fuel_oil}} MT
+Diesel Oil : {{arr_diesel_oil}} MT
+Fresh Water: {{arr_fresh_water}} MT
+Draft: Fwd. {{arr_draft_fwd}} Mtrs / Aft. {{arr_draft_aft}} Mtrs (S.W)
+
+Sailing Conditions
+------------------------
+Fuel Oil   : {{sail_fuel_oil}} MT
+Diesel Oil : {{sail_diesel_oil}} MT
+Fresh Water: {{sail_fresh_water}} MT
+Draft: Fwd. {{sail_draft_fwd}} Mtrs / Aft. {{sail_draft_aft}} Mtrs (S.W)
+
+--------------------------------------------------------
+{{cargo_grade}} Bill of Lading Figures:
+--------------------------------------------------------
+                   Gross             Net
+Bbls at 60 F  .:   {{bl_bbls_gross}}      {{bl_bbls_net}}
+M/Tons at 60 F.:   {{bl_mt_gross}}      {{bl_mt_net}}
+L/Tons at 60 F.:   {{bl_lt_gross}}      {{bl_lt_net}}
+
+Shipper  : {{shipper}}
+Consignee: {{consignee}}
+Disport  : {{disport}}
+B/L N°: {{bl_number}}
+Date: {{bl_date}}
+Remark: Freight Payable As Per Charter Party / Clean On Board
+API : {{bl_api}}
+TEMP: {{bl_temp}}
+
+-----------------------------------------------------------------
+{{cargo_grade}} Vessel Cargo Figures:
+-----------------------------------------------------------------
+Ship's Loaded Figures Bbls: {{ship_bbls}}
+Ship's Loaded Figures M/T : {{ship_mt}}
+Ship's Loaded Figures L/T : {{ship_lt}}
+API : {{ship_api}}
+TEMP: {{ship_temp}}
+
+-----------------------------------------------------------------
+Letters Of Protest From Master To Shore
+-----------------------------------------------------------------
+{{letters_of_protest}}
+
+-----------------------------------------------------------------
+Remarks:
+-----------------------------------------------------------------
+{{remarks}}
+
+BEST REGARDS,
+{{agent_name}}
+{{agent_title}}
+SERVICIOS NAVIERAMAR, C.A. (As Agents Only)
+{{branch_office}}
+Covering/Attending: {{branch_coverage}}
+
+Address: {{branch_address}}
+Mobile 24 hrs: {{agent_mobile}}
+Email: {{agent_email}}

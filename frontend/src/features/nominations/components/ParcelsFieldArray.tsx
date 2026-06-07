@@ -13,29 +13,29 @@ const OPERATION_OPTIONS = [
   { value: 'Bunker', label: 'Bunker' },
 ];
 
-interface FeaturesFieldArrayProps {
+interface ParcelsFieldArrayProps {
   control: Control<NominationCreateInput>;
   disabled?: boolean;
 }
 
-export function FeaturesFieldArray({ control, disabled }: FeaturesFieldArrayProps) {
+export function ParcelsFieldArray({ control, disabled }: ParcelsFieldArrayProps) {
   const { fields, append, remove } = useFieldArray({
     control,
-    name: 'features',
+    name: 'parcels',
   });
 
   return (
     <Stack gap="xs">
       {fields.length === 0 && (
         <Text size="sm" c="dimmed">
-          No cargo features added.
+          No parcels added.
         </Text>
       )}
       {fields.map((field, index) => (
         <Group key={field.id} align="flex-end" gap="xs">
           <Controller
             control={control}
-            name={`features.${index}.product`}
+            name={`parcels.${index}.product`}
             render={({ field: f, fieldState }) => (
               <CargoNamePicker
                 label={index === 0 ? 'Product' : undefined}
@@ -50,7 +50,7 @@ export function FeaturesFieldArray({ control, disabled }: FeaturesFieldArrayProp
           />
           <Controller
             control={control}
-            name={`features.${index}.quantity`}
+            name={`parcels.${index}.quantity`}
             render={({ field: f, fieldState }) => (
               <NumberInput
                 label={index === 0 ? 'Quantity' : undefined}
@@ -66,7 +66,7 @@ export function FeaturesFieldArray({ control, disabled }: FeaturesFieldArrayProp
           />
           <Controller
             control={control}
-            name={`features.${index}.unit`}
+            name={`parcels.${index}.unit`}
             render={({ field: f, fieldState }) => (
               <TextInput
                 label={index === 0 ? 'Unit' : undefined}
@@ -80,7 +80,7 @@ export function FeaturesFieldArray({ control, disabled }: FeaturesFieldArrayProp
           />
           <Controller
             control={control}
-            name={`features.${index}.operation`}
+            name={`parcels.${index}.operation`}
             render={({ field: f, fieldState }) => (
               <Select
                 label={index === 0 ? 'Operation' : undefined}

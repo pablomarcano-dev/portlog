@@ -45,11 +45,11 @@ describe('NominationCreateSchema', () => {
     }
   });
 
-  it('defaults features to [] when omitted', () => {
+  it('defaults parcels to [] when omitted', () => {
     const result = NominationCreateSchema.safeParse(VALID_CREATE_PAYLOAD);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.features).toEqual([]);
+      expect(result.data.parcels).toEqual([]);
     }
   });
 

@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
 } from '@nestjs/common';
@@ -20,10 +21,12 @@ import {
   NominationUpdateSchema,
   NominationStatusTransitionSchema,
   NominationListQuerySchema,
+  etaRecordSaveSchema,
   type NominationCreateInput,
   type NominationUpdateInput,
   type NominationStatusTransition,
   type NominationListQuery,
+  type EtaRecordSaveInput,
 } from '@portlog/schemas';
 import type { RequestUser } from '../auth/jwt.strategy.js';
 import {
@@ -80,6 +83,57 @@ export class NominationsController {
   // ---------------------------------------------------------------------------
   // NominationClient sub-resource
   // ---------------------------------------------------------------------------
+
+  @Get(':id/messages')
+  getMessages(@Param('id', ParseUUIDPipe) id: string) {
+    return this.svc.getNominationMessages(id);
+  }
+
+  @Get(':id/compose/:actionType')
+  getComposeData(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('actionType') actionType: string,
+    @Req() req: { user: RequestUser },
+  ) {
+    return this.svc.getComposeData(id, actionType, req.user.email);
+  }
+
+  @Patch(':id/parcels')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  updateParcels(@Param('id', ParseUUIDPipe) id: string, @Body() body: { parcels: unknown[] }) {
+    return this.svc.updateParcels(id, body.parcels);
+  }
+
+  @Post(':id/send-email')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  sendEmail(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body()
+    body: {
+      subDocType: string;
+      toAddresses: string[];
+      ccAddresses: string[];
+      bccAddresses: string[];
+      subject: string;
+      bodyHtml: string;
+    },
+    @Req() req: { user: RequestUser },
+  ) {
+    return this.svc.sendEmail(id, body, req.user.sub);
+  }
+
+  @Get(':id/eta')
+  getEtaRecord(@Param('id', ParseUUIDPipe) id: string) {
+    return this.svc.getEtaRecord(id);
+  }
+
+  @Put(':id/eta')
+  saveEtaRecord(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(etaRecordSaveSchema)) body: EtaRecordSaveInput,
+  ) {
+    return this.svc.saveEtaRecord(id, body);
+  }
 
   @Get(':id/clients')
   listClients(@Param('id', ParseUUIDPipe) id: string) {

@@ -1,3 +1,5 @@
+import { readFile } from 'fs/promises';
+import { resolve } from 'path';
 import {
   BadRequestException,
   ConflictException,
@@ -7,7 +9,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import Handlebars from 'handlebars';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { EmailService } from '../email/email.service.js';
 import {
   isValidTransition,
   type NominationCreateInput,
@@ -16,6 +20,8 @@ import {
   type NominationListQuery,
   type NominationClientCreate,
   type NominationClientUpdate,
+  type ComposeData,
+  type EtaRecordSaveInput,
 } from '@portlog/schemas';
 
 function formatSnOt(correlative: number, dateNominated: Date): string {
@@ -52,7 +58,10 @@ const LIST_INCLUDE = {
 export class NominationsService {
   private readonly logger = new Logger(NominationsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
+  ) {}
 
   async create(dto: NominationCreateInput, userId: string) {
     const { nominationClients: clientRows, ...nominationData } = dto;
@@ -295,6 +304,307 @@ export class NominationsService {
   }
 
   // ---------------------------------------------------------------------------
+  // Messages — unified dispatch log across EmailDispatch (PEDR) and ShDocumentDispatch
+  // ---------------------------------------------------------------------------
+
+  async getNominationMessages(nominationId: string) {
+    await this.assertNominationExists(nominationId);
+
+    // Query email_dispatches via pedr -> nominationId
+    const pedrDispatches = await this.prisma.emailDispatch.findMany({
+      where: { pedr: { nominationId } },
+      include: { sentBy: { select: { id: true, email: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Query sh_document_dispatches via shDocument -> nominationId
+    const shDispatches = await this.prisma.shDocumentDispatch.findMany({
+      where: { shDocument: { nominationId } },
+      include: {
+        sentBy: { select: { id: true, email: true } },
+        shDocument: { select: { type: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    type MessageItem = {
+      id: string;
+      source: 'PEDR_DISPATCH' | 'SH_DISPATCH';
+      type: string;
+      subject: string;
+      toAddresses: string[];
+      ccAddresses: string[];
+      sentAt: string | null;
+      status: 'SENT' | 'FAILED' | 'PENDING';
+      error: string | null;
+      createdAt: string;
+      sentBy: { id: string; email: string };
+      bodyHtml: string | null;
+    };
+
+    const pedrItems: MessageItem[] = pedrDispatches.map((d) => ({
+      id: d.id,
+      source: 'PEDR_DISPATCH',
+      type: d.subDocType,
+      subject: d.subject,
+      toAddresses: d.toAddresses,
+      ccAddresses: d.ccAddresses,
+      sentAt: d.sentAt ? d.sentAt.toISOString() : null,
+      status: d.sentAt ? 'SENT' : d.error ? 'FAILED' : 'PENDING',
+      error: d.error,
+      createdAt: d.createdAt.toISOString(),
+      sentBy: d.sentBy,
+      bodyHtml: d.bodyHtml ?? null,
+    }));
+
+    const shItems: MessageItem[] = shDispatches.map((d) => ({
+      id: d.id,
+      source: 'SH_DISPATCH',
+      type: d.shDocument.type,
+      subject: d.subject,
+      toAddresses: d.toAddresses,
+      ccAddresses: d.ccAddresses,
+      sentAt: d.sentAt ? d.sentAt.toISOString() : null,
+      status: d.sentAt ? 'SENT' : d.error ? 'FAILED' : 'PENDING',
+      error: d.error,
+      createdAt: d.createdAt.toISOString(),
+      sentBy: d.sentBy,
+      bodyHtml: d.bodyHtml ?? null,
+    }));
+
+    const items = [...pedrItems, ...shItems].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+
+    return { items };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Compose — build pre-filled compose data for action modals
+  // ---------------------------------------------------------------------------
+
+  async getComposeData(
+    nominationId: string,
+    actionType: string,
+    agentEmail: string,
+  ): Promise<ComposeData> {
+    const [nomination, agent] = await Promise.all([
+      this.prisma.nomination.findUnique({
+        where: { id: nominationId },
+        select: {
+          emailTo: true,
+          emailCc: true,
+          emailBcc: true,
+          subject: true,
+          parcels: true,
+          dateNominated: true,
+          voyageNumber: true,
+          correlative: true,
+          layDaysFirst: true,
+          layDaysLast: true,
+          etaDate: true,
+          shipParticular: { select: { name: true } },
+          opPort: { select: { name: true } },
+          lastPort: { select: { name: true } },
+          nextPort: { select: { name: true } },
+          branch: {
+            select: {
+              name: true,
+              email: true,
+              address: true,
+              phone: true,
+              fax: true,
+              mobile24h: true,
+              coverage: true,
+              contactName: true,
+              contactTitle: true,
+              contactMobile: true,
+              contactEmail: true,
+              centralEmails: true,
+            },
+          },
+        },
+      }),
+      this.prisma.user.findUnique({
+        where: { email: agentEmail },
+        select: { displayName: true, phone: true, mobile: true, fax: true },
+      }),
+    ]);
+
+    if (!nomination) throw new NotFoundException(`Nomination ${nominationId} not found.`);
+
+    // ---------------------------------------------------------------------------
+    // Template path — map action type to file path within templates/
+    // ---------------------------------------------------------------------------
+    const TEMPLATE_PATHS: Record<string, string> = {
+      ACKNOWLEDGEMENT: '01_prearrival/00_nomination_acceptance.hbs',
+      PREARRIVAL: '01_prearrival/10_prearrival_notification.hbs',
+      ETA_REQUEST: '01_prearrival/01_eta_request_to_master.hbs',
+      ETA_TERMINAL: '01_prearrival/03_eta_forwarded_to_terminal.hbs',
+      ETA_REPLY: '01_prearrival/02_reply_to_master_eta_notice.hbs',
+      CARGO_UPDATE: '02_statement_of_facts/07_cargo_update.hbs',
+    };
+    const relPath = TEMPLATE_PATHS[actionType.toUpperCase()] ?? `${actionType.toLowerCase()}.hbs`;
+    const templatePath = resolve(process.cwd(), 'templates', relPath);
+
+    // ---------------------------------------------------------------------------
+    // Template variables
+    // ---------------------------------------------------------------------------
+    const fmtDate = (d: Date | null) =>
+      d
+        ? `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+        : '';
+
+    const fmtTime = (d: Date | null) =>
+      d
+        ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+        : '';
+
+    const parcels = Array.isArray(nomination.parcels) ? nomination.parcels : [];
+    const firstParcel = (parcels as Array<Record<string, unknown>>)[0] ?? {};
+    const branch = nomination.branch;
+
+    const snRef = formatSnOt(nomination.correlative, nomination.dateNominated);
+    const vesselName = nomination.shipParticular?.name ?? '';
+    const voyageNo = nomination.voyageNumber ?? '';
+    const terminalName = nomination.opPort?.name ?? '';
+    const refLine = [
+      vesselName,
+      voyageNo ? `Voy. ${voyageNo}` : '',
+      terminalName ? `CALLING TO ${terminalName}` : '',
+      snRef,
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    // Load ETA record for ETA action types
+    const isEtaType = ['ETA_REQUEST', 'ETA_TERMINAL', 'ETA_REPLY'].includes(
+      actionType.toUpperCase(),
+    );
+    let etaRecord: {
+      msgEta: Date | null;
+      etaNotify: Date | null;
+      etaNotifyOn: boolean;
+      etpob: Date | null;
+      etpobOn: boolean;
+      etb: Date | null;
+      etbOn: boolean;
+      refMessage: string | null;
+    } | null = null;
+
+    if (isEtaType) {
+      const pedr = await this.prisma.pedr.findUnique({
+        where: { nominationId },
+        select: { etaRecord: true },
+      });
+      etaRecord = pedr?.etaRecord ?? null;
+    }
+
+    const templateVars = {
+      vessel_name: vesselName,
+      voyage_no: voyageNo,
+      terminal_name: terminalName,
+      oper_port: terminalName,
+      sn_ref: snRef,
+      ref_line: refLine,
+      laycan:
+        nomination.layDaysFirst || nomination.layDaysLast
+          ? `${fmtDate(nomination.layDaysFirst)} - ${fmtDate(nomination.layDaysLast)}`
+          : '',
+      cargo_quantity: String(firstParcel['quantity'] ?? ''),
+      cargo_grade: String(firstParcel['product'] ?? ''),
+      lay_days:
+        nomination.layDaysFirst || nomination.layDaysLast
+          ? `${fmtDate(nomination.layDaysFirst)} - ${fmtDate(nomination.layDaysLast)}`
+          : '',
+      operation: String(firstParcel['operation'] ?? firstParcel['product'] ?? ''),
+      // Cargo update — multi-parcel loop data
+      parcels: (parcels as Array<Record<string, unknown>>).map((p) => ({
+        cargo_grade: String(p['product'] ?? ''),
+        operation: String(p['operation'] ?? ''),
+        qty_on_board: String(p['qtyOnBoard'] ?? '0'),
+        qty_on_board_unit: String(p['qtyOnBoardUnit'] ?? p['unit'] ?? ''),
+        qty_to_go: String(p['qtyToGo'] ?? '0'),
+        qty_to_go_unit: String(p['qtyToGoUnit'] ?? p['unit'] ?? ''),
+        loading_rate: String(p['loadingRate'] ?? '0'),
+        loading_rate_unit: String(p['loadingRateUnit'] ?? ''),
+        t_etc: String(p['etcDate'] ?? ''),
+      })),
+      last_port: nomination.lastPort?.name ?? '',
+      next_port: nomination.nextPort?.name ?? '',
+      flag: '',
+      master_name: '',
+      master_rank: 'MASTER',
+      master_msg_date: fmtDate(etaRecord?.msgEta ?? null),
+      nomination_date: fmtDate(nomination.dateNominated),
+      eta_date: fmtDate(etaRecord?.etaNotify ?? nomination.etaDate ?? null),
+      eta_time: fmtTime(etaRecord?.etaNotify ?? null),
+      distance_to_go: '',
+      etpobOn: etaRecord?.etpobOn ?? false,
+      etpob_date: fmtDate(etaRecord?.etpob ?? null),
+      etpob_time: fmtTime(etaRecord?.etpob ?? null),
+      etbOn: etaRecord?.etbOn ?? false,
+      etb_date: fmtDate(etaRecord?.etb ?? null),
+      etb_time: fmtTime(etaRecord?.etb ?? null),
+      agent_name: agent?.displayName ?? agentEmail.split('@')[0] ?? agentEmail,
+      agent_title: '',
+      agent_email: branch?.email ?? agentEmail,
+      agent_mobile: agent?.mobile ?? branch?.mobile24h ?? '',
+      branch_office: branch?.name ?? '',
+      branch_coverage: branch?.coverage ?? '',
+      branch_address: branch?.address ?? '',
+      branch_phone: agent?.phone ?? branch?.phone ?? '',
+      branch_fax: agent?.fax ?? branch?.fax ?? '',
+      contact_person: branch?.contactName ?? '',
+      contact_title: branch?.contactTitle ?? '',
+      contact_mobile: branch?.contactMobile ?? '',
+      contact_email: branch?.contactEmail ?? '',
+      central_emails: branch?.centralEmails?.join('; ') ?? '',
+      // Cargo update date/time — rendered at time of compose
+      update_date: fmtDate(new Date()),
+      update_time: fmtTime(new Date()),
+      t_etd: '',
+      t_etd_berth: '',
+    };
+
+    // ---------------------------------------------------------------------------
+    // Render — extract subject from source BEFORE compiling ({{!-- --}} is stripped)
+    // ---------------------------------------------------------------------------
+    const templateSource = await readFile(templatePath, 'utf8');
+
+    const subjectSourceMatch = /\{\{!--\s*Subject:\s*(.+?)\s*--\}\}/.exec(templateSource);
+    const subjectTemplate =
+      subjectSourceMatch?.[1] ?? nomination.subject ?? nomination.shipParticular?.name ?? '';
+    const subject = Handlebars.compile(subjectTemplate)(templateVars);
+
+    const bodyText = Handlebars.compile(templateSource)(templateVars);
+
+    // Wrap plain-text output in <pre> for correct iframe rendering
+    const bodyHtml = bodyText.trimStart().startsWith('<')
+      ? bodyText
+      : `<pre style="font-family:'Courier New',Consolas,monospace;font-size:13px;line-height:1.5;white-space:pre-wrap;padding:16px;margin:0;">${bodyText}</pre>`;
+
+    return {
+      subject,
+      toAddresses: nomination.emailTo,
+      ccAddresses: nomination.emailCc,
+      bccAddresses: nomination.emailBcc,
+      bodyHtml,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Parcels — persist cargo-update figures back to the nomination
+  // ---------------------------------------------------------------------------
+
+  async updateParcels(nominationId: string, parcels: unknown[]): Promise<void> {
+    await this.prisma.nomination.update({
+      where: { id: nominationId },
+      data: { parcels: parcels as import('@prisma/client').Prisma.JsonArray },
+    });
+  }
+
+  // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
 
@@ -316,6 +626,133 @@ export class NominationsService {
     if (!exists) {
       throw new NotFoundException(`Client ${clientId} not found on nomination ${nominationId}.`);
     }
+  }
+
+  async sendEmail(
+    nominationId: string,
+    body: {
+      subDocType: string;
+      toAddresses: string[];
+      ccAddresses: string[];
+      bccAddresses: string[];
+      subject: string;
+      bodyHtml: string;
+    },
+    userId: string,
+  ): Promise<void> {
+    const pedr = await this.prisma.pedr.findUnique({
+      where: { nominationId },
+      select: { id: true },
+    });
+    if (!pedr) throw new NotFoundException(`No PEDR found for nomination ${nominationId}.`);
+
+    const dispatch = await this.prisma.emailDispatch.create({
+      data: {
+        pedrId: pedr.id,
+        subDocType: body.subDocType as import('@prisma/client').SubDocType,
+        toAddresses: body.toAddresses,
+        ccAddresses: body.ccAddresses,
+        bccAddresses: body.bccAddresses,
+        subject: body.subject,
+        bodyHtml: body.bodyHtml,
+        sentById: userId,
+      },
+    });
+
+    await this.emailService.send({
+      to: body.toAddresses,
+      cc: body.ccAddresses,
+      bcc: body.bccAddresses,
+      subject: body.subject,
+      html: body.bodyHtml,
+    });
+
+    await this.prisma.emailDispatch.update({
+      where: { id: dispatch.id },
+      data: { sentAt: new Date() },
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // ETA record — GET and upsert for "Answer ETA" modal
+  // ---------------------------------------------------------------------------
+
+  async getEtaRecord(nominationId: string) {
+    const pedr = await this.prisma.pedr.findUnique({
+      where: { nominationId },
+      select: { id: true, etaRecord: true },
+    });
+    if (!pedr) throw new NotFoundException(`No PEDR found for nomination ${nominationId}.`);
+
+    if (!pedr.etaRecord) {
+      return {
+        id: null,
+        pedrId: pedr.id,
+        msgEta: null,
+        etaNotify: null,
+        etaNotifyOn: false,
+        etpob: null,
+        etpobOn: false,
+        etb: null,
+        etbOn: false,
+        refMessage: null,
+        updatedAt: null,
+      };
+    }
+
+    const r = pedr.etaRecord;
+    return {
+      id: r.id,
+      pedrId: r.pedrId,
+      msgEta: r.msgEta?.toISOString() ?? null,
+      etaNotify: r.etaNotify?.toISOString() ?? null,
+      etaNotifyOn: r.etaNotifyOn,
+      etpob: r.etpob?.toISOString() ?? null,
+      etpobOn: r.etpobOn,
+      etb: r.etb?.toISOString() ?? null,
+      etbOn: r.etbOn,
+      refMessage: r.refMessage,
+      updatedAt: r.updatedAt.toISOString(),
+    };
+  }
+
+  async saveEtaRecord(nominationId: string, body: EtaRecordSaveInput) {
+    const pedr = await this.prisma.pedr.findUnique({
+      where: { nominationId },
+      select: { id: true },
+    });
+    if (!pedr) throw new NotFoundException(`No PEDR found for nomination ${nominationId}.`);
+
+    const data = {
+      msgEta: body.msgEta ? new Date(body.msgEta) : null,
+      etaNotify: body.etaNotify ? new Date(body.etaNotify) : null,
+      etaNotifyOn: body.etaNotifyOn ?? false,
+      etpob: body.etpob ? new Date(body.etpob) : null,
+      etpobOn: body.etpobOn ?? false,
+      etb: body.etb ? new Date(body.etb) : null,
+      etbOn: body.etbOn ?? false,
+      refMessage: body.refMessage ?? null,
+    };
+
+    const record = await this.prisma.pedrEtaRecord.upsert({
+      where: { pedrId: pedr.id },
+      create: { pedrId: pedr.id, ...data },
+      update: data,
+    });
+
+    return {
+      id: record.id,
+      pedrId: record.pedrId,
+      msgEta: record.msgEta?.toISOString() ?? null,
+      etaNotify: record.etaNotify?.toISOString() ?? null,
+      etaNotifyOn: record.etaNotifyOn,
+      etpob: record.etpob?.toISOString() ?? null,
+      etpobOn: record.etpobOn,
+      etb: record.etb?.toISOString() ?? null,
+      etbOn: record.etbOn,
+      refMessage: record.refMessage,
+      updatedAt: record.updatedAt.toISOString(),
+    };
   }
 
   private isFkViolation(err: unknown): boolean {

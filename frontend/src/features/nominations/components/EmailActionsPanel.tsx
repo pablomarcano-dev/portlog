@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Stack, Text, Button, Divider, Loader, Box, Badge, Group } from '@mantine/core';
-import type { SubDocType } from '@portlog/schemas';
+import { Stack, Text, Button, Divider } from '@mantine/core';
+import type { NominationParcelRead, SubDocType } from '@portlog/schemas';
 import { EmailComposeDrawer } from './EmailComposeDrawer';
-import { useDispatchLog } from '../api/useDispatchLog';
+import { EtaAnswerModal } from './EtaAnswerModal';
+import { CargoUpdateModal } from './CargoUpdateModal';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -10,7 +11,9 @@ import { useDispatchLog } from '../api/useDispatchLog';
 
 interface EmailActionsPanelProps {
   pedrId: string;
+  nominationId: string;
   vesselName?: string;
+  parcels?: NominationParcelRead[];
   /** When set, immediately opens the drawer for this sub-doc type */
   externalOpen?: SubDocType | null;
   /** Called after the externally-triggered drawer is opened (so caller can clear externalOpen) */
@@ -22,7 +25,7 @@ interface EmailActionsPanelProps {
 // ---------------------------------------------------------------------------
 
 interface SubDocAction {
-  type: SubDocType;
+  type: SubDocType | 'ETA';
   label: string;
   subjectTemplate: (vesselName: string) => string;
   /** Stories beyond M4-S6 that have not been wired yet */
@@ -41,9 +44,10 @@ const ACTIONS: SubDocAction[] = [
     subjectTemplate: (v) => `Pre-Arrival Notification — ${v}`,
   },
   {
-    type: 'ETA_ETB',
+    // ETA opens the two-step EtaAnswerModal, not a direct compose drawer
+    type: 'ETA',
     label: 'E.T.A.',
-    subjectTemplate: (v) => `ETA/ETB Notice — ${v}`,
+    subjectTemplate: () => '',
   },
   {
     type: 'CARGO_UPDATE',
@@ -68,11 +72,15 @@ const ACTIONS: SubDocAction[] = [
 
 export function EmailActionsPanel({
   pedrId,
+  nominationId,
   vesselName = '',
+  parcels = [],
   externalOpen,
   onExternalOpenHandled,
 }: EmailActionsPanelProps) {
   const [activeDrawer, setActiveDrawer] = useState<SubDocType | null>(null);
+  const [etaOpen, setEtaOpen] = useState(false);
+  const [cargoUpdateOpen, setCargoUpdateOpen] = useState(false);
 
   useEffect(() => {
     if (externalOpen) {
@@ -80,10 +88,15 @@ export function EmailActionsPanel({
       onExternalOpenHandled?.();
     }
   }, [externalOpen, onExternalOpenHandled]);
-  const dispatchLog = useDispatchLog(pedrId);
 
-  function openDrawer(type: SubDocType) {
-    setActiveDrawer(type);
+  function handleActionClick(type: SubDocAction['type']) {
+    if (type === 'ETA') {
+      setEtaOpen(true);
+    } else if (type === 'CARGO_UPDATE') {
+      setCargoUpdateOpen(true);
+    } else {
+      setActiveDrawer(type as SubDocType);
+    }
   }
 
   function closeDrawer() {
@@ -107,7 +120,7 @@ export function EmailActionsPanel({
             size="xs"
             fullWidth
             disabled={action.future}
-            onClick={() => !action.future && openDrawer(action.type)}
+            onClick={() => !action.future && handleActionClick(action.type)}
             styles={{ root: { justifyContent: 'flex-start' } }}
           >
             {action.label}
@@ -118,59 +131,33 @@ export function EmailActionsPanel({
             )}
           </Button>
         ))}
-
-        <Divider />
-
-        {/* Dispatch log summary */}
-        <Text fw={600} size="xs" c="dimmed">
-          Sent Emails
-        </Text>
-
-        {dispatchLog.isLoading && (
-          <Box ta="center">
-            <Loader size="xs" />
-          </Box>
-        )}
-
-        {dispatchLog.data?.items.length === 0 && (
-          <Text size="xs" c="dimmed">
-            No emails sent yet.
-          </Text>
-        )}
-
-        {dispatchLog.data?.items.map((d) => (
-          <Box
-            key={d.id}
-            style={{
-              padding: '6px 8px',
-              borderRadius: 4,
-              background: 'var(--mantine-color-gray-0)',
-            }}
-          >
-            <Group gap={4} justify="space-between">
-              <Text size="xs" fw={500}>
-                {d.subDocType.replace(/_/g, ' ')}
-              </Text>
-              <Badge size="xs" color={d.sentAt ? 'green' : d.error ? 'red' : 'gray'}>
-                {d.sentAt ? 'Sent' : d.error ? 'Error' : 'Pending'}
-              </Badge>
-            </Group>
-            {d.sentAt && (
-              <Text size="xs" c="dimmed">
-                {new Date(d.sentAt).toLocaleString()}
-              </Text>
-            )}
-          </Box>
-        ))}
       </Stack>
 
-      {/* Compose drawer — rendered once, parameterized by activeAction */}
-      {activeAction && (
+      {/* ETA — two-step Answer ETA modal */}
+      <EtaAnswerModal
+        opened={etaOpen}
+        onClose={() => setEtaOpen(false)}
+        nominationId={nominationId}
+        pedrId={pedrId}
+        vesselName={vesselName}
+      />
+
+      {/* Cargo Update — editable parcel table modal */}
+      <CargoUpdateModal
+        opened={cargoUpdateOpen}
+        onClose={() => setCargoUpdateOpen(false)}
+        nominationId={nominationId}
+        initialParcels={parcels}
+      />
+
+      {/* Compose drawer — for all other actions */}
+      {activeAction && activeAction.type !== 'ETA' && activeAction.type !== 'CARGO_UPDATE' && (
         <EmailComposeDrawer
           opened={activeDrawer !== null}
           onClose={closeDrawer}
           pedrId={pedrId}
-          subDocType={activeAction.type}
+          nominationId={nominationId}
+          subDocType={activeAction.type as SubDocType}
           defaultSubject={activeAction.subjectTemplate(vesselName)}
         />
       )}

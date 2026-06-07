@@ -5,6 +5,7 @@ import * as nodemailer from 'nodemailer';
 export interface SendMailOptions {
   to: string[];
   cc?: string[];
+  bcc?: string[];
   subject: string;
   html: string;
   attachments?: Array<{ filename: string; content: Buffer; contentType: string }>;
@@ -58,7 +59,7 @@ export class EmailService {
   }
 
   async send(opts: SendMailOptions): Promise<void> {
-    const { to, cc, subject, html, attachments } = opts;
+    const { to, cc, bcc, subject, html, attachments } = opts;
 
     this.logger.log({
       event: 'email.send',
@@ -71,6 +72,7 @@ export class EmailService {
       from: this.from,
       to: to.join(', '),
       cc: cc?.join(', '),
+      bcc: bcc?.join(', '),
       subject,
       html,
       attachments: attachments?.map((a) => ({

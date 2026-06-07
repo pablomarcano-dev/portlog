@@ -1,0 +1,42 @@
+{{!-- Subject: {{ref_line}} - ETA Forwarded to Terminal --}}
+
+Vessel    : {{vessel_name}}      Flag: {{flag}}
+Last Port : {{last_port}}
+Next Port : {{next_port}}
+Oper Port : {{oper_port}}
+Operation : {{operation}}
+Lay Days  : {{lay_days}}
+
+TO: {{terminal_name}}   ATTN: LOADING MASTER
+CC: PDVSA PETROLEO, S.A. C&S
+FM: SERVICIOS NAVIERAMAR, C.A. OPERATIONS
+
+Good day,
+
+Following received from Master, FYI:
+
+QUOTE:
+------
+Good day,
+Kindly find below ETA - NOON REPORT at {{oper_port}}:
+
+Distance to go and ETA next port: {{distance_to_go}} NM / At {{oper_port}} is o/a {{eta_date}} {{eta_time}} LT Hrs (AGW - WSNP).
+
+Best regards,
+{{master_rank}} {{master_name}}
+MASTER OF {{vessel_name}}
+------
+UNQUOTE
+
+Please advise berthing prospects.
+
+BEST REGARDS,
+{{agent_name}}
+{{agent_title}}
+SERVICIOS NAVIERAMAR, C.A. (As Agents Only)
+{{branch_office}}
+Covering/Attending: {{branch_coverage}}
+
+Address: {{branch_address}}
+Mobile 24 hrs: {{agent_mobile}}
+Email: {{agent_email}}

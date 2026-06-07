@@ -19,6 +19,7 @@ import { NominationForm } from '../../../features/nominations/components/Nominat
 import { TransitionButtons } from '../../../features/nominations/components/TransitionButtons';
 import { StatusHistoryTimeline } from '../../../features/nominations/components/StatusHistoryTimeline';
 import { MessagesNav } from '../../../features/nominations/components/MessagesNav';
+import { MessagesPanel } from '../../../features/nominations/components/MessagesPanel';
 import { ActionsPanel } from '../../../features/nominations/components/ActionsPanel';
 import { EmailActionsPanel } from '../../../features/nominations/components/EmailActionsPanel';
 import { ClientsSection } from '../../../features/nominations/components/ClientsSection';
@@ -26,12 +27,10 @@ import { useNomination } from '../../../features/nominations/hooks/useNomination
 import { useUpdateNomination } from '../../../features/nominations/hooks/useUpdateNomination';
 import { usePedrByNomination } from '../../../features/nominations/api/usePedrByNomination';
 import { DocumentsTabs } from '../../../features/sh-documents';
-import { AllSentGrid } from '../../../features/all-sent/components/AllSentGrid';
-import { useAllSent } from '../../../features/all-sent/api';
 import type {
   NominationCreateInput,
   NominationStatus,
-  NominationFeature,
+  NominationParcel,
   SubDocType,
 } from '@portlog/schemas';
 
@@ -64,21 +63,20 @@ function NominationDetailPage() {
   const updateNomination = useUpdateNomination(id);
   const { data: pedr } = usePedrByNomination(id);
   const [pendingDrawer, setPendingDrawer] = useState<SubDocType | null>(null);
-  const { data: allSentData } = useAllSent({ nominationId: id });
 
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
   const [formOpen, setFormOpen] = useState(true);
   const [clientsOpen, setClientsOpen] = useState(true);
   const [docsOpen, setDocsOpen] = useState(true);
-  const [allSentOpen, setAllSentOpen] = useState(true);
+  const [messagesOpen, setMessagesOpen] = useState(true);
   const [actionsOpen, setActionsOpen] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(true);
   const [emailOpen, setEmailOpen] = useState(true);
 
   function handleMessagesNavAction(slug: string) {
     if (slug === 'all-sent') {
-      document.getElementById('all-sent-section')?.scrollIntoView({ behavior: 'smooth' });
+      document.getElementById('messages-section')?.scrollIntoView({ behavior: 'smooth' });
       return;
     }
     const subDocType = SLUG_TO_SUBDOC[slug];
@@ -134,8 +132,8 @@ function NominationDetailPage() {
     inspector: nomination.inspector ?? undefined,
     nominationType: nomination.nominationType,
     subject: nomination.subject ?? undefined,
-    features: (nomination.features ?? []).filter(
-      (f): f is NominationFeature =>
+    parcels: (nomination.parcels ?? []).filter(
+      (f): f is NominationParcel =>
         typeof f.quantity === 'number' && typeof f.operation === 'string',
     ),
   };
@@ -293,10 +291,10 @@ function NominationDetailPage() {
 
             <Divider />
 
-            {/* All Sent tracker — collapsible */}
-            <Stack gap={0} id="all-sent-section">
+            {/* Messages section — collapsible */}
+            <Stack gap={0} id="messages-section">
               <UnstyledButton
-                onClick={() => setAllSentOpen((o) => !o)}
+                onClick={() => setMessagesOpen((o) => !o)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -305,14 +303,14 @@ function NominationDetailPage() {
                   userSelect: 'none',
                 }}
               >
-                <Title order={5}>All Sent</Title>
+                <Title order={5}>Messages</Title>
                 <Text size="xs" c="dimmed">
-                  {allSentOpen ? '▲' : '▼'}
+                  {messagesOpen ? '▲' : '▼'}
                 </Text>
               </UnstyledButton>
-              <Collapse in={allSentOpen}>
+              <Collapse in={messagesOpen}>
                 <Box pt="xs">
-                  <AllSentGrid rows={allSentData?.rows ?? []} />
+                  <MessagesPanel nominationId={id} />
                 </Box>
               </Collapse>
             </Stack>
@@ -448,7 +446,9 @@ function NominationDetailPage() {
                     <Box pt="xs">
                       <EmailActionsPanel
                         pedrId={pedr.id}
+                        nominationId={id}
                         vesselName={nomination.shipParticular.name}
+                        parcels={nomination.parcels as NominationParcel[]}
                         externalOpen={pendingDrawer}
                         onExternalOpenHandled={() => setPendingDrawer(null)}
                       />

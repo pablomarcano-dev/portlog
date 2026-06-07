@@ -11,6 +11,9 @@ enum SubDocType {
   ACKNOWLEDGEMENT
   PREARRIVAL
   ETA_ETB
+  ETA_REQUEST
+  ETA_TERMINAL
+  ETA_REPLY
   NOR
   SOF
   CARGO_UPDATE
@@ -23,6 +26,7 @@ model EmailDispatch {
   subDocType    SubDocType
   toAddresses   String[]
   ccAddresses   String[]    @default([])
+  bccAddresses  String[]    @default([])
   subject       String
   bodyHtml      String?     @db.Text
   pdfStorageKey String?

@@ -40,6 +40,7 @@ function BranchesScreen() {
       name: branch.name,
       code: branch.code,
       comments: branch.comments ?? undefined,
+      centralEmails: branch.centralEmails ?? [],
     };
   }, []);
 

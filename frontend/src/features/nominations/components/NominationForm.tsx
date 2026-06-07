@@ -31,7 +31,7 @@ import { EntityPicker } from '../../../components/master-data/EntityPicker';
 import { ContactNamePicker } from '../../../components/master-data/ContactNamePicker';
 import { ClientNamePicker } from '../../../components/master-data/ClientNamePicker';
 import { ClientPickerModal } from '../../../components/master-data/ClientPickerModal';
-import { FeaturesFieldArray } from './FeaturesFieldArray';
+import { ParcelsFieldArray } from './ParcelsFieldArray';
 import { NewShipParticularModal } from './NewShipParticularModal';
 
 const NOMINATION_TYPE_OPTIONS = [
@@ -102,7 +102,7 @@ export function NominationForm({
     resolver: zodResolver(NominationCreateSchema),
     defaultValues: {
       nominationType: 'FULL_AGENCY',
-      features: [],
+      parcels: [],
       nominationClients: defaultClients,
       ...defaultValues,
     },
@@ -763,9 +763,9 @@ export function NominationForm({
             </Fieldset>
           )}
 
-          {/* Cargo Features */}
-          <Fieldset legend="Cargo Features">
-            <FeaturesFieldArray control={control} disabled={isReadOnly} />
+          {/* Parcels */}
+          <Fieldset legend="Parcels">
+            <ParcelsFieldArray control={control} disabled={isReadOnly} />
           </Fieldset>
 
           {/* Email Recipients */}

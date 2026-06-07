@@ -1,0 +1,32 @@
+{{!-- Subject: {{ref_line}} - Cargo Update on {{update_date}} at {{update_time}} Hrs Lt --}}
+
+Vessel    : {{vessel_name}}      Flag: {{flag}}
+Last Port : {{last_port}}
+Next Port : {{next_port}}
+Oper Port : {{oper_port}}
+Operation : {{operation}}
+Lay Days  : {{lay_days}}
+
+{{#each parcels}}
+------------------------------------------------------
+{{../update_date}} {{../update_time}} Cargo Update - {{cargo_grade}}
+------------------------------------------------------
+Quantity On Board: {{qty_on_board}} {{qty_on_board_unit}}
+Quantity To Go   : {{qty_to_go}} {{qty_to_go_unit}}
+Loading Rate     : {{loading_rate}} {{loading_rate_unit}}
+------------------------------------------------------
+
+{{t_etc}} ETC
+{{/each}}
+{{t_etd}} ETD (Subject to Port Security Inspection / Weather Conditions)
+
+BEST REGARDS,
+{{agent_name}}
+{{agent_title}}
+SERVICIOS NAVIERAMAR, C.A. (As Agents Only)
+{{branch_office}}
+Covering/Attending: {{branch_coverage}}
+
+Address: {{branch_address}}
+Mobile 24 hrs: {{agent_mobile}}
+Email: {{agent_email}}
