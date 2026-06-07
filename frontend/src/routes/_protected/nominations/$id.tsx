@@ -24,7 +24,6 @@ import { ClientsSection } from '../../../features/nominations/components/Clients
 import { useNomination } from '../../../features/nominations/hooks/useNomination';
 import { useUpdateNomination } from '../../../features/nominations/hooks/useUpdateNomination';
 import { usePedrByNomination } from '../../../features/nominations/api/usePedrByNomination';
-import { DocumentsTabs } from '../../../features/sh-documents';
 import type { NominationCreateInput, NominationStatus, NominationParcel } from '@portlog/schemas';
 
 export const Route = createFileRoute('/_protected/nominations/$id')({
@@ -49,7 +48,6 @@ function NominationDetailPage() {
   const [rightOpen, setRightOpen] = useState(true);
   const [formOpen, setFormOpen] = useState(true);
   const [clientsOpen, setClientsOpen] = useState(true);
-  const [docsOpen, setDocsOpen] = useState(true);
   const [messagesOpen, setMessagesOpen] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(true);
   const [actionsOpen, setActionsOpen] = useState(true);
@@ -198,32 +196,6 @@ function NominationDetailPage() {
               <Collapse in={clientsOpen}>
                 <Box pt="xs">
                   <ClientsSection nominationId={id} />
-                </Box>
-              </Collapse>
-            </Stack>
-
-            <Divider />
-
-            {/* Documents section — collapsible */}
-            <Stack gap={0} id="sh-documents">
-              <UnstyledButton
-                onClick={() => setDocsOpen((o) => !o)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '6px 0',
-                  userSelect: 'none',
-                }}
-              >
-                <Title order={5}>Documentos</Title>
-                <Text size="xs" c="dimmed">
-                  {docsOpen ? '▲' : '▼'}
-                </Text>
-              </UnstyledButton>
-              <Collapse in={docsOpen}>
-                <Box pt="xs">
-                  <DocumentsTabs nominationId={id} />
                 </Box>
               </Collapse>
             </Stack>
