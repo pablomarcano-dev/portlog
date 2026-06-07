@@ -85,8 +85,8 @@ model Nomination {
   nominationType NominationType @default(FULL_AGENCY)
   subject        String?
 
-  // Feature table (Product/Qtty/Unit/Oper rows) as JSON; Zod-validated in M3-S1
-  features Json @default("[]")
+  // Parcels (Product/Qtty/Unit/Oper rows + cargo-update figures) as JSON; Zod-validated at service layer
+  parcels Json @default("[]")
 
   // State machine
   status NominationStatus @default(DRAFT)

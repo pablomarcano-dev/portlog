@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { NominationStatusSchema, NominationTypeSchema } from './enums.js';
-import { NominationFeatureSchema, NominationFeatureReadSchema } from './feature.js';
+import { NominationParcelSchema, NominationParcelReadSchema } from './parcel.js';
 import { BranchSummarySchema } from '../master-data/branch/index.js';
 import { NominationClientSchema, NominationClientCreateSchema } from './client.js';
 
@@ -67,8 +67,8 @@ export const NominationCreateSchema = z
     nominationType: NominationTypeSchema.default('FULL_AGENCY'),
     subject: z.string().max(500).optional(),
 
-    // Features (JSON array of Product/Qtty/Unit/Oper rows)
-    features: z.array(NominationFeatureSchema).default([]),
+    // Parcels (JSON array of Product/Qtty/Unit/Oper rows, extended with cargo-update figures)
+    parcels: z.array(NominationParcelSchema).default([]),
 
     // Client list rows — created atomically with the nomination
     nominationClients: z.array(NominationClientCreateSchema).default([]),
@@ -273,8 +273,8 @@ export const NominationSchema = z.object({
   nominationType: NominationTypeSchema,
   subject: z.string().nullable(),
 
-  // Features — lenient read schema; strict validation only on create/update
-  features: z.array(NominationFeatureReadSchema),
+  // Parcels — lenient read schema; strict validation only on create/update
+  parcels: z.array(NominationParcelReadSchema),
 
   // Client list rows
   nominationClients: z.array(NominationClientSchema).default([]),

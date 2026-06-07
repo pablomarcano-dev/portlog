@@ -30,7 +30,7 @@ import { DocumentsTabs } from '../../../features/sh-documents';
 import type {
   NominationCreateInput,
   NominationStatus,
-  NominationFeature,
+  NominationParcel,
   SubDocType,
 } from '@portlog/schemas';
 
@@ -132,8 +132,8 @@ function NominationDetailPage() {
     inspector: nomination.inspector ?? undefined,
     nominationType: nomination.nominationType,
     subject: nomination.subject ?? undefined,
-    features: (nomination.features ?? []).filter(
-      (f): f is NominationFeature =>
+    parcels: (nomination.parcels ?? []).filter(
+      (f): f is NominationParcel =>
         typeof f.quantity === 'number' && typeof f.operation === 'string',
     ),
   };
@@ -448,6 +448,7 @@ function NominationDetailPage() {
                         pedrId={pedr.id}
                         nominationId={id}
                         vesselName={nomination.shipParticular.name}
+                        parcels={nomination.parcels as NominationParcel[]}
                         externalOpen={pendingDrawer}
                         onExternalOpenHandled={() => setPendingDrawer(null)}
                       />

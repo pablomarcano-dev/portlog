@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Stack, Text, Button, Divider } from '@mantine/core';
-import type { SubDocType } from '@portlog/schemas';
+import type { NominationParcelRead, SubDocType } from '@portlog/schemas';
 import { EmailComposeDrawer } from './EmailComposeDrawer';
 import { EtaAnswerModal } from './EtaAnswerModal';
+import { CargoUpdateModal } from './CargoUpdateModal';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -12,6 +13,7 @@ interface EmailActionsPanelProps {
   pedrId: string;
   nominationId: string;
   vesselName?: string;
+  parcels?: NominationParcelRead[];
   /** When set, immediately opens the drawer for this sub-doc type */
   externalOpen?: SubDocType | null;
   /** Called after the externally-triggered drawer is opened (so caller can clear externalOpen) */
@@ -72,11 +74,13 @@ export function EmailActionsPanel({
   pedrId,
   nominationId,
   vesselName = '',
+  parcels = [],
   externalOpen,
   onExternalOpenHandled,
 }: EmailActionsPanelProps) {
   const [activeDrawer, setActiveDrawer] = useState<SubDocType | null>(null);
   const [etaOpen, setEtaOpen] = useState(false);
+  const [cargoUpdateOpen, setCargoUpdateOpen] = useState(false);
 
   useEffect(() => {
     if (externalOpen) {
@@ -88,6 +92,8 @@ export function EmailActionsPanel({
   function handleActionClick(type: SubDocAction['type']) {
     if (type === 'ETA') {
       setEtaOpen(true);
+    } else if (type === 'CARGO_UPDATE') {
+      setCargoUpdateOpen(true);
     } else {
       setActiveDrawer(type as SubDocType);
     }
@@ -136,8 +142,16 @@ export function EmailActionsPanel({
         vesselName={vesselName}
       />
 
-      {/* Compose drawer — for all non-ETA actions */}
-      {activeAction && activeAction.type !== 'ETA' && (
+      {/* Cargo Update — editable parcel table modal */}
+      <CargoUpdateModal
+        opened={cargoUpdateOpen}
+        onClose={() => setCargoUpdateOpen(false)}
+        nominationId={nominationId}
+        initialParcels={parcels}
+      />
+
+      {/* Compose drawer — for all other actions */}
+      {activeAction && activeAction.type !== 'ETA' && activeAction.type !== 'CARGO_UPDATE' && (
         <EmailComposeDrawer
           opened={activeDrawer !== null}
           onClose={closeDrawer}

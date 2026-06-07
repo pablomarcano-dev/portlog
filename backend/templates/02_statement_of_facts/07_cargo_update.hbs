@@ -7,16 +7,17 @@ Oper Port : {{oper_port}}
 Operation : {{operation}}
 Lay Days  : {{lay_days}}
 
+{{#each parcels}}
 ------------------------------------------------------
-{{update_date}} {{update_time}} Cargo Update - {{cargo_grade}}
+{{../update_date}} {{../update_time}} Cargo Update - {{cargo_grade}}
 ------------------------------------------------------
-Quantity On Board: {{qty_on_board}} BBLS
-Quantity To Go   : {{qty_to_go}} BBLS
-Loading Rate     : {{loading_rate}} BBLS/Hr
+Quantity On Board: {{qty_on_board}} {{qty_on_board_unit}}
+Quantity To Go   : {{qty_to_go}} {{qty_to_go_unit}}
+Loading Rate     : {{loading_rate}} {{loading_rate_unit}}
 ------------------------------------------------------
 
 {{t_etc}} ETC
-{{t_etd_berth}} ETD From Berth
+{{/each}}
 {{t_etd}} ETD (Subject to Port Security Inspection / Weather Conditions)
 
 BEST REGARDS,

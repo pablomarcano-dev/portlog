@@ -1774,7 +1774,7 @@ async function main(): Promise<void> {
       status: NominationStatus.DRAFT,
       nominatedById: opsUser.id,
       master: 'Capt. John Anderson',
-      features: [{ product: 'Soja', quantity: 25000, unit: 'MT', operation: 'Carga' }],
+      parcels: [{ product: 'Soja', quantity: 25000, unit: 'MT', operation: 'Carga' }],
       createdById: opsUser.id,
       statusHistory: {
         create: { fromStatus: null, toStatus: NominationStatus.DRAFT, changedById: opsUser.id },
@@ -1798,7 +1798,7 @@ async function main(): Promise<void> {
       status: NominationStatus.IN_PROGRESS,
       nominatedById: opsUser.id,
       master: 'Capt. María García',
-      features: [{ product: 'Trigo', quantity: 60000, unit: 'MT', operation: 'Descarga' }],
+      parcels: [{ product: 'Trigo', quantity: 60000, unit: 'MT', operation: 'Descarga' }],
       createdById: adminUser.id,
       statusHistory: {
         create: [
@@ -1832,7 +1832,7 @@ async function main(): Promise<void> {
       nominationType: NominationType.OWNERS_AGENTS_ONLY,
       status: NominationStatus.CONFIRMED,
       master: 'Capt. Roberto Silva',
-      features: [{ product: 'Celulosa', quantity: 10000, unit: 'MT', operation: 'Carga' }],
+      parcels: [{ product: 'Celulosa', quantity: 10000, unit: 'MT', operation: 'Carga' }],
       createdById: opsUser.id,
       statusHistory: {
         create: [
@@ -1863,7 +1863,7 @@ async function main(): Promise<void> {
       status: NominationStatus.CONFIRMED,
       nominatedById: user3.id,
       master: 'Capt. Nikos Papadakis',
-      features: [{ product: 'Maíz', quantity: 45000, unit: 'MT', operation: 'Descarga' }],
+      parcels: [{ product: 'Maíz', quantity: 45000, unit: 'MT', operation: 'Descarga' }],
       createdById: user3.id,
       statusHistory: {
         create: [
@@ -1894,7 +1894,7 @@ async function main(): Promise<void> {
       status: NominationStatus.IN_PROGRESS,
       nominatedById: user4.id,
       master: 'Capt. Igor Volkov',
-      features: [
+      parcels: [
         { product: 'Soja', quantity: 28000, unit: 'MT', operation: 'Carga' },
         { product: 'Maíz', quantity: 5000, unit: 'MT', operation: 'Carga' },
       ],
@@ -1931,7 +1931,7 @@ async function main(): Promise<void> {
       nominationType: NominationType.CHARTERERS_AGENTS_ONLY,
       status: NominationStatus.DRAFT,
       master: 'Capt. James Morrison',
-      features: [{ product: 'Fertilizantes', quantity: 32000, unit: 'MT', operation: 'Descarga' }],
+      parcels: [{ product: 'Fertilizantes', quantity: 32000, unit: 'MT', operation: 'Descarga' }],
       createdById: opsUser.id,
       statusHistory: {
         create: { fromStatus: null, toStatus: NominationStatus.DRAFT, changedById: opsUser.id },
@@ -1954,7 +1954,7 @@ async function main(): Promise<void> {
       nominationType: NominationType.FULL_AGENCY,
       status: NominationStatus.COMPLETED,
       master: 'Capt. Anastasios Dimas',
-      features: [{ product: 'Celulosa', quantity: 55000, unit: 'MT', operation: 'Carga' }],
+      parcels: [{ product: 'Celulosa', quantity: 55000, unit: 'MT', operation: 'Carga' }],
       createdById: adminUser.id,
       statusHistory: {
         create: [
@@ -1993,7 +1993,7 @@ async function main(): Promise<void> {
       nominationType: NominationType.OWNERS_AGENTS_ONLY,
       status: NominationStatus.DRAFT,
       master: 'Capt. Ole Hansen',
-      features: [{ product: 'Carga General', quantity: 8000, unit: 'MT', operation: 'Carga' }],
+      parcels: [{ product: 'Carga General', quantity: 8000, unit: 'MT', operation: 'Carga' }],
       createdById: user3.id,
       statusHistory: {
         create: { fromStatus: null, toStatus: NominationStatus.DRAFT, changedById: user3.id },
@@ -2017,7 +2017,7 @@ async function main(): Promise<void> {
       status: NominationStatus.CONFIRMED,
       nominatedById: user4.id,
       master: 'Capt. Wei Zhang',
-      features: [{ product: 'Soja', quantity: 72000, unit: 'MT', operation: 'Carga' }],
+      parcels: [{ product: 'Soja', quantity: 72000, unit: 'MT', operation: 'Carga' }],
       createdById: user4.id,
       statusHistory: {
         create: [
@@ -2047,7 +2047,7 @@ async function main(): Promise<void> {
       nominationType: NominationType.FULL_AGENCY,
       status: NominationStatus.CANCELLED,
       master: 'Capt. Fernando Lima',
-      features: [{ product: 'Trigo', quantity: 24000, unit: 'MT', operation: 'Carga' }],
+      parcels: [{ product: 'Trigo', quantity: 24000, unit: 'MT', operation: 'Carga' }],
       createdById: opsUser.id,
       statusHistory: {
         create: [
