@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Modal,
   Stack,
@@ -29,6 +29,55 @@ const OPERATION_OPTIONS = [
   { value: 'Bunker', label: 'Bunker' },
 ];
 
+// ---------------------------------------------------------------------------
+// Column definitions — keys drive both header labels and width state
+// ---------------------------------------------------------------------------
+
+type ColKey =
+  | 'idx'
+  | 'product'
+  | 'etcDate'
+  | 'operation'
+  | 'qtyOnBoard'
+  | 'qtyOnBoardUnit'
+  | 'qtyToGo'
+  | 'qtyToGoUnit'
+  | 'loadingRate'
+  | 'loadingRateUnit'
+  | 'actions';
+
+const INITIAL_WIDTHS: Record<ColKey, number> = {
+  idx: 32,
+  product: 150,
+  etcDate: 110,
+  operation: 100,
+  qtyOnBoard: 90,
+  qtyOnBoardUnit: 60,
+  qtyToGo: 90,
+  qtyToGoUnit: 60,
+  loadingRate: 90,
+  loadingRateUnit: 60,
+  actions: 36,
+};
+
+const COL_LABELS: Record<ColKey, string> = {
+  idx: '#',
+  product: 'Product',
+  etcDate: 'ETC Date',
+  operation: 'Operation',
+  qtyOnBoard: 'Qty On Board',
+  qtyOnBoardUnit: 'Unit',
+  qtyToGo: 'Qty To Go',
+  qtyToGoUnit: 'Unit',
+  loadingRate: 'Loading Rate',
+  loadingRateUnit: 'Unit',
+  actions: '',
+};
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
 interface CargoUpdateModalProps {
   opened: boolean;
   onClose: () => void;
@@ -40,6 +89,10 @@ interface ParcelRow extends NominationParcelRead {
   _key: string;
 }
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
 function fmtDate(d: Date): string {
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 }
@@ -47,6 +100,10 @@ function fmtDate(d: Date): string {
 function fmtTime(d: Date): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export function CargoUpdateModal({
   opened,
@@ -65,7 +122,39 @@ export function CargoUpdateModal({
   const [dateEtd, setDateEtd] = useState<Date | null>(null);
   const [timeEtd, setTimeEtd] = useState('');
 
+  const [colWidths, setColWidths] = useState<Record<ColKey, number>>(INITIAL_WIDTHS);
+
   const { data: composeData } = useNominationCompose(nominationId, 'CARGO_UPDATE');
+
+  // -------------------------------------------------------------------------
+  // Column resize — attaches to document during drag so it works outside the th
+  // -------------------------------------------------------------------------
+
+  const startColResize = useCallback(
+    (col: ColKey, e: React.MouseEvent) => {
+      e.preventDefault();
+      const startX = e.clientX;
+      const startWidth = colWidths[col];
+
+      function onMove(ev: MouseEvent) {
+        const next = Math.max(40, startWidth + ev.clientX - startX);
+        setColWidths((prev) => ({ ...prev, [col]: next }));
+      }
+
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      }
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    },
+    [colWidths],
+  );
+
+  // -------------------------------------------------------------------------
+  // Row mutations
+  // -------------------------------------------------------------------------
 
   const saveMutation = useMutation({
     mutationFn: () => nominationsApi.updateParcels(nominationId, rows),
@@ -153,6 +242,44 @@ export function CargoUpdateModal({
     });
   }
 
+  // -------------------------------------------------------------------------
+  // Render helper — resizable <th>
+  // -------------------------------------------------------------------------
+
+  function ResizableTh({ col, children }: { col: ColKey; children?: React.ReactNode }) {
+    return (
+      <Table.Th
+        style={{
+          width: colWidths[col],
+          minWidth: colWidths[col],
+          position: 'relative',
+          userSelect: 'none',
+          overflow: 'hidden',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {children}
+        {/* drag handle — sits on the right edge of the header cell */}
+        <div
+          onMouseDown={(e) => startColResize(col, e)}
+          style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            bottom: 0,
+            width: 5,
+            cursor: 'col-resize',
+            zIndex: 1,
+          }}
+        />
+      </Table.Th>
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // JSX
+  // -------------------------------------------------------------------------
+
   return (
     <Modal
       opened={opened}
@@ -164,122 +291,133 @@ export function CargoUpdateModal({
       }
       size="xl"
       padding="lg"
+      styles={{
+        content: {
+          resize: 'both',
+          overflow: 'auto',
+          minWidth: 600,
+          minHeight: 300,
+        },
+      }}
     >
       <Stack gap="sm">
         {/* Parcel table */}
-        <Table withTableBorder withColumnBorders fz="xs">
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th w={30}>#</Table.Th>
-              <Table.Th>Product</Table.Th>
-              <Table.Th>ETC Date</Table.Th>
-              <Table.Th>Operation</Table.Th>
-              <Table.Th>Qty On Board</Table.Th>
-              <Table.Th w={70}>Unit</Table.Th>
-              <Table.Th>Qty To Go</Table.Th>
-              <Table.Th w={70}>Unit</Table.Th>
-              <Table.Th>Loading Rate</Table.Th>
-              <Table.Th w={70}>Unit</Table.Th>
-              <Table.Th w={36} />
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {rows.length === 0 && (
+        <div style={{ overflowX: 'auto' }}>
+          <Table
+            withTableBorder
+            withColumnBorders
+            fz="xs"
+            style={{ tableLayout: 'fixed', width: 'max-content', minWidth: '100%' }}
+          >
+            <Table.Thead>
               <Table.Tr>
-                <Table.Td colSpan={11}>
-                  <Text size="xs" c="dimmed" ta="center">
-                    No parcels — add a row below.
-                  </Text>
-                </Table.Td>
+                {(Object.keys(INITIAL_WIDTHS) as ColKey[]).map((col) => (
+                  <ResizableTh key={col} col={col}>
+                    {COL_LABELS[col]}
+                  </ResizableTh>
+                ))}
               </Table.Tr>
-            )}
-            {rows.map((row, i) => (
-              <Table.Tr key={row._key}>
-                <Table.Td>{i + 1}</Table.Td>
-                <Table.Td>
-                  <TextInput
-                    size="xs"
-                    value={row.product}
-                    onChange={(e) => updateRow(row._key, 'product', e.currentTarget.value)}
-                  />
-                </Table.Td>
-                <Table.Td>
-                  <TextInput
-                    size="xs"
-                    placeholder="MM/DD/YYYY"
-                    value={row.etcDate ?? ''}
-                    onChange={(e) => updateRow(row._key, 'etcDate', e.currentTarget.value)}
-                  />
-                </Table.Td>
-                <Table.Td>
-                  <Select
-                    size="xs"
-                    data={OPERATION_OPTIONS}
-                    value={row.operation ?? null}
-                    onChange={(v) => updateRow(row._key, 'operation', v ?? '')}
-                    comboboxProps={{ withinPortal: true }}
-                  />
-                </Table.Td>
-                <Table.Td>
-                  <NumberInput
-                    size="xs"
-                    min={0}
-                    value={row.qtyOnBoard ?? 0}
-                    onChange={(v) => updateRow(row._key, 'qtyOnBoard', v)}
-                  />
-                </Table.Td>
-                <Table.Td>
-                  <TextInput
-                    size="xs"
-                    value={row.qtyOnBoardUnit ?? row.unit ?? ''}
-                    onChange={(e) => updateRow(row._key, 'qtyOnBoardUnit', e.currentTarget.value)}
-                  />
-                </Table.Td>
-                <Table.Td>
-                  <NumberInput
-                    size="xs"
-                    min={0}
-                    value={row.qtyToGo ?? 0}
-                    onChange={(v) => updateRow(row._key, 'qtyToGo', v)}
-                  />
-                </Table.Td>
-                <Table.Td>
-                  <TextInput
-                    size="xs"
-                    value={row.qtyToGoUnit ?? row.unit ?? ''}
-                    onChange={(e) => updateRow(row._key, 'qtyToGoUnit', e.currentTarget.value)}
-                  />
-                </Table.Td>
-                <Table.Td>
-                  <NumberInput
-                    size="xs"
-                    min={0}
-                    value={row.loadingRate ?? 0}
-                    onChange={(v) => updateRow(row._key, 'loadingRate', v)}
-                  />
-                </Table.Td>
-                <Table.Td>
-                  <TextInput
-                    size="xs"
-                    value={row.loadingRateUnit ?? ''}
-                    onChange={(e) => updateRow(row._key, 'loadingRateUnit', e.currentTarget.value)}
-                  />
-                </Table.Td>
-                <Table.Td>
-                  <ActionIcon
-                    size="sm"
-                    color="red"
-                    variant="subtle"
-                    onClick={() => removeRow(row._key)}
-                    aria-label="Remove row"
-                  >
-                    ×
-                  </ActionIcon>
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+            </Table.Thead>
+            <Table.Tbody>
+              {rows.length === 0 && (
+                <Table.Tr>
+                  <Table.Td colSpan={11}>
+                    <Text size="xs" c="dimmed" ta="center">
+                      No parcels — add a row below.
+                    </Text>
+                  </Table.Td>
+                </Table.Tr>
+              )}
+              {rows.map((row, i) => (
+                <Table.Tr key={row._key}>
+                  <Table.Td style={{ width: colWidths.idx }}>{i + 1}</Table.Td>
+                  <Table.Td style={{ width: colWidths.product }}>
+                    <TextInput
+                      size="xs"
+                      value={row.product}
+                      onChange={(e) => updateRow(row._key, 'product', e.currentTarget.value)}
+                    />
+                  </Table.Td>
+                  <Table.Td style={{ width: colWidths.etcDate }}>
+                    <TextInput
+                      size="xs"
+                      placeholder="MM/DD/YYYY"
+                      value={row.etcDate ?? ''}
+                      onChange={(e) => updateRow(row._key, 'etcDate', e.currentTarget.value)}
+                    />
+                  </Table.Td>
+                  <Table.Td style={{ width: colWidths.operation }}>
+                    <Select
+                      size="xs"
+                      data={OPERATION_OPTIONS}
+                      value={row.operation ?? null}
+                      onChange={(v) => updateRow(row._key, 'operation', v ?? '')}
+                      comboboxProps={{ withinPortal: true }}
+                    />
+                  </Table.Td>
+                  <Table.Td style={{ width: colWidths.qtyOnBoard }}>
+                    <NumberInput
+                      size="xs"
+                      min={0}
+                      value={row.qtyOnBoard ?? 0}
+                      onChange={(v) => updateRow(row._key, 'qtyOnBoard', v)}
+                    />
+                  </Table.Td>
+                  <Table.Td style={{ width: colWidths.qtyOnBoardUnit }}>
+                    <TextInput
+                      size="xs"
+                      value={row.qtyOnBoardUnit ?? row.unit ?? ''}
+                      onChange={(e) => updateRow(row._key, 'qtyOnBoardUnit', e.currentTarget.value)}
+                    />
+                  </Table.Td>
+                  <Table.Td style={{ width: colWidths.qtyToGo }}>
+                    <NumberInput
+                      size="xs"
+                      min={0}
+                      value={row.qtyToGo ?? 0}
+                      onChange={(v) => updateRow(row._key, 'qtyToGo', v)}
+                    />
+                  </Table.Td>
+                  <Table.Td style={{ width: colWidths.qtyToGoUnit }}>
+                    <TextInput
+                      size="xs"
+                      value={row.qtyToGoUnit ?? row.unit ?? ''}
+                      onChange={(e) => updateRow(row._key, 'qtyToGoUnit', e.currentTarget.value)}
+                    />
+                  </Table.Td>
+                  <Table.Td style={{ width: colWidths.loadingRate }}>
+                    <NumberInput
+                      size="xs"
+                      min={0}
+                      value={row.loadingRate ?? 0}
+                      onChange={(v) => updateRow(row._key, 'loadingRate', v)}
+                    />
+                  </Table.Td>
+                  <Table.Td style={{ width: colWidths.loadingRateUnit }}>
+                    <TextInput
+                      size="xs"
+                      value={row.loadingRateUnit ?? ''}
+                      onChange={(e) =>
+                        updateRow(row._key, 'loadingRateUnit', e.currentTarget.value)
+                      }
+                    />
+                  </Table.Td>
+                  <Table.Td style={{ width: colWidths.actions }}>
+                    <ActionIcon
+                      size="sm"
+                      color="red"
+                      variant="subtle"
+                      onClick={() => removeRow(row._key)}
+                      aria-label="Remove row"
+                    >
+                      ×
+                    </ActionIcon>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </div>
 
         <Button size="xs" variant="subtle" onClick={addRow} style={{ alignSelf: 'flex-start' }}>
           + Add row
