@@ -18,21 +18,14 @@ import { useState } from 'react';
 import { NominationForm } from '../../../features/nominations/components/NominationForm';
 import { TransitionButtons } from '../../../features/nominations/components/TransitionButtons';
 import { StatusHistoryTimeline } from '../../../features/nominations/components/StatusHistoryTimeline';
-import { MessagesNav } from '../../../features/nominations/components/MessagesNav';
 import { MessagesPanel } from '../../../features/nominations/components/MessagesPanel';
-import { ActionsPanel } from '../../../features/nominations/components/ActionsPanel';
 import { EmailActionsPanel } from '../../../features/nominations/components/EmailActionsPanel';
 import { ClientsSection } from '../../../features/nominations/components/ClientsSection';
 import { useNomination } from '../../../features/nominations/hooks/useNomination';
 import { useUpdateNomination } from '../../../features/nominations/hooks/useUpdateNomination';
 import { usePedrByNomination } from '../../../features/nominations/api/usePedrByNomination';
 import { DocumentsTabs } from '../../../features/sh-documents';
-import type {
-  NominationCreateInput,
-  NominationStatus,
-  NominationParcel,
-  SubDocType,
-} from '@portlog/schemas';
+import type { NominationCreateInput, NominationStatus, NominationParcel } from '@portlog/schemas';
 
 export const Route = createFileRoute('/_protected/nominations/$id')({
   component: NominationDetailPage,
@@ -48,40 +41,18 @@ const STATUS_COLORS: Record<NominationStatus, string> = {
   CANCELLED: 'red',
 };
 
-const SLUG_TO_SUBDOC: Record<string, SubDocType> = {
-  acknowledgement: 'ACKNOWLEDGEMENT',
-  prearrival: 'PREARRIVAL',
-  eta: 'ETA_ETB',
-  sof: 'SOF',
-  'cargo-update': 'CARGO_UPDATE',
-  nor: 'NOR',
-};
-
 function NominationDetailPage() {
   const { id } = Route.useParams();
   const { data: nomination, isLoading, isError, error } = useNomination(id);
   const updateNomination = useUpdateNomination(id);
   const { data: pedr } = usePedrByNomination(id);
-  const [pendingDrawer, setPendingDrawer] = useState<SubDocType | null>(null);
-
-  const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
   const [formOpen, setFormOpen] = useState(true);
   const [clientsOpen, setClientsOpen] = useState(true);
   const [docsOpen, setDocsOpen] = useState(true);
   const [messagesOpen, setMessagesOpen] = useState(true);
-  const [actionsOpen, setActionsOpen] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(true);
-  const [emailOpen, setEmailOpen] = useState(true);
-
-  function handleMessagesNavAction(slug: string) {
-    if (slug === 'all-sent') {
-      document.getElementById('messages-section')?.scrollIntoView({ behavior: 'smooth' });
-      return;
-    }
-    const subDocType = SLUG_TO_SUBDOC[slug];
-    if (subDocType) setPendingDrawer(subDocType);
-  }
+  const [actionsOpen, setActionsOpen] = useState(true);
 
   if (isLoading) {
     return (
@@ -144,38 +115,6 @@ function NominationDetailPage() {
 
   return (
     <Box style={{ display: 'flex', height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
-      {/* Left rail: Messages nav */}
-      <Box
-        style={{
-          borderRight: '1px solid var(--mantine-color-gray-3)',
-          flexShrink: 0,
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        <UnstyledButton
-          onClick={() => setLeftOpen((o) => !o)}
-          style={{
-            padding: '8px 10px',
-            borderBottom: '1px solid var(--mantine-color-gray-3)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            fontSize: 12,
-            color: 'var(--mantine-color-dimmed)',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <span>{leftOpen ? '◀' : '▶'}</span>
-          {leftOpen && <span>Messages</span>}
-        </UnstyledButton>
-        {leftOpen && (
-          <Box style={{ overflowY: 'auto', flex: 1 }}>
-            <MessagesNav onAction={handleMessagesNavAction} />
-          </Box>
-        )}
-      </Box>
-
       {/* Main content */}
       <Box style={{ flex: 1, overflowY: 'auto' }}>
         <Container size="xl" py="lg">
@@ -366,34 +305,6 @@ function NominationDetailPage() {
         {/* Scrollable right rail content */}
         {rightOpen && (
           <Box style={{ overflowY: 'auto', flex: 1, padding: 'var(--mantine-spacing-md)' }}>
-            {/* Actions — collapsible */}
-            <Stack gap={0} mb="md">
-              <UnstyledButton
-                onClick={() => setActionsOpen((o) => !o)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '4px 0',
-                  userSelect: 'none',
-                }}
-              >
-                <Text fw={700} size="sm">
-                  Actions
-                </Text>
-                <Text size="xs" c="dimmed">
-                  {actionsOpen ? '▲' : '▼'}
-                </Text>
-              </UnstyledButton>
-              <Collapse in={actionsOpen}>
-                <Box pt="xs">
-                  <ActionsPanel nominationId={id} vesselName={nomination.shipParticular.name} />
-                </Box>
-              </Collapse>
-            </Stack>
-
-            <Divider my="sm" />
-
             {/* Status History — collapsible */}
             <Stack gap={0} mb="md">
               <UnstyledButton
@@ -420,13 +331,13 @@ function NominationDetailPage() {
               </Collapse>
             </Stack>
 
-            {/* Email dispatch — collapsible, shown only when a PEDR exists */}
+            {/* Actions — shown only when a PEDR exists */}
             {pedr && (
               <>
                 <Divider my="sm" />
                 <Stack gap={0}>
                   <UnstyledButton
-                    onClick={() => setEmailOpen((o) => !o)}
+                    onClick={() => setActionsOpen((o) => !o)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -436,13 +347,13 @@ function NominationDetailPage() {
                     }}
                   >
                     <Text fw={700} size="sm">
-                      Email Dispatch
+                      Actions
                     </Text>
                     <Text size="xs" c="dimmed">
-                      {emailOpen ? '▲' : '▼'}
+                      {actionsOpen ? '▲' : '▼'}
                     </Text>
                   </UnstyledButton>
-                  <Collapse in={emailOpen}>
+                  <Collapse in={actionsOpen}>
                     <Box pt="xs">
                       <EmailActionsPanel
                         nominationId={nomination.id}
@@ -450,8 +361,6 @@ function NominationDetailPage() {
                         pedrId={pedr.id}
                         vesselName={nomination.shipParticular.name}
                         parcels={nomination.parcels as NominationParcel[]}
-                        externalOpen={pendingDrawer}
-                        onExternalOpenHandled={() => setPendingDrawer(null)}
                       />
                     </Box>
                   </Collapse>
