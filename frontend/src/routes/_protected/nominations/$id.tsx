@@ -134,7 +134,7 @@ function NominationDetailPage() {
     inspector: nomination.inspector ?? undefined,
     nominationType: nomination.nominationType,
     subject: nomination.subject ?? undefined,
-    features: (nomination.features ?? []).filter(
+    parcels: (nomination.parcels ?? []).filter(
       (f): f is NominationFeature =>
         typeof f.quantity === 'number' && typeof f.operation === 'string',
     ),

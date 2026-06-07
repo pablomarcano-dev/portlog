@@ -67,8 +67,8 @@ export const NominationCreateSchema = z
     nominationType: NominationTypeSchema.default('FULL_AGENCY'),
     subject: z.string().max(500).optional(),
 
-    // Features (JSON array of Product/Qtty/Unit/Oper rows)
-    features: z.array(NominationFeatureSchema).default([]),
+    // Parcels (JSON array of Product/Qtty/Unit/Oper rows)
+    parcels: z.array(NominationFeatureSchema).default([]),
 
     // Client list rows — created atomically with the nomination
     nominationClients: z.array(NominationClientCreateSchema).default([]),
@@ -273,8 +273,8 @@ export const NominationSchema = z.object({
   nominationType: NominationTypeSchema,
   subject: z.string().nullable(),
 
-  // Features — lenient read schema; strict validation only on create/update
-  features: z.array(NominationFeatureReadSchema),
+  // Parcels — lenient read schema; strict validation only on create/update
+  parcels: z.array(NominationFeatureReadSchema),
 
   // Client list rows
   nominationClients: z.array(NominationClientSchema).default([]),

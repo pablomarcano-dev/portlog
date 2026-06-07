@@ -102,7 +102,7 @@ export function NominationForm({
     resolver: zodResolver(NominationCreateSchema),
     defaultValues: {
       nominationType: 'FULL_AGENCY',
-      features: [],
+      parcels: [],
       nominationClients: defaultClients,
       ...defaultValues,
     },
