@@ -1,8 +1,18 @@
 import { useFieldArray, Controller } from 'react-hook-form';
 import type { Control } from 'react-hook-form';
-import { Button, Group, NumberInput, Select, Stack, Text, TextInput } from '@mantine/core';
+import { Button, Group, NumberInput, Select, Stack, Text } from '@mantine/core';
 import type { NominationCreateInput } from '@portlog/schemas';
 import { CargoNamePicker } from './CargoNamePicker';
+
+const UNIT_OPTIONS = [
+  { value: 'Bbls', label: 'Bbls' },
+  { value: 'Kg', label: 'Kg' },
+  { value: 'Us/G', label: 'Us/G' },
+  { value: 'C/M', label: 'C/M' },
+  { value: 'L/T', label: 'L/T' },
+  { value: 'M/T', label: 'M/T' },
+  { value: 'Unit', label: 'Unit' },
+];
 
 const OPERATION_OPTIONS = [
   { value: 'Disch', label: 'Disch' },
@@ -68,13 +78,16 @@ export function ParcelsFieldArray({ control, disabled }: ParcelsFieldArrayProps)
             control={control}
             name={`parcels.${index}.unit`}
             render={({ field: f, fieldState }) => (
-              <TextInput
+              <Select
                 label={index === 0 ? 'Unit' : undefined}
-                placeholder="e.g. MT"
+                placeholder="Select..."
+                data={UNIT_OPTIONS}
                 style={{ flex: 1 }}
                 disabled={disabled}
                 error={fieldState.error?.message}
-                {...f}
+                value={f.value ?? null}
+                onChange={(val) => f.onChange(val ?? '')}
+                comboboxProps={{ withinPortal: true }}
               />
             )}
           />
