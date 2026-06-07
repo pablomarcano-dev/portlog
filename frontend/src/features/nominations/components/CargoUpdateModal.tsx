@@ -302,6 +302,46 @@ export function CargoUpdateModal({
       }}
     >
       <Stack gap="sm">
+        {/* Date / ETD — at top, matching other modal patterns */}
+        <Group gap="xl">
+          <Group gap="xs" align="flex-end">
+            <DateInput
+              label="Date Update"
+              size="sm"
+              value={dateUpdate}
+              onChange={setDateUpdate}
+              style={{ width: 150 }}
+            />
+            <TextInput
+              label="Time"
+              size="sm"
+              placeholder="HH:MM"
+              value={timeUpdate}
+              onChange={(e) => setTimeUpdate(e.currentTarget.value)}
+              style={{ width: 80 }}
+            />
+          </Group>
+          <Group gap="xs" align="flex-end">
+            <DateInput
+              label="Date ETD"
+              size="sm"
+              value={dateEtd}
+              onChange={setDateEtd}
+              style={{ width: 150 }}
+            />
+            <TextInput
+              label="Time"
+              size="sm"
+              placeholder="HH:MM"
+              value={timeEtd}
+              onChange={(e) => setTimeEtd(e.currentTarget.value)}
+              style={{ width: 80 }}
+            />
+          </Group>
+        </Group>
+
+        <Divider />
+
         {/* Parcel table */}
         <div style={{ overflowX: 'auto' }}>
           <Table
@@ -423,46 +463,6 @@ export function CargoUpdateModal({
         <Button size="xs" variant="subtle" onClick={addRow} style={{ alignSelf: 'flex-start' }}>
           + Add row
         </Button>
-
-        <Divider />
-
-        {/* Date / ETD */}
-        <Group gap="xl">
-          <Group gap="xs" align="flex-end">
-            <DateInput
-              label="Date Update"
-              size="sm"
-              value={dateUpdate}
-              onChange={setDateUpdate}
-              style={{ width: 150 }}
-            />
-            <TextInput
-              label="Time"
-              size="sm"
-              placeholder="HH:MM"
-              value={timeUpdate}
-              onChange={(e) => setTimeUpdate(e.currentTarget.value)}
-              style={{ width: 80 }}
-            />
-          </Group>
-          <Group gap="xs" align="flex-end">
-            <DateInput
-              label="Date ETD"
-              size="sm"
-              value={dateEtd}
-              onChange={setDateEtd}
-              style={{ width: 150 }}
-            />
-            <TextInput
-              label="Time"
-              size="sm"
-              placeholder="HH:MM"
-              value={timeEtd}
-              onChange={(e) => setTimeEtd(e.currentTarget.value)}
-              style={{ width: 80 }}
-            />
-          </Group>
-        </Group>
 
         <Divider />
 
