@@ -396,11 +396,11 @@ export function SofTimesheetModal({
               </Box>
 
               {/* Footer actions */}
-              <Group justify="flex-end" pt="xs">
-                <Button variant="default" onClick={handleClose}>
+              <Group justify="flex-end" mt="sm">
+                <Button variant="default" onClick={handleClose} disabled={saveMutation.isPending}>
                   Close
                 </Button>
-                <Button type="submit" loading={saveMutation.isPending}>
+                <Button variant="default" type="submit" loading={saveMutation.isPending}>
                   Save
                 </Button>
               </Group>

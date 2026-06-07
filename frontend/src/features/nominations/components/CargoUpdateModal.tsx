@@ -477,7 +477,6 @@ export function CargoUpdateModal({
           <Group gap="xs">
             <Button
               variant="default"
-              size="sm"
               onClick={onClose}
               disabled={saveMutation.isPending || sendEmail.isPending}
             >
@@ -485,7 +484,6 @@ export function CargoUpdateModal({
             </Button>
             <Button
               variant="default"
-              size="sm"
               loading={saveMutation.isPending}
               onClick={() => saveMutation.mutate()}
             >
