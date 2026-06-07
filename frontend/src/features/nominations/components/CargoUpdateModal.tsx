@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import {
   Modal,
-  Table,
+  Stack,
+  Text,
+  Button,
+  Group,
   TextInput,
   NumberInput,
   Select,
-  Button,
-  Group,
-  Text,
+  Divider,
+  Table,
   ActionIcon,
-  Stack,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
@@ -70,7 +71,11 @@ export function CargoUpdateModal({
     mutationFn: () => nominationsApi.updateParcels(nominationId, rows),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['nominations', nominationId] });
-      notifications.show({ title: 'Saved', message: 'Parcels saved.', color: 'green' });
+      notifications.show({
+        title: 'Saved',
+        message: 'Parcels saved successfully.',
+        color: 'green',
+      });
     },
     onError: () => {
       notifications.show({ title: 'Error', message: 'Failed to save parcels.', color: 'red' });
@@ -132,9 +137,7 @@ export function CargoUpdateModal({
       .join('\n\n');
 
     const bodyText =
-      composeData.bodyHtml
-        .replace(/<pre[^>]*>|<\/pre>/gi, '')
-        .split('------------------------------------------------------')[0] +
+      composeData.bodyHtml.replace(/<pre[^>]*>|<\/pre>/gi, '').split('------')[0] +
       parcelLines +
       `\n\n${etdStr} ${timeEtd} ETD (Subject to Port Security Inspection / Weather Conditions)`;
 
@@ -154,11 +157,15 @@ export function CargoUpdateModal({
     <Modal
       opened={opened}
       onClose={onClose}
-      title="Cargo Update"
-      size="90%"
-      styles={{ header: { background: '#4a90d9', color: 'white' }, title: { fontWeight: 700 } }}
+      title={
+        <Text fw={600} size="sm">
+          Cargo Update
+        </Text>
+      }
+      size="xl"
+      padding="lg"
     >
-      <Stack gap="md">
+      <Stack gap="sm">
         {/* Parcel table */}
         <Table withTableBorder withColumnBorders fz="xs">
           <Table.Thead>
@@ -173,7 +180,7 @@ export function CargoUpdateModal({
               <Table.Th w={70}>Unit</Table.Th>
               <Table.Th>Loading Rate</Table.Th>
               <Table.Th w={70}>Unit</Table.Th>
-              <Table.Th w={40} />
+              <Table.Th w={36} />
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
@@ -181,7 +188,7 @@ export function CargoUpdateModal({
               <Table.Tr>
                 <Table.Td colSpan={11}>
                   <Text size="xs" c="dimmed" ta="center">
-                    No parcels
+                    No parcels — add a row below.
                   </Text>
                 </Table.Td>
               </Table.Tr>
@@ -260,7 +267,7 @@ export function CargoUpdateModal({
                 </Table.Td>
                 <Table.Td>
                   <ActionIcon
-                    size="xs"
+                    size="sm"
                     color="red"
                     variant="subtle"
                     onClick={() => removeRow(row._key)}
@@ -274,23 +281,25 @@ export function CargoUpdateModal({
           </Table.Tbody>
         </Table>
 
-        <Button size="xs" variant="outline" onClick={addRow} style={{ alignSelf: 'flex-start' }}>
+        <Button size="xs" variant="subtle" onClick={addRow} style={{ alignSelf: 'flex-start' }}>
           + Add row
         </Button>
 
-        {/* Date/ETD fields */}
+        <Divider />
+
+        {/* Date / ETD */}
         <Group gap="xl">
           <Group gap="xs" align="flex-end">
             <DateInput
               label="Date Update"
-              size="xs"
+              size="sm"
               value={dateUpdate}
               onChange={setDateUpdate}
               style={{ width: 150 }}
             />
             <TextInput
               label="Time"
-              size="xs"
+              size="sm"
               placeholder="HH:MM"
               value={timeUpdate}
               onChange={(e) => setTimeUpdate(e.currentTarget.value)}
@@ -300,14 +309,14 @@ export function CargoUpdateModal({
           <Group gap="xs" align="flex-end">
             <DateInput
               label="Date ETD"
-              size="xs"
+              size="sm"
               value={dateEtd}
               onChange={setDateEtd}
               style={{ width: 150 }}
             />
             <TextInput
               label="Time"
-              size="xs"
+              size="sm"
               placeholder="HH:MM"
               value={timeEtd}
               onChange={(e) => setTimeEtd(e.currentTarget.value)}
@@ -316,30 +325,31 @@ export function CargoUpdateModal({
           </Group>
         </Group>
 
+        <Divider />
+
         {/* Actions */}
-        <Group justify="flex-end" gap="xs">
+        <Group justify="space-between">
           <Button
-            size="xs"
-            variant="default"
-            leftSection={<span>💾</span>}
-            loading={saveMutation.isPending}
-            onClick={() => saveMutation.mutate()}
-          >
-            Save
-          </Button>
-          <Button
-            size="xs"
-            variant="filled"
-            color="blue"
-            leftSection={<span>✉</span>}
+            variant="light"
+            size="sm"
             loading={sendEmail.isPending}
             onClick={() => void handleSend()}
           >
             Send Message
           </Button>
-          <Button size="xs" variant="subtle" onClick={onClose}>
-            Close
-          </Button>
+          <Group gap="xs">
+            <Button variant="default" size="sm" onClick={onClose}>
+              Close
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              loading={saveMutation.isPending}
+              onClick={() => saveMutation.mutate()}
+            >
+              Save
+            </Button>
+          </Group>
         </Group>
       </Stack>
     </Modal>
