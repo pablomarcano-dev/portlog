@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Stack, Text, Button, Divider, Loader, Box, Badge, Group } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 import type { SubDocType } from '@portlog/schemas';
 import { EmailComposeDrawer } from './EmailComposeDrawer';
+import { SofTimesheetModal } from './SofTimesheetModal';
 import { useDispatchLog } from '../api/useDispatchLog';
 
 // ---------------------------------------------------------------------------
@@ -9,6 +11,8 @@ import { useDispatchLog } from '../api/useDispatchLog';
 // ---------------------------------------------------------------------------
 
 interface EmailActionsPanelProps {
+  nominationId: string;
+  opPortId?: string | null;
   pedrId: string;
   vesselName?: string;
   /** When set, immediately opens the drawer for this sub-doc type */
@@ -67,23 +71,34 @@ const ACTIONS: SubDocAction[] = [
 // ---------------------------------------------------------------------------
 
 export function EmailActionsPanel({
+  nominationId,
+  opPortId,
   pedrId,
   vesselName = '',
   externalOpen,
   onExternalOpenHandled,
 }: EmailActionsPanelProps) {
   const [activeDrawer, setActiveDrawer] = useState<SubDocType | null>(null);
+  const [sofOpened, { open: openSof, close: closeSof }] = useDisclosure(false);
 
   useEffect(() => {
     if (externalOpen) {
-      setActiveDrawer(externalOpen);
+      if (externalOpen === 'SOF') {
+        openSof();
+      } else {
+        setActiveDrawer(externalOpen);
+      }
       onExternalOpenHandled?.();
     }
-  }, [externalOpen, onExternalOpenHandled]);
+  }, [externalOpen, onExternalOpenHandled, openSof]);
   const dispatchLog = useDispatchLog(pedrId);
 
   function openDrawer(type: SubDocType) {
-    setActiveDrawer(type);
+    if (type === 'SOF') {
+      openSof();
+    } else {
+      setActiveDrawer(type);
+    }
   }
 
   function closeDrawer() {
@@ -174,6 +189,13 @@ export function EmailActionsPanel({
           defaultSubject={activeAction.subjectTemplate(vesselName)}
         />
       )}
+
+      <SofTimesheetModal
+        nominationId={nominationId}
+        opPortId={opPortId}
+        opened={sofOpened}
+        onClose={closeSof}
+      />
     </>
   );
 }

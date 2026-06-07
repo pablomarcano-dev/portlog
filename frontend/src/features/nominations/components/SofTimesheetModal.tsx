@@ -105,6 +105,7 @@ function buildDefaultValues(data: SofTimesheetResponse | undefined): SofFormValu
 
 interface SofTimesheetModalProps {
   nominationId: string;
+  opPortId?: string | null;
   opened: boolean;
   onClose: () => void;
 }
@@ -113,7 +114,12 @@ interface SofTimesheetModalProps {
 // Component
 // ---------------------------------------------------------------------------
 
-export function SofTimesheetModal({ nominationId, opened, onClose }: SofTimesheetModalProps) {
+export function SofTimesheetModal({
+  nominationId,
+  opPortId,
+  opened,
+  onClose,
+}: SofTimesheetModalProps) {
   const { data: sofData, isLoading } = useNominationSof(nominationId);
   const saveMutation = useNominationSofSave(nominationId);
 
@@ -256,13 +262,16 @@ export function SofTimesheetModal({ nominationId, opened, onClose }: SofTimeshee
                     control={control}
                     render={({ field }) => (
                       <EntityPicker
-                        endpoint="/master-data/ports"
+                        endpoint={
+                          opPortId ? `/master-data/ports/${opPortId}/piers` : '/master-data/ports'
+                        }
                         label="Berth"
                         value={field.value}
                         onChange={field.onChange}
                         searchValue={pierSearch}
                         onSearchChange={setPierSearch}
-                        placeholder="Search piers..."
+                        placeholder={opPortId ? 'Search piers...' : 'No op. port set'}
+                        disabled={!opPortId}
                       />
                     )}
                   />

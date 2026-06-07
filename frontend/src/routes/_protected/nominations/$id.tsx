@@ -447,6 +447,8 @@ function NominationDetailPage() {
                   <Collapse in={emailOpen}>
                     <Box pt="xs">
                       <EmailActionsPanel
+                        nominationId={nomination.id}
+                        opPortId={nomination.opPortId}
                         pedrId={pedr.id}
                         vesselName={nomination.shipParticular.name}
                         externalOpen={pendingDrawer}
