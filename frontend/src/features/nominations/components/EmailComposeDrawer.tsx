@@ -46,6 +46,9 @@ const SUB_DOC_LABELS: Record<SubDocType, string> = {
   ACKNOWLEDGEMENT: 'Acknowledgement of Nomination',
   PREARRIVAL: 'Pre-Arrival Notification',
   ETA_ETB: 'ETA / ETB Notice',
+  ETA_REQUEST: 'ETA Request to Master',
+  ETA_TERMINAL: 'ETA — Send to Terminal',
+  ETA_REPLY: 'Reply to Master (ETB/ETPOB)',
   NOR: 'Notice of Readiness',
   SOF: 'Statement of Facts',
   CARGO_UPDATE: 'Cargo Update',
@@ -94,7 +97,12 @@ export function EmailComposeDrawer({
   const composeQuery = useNominationCompose(nominationId, subDocType, opened);
   const dispatch = useEmailDispatch(pedrId, nominationId);
   const nominationSend = useNominationSendEmail(nominationId);
-  const isNominationLevel = subDocType === 'ACKNOWLEDGEMENT' || subDocType === 'PREARRIVAL';
+  const isNominationLevel =
+    subDocType === 'ACKNOWLEDGEMENT' ||
+    subDocType === 'PREARRIVAL' ||
+    subDocType === 'ETA_REQUEST' ||
+    subDocType === 'ETA_TERMINAL' ||
+    subDocType === 'ETA_REPLY';
   const pedrEventsQuery = usePedrEvents(subDocType === 'SOF' ? pedrId : '');
   const emailGroupsQuery = useEmailGroups({ pageSize: 100 });
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);

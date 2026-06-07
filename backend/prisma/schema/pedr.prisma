@@ -84,6 +84,7 @@ model Pedr {
   events          PedrEvent[]
   documents       Document[]
   emailDispatches EmailDispatch[]    @relation("PedrEmailDispatches")
+  etaRecord       PedrEtaRecord?
 
   @@index([nominationId])
   @@index([currentStage])
@@ -182,6 +183,29 @@ model PedrEvent {
 
   @@index([pedrId, occurredAt])
   @@map("pedr_events")
+}
+
+// ---------------------------------------------------------------------------
+// PedrEtaRecord — persisted ETA data for the "Answer ETA" modal (one per PEDR)
+// ---------------------------------------------------------------------------
+// Upserted whenever the user saves the Answer ETA form. The three checkbox
+// fields (etaNotifyOn, etpobOn, etbOn) control which datetimes appear in
+// outgoing ETA emails (ETA_REQUEST, ETA_TERMINAL, ETA_REPLY).
+model PedrEtaRecord {
+  id          String    @id @default(cuid())
+  pedrId      String    @unique @db.Uuid
+  pedr        Pedr      @relation(fields: [pedrId], references: [id], onDelete: Cascade)
+  msgEta      DateTime? @db.Timestamptz(6)
+  etaNotify   DateTime? @db.Timestamptz(6)
+  etaNotifyOn Boolean   @default(false)
+  etpob       DateTime? @db.Timestamptz(6)
+  etpobOn     Boolean   @default(false)
+  etb         DateTime? @db.Timestamptz(6)
+  etbOn       Boolean   @default(false)
+  refMessage  String?   @db.Text
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@map("pedr_eta_records")
 }
 
 // ---------------------------------------------------------------------------

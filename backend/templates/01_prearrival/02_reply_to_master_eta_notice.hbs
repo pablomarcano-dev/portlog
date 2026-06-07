@@ -11,7 +11,12 @@ Good day, dear Master {{master_name}},
 
 Thank you very much for your message dated {{master_msg_date}} regarding ETA {{oper_port}} on {{eta_date}} at {{eta_time}} hrs LT. The same has been well received, duly noted, and passed to all concerned parties.
 
-We have been advised by the terminal operators that your vessel is still some days ahead of arrival. Consequently, your vessel has not yet been included in the terminal's berthing line-up.
+{{#if etpobOn}}
+ET Pilot On Board: {{etpob_date}} {{etpob_time}} Hrs LT
+{{/if}}
+{{#if etbOn}}
+ETB: {{etb_date}} {{etb_time}} Hrs LT
+{{/if}}
 
 We will keep you duly updated.
 

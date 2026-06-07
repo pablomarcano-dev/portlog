@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Stack, Text, Button, Divider } from '@mantine/core';
 import type { SubDocType } from '@portlog/schemas';
 import { EmailComposeDrawer } from './EmailComposeDrawer';
+import { EtaAnswerModal } from './EtaAnswerModal';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -22,7 +23,7 @@ interface EmailActionsPanelProps {
 // ---------------------------------------------------------------------------
 
 interface SubDocAction {
-  type: SubDocType;
+  type: SubDocType | 'ETA';
   label: string;
   subjectTemplate: (vesselName: string) => string;
   /** Stories beyond M4-S6 that have not been wired yet */
@@ -41,9 +42,10 @@ const ACTIONS: SubDocAction[] = [
     subjectTemplate: (v) => `Pre-Arrival Notification — ${v}`,
   },
   {
-    type: 'ETA_ETB',
+    // ETA opens the two-step EtaAnswerModal, not a direct compose drawer
+    type: 'ETA',
     label: 'E.T.A.',
-    subjectTemplate: (v) => `ETA/ETB Notice — ${v}`,
+    subjectTemplate: () => '',
   },
   {
     type: 'CARGO_UPDATE',
@@ -74,6 +76,7 @@ export function EmailActionsPanel({
   onExternalOpenHandled,
 }: EmailActionsPanelProps) {
   const [activeDrawer, setActiveDrawer] = useState<SubDocType | null>(null);
+  const [etaOpen, setEtaOpen] = useState(false);
 
   useEffect(() => {
     if (externalOpen) {
@@ -82,8 +85,12 @@ export function EmailActionsPanel({
     }
   }, [externalOpen, onExternalOpenHandled]);
 
-  function openDrawer(type: SubDocType) {
-    setActiveDrawer(type);
+  function handleActionClick(type: SubDocAction['type']) {
+    if (type === 'ETA') {
+      setEtaOpen(true);
+    } else {
+      setActiveDrawer(type as SubDocType);
+    }
   }
 
   function closeDrawer() {
@@ -107,7 +114,7 @@ export function EmailActionsPanel({
             size="xs"
             fullWidth
             disabled={action.future}
-            onClick={() => !action.future && openDrawer(action.type)}
+            onClick={() => !action.future && handleActionClick(action.type)}
             styles={{ root: { justifyContent: 'flex-start' } }}
           >
             {action.label}
@@ -120,14 +127,23 @@ export function EmailActionsPanel({
         ))}
       </Stack>
 
-      {/* Compose drawer — rendered once, parameterized by activeAction */}
-      {activeAction && (
+      {/* ETA — two-step Answer ETA modal */}
+      <EtaAnswerModal
+        opened={etaOpen}
+        onClose={() => setEtaOpen(false)}
+        nominationId={nominationId}
+        pedrId={pedrId}
+        vesselName={vesselName}
+      />
+
+      {/* Compose drawer — for all non-ETA actions */}
+      {activeAction && activeAction.type !== 'ETA' && (
         <EmailComposeDrawer
           opened={activeDrawer !== null}
           onClose={closeDrawer}
           pedrId={pedrId}
           nominationId={nominationId}
-          subDocType={activeAction.type}
+          subDocType={activeAction.type as SubDocType}
           defaultSubject={activeAction.subjectTemplate(vesselName)}
         />
       )}
