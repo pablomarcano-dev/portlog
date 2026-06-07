@@ -44,7 +44,7 @@ export class SHDocumentsService {
         nominationId,
         type: dto.type,
         title: dto.title ?? null,
-        data: (dto.data ?? {}) as object,
+        data: dto.data ?? {},
         createdById: userId,
       },
       include: { createdBy: { select: { id: true, email: true } } },
@@ -84,7 +84,7 @@ export class SHDocumentsService {
       where: { id: shId },
       data: {
         title: dto.title !== undefined ? dto.title : doc.title,
-        data: dto.data as object,
+        data: dto.data,
       },
       include: { createdBy: { select: { id: true, email: true } } },
     });
