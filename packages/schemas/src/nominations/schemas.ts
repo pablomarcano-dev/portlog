@@ -92,6 +92,7 @@ export const NominationCreateSchema = z
 // Partial of create, excluding status (status transitions via separate endpoint)
 // ---------------------------------------------------------------------------
 export const NominationUpdateSchema = NominationCreateSchema.innerType()
+  .omit({ nominationClients: true })
   .partial()
   .superRefine((data, ctx) => {
     if (
