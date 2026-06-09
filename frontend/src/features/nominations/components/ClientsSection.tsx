@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { Box, Button, Group, Loader, Table, Text, TextInput, Title } from '@mantine/core';
 import type { NominationClient } from '@portlog/schemas';
+import { useColumnResize } from '../../../components/table/useColumnResize';
+import { ResizableTh } from '../../../components/table/ResizableTh';
 import {
   useNominationClients,
   useAddClient,
@@ -8,11 +10,14 @@ import {
   useRemoveClient,
 } from '../hooks/useNominationClients';
 
+type ClientColKey = 'type' | 'name' | 'voyageRef' | 'refNo' | 'proforma' | 'broker' | 'actions';
+
 interface ClientRowProps {
   client: NominationClient;
   nominationId: string;
   isUpdating: boolean;
   isRemoving: boolean;
+  colWidths: Record<ClientColKey, number>;
   onUpdate: (
     clientId: string,
     field: keyof Omit<NominationClient, 'id' | 'sortOrder'>,
@@ -21,13 +26,20 @@ interface ClientRowProps {
   onRemove: (clientId: string) => void;
 }
 
-function ClientRow({ client, isUpdating, isRemoving, onUpdate, onRemove }: ClientRowProps) {
+function ClientRow({
+  client,
+  isUpdating,
+  isRemoving,
+  colWidths,
+  onUpdate,
+  onRemove,
+}: ClientRowProps) {
   const clientId = client.id ?? '';
   const isBusy = isUpdating || isRemoving;
 
   return (
     <Table.Tr>
-      <Table.Td>
+      <Table.Td style={{ width: colWidths.type }}>
         <TextInput
           size="xs"
           defaultValue={client.type}
@@ -40,7 +52,7 @@ function ClientRow({ client, isUpdating, isRemoving, onUpdate, onRemove }: Clien
           }}
         />
       </Table.Td>
-      <Table.Td>
+      <Table.Td style={{ width: colWidths.name }}>
         <TextInput
           size="xs"
           defaultValue={client.name}
@@ -53,7 +65,7 @@ function ClientRow({ client, isUpdating, isRemoving, onUpdate, onRemove }: Clien
           }}
         />
       </Table.Td>
-      <Table.Td>
+      <Table.Td style={{ width: colWidths.voyageRef }}>
         <TextInput
           size="xs"
           defaultValue={client.voyageRef ?? ''}
@@ -66,7 +78,7 @@ function ClientRow({ client, isUpdating, isRemoving, onUpdate, onRemove }: Clien
           }}
         />
       </Table.Td>
-      <Table.Td>
+      <Table.Td style={{ width: colWidths.refNo }}>
         <TextInput
           size="xs"
           defaultValue={client.referenceNo ?? ''}
@@ -79,7 +91,7 @@ function ClientRow({ client, isUpdating, isRemoving, onUpdate, onRemove }: Clien
           }}
         />
       </Table.Td>
-      <Table.Td>
+      <Table.Td style={{ width: colWidths.proforma }}>
         <TextInput
           size="xs"
           defaultValue={client.proforma ?? ''}
@@ -92,7 +104,7 @@ function ClientRow({ client, isUpdating, isRemoving, onUpdate, onRemove }: Clien
           }}
         />
       </Table.Td>
-      <Table.Td>
+      <Table.Td style={{ width: colWidths.broker }}>
         <TextInput
           size="xs"
           defaultValue={client.broker ?? ''}
@@ -105,7 +117,7 @@ function ClientRow({ client, isUpdating, isRemoving, onUpdate, onRemove }: Clien
           }}
         />
       </Table.Td>
-      <Table.Td>
+      <Table.Td style={{ width: colWidths.actions }}>
         <Button
           size="compact-xs"
           color="red"
@@ -135,6 +147,17 @@ export function ClientsSection({ nominationId }: ClientsSectionProps) {
   const removingId = useRef<string | null>(null);
   const updatingId = useRef<string | null>(null);
   const [, setTick] = useState(0);
+
+  const INITIAL_WIDTHS: Record<ClientColKey, number> = {
+    type: 100,
+    name: 180,
+    voyageRef: 130,
+    refNo: 120,
+    proforma: 120,
+    broker: 120,
+    actions: 60,
+  };
+  const { colWidths, startResize } = useColumnResize<ClientColKey>(INITIAL_WIDTHS);
 
   function handleUpdate(
     clientId: string,
@@ -183,16 +206,31 @@ export function ClientsSection({ nominationId }: ClientsSectionProps) {
       )}
 
       {clients != null && clients.length > 0 && (
-        <Table striped withTableBorder withColumnBorders mb="xs">
+        <Table striped withTableBorder withColumnBorders mb="xs" style={{ tableLayout: 'fixed' }}>
           <Table.Thead>
             <Table.Tr>
-              <Table.Th>Type</Table.Th>
-              <Table.Th>Name</Table.Th>
-              <Table.Th>Voy.</Table.Th>
-              <Table.Th>Ref. No.</Table.Th>
-              <Table.Th>Proforma</Table.Th>
-              <Table.Th>Broker</Table.Th>
-              <Table.Th style={{ width: 40 }} />
+              <ResizableTh width={colWidths.type} onResize={(e) => startResize('type', e)}>
+                Type
+              </ResizableTh>
+              <ResizableTh width={colWidths.name} onResize={(e) => startResize('name', e)}>
+                Name
+              </ResizableTh>
+              <ResizableTh
+                width={colWidths.voyageRef}
+                onResize={(e) => startResize('voyageRef', e)}
+              >
+                Voy.
+              </ResizableTh>
+              <ResizableTh width={colWidths.refNo} onResize={(e) => startResize('refNo', e)}>
+                Ref. No.
+              </ResizableTh>
+              <ResizableTh width={colWidths.proforma} onResize={(e) => startResize('proforma', e)}>
+                Proforma
+              </ResizableTh>
+              <ResizableTh width={colWidths.broker} onResize={(e) => startResize('broker', e)}>
+                Broker
+              </ResizableTh>
+              <ResizableTh width={colWidths.actions} onResize={(e) => startResize('actions', e)} />
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
@@ -205,6 +243,7 @@ export function ClientsSection({ nominationId }: ClientsSectionProps) {
                   nominationId={nominationId}
                   isUpdating={updatingId.current === clientId}
                   isRemoving={removingId.current === clientId}
+                  colWidths={colWidths}
                   onUpdate={handleUpdate}
                   onRemove={handleRemove}
                 />

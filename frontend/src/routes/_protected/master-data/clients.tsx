@@ -1,6 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useState, useCallback } from 'react';
 import { Stack, TextInput, Textarea, Group, Button, Table, Text, Box } from '@mantine/core';
+import { useColumnResize } from '../../../components/table/useColumnResize';
+import { ResizableTh } from '../../../components/table/ResizableTh';
 import { ClientCreateSchema } from '@portlog/schemas';
 import type { ClientCreateInput } from '@portlog/schemas';
 import { MasterDetailShell } from '../../../components/master-data/MasterDetailShell';
@@ -115,6 +117,17 @@ function ClientFields({
   const copyPhysical = (field: keyof ClientCreateInput) => {
     form.setValue(field, physicalAddress ?? '');
   };
+
+  type TariffColKey = 'num' | 'item' | 'amount' | 'information' | 'actions';
+  const TARIFF_WIDTHS: Record<TariffColKey, number> = {
+    num: 40,
+    item: 200,
+    amount: 120,
+    information: 240,
+    actions: 40,
+  };
+  const { colWidths: tariffColWidths, startResize: startTariffResize } =
+    useColumnResize<TariffColKey>(TARIFF_WIDTHS);
 
   const tariffRaw = form.watch('tariff');
   const tariffRows = parseTariff(tariffRaw);
@@ -260,14 +273,34 @@ function ClientFields({
             Insert new row
           </Button>
         </Group>
-        <Table withTableBorder withColumnBorders fz="sm">
+        <Table withTableBorder withColumnBorders fz="sm" style={{ tableLayout: 'fixed' }}>
           <Table.Thead>
             <Table.Tr>
-              <Table.Th w={40}>#</Table.Th>
-              <Table.Th>Item</Table.Th>
-              <Table.Th w={120}>Amount</Table.Th>
-              <Table.Th>Information</Table.Th>
-              <Table.Th w={40} />
+              <ResizableTh
+                width={tariffColWidths.num}
+                onResize={(e) => startTariffResize('num', e)}
+              >
+                #
+              </ResizableTh>
+              <ResizableTh
+                width={tariffColWidths.item}
+                onResize={(e) => startTariffResize('item', e)}
+              >
+                Item
+              </ResizableTh>
+              <ResizableTh
+                width={tariffColWidths.amount}
+                onResize={(e) => startTariffResize('amount', e)}
+              >
+                Amount
+              </ResizableTh>
+              <ResizableTh
+                width={tariffColWidths.information}
+                onResize={(e) => startTariffResize('information', e)}
+              >
+                Information
+              </ResizableTh>
+              <Table.Th style={{ width: tariffColWidths.actions }} />
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
@@ -282,8 +315,8 @@ function ClientFields({
             ) : (
               tariffRows.map((row, idx) => (
                 <Table.Tr key={idx}>
-                  <Table.Td>{idx + 1}</Table.Td>
-                  <Table.Td>
+                  <Table.Td style={{ width: tariffColWidths.num }}>{idx + 1}</Table.Td>
+                  <Table.Td style={{ width: tariffColWidths.item }}>
                     <TextInput
                       size="xs"
                       variant="unstyled"
@@ -291,7 +324,7 @@ function ClientFields({
                       onChange={(e) => updateTariffCell(idx, 'item', e.currentTarget.value)}
                     />
                   </Table.Td>
-                  <Table.Td>
+                  <Table.Td style={{ width: tariffColWidths.amount }}>
                     <TextInput
                       size="xs"
                       variant="unstyled"
@@ -299,7 +332,7 @@ function ClientFields({
                       onChange={(e) => updateTariffCell(idx, 'amount', e.currentTarget.value)}
                     />
                   </Table.Td>
-                  <Table.Td>
+                  <Table.Td style={{ width: tariffColWidths.information }}>
                     <TextInput
                       size="xs"
                       variant="unstyled"
@@ -307,7 +340,7 @@ function ClientFields({
                       onChange={(e) => updateTariffCell(idx, 'information', e.currentTarget.value)}
                     />
                   </Table.Td>
-                  <Table.Td>
+                  <Table.Td style={{ width: tariffColWidths.actions }}>
                     <Button
                       variant="subtle"
                       color="red"

@@ -175,6 +175,7 @@ export function EmailActionsPanel({
 
       <SofTimesheetModal
         nominationId={nominationId}
+        pedrId={pedrId}
         opPortId={opPortId}
         opened={sofOpened}
         onClose={closeSof}

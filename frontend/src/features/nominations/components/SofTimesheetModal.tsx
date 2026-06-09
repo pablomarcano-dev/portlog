@@ -11,6 +11,7 @@ import {
   Select,
   ActionIcon,
   Box,
+  Divider,
 } from '@mantine/core';
 import { DatePickerInput, TimeInput } from '@mantine/dates';
 import { useDisclosure } from '@mantine/hooks';
@@ -18,9 +19,17 @@ import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { EntityPicker } from '../../../components/master-data/EntityPicker';
+import { useColumnResize } from '../../../components/table/useColumnResize';
+import { ResizableTh } from '../../../components/table/ResizableTh';
 import { useNominationSof, useNominationSofSave } from '../hooks/useNominationSof';
 import { useActivities } from '../../../lib/api/master-data/activities';
 import type { SofTimesheetResponse } from '@portlog/schemas';
+import { SofBunkersDraftParcelModal } from './SofBunkersDraftParcelModal';
+import { SofBillShipFiguresModal } from './SofBillShipFiguresModal';
+import { SofLettersRemarksModal } from './SofLettersRemarksModal';
+import { SofSlopBunkersReceivedModal } from './SofSlopBunkersReceivedModal';
+import { EmailComposeDrawer } from './EmailComposeDrawer';
+import { useNominationCompose } from '../api/useNominationCompose';
 
 // ---------------------------------------------------------------------------
 // Form schema — mirrors SofTimesheetInput but uses native Date + string time
@@ -105,6 +114,7 @@ function buildDefaultValues(data: SofTimesheetResponse | undefined): SofFormValu
 
 interface SofTimesheetModalProps {
   nominationId: string;
+  pedrId?: string;
   opPortId?: string | null;
   opened: boolean;
   onClose: () => void;
@@ -116,6 +126,7 @@ interface SofTimesheetModalProps {
 
 export function SofTimesheetModal({
   nominationId,
+  pedrId,
   opPortId,
   opened,
   onClose,
@@ -143,10 +154,80 @@ export function SofTimesheetModal({
 
   const { control, register, handleSubmit, formState } = form;
 
-  const { fields, append, remove } = useFieldArray({ control, name: 'entries' });
+  const { fields, append, remove, replace } = useFieldArray({ control, name: 'entries' });
+
+  type ColKey = 'date' | 'time' | 'activity' | 'comment' | 'actions';
+  const INITIAL_WIDTHS: Record<ColKey, number> = {
+    date: 130,
+    time: 80,
+    activity: 200,
+    comment: 250,
+    actions: 40,
+  };
+  const { colWidths, startResize } = useColumnResize<ColKey>(INITIAL_WIDTHS);
+
+  function sortEntries() {
+    const current = form.getValues('entries');
+    const sorted = [...current].sort((a, b) => {
+      const aIso = combineDateTime(a.date, a.time);
+      const bIso = combineDateTime(b.date, b.time);
+      if (!aIso && !bIso) return 0;
+      if (!aIso) return 1;
+      if (!bIso) return -1;
+      return aIso < bIso ? -1 : aIso > bIso ? 1 : 0;
+    });
+    replace(sorted);
+  }
+
+  // SOF email compose
+  const [sofEmailOpen, { open: openSofEmail, close: closeSofEmail }] = useDisclosure(false);
+  const { data: sofComposeData } = useNominationCompose(pedrId ? nominationId : undefined, 'SOF');
 
   // Dirty check for close confirmation
   const [confirmClose, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
+
+  // Sub-modal open states
+  const [bunkersDraftParcelOpen, { open: openBunkersDraftParcel, close: closeBunkersDraftParcel }] =
+    useDisclosure(false);
+  const [billShipFiguresOpen, { open: openBillShipFigures, close: closeBillShipFigures }] =
+    useDisclosure(false);
+  const [lettersRemarksOpen, { open: openLettersRemarks, close: closeLettersRemarks }] =
+    useDisclosure(false);
+  const [slopBunkersOpen, { open: openSlopBunkers, close: closeSlopBunkers }] =
+    useDisclosure(false);
+
+  function buildBasePayload() {
+    const vals = form.getValues();
+    const entries = vals.entries
+      .map((e, i) => {
+        const iso = combineDateTime(e.date, e.time);
+        if (!iso) return null;
+        return {
+          occurredAt: iso,
+          activityId: e.activityId ?? null,
+          comment: e.comment || null,
+          order: i,
+        };
+      })
+      .filter((e): e is NonNullable<typeof e> => e !== null);
+    return {
+      lastPortId: vals.lastPortId ?? null,
+      nextPortId: vals.nextPortId ?? null,
+      pierId: vals.pierId ?? null,
+      captain: vals.captain || null,
+      mobileOnBoard: vals.mobileOnBoard || null,
+      entries,
+      bunkersData: sofData?.bunkersData ?? undefined,
+      draftData: sofData?.draftData ?? undefined,
+      sofParcelsData: sofData?.sofParcelsData ?? undefined,
+      blFiguresData: sofData?.blFiguresData ?? undefined,
+      shipFiguresData: sofData?.shipFiguresData ?? undefined,
+      lettersData: sofData?.lettersData ?? undefined,
+      remarksData: sofData?.remarksData ?? undefined,
+      slopDischargedData: sofData?.slopDischargedData ?? undefined,
+      bunkersReceivedData: sofData?.bunkersReceivedData ?? undefined,
+    };
+  }
 
   function handleClose() {
     if (formState.isDirty) {
@@ -208,8 +289,16 @@ export function SofTimesheetModal({
         opened={opened}
         onClose={handleClose}
         title="Statement of Facts"
-        size="xl"
         closeOnClickOutside={false}
+        size="70vw"
+        styles={{
+          content: {
+            resize: 'both',
+            overflow: 'auto',
+            width: '100%',
+            minWidth: 400,
+          },
+        }}
       >
         {isLoading ? (
           <Text c="dimmed" size="sm">
@@ -286,34 +375,53 @@ export function SofTimesheetModal({
 
               {/* Times Sheet section */}
               <Box>
-                <Group justify="space-between" mb="xs">
-                  <Text fw={600} size="sm">
-                    Times Sheet
-                  </Text>
-                  <Group gap="xs">
-                    <Button size="xs" variant="light" onClick={handleInsert}>
-                      Insert
-                    </Button>
-                    <Button
-                      size="xs"
-                      variant="light"
-                      color="red"
-                      onClick={handleDelete}
-                      disabled={fields.length === 0}
-                    >
-                      Delete
-                    </Button>
+                <Box bg="blue.6" px="sm" py="xs" mb={0}>
+                  <Group justify="space-between">
+                    <Text fw={600} size="sm" c="white">
+                      Times Sheet
+                    </Text>
+                    <Group gap="xs">
+                      <Button size="xs" variant="white" onClick={handleInsert}>
+                        Insert
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="white"
+                        color="red"
+                        onClick={handleDelete}
+                        disabled={fields.length === 0}
+                      >
+                        Delete
+                      </Button>
+                    </Group>
                   </Group>
-                </Group>
+                </Box>
 
-                <Table withTableBorder withColumnBorders>
+                <Table withTableBorder withColumnBorders style={{ tableLayout: 'fixed' }}>
                   <Table.Thead>
                     <Table.Tr>
-                      <Table.Th style={{ width: 130 }}>Date</Table.Th>
-                      <Table.Th style={{ width: 90 }}>Time</Table.Th>
-                      <Table.Th style={{ minWidth: 160 }}>Activity</Table.Th>
-                      <Table.Th>Comment</Table.Th>
-                      <Table.Th style={{ width: 40 }}></Table.Th>
+                      <ResizableTh width={colWidths.date} onResize={(e) => startResize('date', e)}>
+                        Date
+                      </ResizableTh>
+                      <ResizableTh width={colWidths.time} onResize={(e) => startResize('time', e)}>
+                        Time
+                      </ResizableTh>
+                      <ResizableTh
+                        width={colWidths.activity}
+                        onResize={(e) => startResize('activity', e)}
+                      >
+                        Activity
+                      </ResizableTh>
+                      <ResizableTh
+                        width={colWidths.comment}
+                        onResize={(e) => startResize('comment', e)}
+                      >
+                        Comment
+                      </ResizableTh>
+                      <ResizableTh
+                        width={colWidths.actions}
+                        onResize={(e) => startResize('actions', e)}
+                      />
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
@@ -328,14 +436,17 @@ export function SofTimesheetModal({
                     )}
                     {fields.map((field, index) => (
                       <Table.Tr key={field.id}>
-                        <Table.Td>
+                        <Table.Td style={{ width: colWidths.date }}>
                           <Controller
                             name={`entries.${index}.date`}
                             control={control}
                             render={({ field: f }) => (
                               <DatePickerInput
                                 value={f.value}
-                                onChange={f.onChange}
+                                onChange={(val) => {
+                                  f.onChange(val);
+                                  sortEntries();
+                                }}
                                 placeholder="Date"
                                 size="xs"
                                 clearable
@@ -345,14 +456,15 @@ export function SofTimesheetModal({
                             )}
                           />
                         </Table.Td>
-                        <Table.Td>
+                        <Table.Td style={{ width: colWidths.time }}>
                           <TimeInput
                             {...register(`entries.${index}.time`)}
+                            onBlur={sortEntries}
                             size="xs"
                             styles={{ input: { fontSize: 12 } }}
                           />
                         </Table.Td>
-                        <Table.Td>
+                        <Table.Td style={{ width: colWidths.activity }}>
                           <Controller
                             name={`entries.${index}.activityId`}
                             control={control}
@@ -370,7 +482,7 @@ export function SofTimesheetModal({
                             )}
                           />
                         </Table.Td>
-                        <Table.Td>
+                        <Table.Td style={{ width: colWidths.comment }}>
                           <TextInput
                             {...register(`entries.${index}.comment`)}
                             size="xs"
@@ -378,7 +490,7 @@ export function SofTimesheetModal({
                             styles={{ input: { fontSize: 12 } }}
                           />
                         </Table.Td>
-                        <Table.Td>
+                        <Table.Td style={{ width: colWidths.actions }}>
                           <ActionIcon
                             size="xs"
                             color="red"
@@ -396,13 +508,61 @@ export function SofTimesheetModal({
               </Box>
 
               {/* Footer actions */}
-              <Group justify="flex-end" mt="sm">
-                <Button variant="default" onClick={handleClose} disabled={saveMutation.isPending}>
-                  Close
-                </Button>
-                <Button variant="default" type="submit" loading={saveMutation.isPending}>
-                  Save
-                </Button>
+              <Divider />
+              <Group justify="space-between" mt="xs">
+                <Group gap="xs">
+                  {pedrId && (
+                    <Button
+                      size="xs"
+                      variant="light"
+                      color="blue"
+                      onClick={openSofEmail}
+                      disabled={saveMutation.isPending}
+                    >
+                      Send SOF Email
+                    </Button>
+                  )}
+                  <Button
+                    size="xs"
+                    variant="default"
+                    onClick={openBunkersDraftParcel}
+                    disabled={saveMutation.isPending}
+                  >
+                    Bunkers/Draft/Parcel
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="default"
+                    onClick={openBillShipFigures}
+                    disabled={saveMutation.isPending}
+                  >
+                    Bill Fig./Ship Fig.
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="default"
+                    onClick={openLettersRemarks}
+                    disabled={saveMutation.isPending}
+                  >
+                    Letters/Remarks
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="default"
+                    onClick={openSlopBunkers}
+                    disabled={saveMutation.isPending}
+                  >
+                    Slop/B. Received
+                  </Button>
+                </Group>
+                <Group gap="xs">
+                  <Button variant="default" onClick={handleClose} disabled={saveMutation.isPending}>
+                    Close
+                  </Button>
+                  <Button variant="default" type="submit" loading={saveMutation.isPending}>
+                    Save
+                  </Button>
+                </Group>
               </Group>
             </Stack>
           </form>
@@ -429,6 +589,62 @@ export function SofTimesheetModal({
           </Group>
         </Stack>
       </Modal>
+
+      <SofBunkersDraftParcelModal
+        nominationId={nominationId}
+        opened={bunkersDraftParcelOpen}
+        onClose={closeBunkersDraftParcel}
+        sofData={sofData}
+        isSaving={saveMutation.isPending}
+        onSave={(data) => {
+          saveMutation.mutate({ ...buildBasePayload(), ...data });
+        }}
+      />
+
+      <SofBillShipFiguresModal
+        nominationId={nominationId}
+        opened={billShipFiguresOpen}
+        onClose={closeBillShipFigures}
+        sofData={sofData}
+        isSaving={saveMutation.isPending}
+        onSave={(data) => {
+          saveMutation.mutate({ ...buildBasePayload(), ...data });
+        }}
+      />
+
+      <SofLettersRemarksModal
+        nominationId={nominationId}
+        opened={lettersRemarksOpen}
+        onClose={closeLettersRemarks}
+        sofData={sofData}
+        isSaving={saveMutation.isPending}
+        onSave={(data) => {
+          saveMutation.mutate({ ...buildBasePayload(), ...data });
+        }}
+      />
+
+      <SofSlopBunkersReceivedModal
+        nominationId={nominationId}
+        opened={slopBunkersOpen}
+        onClose={closeSlopBunkers}
+        sofData={sofData}
+        isSaving={saveMutation.isPending}
+        onSave={(data) => {
+          saveMutation.mutate({ ...buildBasePayload(), ...data });
+        }}
+      />
+
+      {pedrId && (
+        <EmailComposeDrawer
+          opened={sofEmailOpen}
+          onClose={closeSofEmail}
+          pedrId={pedrId}
+          nominationId={nominationId}
+          subDocType="SOF"
+          defaultSubject={sofComposeData?.subject ?? ''}
+          defaultBody={sofComposeData?.bodyHtml}
+        />
+      )}
     </>
   );
 }

@@ -176,6 +176,16 @@ model SofTimesheet {
   pier          Pier?      @relation("SofTimesheetPier", fields: [pierId], references: [id], onDelete: Restrict)
   captain       String?
   mobileOnBoard String?
+  // Sub-modal JSON blobs — one per support dialog
+  bunkersData         Json?
+  draftData           Json?
+  sofParcelsData      Json?
+  blFiguresData       Json?
+  shipFiguresData     Json?
+  lettersData         Json?
+  remarksData         Json?
+  slopDischargedData  Json?
+  bunkersReceivedData Json?
   createdAt     DateTime   @default(now()) @db.Timestamptz(6)
   updatedAt     DateTime   @updatedAt @db.Timestamptz(6)
 

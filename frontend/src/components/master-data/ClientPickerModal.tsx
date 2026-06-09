@@ -2,6 +2,17 @@ import { useState } from 'react';
 import { Button, Group, Loader, Modal, ScrollArea, Table, Text, TextInput } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { clientsApi } from '../../lib/api/master-data/clients';
+import { useColumnResize } from '../table/useColumnResize';
+import { ResizableTh } from '../table/ResizableTh';
+
+type ColKey = 'name' | 'email' | 'phone' | 'action';
+
+const INITIAL_WIDTHS: Record<ColKey, number> = {
+  name: 200,
+  email: 200,
+  phone: 140,
+  action: 80,
+};
 
 interface ClientPickerModalProps {
   opened: boolean;
@@ -11,6 +22,7 @@ interface ClientPickerModalProps {
 
 export function ClientPickerModal({ opened, onClose, onSelect }: ClientPickerModalProps) {
   const [search, setSearch] = useState('');
+  const { colWidths, startResize } = useColumnResize<ColKey>(INITIAL_WIDTHS);
 
   const { data, isLoading } = useQuery({
     queryKey: ['clients', 'list', search],
@@ -35,7 +47,15 @@ export function ClientPickerModal({ opened, onClose, onSelect }: ClientPickerMod
         setSearch('');
       }}
       title="Select client"
-      size="lg"
+      size="70vw"
+      styles={{
+        content: {
+          resize: 'both',
+          overflow: 'auto',
+          width: '100%',
+          minWidth: 400,
+        },
+      }}
     >
       <TextInput
         placeholder="Search by name…"
@@ -59,13 +79,25 @@ export function ClientPickerModal({ opened, onClose, onSelect }: ClientPickerMod
 
       {clients.length > 0 && (
         <ScrollArea h={380}>
-          <Table striped withTableBorder withColumnBorders highlightOnHover>
+          <Table
+            striped
+            withTableBorder
+            withColumnBorders
+            highlightOnHover
+            style={{ tableLayout: 'fixed', width: 'max-content', minWidth: '100%' }}
+          >
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Name</Table.Th>
-                <Table.Th>Email</Table.Th>
-                <Table.Th>Phone</Table.Th>
-                <Table.Th style={{ width: 80 }} />
+                <ResizableTh width={colWidths.name} onResize={(e) => startResize('name', e)}>
+                  Name
+                </ResizableTh>
+                <ResizableTh width={colWidths.email} onResize={(e) => startResize('email', e)}>
+                  Email
+                </ResizableTh>
+                <ResizableTh width={colWidths.phone} onResize={(e) => startResize('phone', e)}>
+                  Phone
+                </ResizableTh>
+                <ResizableTh width={colWidths.action} onResize={(e) => startResize('action', e)} />
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -75,18 +107,18 @@ export function ClientPickerModal({ opened, onClose, onSelect }: ClientPickerMod
                   style={{ cursor: 'pointer' }}
                   onClick={() => handleSelect(c.name)}
                 >
-                  <Table.Td>{c.name}</Table.Td>
-                  <Table.Td>
+                  <Table.Td style={{ width: colWidths.name }}>{c.name}</Table.Td>
+                  <Table.Td style={{ width: colWidths.email }}>
                     <Text size="xs" c="dimmed">
                       {c.email ?? '—'}
                     </Text>
                   </Table.Td>
-                  <Table.Td>
+                  <Table.Td style={{ width: colWidths.phone }}>
                     <Text size="xs" c="dimmed">
                       {c.phone ?? c.mobile ?? '—'}
                     </Text>
                   </Table.Td>
-                  <Table.Td>
+                  <Table.Td style={{ width: colWidths.action }}>
                     <Button
                       size="compact-xs"
                       variant="light"

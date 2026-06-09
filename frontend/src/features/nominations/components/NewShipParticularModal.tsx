@@ -179,7 +179,20 @@ export function NewShipParticularModal({ opened, onClose, onCreated }: Props) {
   }
 
   return (
-    <Modal opened={opened} onClose={handleClose} title="New Ship Particular" size="md">
+    <Modal
+      opened={opened}
+      onClose={handleClose}
+      title="New Ship Particular"
+      size="70vw"
+      styles={{
+        content: {
+          resize: 'both',
+          overflow: 'auto',
+          width: '100%',
+          minWidth: 400,
+        },
+      }}
+    >
       <form onSubmit={handleSubmit((v) => create.mutate(v))} noValidate>
         <Stack gap="sm">
           {/* IMO — with inline lookup */}

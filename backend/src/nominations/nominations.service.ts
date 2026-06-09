@@ -444,6 +444,7 @@ export class NominationsService {
       ETA_TERMINAL: '01_prearrival/03_eta_forwarded_to_terminal.hbs',
       ETA_REPLY: '01_prearrival/02_reply_to_master_eta_notice.hbs',
       CARGO_UPDATE: '02_statement_of_facts/07_cargo_update.hbs',
+      SOF: '02_statement_of_facts/15_final_sof.hbs',
     };
     const relPath = TEMPLATE_PATHS[actionType.toUpperCase()] ?? `${actionType.toLowerCase()}.hbs`;
     const templatePath = resolve(process.cwd(), 'templates', relPath);
@@ -566,7 +567,137 @@ export class NominationsService {
       update_time: fmtTime(new Date()),
       t_etd: '',
       t_etd_berth: '',
+      // SOF-specific — populated below when actionType === 'SOF'
+      statement_of_facts_log: '',
+      bl_figures_section: '',
+      letters_section: '',
+      remarks_section: '',
     };
+
+    // ---------------------------------------------------------------------------
+    // SOF — fetch timesheet and build log / BL-figures / letters / remarks vars
+    // ---------------------------------------------------------------------------
+    if (actionType.toUpperCase() === 'SOF') {
+      const sof = await this.prisma.sofTimesheet.findUnique({
+        where: { nominationId },
+        include: {
+          entries: {
+            orderBy: { order: 'asc' },
+            include: { activity: { select: { id: true, name: true } } },
+          },
+        },
+      });
+
+      const SOF_MONTHS = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      const ordinal = (n: number) => {
+        const v = n % 100;
+        return (
+          n +
+          (['th', 'st', 'nd', 'rd', 'th'][(v - 20) % 10] ??
+            ['th', 'st', 'nd', 'rd', 'th'][v] ??
+            'th')
+        );
+      };
+      const fmtSofDate = (d: Date) =>
+        `${SOF_MONTHS[d.getMonth()]}. ${ordinal(d.getDate())}, ${d.getFullYear()}`;
+
+      // Log entries
+      const logLines = (sof?.entries ?? []).map((e) => {
+        const d = new Date(e.occurredAt);
+        const line = `${fmtSofDate(d)}  ${fmtTime(d)}  ${e.activity?.name ?? ''}`;
+        return e.comment ? `${line}\n     ${e.comment}` : line;
+      });
+      templateVars.statement_of_facts_log = logLines.join('\n');
+
+      // BL Figures section (one block per cargo column)
+      type DynRows = Record<string, string[]>;
+      const blData = sof?.blFiguresData as { columns?: string[]; rows?: DynRows } | null;
+      const blCols = blData?.columns ?? [];
+      const blRows = blData?.rows ?? {};
+      const v = (key: string, col: number) => blRows[key]?.[col] ?? '';
+      const blBlocks = blCols.map((colName, ci) => {
+        const lines: string[] = [
+          ``,
+          `${colName ? colName + ' ' : ''}Bill of Lading Figures :`,
+          `-----------------------------------------------------------`,
+          `                Gross            Net`,
+          `Bbls at 60 grade F.  : ${v('grossBbls', ci).padStart(12)}  ${v('netBbls', ci).padStart(12)}`,
+          `M/Tons at 60 grade F.: ${v('grossMt', ci).padStart(12)}  ${v('netMt', ci).padStart(12)}`,
+          `L/Tons at 60 grade F.: ${v('grossLt', ci).padStart(12)}  ${v('netLt', ci).padStart(12)}`,
+          ``,
+          `Shipper  : ${v('shipper', ci)}`,
+          `Consignee: ${v('consignee', ci)}`,
+          `B/L Date : ${v('date', ci)}`,
+          `Disport  : ${v('destination', ci)}`,
+          `Scaccode : ${v('scacCode', ci)}`,
+          `(${v('originalOnBoard', ci) === 'true' ? 'X' : ' '}) Original Bill on Board`,
+        ];
+        return lines.join('\n');
+      });
+      templateVars.bl_figures_section = blBlocks.join('\n\n');
+
+      // Letters of protest
+      type LetterItem = { from?: string; to?: string; comment?: string };
+      const lettersData = sof?.lettersData as { items?: LetterItem[] } | null;
+      templateVars.letters_section = (lettersData?.items ?? [])
+        .map(
+          (l, i) =>
+            `${i + 1}. From: ${l.from ?? ''} — To: ${l.to ?? ''}${l.comment ? `\n   ${l.comment}` : ''}`,
+        )
+        .join('\n');
+
+      // Remarks
+      type RemarkItem = {
+        remark?: string;
+        beginDate?: string;
+        beginTime?: string;
+        endDate?: string;
+        endTime?: string;
+        comment?: string;
+      };
+      const remarksData = sof?.remarksData as { items?: RemarkItem[] } | null;
+      templateVars.remarks_section = (remarksData?.items ?? [])
+        .map((r) => {
+          const begin = r.beginDate
+            ? ` Begin: ${r.beginDate}${r.beginTime ? ' ' + r.beginTime : ''}`
+            : '';
+          const end = r.endDate ? ` End: ${r.endDate}${r.endTime ? ' ' + r.endTime : ''}` : '';
+          return `${r.remark ?? ''}${begin}${end}${r.comment ? `\n  ${r.comment}` : ''}`;
+        })
+        .join('\n');
+
+      // Operation string
+      const fp = (nomination.parcels as Array<Record<string, unknown>>)[0] ?? {};
+      if (fp['operation'] || fp['product']) {
+        templateVars.operation = [
+          fp['operation'],
+          fp['quantity'] ? `${fp['quantity']} ${fp['unit'] ?? ''}`.trim() : '',
+          fp['product'] ? `of ${fp['product']}` : '',
+        ]
+          .filter(Boolean)
+          .join(' ');
+      }
+
+      // Lay days in SOF format: "28 May, 2026 - 30 May, 2026"
+      const fmtSofLayDay = (d: Date | null) =>
+        d ? `${d.getDate()} ${SOF_MONTHS[d.getMonth()]}, ${d.getFullYear()}` : '';
+      if (nomination.layDaysFirst || nomination.layDaysLast) {
+        templateVars.lay_days = `${fmtSofLayDay(nomination.layDaysFirst)} - ${fmtSofLayDay(nomination.layDaysLast)}`;
+      }
+    }
 
     // ---------------------------------------------------------------------------
     // Render — extract subject from source BEFORE compiling ({{!-- --}} is stripped)
@@ -820,6 +951,19 @@ export class NominationsService {
           pierId: dto.pierId ?? null,
           captain: dto.captain ?? null,
           mobileOnBoard: dto.mobileOnBoard ?? null,
+          ...(dto.bunkersData != null && { bunkersData: dto.bunkersData as object }),
+          ...(dto.draftData != null && { draftData: dto.draftData as object }),
+          ...(dto.sofParcelsData != null && { sofParcelsData: dto.sofParcelsData as object }),
+          ...(dto.blFiguresData != null && { blFiguresData: dto.blFiguresData as object }),
+          ...(dto.shipFiguresData != null && { shipFiguresData: dto.shipFiguresData as object }),
+          ...(dto.lettersData != null && { lettersData: dto.lettersData as object }),
+          ...(dto.remarksData != null && { remarksData: dto.remarksData as object }),
+          ...(dto.slopDischargedData != null && {
+            slopDischargedData: dto.slopDischargedData as object,
+          }),
+          ...(dto.bunkersReceivedData != null && {
+            bunkersReceivedData: dto.bunkersReceivedData as object,
+          }),
         },
         update: {
           lastPortId: dto.lastPortId ?? null,
@@ -827,6 +971,19 @@ export class NominationsService {
           pierId: dto.pierId ?? null,
           captain: dto.captain ?? null,
           mobileOnBoard: dto.mobileOnBoard ?? null,
+          ...(dto.bunkersData != null && { bunkersData: dto.bunkersData as object }),
+          ...(dto.draftData != null && { draftData: dto.draftData as object }),
+          ...(dto.sofParcelsData != null && { sofParcelsData: dto.sofParcelsData as object }),
+          ...(dto.blFiguresData != null && { blFiguresData: dto.blFiguresData as object }),
+          ...(dto.shipFiguresData != null && { shipFiguresData: dto.shipFiguresData as object }),
+          ...(dto.lettersData != null && { lettersData: dto.lettersData as object }),
+          ...(dto.remarksData != null && { remarksData: dto.remarksData as object }),
+          ...(dto.slopDischargedData != null && {
+            slopDischargedData: dto.slopDischargedData as object,
+          }),
+          ...(dto.bunkersReceivedData != null && {
+            bunkersReceivedData: dto.bunkersReceivedData as object,
+          }),
           updatedAt: new Date(),
         },
         select: { id: true },

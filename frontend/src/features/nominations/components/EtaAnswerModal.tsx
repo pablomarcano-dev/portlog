@@ -115,8 +115,16 @@ export function EtaAnswerModal({
             Answer ETA — {vesselName}
           </Text>
         }
-        size="lg"
         padding="lg"
+        size="70vw"
+        styles={{
+          content: {
+            resize: 'both',
+            overflow: 'auto',
+            width: '100%',
+            minWidth: 400,
+          },
+        }}
       >
         {etaQuery.isLoading ? (
           <Box ta="center" py="xl">

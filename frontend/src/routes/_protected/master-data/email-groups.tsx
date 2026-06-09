@@ -11,6 +11,8 @@ import {
   Text,
   Alert,
 } from '@mantine/core';
+import { useColumnResize } from '../../../components/table/useColumnResize';
+import { ResizableTh } from '../../../components/table/ResizableTh';
 import { useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
 import { EmailGroupCreateSchema } from '@portlog/schemas';
@@ -111,6 +113,15 @@ function EmailGroupFields({
     name: 'members',
   });
 
+  type MemberColKey = 'email' | 'displayName' | 'actions';
+  const MEMBER_WIDTHS: Record<MemberColKey, number> = {
+    email: 240,
+    displayName: 200,
+    actions: 48,
+  };
+  const { colWidths: memberColWidths, startResize: startMemberResize } =
+    useColumnResize<MemberColKey>(MEMBER_WIDTHS);
+
   const [pasteWarning, setPasteWarning] = useState<string | null>(null);
   const pasteInputRef = useRef<HTMLInputElement>(null);
 
@@ -188,32 +199,42 @@ function EmailGroupFields({
         )}
 
         {fields.length > 0 && (
-          <Table withTableBorder withColumnBorders>
+          <Table withTableBorder withColumnBorders style={{ tableLayout: 'fixed' }}>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Email</Table.Th>
-                <Table.Th>Display Name</Table.Th>
-                <Table.Th style={{ width: 48 }} />
+                <ResizableTh
+                  width={memberColWidths.email}
+                  onResize={(e) => startMemberResize('email', e)}
+                >
+                  Email
+                </ResizableTh>
+                <ResizableTh
+                  width={memberColWidths.displayName}
+                  onResize={(e) => startMemberResize('displayName', e)}
+                >
+                  Display Name
+                </ResizableTh>
+                <Table.Th style={{ width: memberColWidths.actions }} />
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {fields.map((field, index) => (
                 <Table.Tr key={field.id}>
-                  <Table.Td>
+                  <Table.Td style={{ width: memberColWidths.email }}>
                     <TextInput
                       placeholder="email@example.com"
                       error={form.formState.errors.members?.[index]?.email?.message}
                       {...form.register(`members.${index}.email`)}
                     />
                   </Table.Td>
-                  <Table.Td>
+                  <Table.Td style={{ width: memberColWidths.displayName }}>
                     <TextInput
                       placeholder="Optional display name"
                       error={form.formState.errors.members?.[index]?.displayName?.message}
                       {...form.register(`members.${index}.displayName`)}
                     />
                   </Table.Td>
-                  <Table.Td>
+                  <Table.Td style={{ width: memberColWidths.actions }}>
                     <ActionIcon
                       color="red"
                       variant="subtle"

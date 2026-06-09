@@ -19,8 +19,37 @@ import { useNavigate } from '@tanstack/react-router';
 import type { EnrichedVessel } from '../lib/types';
 import { useOwnershipForImo } from '../api/useVesselOwnership';
 import { contactsApi } from '../../../lib/api/master-data/contacts';
+import { useColumnResize } from '../../../components/table/useColumnResize';
+import { ResizableTh } from '../../../components/table/ResizableTh';
 
 type SectionType = 'arribo' | 'fondeado' | 'zarpe';
+
+type ColKey =
+  | 'vessel'
+  | 'imo'
+  | 'type'
+  | 'flag'
+  | 'dist'
+  | 'speed'
+  | 'destination'
+  | 'eta'
+  | 'status'
+  | 'lastPosition'
+  | 'course';
+
+const INITIAL_WIDTHS: Record<ColKey, number> = {
+  vessel: 160,
+  imo: 90,
+  type: 140,
+  flag: 60,
+  dist: 80,
+  speed: 80,
+  destination: 140,
+  eta: 160,
+  status: 140,
+  lastPosition: 160,
+  course: 70,
+};
 
 interface VesselTableProps {
   title: string;
@@ -105,6 +134,7 @@ export function VesselTable({
 }: VesselTableProps) {
   const navigate = useNavigate();
   const [expandedImos, setExpandedImos] = useState<Set<string>>(new Set());
+  const { colWidths, startResize } = useColumnResize<ColKey>(INITIAL_WIDTHS);
 
   function toggleExpand(imo: string) {
     setExpandedImos((prev) => {
@@ -132,35 +162,74 @@ export function VesselTable({
         )}
       </Text>
 
-      <Table striped withTableBorder withColumnBorders>
+      <Table striped withTableBorder withColumnBorders style={{ tableLayout: 'fixed' }}>
         <Table.Thead>
           <Table.Tr>
             {hasCheckbox && <Table.Th style={{ width: 36 }} />}
-            <Table.Th>Vessel</Table.Th>
-            <Table.Th>IMO</Table.Th>
-            <Table.Th>Type</Table.Th>
-            <Table.Th>Flag</Table.Th>
-            <Table.Th>Dist (NM)</Table.Th>
+            <ResizableTh width={colWidths.vessel} onResize={(e) => startResize('vessel', e)}>
+              Vessel
+            </ResizableTh>
+            <ResizableTh width={colWidths.imo} onResize={(e) => startResize('imo', e)}>
+              IMO
+            </ResizableTh>
+            <ResizableTh width={colWidths.type} onResize={(e) => startResize('type', e)}>
+              Type
+            </ResizableTh>
+            <ResizableTh width={colWidths.flag} onResize={(e) => startResize('flag', e)}>
+              Flag
+            </ResizableTh>
+            <ResizableTh width={colWidths.dist} onResize={(e) => startResize('dist', e)}>
+              Dist (NM)
+            </ResizableTh>
             {section === 'arribo' && (
               <>
-                <Table.Th>Speed (kn)</Table.Th>
-                <Table.Th>Destination</Table.Th>
-                <Table.Th>ETA</Table.Th>
-                <Table.Th>Status</Table.Th>
+                <ResizableTh width={colWidths.speed} onResize={(e) => startResize('speed', e)}>
+                  Speed (kn)
+                </ResizableTh>
+                <ResizableTh
+                  width={colWidths.destination}
+                  onResize={(e) => startResize('destination', e)}
+                >
+                  Destination
+                </ResizableTh>
+                <ResizableTh width={colWidths.eta} onResize={(e) => startResize('eta', e)}>
+                  ETA
+                </ResizableTh>
+                <ResizableTh width={colWidths.status} onResize={(e) => startResize('status', e)}>
+                  Status
+                </ResizableTh>
               </>
             )}
             {section === 'fondeado' && (
               <>
-                <Table.Th>Status</Table.Th>
-                <Table.Th>Last Position</Table.Th>
+                <ResizableTh width={colWidths.status} onResize={(e) => startResize('status', e)}>
+                  Status
+                </ResizableTh>
+                <ResizableTh
+                  width={colWidths.lastPosition}
+                  onResize={(e) => startResize('lastPosition', e)}
+                >
+                  Last Position
+                </ResizableTh>
               </>
             )}
             {section === 'zarpe' && (
               <>
-                <Table.Th>Speed (kn)</Table.Th>
-                <Table.Th>Course</Table.Th>
-                <Table.Th>Destination</Table.Th>
-                <Table.Th>Status</Table.Th>
+                <ResizableTh width={colWidths.speed} onResize={(e) => startResize('speed', e)}>
+                  Speed (kn)
+                </ResizableTh>
+                <ResizableTh width={colWidths.course} onResize={(e) => startResize('course', e)}>
+                  Course
+                </ResizableTh>
+                <ResizableTh
+                  width={colWidths.destination}
+                  onResize={(e) => startResize('destination', e)}
+                >
+                  Destination
+                </ResizableTh>
+                <ResizableTh width={colWidths.status} onResize={(e) => startResize('status', e)}>
+                  Status
+                </ResizableTh>
               </>
             )}
             {hasActions && <Table.Th style={{ width: 44 }} />}
@@ -206,7 +275,7 @@ export function VesselTable({
                         />
                       </Table.Td>
                     )}
-                    <Table.Td>
+                    <Table.Td style={{ width: colWidths.vessel }}>
                       <Anchor
                         size="sm"
                         onClick={() => toggleExpand(v.imo)}
@@ -215,7 +284,7 @@ export function VesselTable({
                         {v.name}
                       </Anchor>
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ width: colWidths.imo }}>
                       <Anchor
                         size="sm"
                         onClick={() =>
@@ -226,28 +295,28 @@ export function VesselTable({
                         {v.imo || '—'}
                       </Anchor>
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ width: colWidths.type }}>
                       <Text size="sm">{v.type_specific || v.type || '—'}</Text>
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ width: colWidths.flag }}>
                       <Text size="sm">{v.country_iso || '—'}</Text>
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ width: colWidths.dist }}>
                       <Text size="sm">{v.distance.toFixed(1)}</Text>
                     </Table.Td>
 
                     {section === 'arribo' && (
                       <>
-                        <Table.Td>
+                        <Table.Td style={{ width: colWidths.speed }}>
                           <Text size="sm">{v.speed.toFixed(1)}</Text>
                         </Table.Td>
-                        <Table.Td>
+                        <Table.Td style={{ width: colWidths.destination }}>
                           <Text size="sm">{v.destination || '—'}</Text>
                         </Table.Td>
-                        <Table.Td>
+                        <Table.Td style={{ width: colWidths.eta }}>
                           <Text size="sm">{formatEpoch(v.eta_epoch)}</Text>
                         </Table.Td>
-                        <Table.Td>
+                        <Table.Td style={{ width: colWidths.status }}>
                           <Text size="sm">{v.navigation_status || '—'}</Text>
                         </Table.Td>
                       </>
@@ -255,10 +324,10 @@ export function VesselTable({
 
                     {section === 'fondeado' && (
                       <>
-                        <Table.Td>
+                        <Table.Td style={{ width: colWidths.status }}>
                           <Text size="sm">{v.navigation_status || '—'}</Text>
                         </Table.Td>
-                        <Table.Td>
+                        <Table.Td style={{ width: colWidths.lastPosition }}>
                           <Text size="sm">{formatEpoch(v.last_position_epoch)}</Text>
                         </Table.Td>
                       </>
@@ -266,16 +335,16 @@ export function VesselTable({
 
                     {section === 'zarpe' && (
                       <>
-                        <Table.Td>
+                        <Table.Td style={{ width: colWidths.speed }}>
                           <Text size="sm">{v.speed.toFixed(1)}</Text>
                         </Table.Td>
-                        <Table.Td>
+                        <Table.Td style={{ width: colWidths.course }}>
                           <Text size="sm">{v.course.toFixed(0)}°</Text>
                         </Table.Td>
-                        <Table.Td>
+                        <Table.Td style={{ width: colWidths.destination }}>
                           <Text size="sm">{v.destination || '—'}</Text>
                         </Table.Td>
-                        <Table.Td>
+                        <Table.Td style={{ width: colWidths.status }}>
                           <Text size="sm">{v.navigation_status || '—'}</Text>
                         </Table.Td>
                       </>

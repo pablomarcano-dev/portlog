@@ -138,9 +138,9 @@ export function EmailComposeDrawer({
     },
   });
 
-  // Pre-fill form when compose data loads
+  // Pre-fill form when compose data loads or drawer reopens
   useEffect(() => {
-    if (composeQuery.data) {
+    if (opened && composeQuery.data) {
       const d = composeQuery.data;
       setValue('toAddresses', d.toAddresses);
       setValue('ccAddresses', d.ccAddresses);
@@ -148,7 +148,7 @@ export function EmailComposeDrawer({
       setValue('subject', d.subject);
       setValue('bodyHtml', d.bodyHtml);
     }
-  }, [composeQuery.data, setValue]);
+  }, [opened, composeQuery.data, setValue]);
 
   const toAddresses = watch('toAddresses');
   const ccAddresses = watch('ccAddresses');

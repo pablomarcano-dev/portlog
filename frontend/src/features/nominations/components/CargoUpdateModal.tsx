@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import {
   Modal,
   Stack,
@@ -19,6 +19,8 @@ import type { NominationParcelRead } from '@portlog/schemas';
 import { nominationsApi } from '../api';
 import { useNominationSendEmail } from '../api/useNominationSendEmail';
 import { useNominationCompose } from '../api/useNominationCompose';
+import { useColumnResize } from '../../../components/table/useColumnResize';
+import { ResizableTh } from '../../../components/table/ResizableTh';
 
 const OPERATION_OPTIONS = [
   { value: 'Load', label: 'Load' },
@@ -122,35 +124,9 @@ export function CargoUpdateModal({
   const [dateEtd, setDateEtd] = useState<Date | null>(null);
   const [timeEtd, setTimeEtd] = useState('');
 
-  const [colWidths, setColWidths] = useState<Record<ColKey, number>>(INITIAL_WIDTHS);
+  const { colWidths, startResize } = useColumnResize<ColKey>(INITIAL_WIDTHS);
 
   const { data: composeData } = useNominationCompose(nominationId, 'CARGO_UPDATE');
-
-  // -------------------------------------------------------------------------
-  // Column resize — attaches to document during drag so it works outside the th
-  // -------------------------------------------------------------------------
-
-  const startColResize = useCallback(
-    (col: ColKey, e: React.MouseEvent) => {
-      e.preventDefault();
-      const startX = e.clientX;
-      const startWidth = colWidths[col];
-
-      function onMove(ev: MouseEvent) {
-        const next = Math.max(40, startWidth + ev.clientX - startX);
-        setColWidths((prev) => ({ ...prev, [col]: next }));
-      }
-
-      function onUp() {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-      }
-
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    },
-    [colWidths],
-  );
 
   // -------------------------------------------------------------------------
   // Row mutations
@@ -243,40 +219,6 @@ export function CargoUpdateModal({
   }
 
   // -------------------------------------------------------------------------
-  // Render helper — resizable <th>
-  // -------------------------------------------------------------------------
-
-  function ResizableTh({ col, children }: { col: ColKey; children?: React.ReactNode }) {
-    return (
-      <Table.Th
-        style={{
-          width: colWidths[col],
-          minWidth: colWidths[col],
-          position: 'relative',
-          userSelect: 'none',
-          overflow: 'hidden',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {children}
-        {/* drag handle — sits on the right edge of the header cell */}
-        <div
-          onMouseDown={(e) => startColResize(col, e)}
-          style={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            bottom: 0,
-            width: 5,
-            cursor: 'col-resize',
-            zIndex: 1,
-          }}
-        />
-      </Table.Th>
-    );
-  }
-
-  // -------------------------------------------------------------------------
   // JSX
   // -------------------------------------------------------------------------
 
@@ -290,14 +232,14 @@ export function CargoUpdateModal({
         </Text>
       }
       padding="lg"
+      size="70vw"
       styles={{
         content: {
           resize: 'both',
           overflow: 'auto',
-          width: 900,
-          minWidth: 600,
+          width: '100%',
+          minWidth: 400,
           minHeight: 300,
-          maxWidth: '95vw',
         },
       }}
     >
@@ -353,7 +295,11 @@ export function CargoUpdateModal({
             <Table.Thead>
               <Table.Tr>
                 {(Object.keys(INITIAL_WIDTHS) as ColKey[]).map((col) => (
-                  <ResizableTh key={col} col={col}>
+                  <ResizableTh
+                    key={col}
+                    width={colWidths[col]}
+                    onResize={(e) => startResize(col, e)}
+                  >
                     {COL_LABELS[col]}
                   </ResizableTh>
                 ))}

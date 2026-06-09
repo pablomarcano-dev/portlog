@@ -21,6 +21,8 @@ import {
 import { useNominationMessages } from '../api/useNominationMessages';
 import { useNominationSendEmail } from '../api/useNominationSendEmail';
 import type { NominationMessageItem } from '@portlog/schemas';
+import { useColumnResize } from '../../../components/table/useColumnResize';
+import { ResizableTh } from '../../../components/table/ResizableTh';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -226,11 +228,23 @@ function printMessage(item: NominationMessageItem): void {
   win.document.close();
 }
 
+type ColKey = 'checkbox' | 'type' | 'date' | 'subject' | 'to' | 'status';
+
+const INITIAL_WIDTHS: Record<ColKey, number> = {
+  checkbox: 32,
+  type: 120,
+  date: 110,
+  subject: 200,
+  to: 180,
+  status: 60,
+};
+
 export function MessagesPanel({ nominationId }: MessagesPanelProps) {
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [viewItem, setViewItem] = useState<NominationMessageItem | null>(null);
   const { data, isLoading, isError, error } = useNominationMessages(nominationId);
+  const { colWidths, startResize } = useColumnResize<ColKey>(INITIAL_WIDTHS);
 
   const sentItems = (data?.items ?? []).filter((item) => {
     if (!search) return true;
@@ -306,12 +320,28 @@ export function MessagesPanel({ nominationId }: MessagesPanelProps) {
             <Table withTableBorder withColumnBorders fz="xs" style={{ tableLayout: 'fixed' }}>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th style={{ width: 32 }} />
-                  <Table.Th style={{ width: 120 }}>Type</Table.Th>
-                  <Table.Th style={{ width: 110 }}>Date</Table.Th>
-                  <Table.Th>Subject</Table.Th>
-                  <Table.Th style={{ width: 180 }}>To</Table.Th>
-                  <Table.Th style={{ width: 60 }}>Status</Table.Th>
+                  <ResizableTh
+                    width={colWidths.checkbox}
+                    onResize={(e) => startResize('checkbox', e)}
+                  />
+                  <ResizableTh width={colWidths.type} onResize={(e) => startResize('type', e)}>
+                    Type
+                  </ResizableTh>
+                  <ResizableTh width={colWidths.date} onResize={(e) => startResize('date', e)}>
+                    Date
+                  </ResizableTh>
+                  <ResizableTh
+                    width={colWidths.subject}
+                    onResize={(e) => startResize('subject', e)}
+                  >
+                    Subject
+                  </ResizableTh>
+                  <ResizableTh width={colWidths.to} onResize={(e) => startResize('to', e)}>
+                    To
+                  </ResizableTh>
+                  <ResizableTh width={colWidths.status} onResize={(e) => startResize('status', e)}>
+                    Status
+                  </ResizableTh>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -321,32 +351,35 @@ export function MessagesPanel({ nominationId }: MessagesPanelProps) {
                     onClick={() => setViewItem(item)}
                     style={{ cursor: 'pointer' }}
                   >
-                    <Table.Td onClick={(e) => e.stopPropagation()}>
+                    <Table.Td
+                      style={{ width: colWidths.checkbox }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <Checkbox
                         size="xs"
                         checked={item.id === selectedId}
                         onChange={() => setSelectedId(item.id === selectedId ? null : item.id)}
                       />
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ width: colWidths.type }}>
                       <Text size="xs">{formatType(item.type)}</Text>
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ width: colWidths.date }}>
                       <Text size="xs" style={{ whiteSpace: 'nowrap' }}>
                         {formatDate(item.sentAt ?? item.createdAt)}
                       </Text>
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ width: colWidths.subject }}>
                       <Text size="xs" title={item.subject}>
                         {truncate(item.subject, 80)}
                       </Text>
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ width: colWidths.to }}>
                       <Text size="xs" title={item.toAddresses.join(', ')}>
                         {truncate(item.toAddresses.join(', '), 30)}
                       </Text>
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ width: colWidths.status }}>
                       <Badge size="xs" color={statusColor(item.status)}>
                         {item.status}
                       </Badge>

@@ -24,6 +24,8 @@ import {
 } from '../api';
 import { ShDocStatusBadge } from './ShDocStatusBadge';
 import { SendShDocumentDrawer } from './SendShDocumentDrawer';
+import { useColumnResize } from '../../../components/table/useColumnResize';
+import { ResizableTh } from '../../../components/table/ResizableTh';
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -104,6 +106,16 @@ export function Sh66aForm({ nominationId, doc, isLoading }: Sh66aFormProps) {
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'rows' });
+
+  type Sh66aColKey = 'date' | 'from' | 'to' | 'activity' | 'accion';
+  const INITIAL_WIDTHS: Record<Sh66aColKey, number> = {
+    date: 130,
+    from: 120,
+    to: 120,
+    activity: 200,
+    accion: 80,
+  };
+  const { colWidths, startResize } = useColumnResize<Sh66aColKey>(INITIAL_WIDTHS);
 
   if (isLoading) {
     return (
@@ -191,14 +203,32 @@ export function Sh66aForm({ nominationId, doc, isLoading }: Sh66aFormProps) {
             <Text size="sm" fw={500}>
               Filas de horas extras
             </Text>
-            <Table withTableBorder withColumnBorders fz="xs">
+            <Table withTableBorder withColumnBorders fz="xs" style={{ tableLayout: 'fixed' }}>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>Fecha (YYYY-MM-DD)</Table.Th>
-                  <Table.Th>Desde (HH:mm)</Table.Th>
-                  <Table.Th>Hasta (HH:mm)</Table.Th>
-                  <Table.Th>Actividad</Table.Th>
-                  {!isDisabled && <Table.Th>Accion</Table.Th>}
+                  <ResizableTh width={colWidths.date} onResize={(e) => startResize('date', e)}>
+                    Fecha (YYYY-MM-DD)
+                  </ResizableTh>
+                  <ResizableTh width={colWidths.from} onResize={(e) => startResize('from', e)}>
+                    Desde (HH:mm)
+                  </ResizableTh>
+                  <ResizableTh width={colWidths.to} onResize={(e) => startResize('to', e)}>
+                    Hasta (HH:mm)
+                  </ResizableTh>
+                  <ResizableTh
+                    width={colWidths.activity}
+                    onResize={(e) => startResize('activity', e)}
+                  >
+                    Actividad
+                  </ResizableTh>
+                  {!isDisabled && (
+                    <ResizableTh
+                      width={colWidths.accion}
+                      onResize={(e) => startResize('accion', e)}
+                    >
+                      Accion
+                    </ResizableTh>
+                  )}
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -213,7 +243,7 @@ export function Sh66aForm({ nominationId, doc, isLoading }: Sh66aFormProps) {
                 )}
                 {fields.map((field, idx) => (
                   <Table.Tr key={field.id}>
-                    <Table.Td>
+                    <Table.Td style={{ width: colWidths.date }}>
                       <TextInput
                         size="xs"
                         placeholder="2025-01-15"
@@ -222,7 +252,7 @@ export function Sh66aForm({ nominationId, doc, isLoading }: Sh66aFormProps) {
                         error={errors.rows?.[idx]?.date?.message}
                       />
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ width: colWidths.from }}>
                       <TextInput
                         size="xs"
                         placeholder="08:00"
@@ -231,7 +261,7 @@ export function Sh66aForm({ nominationId, doc, isLoading }: Sh66aFormProps) {
                         error={errors.rows?.[idx]?.from?.message}
                       />
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ width: colWidths.to }}>
                       <TextInput
                         size="xs"
                         placeholder="10:00"
@@ -240,7 +270,7 @@ export function Sh66aForm({ nominationId, doc, isLoading }: Sh66aFormProps) {
                         error={errors.rows?.[idx]?.to?.message}
                       />
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ width: colWidths.activity }}>
                       <TextInput
                         size="xs"
                         placeholder="Carga / Descarga..."
@@ -250,7 +280,7 @@ export function Sh66aForm({ nominationId, doc, isLoading }: Sh66aFormProps) {
                       />
                     </Table.Td>
                     {!isDisabled && (
-                      <Table.Td>
+                      <Table.Td style={{ width: colWidths.accion }}>
                         <Button size="xs" variant="subtle" color="red" onClick={() => remove(idx)}>
                           Quitar
                         </Button>

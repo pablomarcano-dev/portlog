@@ -14,6 +14,8 @@ import {
 } from '../api';
 import { ShDocStatusBadge } from './ShDocStatusBadge';
 import { SendShDocumentDrawer } from './SendShDocumentDrawer';
+import { useColumnResize } from '../../../components/table/useColumnResize';
+import { ResizableTh } from '../../../components/table/ResizableTh';
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -98,6 +100,16 @@ export function SparesForm({ nominationId, doc, isLoading, docType, title }: Spa
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'rows' });
+
+  type SparesColKey = 'description' | 'qty' | 'unit' | 'weightKg' | 'accion';
+  const INITIAL_WIDTHS: Record<SparesColKey, number> = {
+    description: 200,
+    qty: 100,
+    unit: 100,
+    weightKg: 120,
+    accion: 80,
+  };
+  const { colWidths, startResize } = useColumnResize<SparesColKey>(INITIAL_WIDTHS);
 
   if (isLoading) {
     return (
@@ -188,14 +200,35 @@ export function SparesForm({ nominationId, doc, isLoading, docType, title }: Spa
             <Text size="sm" fw={500}>
               Articulos
             </Text>
-            <Table withTableBorder withColumnBorders fz="xs">
+            <Table withTableBorder withColumnBorders fz="xs" style={{ tableLayout: 'fixed' }}>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>Descripcion</Table.Th>
-                  <Table.Th>Cantidad</Table.Th>
-                  <Table.Th>Unidad</Table.Th>
-                  <Table.Th>Peso (Kg)</Table.Th>
-                  {!isDisabled && <Table.Th>Accion</Table.Th>}
+                  <ResizableTh
+                    width={colWidths.description}
+                    onResize={(e) => startResize('description', e)}
+                  >
+                    Descripcion
+                  </ResizableTh>
+                  <ResizableTh width={colWidths.qty} onResize={(e) => startResize('qty', e)}>
+                    Cantidad
+                  </ResizableTh>
+                  <ResizableTh width={colWidths.unit} onResize={(e) => startResize('unit', e)}>
+                    Unidad
+                  </ResizableTh>
+                  <ResizableTh
+                    width={colWidths.weightKg}
+                    onResize={(e) => startResize('weightKg', e)}
+                  >
+                    Peso (Kg)
+                  </ResizableTh>
+                  {!isDisabled && (
+                    <ResizableTh
+                      width={colWidths.accion}
+                      onResize={(e) => startResize('accion', e)}
+                    >
+                      Accion
+                    </ResizableTh>
+                  )}
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -210,7 +243,7 @@ export function SparesForm({ nominationId, doc, isLoading, docType, title }: Spa
                 )}
                 {fields.map((field, idx) => (
                   <Table.Tr key={field.id}>
-                    <Table.Td>
+                    <Table.Td style={{ width: colWidths.description }}>
                       <TextInput
                         size="xs"
                         placeholder="Descripcion..."
@@ -219,7 +252,7 @@ export function SparesForm({ nominationId, doc, isLoading, docType, title }: Spa
                         error={errors.rows?.[idx]?.description?.message}
                       />
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ width: colWidths.qty }}>
                       <Controller
                         name={`rows.${idx}.qty`}
                         control={control}
@@ -236,7 +269,7 @@ export function SparesForm({ nominationId, doc, isLoading, docType, title }: Spa
                         )}
                       />
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ width: colWidths.unit }}>
                       <TextInput
                         size="xs"
                         placeholder="pcs, kg..."
@@ -245,7 +278,7 @@ export function SparesForm({ nominationId, doc, isLoading, docType, title }: Spa
                         error={errors.rows?.[idx]?.unit?.message}
                       />
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ width: colWidths.weightKg }}>
                       <Controller
                         name={`rows.${idx}.weightKg`}
                         control={control}
@@ -263,7 +296,7 @@ export function SparesForm({ nominationId, doc, isLoading, docType, title }: Spa
                       />
                     </Table.Td>
                     {!isDisabled && (
-                      <Table.Td>
+                      <Table.Td style={{ width: colWidths.accion }}>
                         <Button size="xs" variant="subtle" color="red" onClick={() => remove(idx)}>
                           Quitar
                         </Button>

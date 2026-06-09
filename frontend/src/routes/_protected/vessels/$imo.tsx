@@ -1,5 +1,7 @@
 import { lazy, Suspense, useState } from 'react';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { useColumnResize } from '../../../components/table/useColumnResize';
+import { ResizableTh } from '../../../components/table/ResizableTh';
 import {
   Alert,
   Anchor,
@@ -249,6 +251,39 @@ function VesselDetailPage() {
     ].filter(Boolean);
     return { name, comments: commentParts.join('\n') };
   }
+
+  type InspColKey =
+    | 'date'
+    | 'port'
+    | 'authority'
+    | 'type'
+    | 'deficiencies'
+    | 'detained'
+    | 'description';
+  const INSP_WIDTHS: Record<InspColKey, number> = {
+    date: 100,
+    port: 120,
+    authority: 120,
+    type: 100,
+    deficiencies: 90,
+    detained: 70,
+    description: 200,
+  };
+  const { colWidths: inspColWidths, startResize: startInspResize } =
+    useColumnResize<InspColKey>(INSP_WIDTHS);
+
+  type PosColKey = 'datetime' | 'lat' | 'lon' | 'speed' | 'course' | 'status' | 'destination';
+  const POS_WIDTHS: Record<PosColKey, number> = {
+    datetime: 140,
+    lat: 90,
+    lon: 90,
+    speed: 70,
+    course: 70,
+    status: 140,
+    destination: 120,
+  };
+  const { colWidths: posColWidths, startResize: startPosResize } =
+    useColumnResize<PosColKey>(POS_WIDTHS);
 
   return (
     <Container size="lg" py="lg">
@@ -561,37 +596,78 @@ function VesselDetailPage() {
             </Text>
           ) : (
             <ScrollArea>
-              <Table striped withTableBorder withColumnBorders fz="xs" style={{ minWidth: 800 }}>
+              <Table
+                striped
+                withTableBorder
+                withColumnBorders
+                fz="xs"
+                style={{ minWidth: 800, tableLayout: 'fixed' }}
+              >
                 <Table.Thead>
                   <Table.Tr>
-                    <Table.Th>Fecha</Table.Th>
-                    <Table.Th>Puerto</Table.Th>
-                    <Table.Th>Autoridad</Table.Th>
-                    <Table.Th>Tipo</Table.Th>
-                    <Table.Th>Deficiencias</Table.Th>
-                    <Table.Th>Detenido</Table.Th>
-                    <Table.Th style={{ minWidth: 200 }}>Descripción</Table.Th>
+                    <ResizableTh
+                      width={inspColWidths.date}
+                      onResize={(e) => startInspResize('date', e)}
+                    >
+                      Fecha
+                    </ResizableTh>
+                    <ResizableTh
+                      width={inspColWidths.port}
+                      onResize={(e) => startInspResize('port', e)}
+                    >
+                      Puerto
+                    </ResizableTh>
+                    <ResizableTh
+                      width={inspColWidths.authority}
+                      onResize={(e) => startInspResize('authority', e)}
+                    >
+                      Autoridad
+                    </ResizableTh>
+                    <ResizableTh
+                      width={inspColWidths.type}
+                      onResize={(e) => startInspResize('type', e)}
+                    >
+                      Tipo
+                    </ResizableTh>
+                    <ResizableTh
+                      width={inspColWidths.deficiencies}
+                      onResize={(e) => startInspResize('deficiencies', e)}
+                    >
+                      Deficiencias
+                    </ResizableTh>
+                    <ResizableTh
+                      width={inspColWidths.detained}
+                      onResize={(e) => startInspResize('detained', e)}
+                    >
+                      Detenido
+                    </ResizableTh>
+                    <ResizableTh
+                      width={inspColWidths.description}
+                      onResize={(e) => startInspResize('description', e)}
+                    >
+                      Descripción
+                    </ResizableTh>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
                   {sortedInspections.map((insp) => (
                     <Table.Tr key={insp.id}>
-                      <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                      <Table.Td style={{ width: inspColWidths.date, whiteSpace: 'nowrap' }}>
                         {insp.inspection_date ?? '—'}
                       </Table.Td>
-                      <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                      <Table.Td style={{ width: inspColWidths.port, whiteSpace: 'nowrap' }}>
                         {insp.inspection_port ?? '—'}
                       </Table.Td>
-                      <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                      <Table.Td style={{ width: inspColWidths.authority, whiteSpace: 'nowrap' }}>
                         {insp.inspection_authority ?? '—'}
                       </Table.Td>
-                      <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                      <Table.Td style={{ width: inspColWidths.type, whiteSpace: 'nowrap' }}>
                         {insp.inspection_type ?? '—'}
                       </Table.Td>
-                      <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                      <Table.Td style={{ width: inspColWidths.deficiencies, whiteSpace: 'nowrap' }}>
                         {insp.ship_deficiencies ?? '0'}
                       </Table.Td>
-                      <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                      <Table.Td style={{ width: inspColWidths.detained, whiteSpace: 'nowrap' }}>
                         {insp.detention === '1' ? (
                           <Badge color="red" size="xs">
                             Sí
@@ -602,7 +678,7 @@ function VesselDetailPage() {
                           </Text>
                         )}
                       </Table.Td>
-                      <Table.Td>
+                      <Table.Td style={{ width: inspColWidths.description }}>
                         <Text size="xs" lineClamp={2} title={insp.deficiency_description ?? ''}>
                           {insp.deficiency_description || '—'}
                         </Text>
@@ -637,32 +713,79 @@ function VesselDetailPage() {
                 {Math.min(sortedPositions.length, 100)} más recientes
               </Text>
               <ScrollArea>
-                <Table striped withTableBorder withColumnBorders fz="xs" style={{ minWidth: 700 }}>
+                <Table
+                  striped
+                  withTableBorder
+                  withColumnBorders
+                  fz="xs"
+                  style={{ minWidth: 700, tableLayout: 'fixed' }}
+                >
                   <Table.Thead>
                     <Table.Tr>
-                      <Table.Th>Fecha/Hora (UTC)</Table.Th>
-                      <Table.Th>Latitud</Table.Th>
-                      <Table.Th>Longitud</Table.Th>
-                      <Table.Th>Vel. (kn)</Table.Th>
-                      <Table.Th>Rumbo</Table.Th>
-                      <Table.Th>Estado</Table.Th>
-                      <Table.Th>Destino</Table.Th>
+                      <ResizableTh
+                        width={posColWidths.datetime}
+                        onResize={(e) => startPosResize('datetime', e)}
+                      >
+                        Fecha/Hora (UTC)
+                      </ResizableTh>
+                      <ResizableTh
+                        width={posColWidths.lat}
+                        onResize={(e) => startPosResize('lat', e)}
+                      >
+                        Latitud
+                      </ResizableTh>
+                      <ResizableTh
+                        width={posColWidths.lon}
+                        onResize={(e) => startPosResize('lon', e)}
+                      >
+                        Longitud
+                      </ResizableTh>
+                      <ResizableTh
+                        width={posColWidths.speed}
+                        onResize={(e) => startPosResize('speed', e)}
+                      >
+                        Vel. (kn)
+                      </ResizableTh>
+                      <ResizableTh
+                        width={posColWidths.course}
+                        onResize={(e) => startPosResize('course', e)}
+                      >
+                        Rumbo
+                      </ResizableTh>
+                      <ResizableTh
+                        width={posColWidths.status}
+                        onResize={(e) => startPosResize('status', e)}
+                      >
+                        Estado
+                      </ResizableTh>
+                      <ResizableTh
+                        width={posColWidths.destination}
+                        onResize={(e) => startPosResize('destination', e)}
+                      >
+                        Destino
+                      </ResizableTh>
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
                     {sortedPositions.map((pos, i) => (
                       <Table.Tr key={i}>
-                        <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                        <Table.Td style={{ width: posColWidths.datetime, whiteSpace: 'nowrap' }}>
                           {pos.last_position_UTC}
                         </Table.Td>
-                        <Table.Td>{pos.lat.toFixed(4)}</Table.Td>
-                        <Table.Td>{pos.lon.toFixed(4)}</Table.Td>
-                        <Table.Td>{pos.speed}</Table.Td>
-                        <Table.Td>{pos.course}°</Table.Td>
-                        <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                        <Table.Td style={{ width: posColWidths.lat }}>
+                          {pos.lat.toFixed(4)}
+                        </Table.Td>
+                        <Table.Td style={{ width: posColWidths.lon }}>
+                          {pos.lon.toFixed(4)}
+                        </Table.Td>
+                        <Table.Td style={{ width: posColWidths.speed }}>{pos.speed}</Table.Td>
+                        <Table.Td style={{ width: posColWidths.course }}>{pos.course}°</Table.Td>
+                        <Table.Td style={{ width: posColWidths.status, whiteSpace: 'nowrap' }}>
                           {pos.navigation_status || '—'}
                         </Table.Td>
-                        <Table.Td>{pos.destination || '—'}</Table.Td>
+                        <Table.Td style={{ width: posColWidths.destination }}>
+                          {pos.destination || '—'}
+                        </Table.Td>
                       </Table.Tr>
                     ))}
                   </Table.Tbody>

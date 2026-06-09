@@ -193,15 +193,21 @@ export function SaveVesselModal({ vessel, opened, onClose }: SaveVesselModalProp
       opened={opened}
       onClose={onClose}
       title={<Title order={4}>Save to Ship Particulars — {vessel.name}</Title>}
-      size="lg"
+      size="70vw"
+      styles={{
+        content: {
+          resize: 'both',
+          overflow: 'auto',
+          width: '100%',
+          minWidth: 400,
+        },
+      }}
     >
       {isLoading ? (
         <Center py="xl">
           <Loader size="sm" />
         </Center>
-      ) : existing ===
-        undefined ? // existing is undefined when query hasn't run (shouldn't happen since imo is set)
-      null : existing === null ? (
+      ) : existing === undefined ? null : existing === null ? ( // existing is undefined when query hasn't run (shouldn't happen since imo is set)
         <CreateView
           vessel={vessel}
           incoming={incoming}
