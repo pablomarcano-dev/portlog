@@ -3,6 +3,7 @@ FROM node:26-alpine AS build
 WORKDIR /app
 
 COPY package*.json ./
+COPY tsconfig.base.json ./
 COPY packages/schemas/package.json ./packages/schemas/
 COPY frontend/package.json ./frontend/
 
