@@ -17,6 +17,7 @@ import { Public } from './public.decorator.js';
 import { type RequestUser } from './jwt.strategy.js';
 
 const REFRESH_COOKIE = 'refresh_token';
+const COOKIE_SECURE = process.env['COOKIE_SECURE'] !== 'false';
 
 /**
  * Cookie-augmented Fastify types.
@@ -40,10 +41,10 @@ type FastifyReplyWithCookies = FastifyReply & {
  * cross-site GET requests (e.g., OAuth redirects). Sufficient for an internal app.
  * Secure is only set in production to avoid HTTPS requirements in local dev.
  */
-function refreshCookieOptions(isProd: boolean) {
+function refreshCookieOptions() {
   return {
     httpOnly: true,
-    secure: isProd,
+    secure: COOKIE_SECURE,
     sameSite: 'lax' as const,
     path: '/',
     // maxAge in seconds: 30 days
@@ -82,8 +83,7 @@ export class AuthController {
       throw new UnauthorizedException('Invalid email or password.');
     }
 
-    const isProd = process.env['NODE_ENV'] === 'production';
-    void reply.setCookie(REFRESH_COOKIE, result.rawRefreshToken, refreshCookieOptions(isProd));
+    void reply.setCookie(REFRESH_COOKIE, result.rawRefreshToken, refreshCookieOptions());
 
     return result.loginResponse;
   }
@@ -110,8 +110,7 @@ export class AuthController {
 
     const result = await this.authService.refresh(rawToken, { ip, userAgent });
 
-    const isProd = process.env['NODE_ENV'] === 'production';
-    void reply.setCookie(REFRESH_COOKIE, result.rawRefreshToken, refreshCookieOptions(isProd));
+    void reply.setCookie(REFRESH_COOKIE, result.rawRefreshToken, refreshCookieOptions());
 
     return result.refreshResponse;
   }
@@ -134,10 +133,9 @@ export class AuthController {
       await this.authService.logout(req.user.sub, rawToken);
     }
 
-    const isProd = process.env['NODE_ENV'] === 'production';
     void reply.clearCookie(REFRESH_COOKIE, {
       httpOnly: true,
-      secure: isProd,
+      secure: COOKIE_SECURE,
       sameSite: 'lax' as const,
       path: '/',
     });
