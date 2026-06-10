@@ -13,6 +13,9 @@ COPY packages/schemas/ ./packages/schemas/
 COPY frontend/ ./frontend/
 
 RUN npm run build -w @portlog/schemas
+
+ARG VITE_API_URL=/api
+ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build -w @portlog/frontend
 
 # Production stage
