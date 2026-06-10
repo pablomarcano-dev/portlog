@@ -34,6 +34,7 @@ COPY --from=build /app/backend/node_modules ./backend/node_modules
 COPY --from=build /app/backend/dist ./backend/dist
 COPY --from=build /app/backend/prisma ./backend/prisma
 COPY --from=build /app/backend/package.json ./backend/package.json
+COPY --from=build /app/backend/tsconfig.json ./backend/tsconfig.json
 COPY --from=build /app/backend/tsconfig.seed.json ./backend/tsconfig.seed.json
 COPY --from=build /app/packages/schemas/dist ./packages/schemas/dist
 COPY --from=build /app/packages/schemas/package.json ./packages/schemas/package.json
