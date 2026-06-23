@@ -1,0 +1,96 @@
+// ---------------------------------------------------------------------------
+// Branch Document Hub — M6
+// Templates are tied to a branch (Sucursal). Instances are created per
+// nomination and filled by OPS/ADM users. PDFs generated via Puppeteer.
+// ---------------------------------------------------------------------------
+
+enum BranchDocumentFieldType {
+  TEXT
+  DATE
+  DATETIME
+  NUMBER
+  TEXTAREA
+  SELECT
+}
+
+enum BranchDocumentStatus {
+  DRAFT
+  FINALIZED
+}
+
+// ---------------------------------------------------------------------------
+// BranchDocumentTemplate — one record per document type per branch
+// hbsTemplate: filename relative to backend/src/pdf/templates/branch/
+// fields: ordered list of form fields for the document
+// ---------------------------------------------------------------------------
+model BranchDocumentTemplate {
+  id          String   @id @default(cuid())
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  name        String
+  code        String   // e.g. "ANTIDROGAS", "SOLICITUD_ZARPE"
+  description String?  @db.Text
+  hbsTemplate String   // filename e.g. "antidrogas.hbs" (under templates/branch/)
+  fields      BranchDocumentTemplateField[]
+  instances   BranchDocumentInstance[]
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt      @db.Timestamptz(6)
+
+  @@unique([branchId, code])
+  @@index([branchId])
+  @@map("branch_document_templates")
+}
+
+// ---------------------------------------------------------------------------
+// BranchDocumentTemplateField — one record per fillable field per template
+// sourceField: dot-path into the nomination context for auto-fill
+//   e.g. "nomination.vesselName", "branch.contactName"
+// ---------------------------------------------------------------------------
+model BranchDocumentTemplateField {
+  id          String                  @id @default(cuid())
+  templateId  String
+  template    BranchDocumentTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  key         String                  // Handlebars variable e.g. "vessel_name"
+  label       String                  // UI label e.g. "Vessel Name"
+  type        BranchDocumentFieldType @default(TEXT)
+  required    Boolean                 @default(false)
+  sourceField String?                 // nomination context path for auto-population
+  placeholder String?
+  options     String[]                @default([]) // for SELECT fields
+  sortOrder   Int                     @default(0)
+
+  @@unique([templateId, key])
+  @@map("branch_document_template_fields")
+}
+
+// ---------------------------------------------------------------------------
+// BranchDocumentInstance — a filled document created from a template
+// for a specific nomination. Follows the same DRAFT → FINALIZED lifecycle
+// as SHDocument.
+// ---------------------------------------------------------------------------
+model BranchDocumentInstance {
+  id             String                 @id @default(uuid()) @db.Uuid
+  templateId     String
+  template       BranchDocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  nominationId   String                 @db.Uuid
+  nomination     Nomination             @relation(fields: [nominationId], references: [id], onDelete: Cascade)
+
+  // Form contents — keyed by field.key values
+  data           Json                   @default("{}")
+  status         BranchDocumentStatus   @default(DRAFT)
+  title          String?
+
+  // PDF output
+  minioKey       String?                @unique
+  pdfGeneratedAt DateTime?              @db.Timestamptz(6)
+
+  createdById    String
+  createdBy      User                   @relation("BranchDocInstanceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt      DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime               @updatedAt      @db.Timestamptz(6)
+
+  @@index([nominationId])
+  @@index([templateId])
+  @@map("branch_document_instances")
+}

@@ -106,6 +106,9 @@ model Nomination {
   // SH-xx back-relations (M5)
   shDocuments SHDocument[]
 
+  // Branch Document Hub back-relations (M6)
+  branchDocuments BranchDocumentInstance[]
+
   // Client list back-relation (M6)
   nominationClients NominationClient[]
 

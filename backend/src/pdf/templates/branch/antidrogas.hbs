@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: Arial, sans-serif; font-size: 12px; margin: 40px 50px; line-height: 1.6; }
+  .header-right { text-align: right; margin-bottom: 30px; }
+  .salutation { margin-bottom: 8px; }
+  .recipient { margin-bottom: 20px; }
+  .subject { text-align: center; font-weight: bold; text-decoration: underline; margin: 20px 0; }
+  .body-text { text-align: justify; margin-bottom: 16px; }
+  .signature { margin-top: 50px; }
+  .signature-line { border-top: 1px solid #000; width: 260px; margin-top: 40px; }
+</style>
+</head>
+<body>
+  <div class="header-right">{{doc.city}}, {{doc.date}}</div>
+
+  <div class="salutation">Atención.</div>
+  <div class="recipient">
+    Guardia Nacional Bolivariana<br>
+    {{doc.commander_name}}<br>
+    Comandante de la Sección Antidrogas del Puerto Marítimo de La Guaira de la Unidad Especial Antidrogas Nro. 45.
+  </div>
+
+  <div style="margin-bottom:16px">Su Despacho. -</div>
+
+  <div class="body-text">
+    Tengo el honor de dirigirme a usted, en la oportunidad de hacerle llegar de antemano un saludo por parte de
+    Servicios Navieramar C.A sucursal La Guaira; por medio de la presente solicitamos de sus buenos oficios para
+    el envío de su Unidad Especial Antidrogas para realizar inspección a un buque en nuestra circunscripción acuática.
+  </div>
+
+  <div class="body-text">
+    El B/T <strong>{{doc.vessel_name}}</strong> bandera: <strong>{{doc.vessel_flag}}</strong>,
+    IMO: <strong>{{doc.vessel_imo}}</strong>, atracada en terminal marítimo <strong>{{doc.terminal_name}}</strong>,
+    la misma debe realizar una inspección con el semoviente canino a bordo.
+    El Buque estima iniciar operaciones el <strong>{{doc.operations_start_date}}</strong> y
+    finalizar operaciones el <strong>{{doc.operations_end_date}}</strong> por lo que solicitamos de sus buenos oficios
+    en autorizar para realizar esta inspección en el buque mencionado el día
+    <strong>{{doc.inspection_date}}</strong> <strong>{{doc.inspection_time}}</strong>.
+  </div>
+
+  <div class="body-text">
+    Dicho Buque Tanque tiene como procedencia: <strong>{{doc.origin_port}}</strong>
+    y como destino: <strong>{{doc.destination_port}}</strong>.
+  </div>
+
+  <div style="margin-top:30px">Sin más que hacer referencia, me despido.</div>
+
+  <div class="signature">
+    <div class="signature-line"></div>
+    Servicios Navieramar<br>
+    Sucursal La Guaira<br>
+    {{doc.contact_name}}<br>
+    {{doc.contact_title}}
+  </div>
+
+  <div style="margin-top:20px; font-size:10px; color:#888">Generado: {{generatedAt}}</div>
+</body>
+</html>

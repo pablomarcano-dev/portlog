@@ -11,8 +11,43 @@ import {
   AuditEvent,
 } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import * as Minio from 'minio';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 const prisma = new PrismaClient();
+
+const minioClient = new Minio.Client({
+  endPoint: process.env['MINIO_ENDPOINT'] ?? 'localhost',
+  port: parseInt(process.env['MINIO_PORT'] ?? '9000', 10),
+  useSSL: process.env['MINIO_USE_SSL'] === 'true',
+  accessKey: process.env['MINIO_ACCESS_KEY'] ?? 'minioadmin',
+  secretKey: process.env['MINIO_SECRET_KEY'] ?? 'minioadmin',
+});
+const minioBucket = process.env['MINIO_BUCKET'] ?? 'portlog';
+
+let minioAvailable = false;
+async function initMinio(): Promise<void> {
+  try {
+    await minioClient.bucketExists(minioBucket);
+    minioAvailable = true;
+  } catch {
+    // MinIO not reachable from host — uploads will be skipped
+  }
+}
+
+async function uploadTemplateToMinio(minioKey: string, localPath: string): Promise<boolean> {
+  if (!minioAvailable) return false;
+  try {
+    const content = fs.readFileSync(localPath);
+    await minioClient.putObject(minioBucket, minioKey, content, content.length, {
+      'Content-Type': 'text/html; charset=utf-8',
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 async function findOrCreate<T extends { id: string }>(
   findFn: () => Promise<T | null>,
@@ -22,6 +57,15 @@ async function findOrCreate<T extends { id: string }>(
 }
 
 async function main(): Promise<void> {
+  await initMinio();
+  if (!minioAvailable) {
+    console.warn(
+      'MinIO not reachable — branch template uploads will be skipped.\n' +
+        'Run this seed from inside the backend Docker container to upload templates:\n' +
+        '  docker compose exec backend npm run seed',
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // Users (10)
   // ---------------------------------------------------------------------------
@@ -1701,7 +1745,7 @@ async function main(): Promise<void> {
     update: {},
     create: { name: 'La Paloma', code: 'PLC', comments: 'Puerto pesquero y deportivo.' },
   });
-  await await prisma.branch.upsert({
+  const branchLGR = await prisma.branch.upsert({
     where: { code: 'LGR' },
     update: {
       name: 'La Guaira Branch Office',
@@ -2345,13 +2389,13 @@ async function main(): Promise<void> {
     where: { correlative: 9 },
     update: {},
     create: {
-      voyageNumber: '009/NPA',
+      voyageNumber: '009/LGR',
       voyageCode: 'GRA',
       shipParticularId: vessel9.id,
       opPortId: npPort.id,
       pierId: pierNpaMain.id,
       nextPortId: baPort.id,
-      branchId: branchNPA.id,
+      branchId: branchLGR.id,
       dateNominated: new Date('2026-06-12T09:00:00Z'),
       etaDate: new Date('2026-06-20T06:00:00Z'),
       nominationType: NominationType.FULL_AGENCY,
@@ -3519,6 +3563,510 @@ async function main(): Promise<void> {
     );
   }
   console.log('Seeded 10 audit logs');
+
+  // ---------------------------------------------------------------------------
+  // Branch Document Templates — LGR (La Guaira)
+  // ---------------------------------------------------------------------------
+  type BranchDocField = {
+    key: string;
+    label: string;
+    type: 'TEXT' | 'DATE' | 'DATETIME' | 'NUMBER' | 'TEXTAREA' | 'SELECT';
+    required: boolean;
+    sortOrder: number;
+    sourceField?: string;
+    placeholder?: string;
+    options?: string[];
+  };
+  type BranchDocTemplateInput = {
+    code: string;
+    name: string;
+    description: string;
+    hbsTemplate: string;
+    sortOrder: number;
+    fields: BranchDocField[];
+  };
+
+  // Resolve path to branch HBS templates on disk
+  const BRANCH_TEMPLATES_DIR = path.join(__dirname, '../src/pdf/templates/branch');
+
+  const lgrBranch = await prisma.branch.findUnique({ where: { code: 'LGR' } });
+  if (lgrBranch) {
+    const branchDocTemplates: BranchDocTemplateInput[] = [
+      {
+        code: 'ANTIDROGAS',
+        name: 'Oficio Antidrogas',
+        description: 'Solicitud de inspección antidrogas a la Guardia Nacional Bolivariana',
+        hbsTemplate: 'branch-templates/lgr/antidrogas.hbs',
+        sortOrder: 0,
+        fields: [
+          { key: 'city', label: 'Ciudad', type: 'TEXT' as const, required: true, sortOrder: 0 },
+          { key: 'date', label: 'Fecha', type: 'DATE' as const, required: true, sortOrder: 1 },
+          {
+            key: 'commander_name',
+            label: 'Nombre del Comandante',
+            type: 'TEXT' as const,
+            required: true,
+            sortOrder: 2,
+          },
+          {
+            key: 'vessel_name',
+            label: 'Nombre del Buque',
+            type: 'TEXT' as const,
+            required: true,
+            sourceField: 'nomination.vesselName',
+            sortOrder: 3,
+          },
+          {
+            key: 'vessel_flag',
+            label: 'Bandera',
+            type: 'TEXT' as const,
+            required: true,
+            sourceField: 'nomination.flag',
+            sortOrder: 4,
+          },
+          {
+            key: 'vessel_imo',
+            label: 'IMO',
+            type: 'TEXT' as const,
+            required: false,
+            sourceField: 'nomination.imo',
+            sortOrder: 5,
+          },
+          {
+            key: 'terminal_name',
+            label: 'Terminal Marítimo',
+            type: 'TEXT' as const,
+            required: true,
+            sourceField: 'nomination.opPortName',
+            sortOrder: 6,
+          },
+          {
+            key: 'operations_start_date',
+            label: 'Fecha Inicio Operaciones',
+            type: 'DATE' as const,
+            required: false,
+            sourceField: 'nomination.etaDate',
+            sortOrder: 7,
+          },
+          {
+            key: 'operations_end_date',
+            label: 'Fecha Fin Operaciones',
+            type: 'DATE' as const,
+            required: true,
+            sortOrder: 8,
+          },
+          {
+            key: 'inspection_date',
+            label: 'Fecha Inspección',
+            type: 'DATE' as const,
+            required: true,
+            sortOrder: 9,
+          },
+          {
+            key: 'inspection_time',
+            label: 'Hora Inspección',
+            type: 'TEXT' as const,
+            required: false,
+            placeholder: 'ej. 10:00hrs',
+            sortOrder: 10,
+          },
+          {
+            key: 'origin_port',
+            label: 'Puerto de Procedencia',
+            type: 'TEXT' as const,
+            required: false,
+            sourceField: 'nomination.lastPortName',
+            sortOrder: 11,
+          },
+          {
+            key: 'destination_port',
+            label: 'Puerto de Destino',
+            type: 'TEXT' as const,
+            required: false,
+            sourceField: 'nomination.nextPortName',
+            sortOrder: 12,
+          },
+          {
+            key: 'contact_name',
+            label: 'Nombre del Contacto',
+            type: 'TEXT' as const,
+            required: false,
+            sourceField: 'branch.contactName',
+            sortOrder: 13,
+          },
+          {
+            key: 'contact_title',
+            label: 'Cargo del Contacto',
+            type: 'TEXT' as const,
+            required: false,
+            sourceField: 'branch.contactTitle',
+            sortOrder: 14,
+          },
+        ],
+      },
+      {
+        code: 'SOLICITUD_ZARPE',
+        name: 'Solicitud de Zarpe',
+        description: 'Comunicación de solicitud de zarpe al Capitán de Puerto',
+        hbsTemplate: 'branch-templates/lgr/solicitud-zarpe.hbs',
+        sortOrder: 1,
+        fields: [
+          { key: 'city', label: 'Ciudad', type: 'TEXT' as const, required: true, sortOrder: 0 },
+          { key: 'date', label: 'Fecha', type: 'DATE' as const, required: true, sortOrder: 1 },
+          {
+            key: 'vessel_name',
+            label: 'Nombre del Buque',
+            type: 'TEXT' as const,
+            required: true,
+            sourceField: 'nomination.vesselName',
+            sortOrder: 2,
+          },
+          {
+            key: 'vessel_flag',
+            label: 'Nacionalidad / Bandera',
+            type: 'TEXT' as const,
+            required: true,
+            sourceField: 'nomination.flag',
+            sortOrder: 3,
+          },
+          {
+            key: 'vessel_uab',
+            label: 'U.A.B. (GRT)',
+            type: 'TEXT' as const,
+            required: false,
+            sourceField: 'nomination.grt',
+            sortOrder: 4,
+          },
+          {
+            key: 'vessel_uan',
+            label: 'U.A.N. (NRT)',
+            type: 'TEXT' as const,
+            required: false,
+            sourceField: 'nomination.nrt',
+            sortOrder: 5,
+          },
+          {
+            key: 'vessel_loa',
+            label: 'Eslora (LOA)',
+            type: 'TEXT' as const,
+            required: false,
+            sourceField: 'nomination.loa',
+            sortOrder: 6,
+          },
+          {
+            key: 'captain_name',
+            label: 'Nombre del Capitán',
+            type: 'TEXT' as const,
+            required: true,
+            sourceField: 'nomination.master',
+            sortOrder: 7,
+          },
+          {
+            key: 'crew_count',
+            label: 'Tripulantes',
+            type: 'NUMBER' as const,
+            required: true,
+            sortOrder: 8,
+          },
+          {
+            key: 'passenger_count',
+            label: 'Pasajeros',
+            type: 'NUMBER' as const,
+            required: false,
+            placeholder: '0',
+            sortOrder: 9,
+          },
+          {
+            key: 'destination_port',
+            label: 'Puerto de Destino',
+            type: 'TEXT' as const,
+            required: true,
+            sourceField: 'nomination.nextPortName',
+            sortOrder: 10,
+          },
+          {
+            key: 'departure_date',
+            label: 'Fecha de Zarpe',
+            type: 'DATE' as const,
+            required: true,
+            sortOrder: 11,
+          },
+          {
+            key: 'departure_time',
+            label: 'Hora de Zarpe',
+            type: 'TEXT' as const,
+            required: false,
+            placeholder: 'ej. 14:00',
+            sortOrder: 12,
+          },
+          {
+            key: 'contact_name',
+            label: 'Nombre del Contacto',
+            type: 'TEXT' as const,
+            required: false,
+            sourceField: 'branch.contactName',
+            sortOrder: 13,
+          },
+        ],
+      },
+      {
+        code: 'AVISO_ARRIBO',
+        name: 'Aviso de Arribo',
+        description: 'Aviso de arribo de buque a la Capitanía de Puerto de La Guaira',
+        hbsTemplate: 'branch-templates/lgr/aviso-arribo.hbs',
+        sortOrder: 2,
+        fields: [
+          {
+            key: 'issue_date',
+            label: 'Fecha de Emisión',
+            type: 'DATE' as const,
+            required: true,
+            sourceField: 'nomination.etaDate',
+            sortOrder: 0,
+          },
+          {
+            key: 'port_captain_name',
+            label: 'Nombre del Capitán de Puerto',
+            type: 'TEXT' as const,
+            required: true,
+            sortOrder: 1,
+          },
+          {
+            key: 'vessel_name',
+            label: 'Nombre del Buque',
+            type: 'TEXT' as const,
+            required: true,
+            sourceField: 'nomination.vesselName',
+            sortOrder: 2,
+          },
+          {
+            key: 'vessel_imo',
+            label: 'IMO',
+            type: 'TEXT' as const,
+            required: false,
+            sourceField: 'nomination.imo',
+            sortOrder: 3,
+          },
+          {
+            key: 'vessel_registration',
+            label: 'Matrícula',
+            type: 'TEXT' as const,
+            required: false,
+            sortOrder: 4,
+          },
+          {
+            key: 'vessel_flag',
+            label: 'Bandera',
+            type: 'TEXT' as const,
+            required: true,
+            sourceField: 'nomination.flag',
+            sortOrder: 5,
+          },
+          {
+            key: 'vessel_uab',
+            label: 'U.A.B. (GRT)',
+            type: 'TEXT' as const,
+            required: false,
+            sourceField: 'nomination.grt',
+            sortOrder: 6,
+          },
+          {
+            key: 'vessel_uan',
+            label: 'U.A.N. (NRT)',
+            type: 'TEXT' as const,
+            required: false,
+            sourceField: 'nomination.nrt',
+            sortOrder: 7,
+          },
+          {
+            key: 'vessel_loa',
+            label: 'Eslora (LOA)',
+            type: 'TEXT' as const,
+            required: false,
+            sourceField: 'nomination.loa',
+            sortOrder: 8,
+          },
+          {
+            key: 'captain_name',
+            label: 'Capitán del Buque',
+            type: 'TEXT' as const,
+            required: false,
+            sourceField: 'nomination.master',
+            sortOrder: 9,
+          },
+          {
+            key: 'arrival_date',
+            label: 'Fecha de Arribo',
+            type: 'DATE' as const,
+            required: true,
+            sourceField: 'nomination.etaDate',
+            sortOrder: 10,
+          },
+          {
+            key: 'origin_port',
+            label: 'Procedencia (Puerto / País)',
+            type: 'TEXT' as const,
+            required: false,
+            sourceField: 'nomination.lastPortName',
+            sortOrder: 11,
+          },
+          {
+            key: 'destination_port',
+            label: 'Destino (Puerto / País)',
+            type: 'TEXT' as const,
+            required: false,
+            sourceField: 'nomination.nextPortName',
+            sortOrder: 12,
+          },
+          {
+            key: 'terminal_name',
+            label: 'Puerto de Arribo / Terminal',
+            type: 'TEXT' as const,
+            required: false,
+            sourceField: 'nomination.opPortName',
+            sortOrder: 13,
+          },
+          {
+            key: 'operation_type',
+            label: 'Tipo de Operación',
+            type: 'SELECT' as const,
+            required: false,
+            options: [
+              'CABOTAJE',
+              'EXPORTACIÓN',
+              'IMPORTACIÓN',
+              'TRÁNSITO',
+              'TRANSBORDO',
+              'TURISMO',
+              'LASTRE',
+            ],
+            sortOrder: 14,
+          },
+        ],
+      },
+      {
+        code: 'DESPACHO_ADUANERO',
+        name: 'Despacho Aduanero',
+        description: 'Formulario de despacho aduanero para la Aduana Principal La Guaira',
+        hbsTemplate: 'branch-templates/lgr/despacho-aduanero.hbs',
+        sortOrder: 3,
+        fields: [
+          {
+            key: 'vessel_name',
+            label: 'Nombre del Buque',
+            type: 'TEXT' as const,
+            required: true,
+            sourceField: 'nomination.vesselName',
+            sortOrder: 0,
+          },
+          {
+            key: 'dispatch_type',
+            label: 'Tipo de Despacho',
+            type: 'SELECT' as const,
+            required: true,
+            options: ['EXPORTACIÓN', 'TRÁNSITO', 'CABOTAJE', 'TRANSBORDO', 'TURISMO', 'LASTRE'],
+            sortOrder: 1,
+          },
+          {
+            key: 'observations',
+            label: 'Observaciones',
+            type: 'TEXTAREA' as const,
+            required: true,
+            sortOrder: 2,
+          },
+          {
+            key: 'representative_name',
+            label: 'Nombre del Representante Naviero',
+            type: 'TEXT' as const,
+            required: true,
+            sortOrder: 3,
+          },
+          {
+            key: 'representative_id',
+            label: 'Cédula de Identidad',
+            type: 'TEXT' as const,
+            required: true,
+            sortOrder: 4,
+          },
+        ],
+      },
+      {
+        code: 'REQUISITOS_ZARPE',
+        name: 'Requisitos para Zarpe',
+        description: 'Checklist de requisitos para otorgar zarpe a buques mercantes',
+        hbsTemplate: 'branch-templates/lgr/requisitos-zarpe.hbs',
+        sortOrder: 4,
+        fields: [
+          {
+            key: 'vessel_name',
+            label: 'Nombre del Buque',
+            type: 'TEXT' as const,
+            required: true,
+            sourceField: 'nomination.vesselName',
+            sortOrder: 0,
+          },
+          {
+            key: 'construction_year',
+            label: 'Año de Construcción',
+            type: 'TEXT' as const,
+            required: false,
+            sortOrder: 1,
+          },
+          {
+            key: 'observations',
+            label: 'Observaciones',
+            type: 'TEXTAREA' as const,
+            required: false,
+            sortOrder: 2,
+          },
+        ],
+      },
+    ];
+
+    // Upload HBS templates to MinIO and upsert DB records
+    let uploadedCount = 0;
+    for (const tmpl of branchDocTemplates) {
+      const { fields, ...templateData } = tmpl;
+      const localFile = path.join(BRANCH_TEMPLATES_DIR, path.basename(tmpl.hbsTemplate));
+      const uploaded = await uploadTemplateToMinio(tmpl.hbsTemplate, localFile);
+      if (uploaded) uploadedCount++;
+
+      const existing = await prisma.branchDocumentTemplate.findUnique({
+        where: { branchId_code: { branchId: lgrBranch.id, code: tmpl.code } },
+      });
+      if (!existing) {
+        await prisma.branchDocumentTemplate.create({
+          data: {
+            ...templateData,
+            branchId: lgrBranch.id,
+            fields: {
+              create: fields.map((f) => ({
+                key: f.key,
+                label: f.label,
+                type: f.type,
+                required: f.required,
+                sortOrder: f.sortOrder,
+                options: f.options ?? [],
+                sourceField: f.sourceField ?? null,
+                placeholder: f.placeholder ?? null,
+              })),
+            },
+          },
+        });
+      } else {
+        // Update hbsTemplate key in case it changed (filename → MinIO key migration)
+        await prisma.branchDocumentTemplate.update({
+          where: { id: existing.id },
+          data: { hbsTemplate: templateData.hbsTemplate },
+        });
+      }
+    }
+    const uploadNote =
+      uploadedCount > 0
+        ? ` (${uploadedCount}/5 uploaded to MinIO)`
+        : ' (MinIO skipped — run seed inside Docker to upload)';
+    console.log(`Seeded 5 branch document templates for LGR${uploadNote}`);
+  }
 
   console.log('\n✓ Seed complete.');
   console.log('  ADM  admin@portlog.local / portlog_admin_dev');

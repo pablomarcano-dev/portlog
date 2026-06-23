@@ -339,7 +339,8 @@ model Branch {
   createdAt     DateTime @default(now()) @db.Timestamptz
   updatedAt     DateTime @updatedAt @db.Timestamptz
 
-  nominations Nomination[]
+  nominations       Nomination[]
+  documentTemplates BranchDocumentTemplate[]
 
   @@index([code])
   @@map("branches")

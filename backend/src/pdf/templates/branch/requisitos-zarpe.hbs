@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: Arial, sans-serif; font-size: 11px; margin: 30px 40px; line-height: 1.5; }
+  h2 { text-align: center; font-size: 13px; font-weight: bold; margin-bottom: 20px; text-transform: uppercase; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  th, td { border: 1px solid #555; padding: 5px 8px; font-size: 11px; }
+  th { background: #eee; text-align: center; }
+  td.num { text-align: center; width: 40px; }
+  td.check { text-align: center; width: 80px; }
+  .vessel-line { margin-top: 14px; font-size: 11px; }
+  .note { font-size: 10px; font-style: italic; margin-top: 10px; border: 1px solid #aaa; padding: 6px 8px; }
+</style>
+</head>
+<body>
+  <h2>REQUISITOS PARA OTORGAR ZARPE A BUQUES MERCANTES</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:40px">N°</th>
+        <th>R E Q U I S I T O S</th>
+        <th style="width:80px">CONFORME</th>
+        <th style="width:100px">NO CONFORME</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td class="num">1</td><td>Comunicación de Solicitud de zarpe dirigida al Capitán de Puerto con comprobante de unidades tributarias 10.00</td><td class="check"></td><td class="check"></td></tr>
+      <tr><td class="num">2</td><td>Solicitud de zarpe (Forma GTMAR–FOR–NA-001)</td><td class="check"></td><td class="check"></td></tr>
+      <tr><td class="num">3</td><td>Hoja de Control de Zarpe (Forma GTMAR–FOR–VI-003) con comprobante de pago de ALÍCUOTA Y PILOTAJE</td><td class="check"></td><td class="check"></td></tr>
+      <tr><td class="num">4</td><td>Hoja de Registro (Forma GTMAR–FOR–TR-001)</td><td class="check"></td><td class="check"></td></tr>
+      <tr><td class="num">5</td><td>Soporte del pago de pilotos</td><td class="check"></td><td class="check"></td></tr>
+      <tr><td class="num">6</td><td>Hoja de Despacho de Aduana Vigente</td><td class="check"></td><td class="check"></td></tr>
+      <tr><td class="num">7</td><td>Planilla De Cancelación Ochina Original</td><td class="check"></td><td class="check"></td></tr>
+      <tr><td class="num">8</td><td>Lista de Tripulantes</td><td class="check"></td><td class="check"></td></tr>
+      <tr><td class="num">9</td><td>Lista de Pasajeros</td><td class="check"></td><td class="check"></td></tr>
+      <tr><td class="num">10</td><td>Hoja de Aviso de llegada del Buque</td><td class="check"></td><td class="check"></td></tr>
+      <tr><td class="num">11</td><td>Inspección Sanitaria</td><td class="check"></td><td class="check"></td></tr>
+      <tr><td class="num">12</td><td>Constancia De Solvencias (Remolcadores y lanchas)</td><td class="check"></td><td class="check"></td></tr>
+      <tr><td class="num">13</td><td>Declaración de la Carga (Sobordo)</td><td class="check"></td><td class="check"></td></tr>
+      <tr><td class="num">14</td><td>Copia de la Solvencia Subacuática entrada y salida</td><td class="check"></td><td class="check"></td></tr>
+      <tr><td class="num">15</td><td>Copia solvencia de agua de lastre</td><td class="check"></td><td class="check"></td></tr>
+      <tr><td class="num">16</td><td>Certificado de Desechos (MARPOL)</td><td class="check"></td><td class="check"></td></tr>
+      <tr><td class="num">17</td><td>Lista de Certificado del buque para el zarpe</td><td class="check"></td><td class="check"></td></tr>
+    </tbody>
+  </table>
+
+  {{#if doc.observations}}
+  <p><strong>OBSERVACIONES:</strong> {{doc.observations}}</p>
+  {{/if}}
+
+  <div class="note">
+    "NOTA" SE LE RECUERDA QUE LOS DOCUMENTOS DEBERÁN ESTAR ORGANIZADOS EN EL MISMO ORDEN QUE SE INDICA EN ESTE FORMATO.
+  </div>
+
+  <div class="vessel-line">
+    <strong>NOMBRE DEL BUQUE:</strong> {{doc.vessel_name}} &nbsp;&nbsp;&nbsp;&nbsp;
+    <strong>AÑO DE CONSTRUCCIÓN:</strong> {{doc.construction_year}}
+  </div>
+
+  <div style="margin-top:20px; font-size:10px; color:#888">Generado: {{generatedAt}}</div>
+</body>
+</html>

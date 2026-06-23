@@ -52,6 +52,12 @@ export class PdfService implements OnModuleDestroy {
     return this.renderHtml(html);
   }
 
+  async renderFromString(source: string, context: Record<string, unknown>): Promise<Buffer> {
+    const template = Handlebars.compile(source);
+    const html = template({ ...context, generatedAt: new Date().toISOString() });
+    return this.renderHtml(html);
+  }
+
   async renderHtml(html: string): Promise<Buffer> {
     const browser = await this.getBrowser();
     let page: Page | null = null;

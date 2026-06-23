@@ -35,6 +35,7 @@ import { Route as ProtectedMasterDataBranchesRouteImport } from './routes/_prote
 import { Route as ProtectedMasterDataAgentsRouteImport } from './routes/_protected/master-data/agents'
 import { Route as ProtectedMasterDataActivitiesRouteImport } from './routes/_protected/master-data/activities'
 import { Route as ProtectedMasterData_demoRouteImport } from './routes/_protected/master-data/__demo'
+import { Route as ProtectedAdminUsersRouteImport } from './routes/_protected/admin/users'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -181,12 +182,18 @@ const ProtectedMasterData_demoRoute =
     id: '/__demo',
     getParentRoute: () => ProtectedMasterDataRoute,
   } as any)
+const ProtectedAdminUsersRoute = ProtectedAdminUsersRouteImport.update({
+  id: '/admin/users',
+  path: '/admin/users',
+  getParentRoute: () => ProtectedRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof ProtectedIndexRoute
   '/login': typeof LoginRoute
   '/master-data': typeof ProtectedMasterData_demoRoute
   '/nominations': typeof ProtectedNominationsRouteWithChildren
+  '/admin/users': typeof ProtectedAdminUsersRoute
   '/master-data/activities': typeof ProtectedMasterDataActivitiesRoute
   '/master-data/agents': typeof ProtectedMasterDataAgentsRoute
   '/master-data/branches': typeof ProtectedMasterDataBranchesRoute
@@ -212,6 +219,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/master-data': typeof ProtectedMasterData_demoRoute
   '/': typeof ProtectedIndexRoute
+  '/admin/users': typeof ProtectedAdminUsersRoute
   '/master-data/activities': typeof ProtectedMasterDataActivitiesRoute
   '/master-data/agents': typeof ProtectedMasterDataAgentsRoute
   '/master-data/branches': typeof ProtectedMasterDataBranchesRoute
@@ -240,6 +248,7 @@ export interface FileRoutesById {
   '/_protected/master-data': typeof ProtectedMasterDataRouteWithChildren
   '/_protected/nominations': typeof ProtectedNominationsRouteWithChildren
   '/_protected/': typeof ProtectedIndexRoute
+  '/_protected/admin/users': typeof ProtectedAdminUsersRoute
   '/_protected/master-data/__demo': typeof ProtectedMasterData_demoRoute
   '/_protected/master-data/activities': typeof ProtectedMasterDataActivitiesRoute
   '/_protected/master-data/agents': typeof ProtectedMasterDataAgentsRoute
@@ -269,6 +278,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/master-data'
     | '/nominations'
+    | '/admin/users'
     | '/master-data/activities'
     | '/master-data/agents'
     | '/master-data/branches'
@@ -294,6 +304,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/master-data'
     | '/'
+    | '/admin/users'
     | '/master-data/activities'
     | '/master-data/agents'
     | '/master-data/branches'
@@ -321,6 +332,7 @@ export interface FileRouteTypes {
     | '/_protected/master-data'
     | '/_protected/nominations'
     | '/_protected/'
+    | '/_protected/admin/users'
     | '/_protected/master-data/__demo'
     | '/_protected/master-data/activities'
     | '/_protected/master-data/agents'
@@ -533,6 +545,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedMasterData_demoRouteImport
       parentRoute: typeof ProtectedMasterDataRoute
     }
+    '/_protected/admin/users': {
+      id: '/_protected/admin/users'
+      path: '/admin/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof ProtectedAdminUsersRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
   }
 }
 
@@ -597,6 +616,7 @@ interface ProtectedRouteChildren {
   ProtectedMasterDataRoute: typeof ProtectedMasterDataRouteWithChildren
   ProtectedNominationsRoute: typeof ProtectedNominationsRouteWithChildren
   ProtectedIndexRoute: typeof ProtectedIndexRoute
+  ProtectedAdminUsersRoute: typeof ProtectedAdminUsersRoute
   ProtectedVesselsImoRoute: typeof ProtectedVesselsImoRoute
   ProtectedVesselsIndexRoute: typeof ProtectedVesselsIndexRoute
 }
@@ -605,6 +625,7 @@ const ProtectedRouteChildren: ProtectedRouteChildren = {
   ProtectedMasterDataRoute: ProtectedMasterDataRouteWithChildren,
   ProtectedNominationsRoute: ProtectedNominationsRouteWithChildren,
   ProtectedIndexRoute: ProtectedIndexRoute,
+  ProtectedAdminUsersRoute: ProtectedAdminUsersRoute,
   ProtectedVesselsImoRoute: ProtectedVesselsImoRoute,
   ProtectedVesselsIndexRoute: ProtectedVesselsIndexRoute,
 }
