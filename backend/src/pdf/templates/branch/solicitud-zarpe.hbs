@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: Arial, sans-serif; font-size: 12px; margin: 40px 50px; line-height: 1.6; }
+  .header-right { text-align: right; margin-bottom: 30px; }
+  .recipient { margin-bottom: 20px; }
+  .title { text-align: center; font-weight: bold; font-size: 14px; text-decoration: underline; margin: 20px 0 30px; }
+  .body-text { text-align: justify; margin-bottom: 16px; }
+  .signature { margin-top: 60px; }
+  .signature-line { border-top: 1px solid #000; width: 260px; margin-top: 40px; }
+</style>
+</head>
+<body>
+  <div class="header-right">{{doc.city}}, {{doc.date}}</div>
+
+  <div class="recipient">
+    Ciudadano<br>
+    Capitán de Puerto de La Guaira<br>
+    Presente:
+  </div>
+
+  <div class="title">SOLICITUD DE ZARPE</div>
+
+  <div class="body-text">
+    En cumplimiento de los Arts. 38 Literal 39 de la LEY GENERAL DE MARINAS Y ACTIVIDADES CONEXAS,
+    y cumplidas las disposiciones legales correspondientes, solicito a usted permiso para que el
+    Buque / tanque "<strong>{{doc.vessel_name}}</strong>", de Nacionalidad "<strong>{{doc.vessel_flag}}</strong>",
+    de porte "U.A.B./<strong>{{doc.vessel_uab}}</strong> / U.A.N./<strong>{{doc.vessel_uan}}</strong> / LOA/<strong>{{doc.vessel_loa}}</strong>",
+    al mando del Capitán "<strong>{{doc.captain_name}}</strong>.",
+    con una tripulación de <strong>{{doc.crew_count}}</strong>,
+    con <strong>{{doc.passenger_count}}</strong> pasajeros y con carga en tránsito,
+    pueda zarpar con destino a "<strong>{{doc.destination_port}}</strong>"
+    el día <strong>{{doc.departure_date}}</strong> a las <strong>{{doc.departure_time}}</strong> Hrs.
+  </div>
+
+  <div style="margin-top: 20px;">Muy Atentamente,</div>
+
+  <div class="signature">
+    <div class="signature-line"></div>
+    Servicios Navieramar<br>
+    Sucursal La Guaira<br>
+    {{doc.contact_name}}<br>
+    Operaciones
+  </div>
+
+  <div style="margin-top:20px; font-size:10px; color:#888">Generado: {{generatedAt}}</div>
+</body>
+</html>

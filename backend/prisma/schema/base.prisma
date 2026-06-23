@@ -56,6 +56,7 @@ model User {
   shDocumentDispatches       ShDocumentDispatch[] @relation("ShDocDispatchSentBy")
   fleetVessels               FleetVessel[]
   emailDispatchesSent        EmailDispatch[]   @relation("DispatchSentBy")
+  branchDocInstancesCreated  BranchDocumentInstance[] @relation("BranchDocInstanceCreatedBy")
 
   @@map("users")
 }

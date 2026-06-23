@@ -36,6 +36,10 @@ services:
       - '3000'
     env_file:
       - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/portlog
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: '9000'
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,9 +67,9 @@ services:
   minio:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
-    expose:
-      - '9000'
-      - '9001'
+    ports:
+      - '9000:9000'
+      - '9001:9001'
     volumes:
       - minio-data:/data
     environment:

@@ -25,7 +25,7 @@ async function bootstrap() {
   // CORS: allow the frontend origin with credentials (required for httpOnly cookie exchange).
   // SameSite=Lax on the cookie is sufficient for CSRF protection; credentials: true
   // allows the browser to include cookies on cross-origin requests to the API.
-  const corsOrigin = process.env['CORS_ORIGIN'] ?? 'http://localhost:5173';
+  const corsOrigin = process.env['CORS_ORIGIN'] ?? /^http:\/\/localhost(:\d+)?$/;
   app.enableCors({
     origin: corsOrigin,
     credentials: true,

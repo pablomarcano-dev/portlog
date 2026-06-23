@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: Arial, sans-serif; font-size: 11px; margin: 30px 40px; line-height: 1.5; }
+  h2 { text-align: center; font-size: 13px; margin-bottom: 4px; }
+  h3 { text-align: center; font-size: 11px; margin: 0 0 10px; }
+  .meta { text-align: right; margin-bottom: 10px; }
+  .recipient { margin-bottom: 16px; }
+  .title { text-align: center; font-weight: bold; text-decoration: underline; margin: 12px 0; font-size: 12px; }
+  .intro { text-align: justify; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th, td { border: 1px solid #555; padding: 5px 8px; font-size: 11px; }
+  th { background: #eee; font-weight: bold; width: 30%; }
+  .footer-block { margin-top: 30px; display: flex; justify-content: space-between; }
+  .signature-line { border-top: 1px solid #000; width: 200px; margin-top: 40px; }
+</style>
+</head>
+<body>
+  <h2>AVISO DE ARRIBO DE BUQUE</h2>
+  <h3>A LA CAPITANÍA DE PUERTO DE LA GUAIRA</h3>
+  <div class="meta">Fecha Emisión: {{doc.issue_date}}</div>
+
+  <div class="recipient">
+    CIUDADANO(A):<br>
+    <strong>{{doc.port_captain_name}}</strong><br>
+    Capitán de Puerto de LA GUAIRA<br>
+    Presente.-
+  </div>
+
+  <div class="title">AVISO DE ARRIBO</div>
+
+  <div class="intro">
+    En cumplimiento de los Artículos 13 numeral 9 y 37 de la Ley de Marinas y Actividades Conexas,
+    solicitamos permiso para el ingreso a esta Circunscripción Acuática del siguiente Buque:
+  </div>
+
+  <table>
+    <tr>
+      <th>BUQUE</th>
+      <td>{{doc.vessel_name}}</td>
+      <th>IMO</th>
+      <td>{{doc.vessel_imo}}</td>
+    </tr>
+    <tr>
+      <th>MATRÍCULA</th>
+      <td>{{doc.vessel_registration}}</td>
+      <th>BANDERA</th>
+      <td>{{doc.vessel_flag}}</td>
+    </tr>
+    <tr>
+      <th>U.A.B.</th>
+      <td>{{doc.vessel_uab}}</td>
+      <th>U.A.N.</th>
+      <td>{{doc.vessel_uan}}</td>
+    </tr>
+    <tr>
+      <th>ESLORA</th>
+      <td>{{doc.vessel_loa}}</td>
+      <th>CAPITÁN DEL BUQUE</th>
+      <td>{{doc.captain_name}}</td>
+    </tr>
+    <tr>
+      <th>FECHA DE ARRIBO</th>
+      <td>{{doc.arrival_date}}</td>
+      <th>TIPO DE OPERACIÓN</th>
+      <td>{{doc.operation_type}}</td>
+    </tr>
+    <tr>
+      <th>PROCEDENCIA (PUERTO Y PAÍS)</th>
+      <td>{{doc.origin_port}}</td>
+      <th>DESTINO (PUERTO Y PAÍS)</th>
+      <td>{{doc.destination_port}}</td>
+    </tr>
+    <tr>
+      <th>PUERTO DE ARRIBO</th>
+      <td colspan="3">{{doc.terminal_name}}</td>
+    </tr>
+    <tr>
+      <th>AGENCIA NAVIERA</th>
+      <td colspan="3">SERVICIOS NAVIERAMAR C.A</td>
+    </tr>
+  </table>
+
+  <div style="margin-top:30px">
+    <div class="signature-line"></div>
+    OPERACIONES<br>
+    SERVICIOS NAVIERAMAR
+  </div>
+
+  <div style="margin-top:16px">
+    FECHA Y HORA DE RECIBO: ________________________
+  </div>
+
+  <div style="margin-top:12px; font-size:10px; color:#888">Generado: {{generatedAt}}</div>
+</body>
+</html>

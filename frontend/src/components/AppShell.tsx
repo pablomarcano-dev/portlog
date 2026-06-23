@@ -18,6 +18,8 @@ const NAV_LINKS = [
   { label: 'Master Data', to: '/master-data/flags' },
 ] as const;
 
+const ADMIN_NAV_LINKS = [{ label: 'Admin', to: '/admin/users' }] as const;
+
 interface AppShellProps {
   children: ReactNode;
 }
@@ -48,7 +50,7 @@ export function AppShell({ children }: AppShellProps) {
         <Group h="100%" px="md" justify="space-between">
           <Group gap="lg">
             <Text fw={600}>Portlog</Text>
-            {NAV_LINKS.map((link) => {
+            {[...NAV_LINKS, ...(currentUser?.role === 'ADM' ? ADMIN_NAV_LINKS : [])].map((link) => {
               const isActive = currentPath.startsWith(link.to.split('/').slice(0, 2).join('/'));
               return (
                 <UnstyledButton

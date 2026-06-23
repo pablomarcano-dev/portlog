@@ -19,6 +19,7 @@ import { NominationForm } from '../../../features/nominations/components/Nominat
 import { TransitionButtons } from '../../../features/nominations/components/TransitionButtons';
 import { StatusHistoryTimeline } from '../../../features/nominations/components/StatusHistoryTimeline';
 import { MessagesPanel } from '../../../features/nominations/components/MessagesPanel';
+import { BranchDocumentsPanel } from '../../../features/branch-documents';
 import { EmailActionsPanel } from '../../../features/nominations/components/EmailActionsPanel';
 import { ClientsSection } from '../../../features/nominations/components/ClientsSection';
 import { useNomination } from '../../../features/nominations/hooks/useNomination';
@@ -49,6 +50,7 @@ function NominationDetailPage() {
   const [formOpen, setFormOpen] = useState(true);
   const [clientsOpen, setClientsOpen] = useState(true);
   const [messagesOpen, setMessagesOpen] = useState(true);
+  const [branchDocsOpen, setBranchDocsOpen] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(true);
   const [actionsOpen, setActionsOpen] = useState(true);
 
@@ -199,6 +201,34 @@ function NominationDetailPage() {
                 </Box>
               </Collapse>
             </Stack>
+
+            <Divider />
+
+            {/* Branch Documents section — collapsible */}
+            {nomination.branchId && (
+              <Stack gap={0}>
+                <UnstyledButton
+                  onClick={() => setBranchDocsOpen((o) => !o)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '6px 0',
+                    userSelect: 'none',
+                  }}
+                >
+                  <Title order={5}>Branch Documents</Title>
+                  <Text size="xs" c="dimmed">
+                    {branchDocsOpen ? '▲' : '▼'}
+                  </Text>
+                </UnstyledButton>
+                <Collapse in={branchDocsOpen}>
+                  <Box pt="xs">
+                    <BranchDocumentsPanel nomination={nomination} />
+                  </Box>
+                </Collapse>
+              </Stack>
+            )}
 
             <Divider />
 
