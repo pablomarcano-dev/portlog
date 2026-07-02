@@ -11,6 +11,7 @@ export function useTransitionNomination(id: string) {
     onSuccess: (nomination) => {
       void qc.invalidateQueries({ queryKey: ['nominations', id] });
       void qc.invalidateQueries({ queryKey: ['nominations', 'list'] });
+      void qc.invalidateQueries({ queryKey: ['pedr', 'by-nomination', id] });
       notifications.show({
         title: 'Status updated',
         message: `Nomination is now ${nomination.status}.`,

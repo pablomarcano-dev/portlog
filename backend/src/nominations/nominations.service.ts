@@ -252,6 +252,38 @@ export class NominationsService {
           reason: reason ?? null,
         },
       });
+
+      if (toStatus === 'IN_PROGRESS') {
+        const existingPedr = await tx.pedr.findUnique({
+          where: { nominationId: id },
+          select: { id: true },
+        });
+        if (!existingPedr) {
+          const pedr = await tx.pedr.create({
+            data: {
+              nominationId: id,
+              currentStage: 'PRE_ARRIVAL',
+              createdById: userId,
+            },
+          });
+          await tx.pedrStageHistory.create({
+            data: {
+              pedrId: pedr.id,
+              fromStage: null,
+              toStage: 'PRE_ARRIVAL',
+              changedById: userId,
+            },
+          });
+          this.logger.log({
+            event: 'pedr.created',
+            pedrId: pedr.id,
+            nominationId: id,
+            userId,
+            trigger: 'nomination.transition',
+          });
+        }
+      }
+
       this.logger.log({
         event: 'nomination.transition',
         nominationId: id,

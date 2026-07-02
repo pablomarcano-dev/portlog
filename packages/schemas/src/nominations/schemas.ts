@@ -216,6 +216,10 @@ export const NominationSchema = z.object({
     callSign: z.string(),
     imoNumber: z.string().nullable(),
     abbreviation: z.string().nullable(),
+    loa: z.coerce.number().nullable().optional(),
+    grt: z.coerce.number().nullable().optional(),
+    nrt: z.coerce.number().nullable().optional(),
+    flag: z.object({ name: z.string() }).nullable().optional(),
   }),
 
   // Branch — resolves Open Question #5

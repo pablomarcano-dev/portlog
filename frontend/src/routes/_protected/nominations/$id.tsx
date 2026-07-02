@@ -333,7 +333,7 @@ function NominationDetailPage() {
               </Collapse>
             </Stack>
 
-            {/* Actions — shown only when a PEDR exists */}
+            {/* Actions — shown once a PEDR exists (auto-created when the nomination is Started) */}
             {pedr && (
               <>
                 <Divider my="sm" />
