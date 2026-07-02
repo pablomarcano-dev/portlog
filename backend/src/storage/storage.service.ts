@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as Minio from 'minio';
 import { type PedrStage } from '@portlog/schemas';
@@ -87,7 +87,9 @@ export class StorageService implements OnModuleInit {
 
   private assertAvailable(): void {
     if (!this.available) {
-      throw new Error('MinIO storage is not available. Check MINIO_* environment variables.');
+      throw new ServiceUnavailableException(
+        'Storage is unavailable. Check MINIO_ENDPOINT/MINIO_ACCESS_KEY/MINIO_SECRET_KEY.',
+      );
     }
   }
 }

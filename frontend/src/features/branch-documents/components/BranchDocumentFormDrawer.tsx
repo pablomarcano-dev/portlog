@@ -30,9 +30,15 @@ interface Props {
 
 // Resolve a sourceField path against the nomination to auto-populate a field
 function resolveSource(sourceField: string, nomination: Nomination): string {
+  const sp = nomination.shipParticular;
+  const br = nomination.branch;
   const map: Record<string, () => string | null | undefined> = {
-    'nomination.vesselName': () => nomination.shipParticular.name,
-    'nomination.imo': () => nomination.shipParticular.imoNumber,
+    'nomination.vesselName': () => sp.name,
+    'nomination.imo': () => sp.imoNumber,
+    'nomination.flag': () => sp.flag?.name ?? null,
+    'nomination.grt': () => (sp.grt != null ? String(sp.grt) : null),
+    'nomination.nrt': () => (sp.nrt != null ? String(sp.nrt) : null),
+    'nomination.loa': () => (sp.loa != null ? String(sp.loa) : null),
     'nomination.master': () => nomination.master,
     'nomination.opPortName': () => nomination.opPort?.name,
     'nomination.lastPortName': () => nomination.lastPort?.name,
@@ -45,6 +51,8 @@ function resolveSource(sourceField: string, nomination: Nomination): string {
             year: 'numeric',
           })
         : null,
+    'branch.contactName': () => br?.contactName ?? null,
+    'branch.contactTitle': () => br?.contactTitle ?? null,
   };
   return map[sourceField]?.() ?? '';
 }

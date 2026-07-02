@@ -46,6 +46,8 @@ export const BranchSummarySchema = z.object({
   id: z.string(),
   name: z.string(),
   code: z.string(),
+  contactName: z.string().nullable().optional(),
+  contactTitle: z.string().nullable().optional(),
 });
 
 export const BranchListQuerySchema = ListQuerySchema;

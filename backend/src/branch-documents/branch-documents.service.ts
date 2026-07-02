@@ -14,6 +14,11 @@ import {
   type UpdateBranchDocumentInstanceInput,
   type BranchDocumentTemplate,
   type BranchDocumentInstance,
+  type CreateBranchDocumentTemplateInput,
+  type UpdateBranchDocumentTemplateInput,
+  type CreateBranchDocumentTemplateFieldInput,
+  type UpdateBranchDocumentTemplateFieldInput,
+  type ReorderTemplateFieldsInput,
 } from '@portlog/schemas';
 
 @Injectable()
@@ -202,6 +207,216 @@ export class BranchDocumentsService {
   }
 
   // ---------------------------------------------------------------------------
+  // Template CRUD (ADM)
+  // ---------------------------------------------------------------------------
+
+  private async assertTemplateOwnership(
+    branchId: string,
+    templateId: string,
+  ): Promise<{ id: string; branchId: string; code: string; branch: { code: string } }> {
+    const template = await this.prisma.branchDocumentTemplate.findUnique({
+      where: { id: templateId },
+      select: { id: true, branchId: true, code: true, branch: { select: { code: true } } },
+    });
+    if (!template) throw new NotFoundException(`Template ${templateId} not found`);
+    if (template.branchId !== branchId)
+      throw new NotFoundException(`Template ${templateId} not found`);
+    return template;
+  }
+
+  async createTemplate(
+    branchId: string,
+    dto: CreateBranchDocumentTemplateInput,
+  ): Promise<BranchDocumentTemplate> {
+    const branch = await this.prisma.branch.findUnique({
+      where: { id: branchId },
+      select: { id: true },
+    });
+    if (!branch) throw new NotFoundException(`Branch ${branchId} not found`);
+
+    try {
+      const template = await this.prisma.branchDocumentTemplate.create({
+        data: {
+          branchId,
+          name: dto.name,
+          code: dto.code,
+          description: dto.description ?? null,
+          sortOrder: dto.sortOrder ?? 0,
+          hbsTemplate: '',
+        },
+        include: { fields: { orderBy: { sortOrder: 'asc' } } },
+      });
+      return this.toTemplateDto(template);
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new ConflictException(
+          `Template with code '${dto.code}' already exists for this branch`,
+        );
+      }
+      throw e;
+    }
+  }
+
+  async updateTemplate(
+    branchId: string,
+    templateId: string,
+    dto: UpdateBranchDocumentTemplateInput,
+  ): Promise<BranchDocumentTemplate> {
+    await this.assertTemplateOwnership(branchId, templateId);
+    const template = await this.prisma.branchDocumentTemplate.update({
+      where: { id: templateId },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.description !== undefined && { description: dto.description ?? null }),
+        ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
+      },
+      include: { fields: { orderBy: { sortOrder: 'asc' } } },
+    });
+    return this.toTemplateDto(template);
+  }
+
+  async deleteTemplate(branchId: string, templateId: string): Promise<void> {
+    await this.assertTemplateOwnership(branchId, templateId);
+    const instanceCount = await this.prisma.branchDocumentInstance.count({
+      where: { templateId },
+    });
+    if (instanceCount > 0) {
+      throw new ConflictException(
+        `Template has ${instanceCount} existing document(s) and cannot be deleted`,
+      );
+    }
+    const template = await this.prisma.branchDocumentTemplate.findUnique({
+      where: { id: templateId },
+      select: { hbsTemplate: true },
+    });
+    if (template?.hbsTemplate) {
+      try {
+        await this.storage.deleteFile(template.hbsTemplate);
+      } catch {
+        /* ignore missing file */
+      }
+    }
+    await this.prisma.branchDocumentTemplate.delete({ where: { id: templateId } });
+  }
+
+  async uploadHbs(
+    branchId: string,
+    templateId: string,
+    content: string,
+  ): Promise<BranchDocumentTemplate> {
+    const tpl = await this.assertTemplateOwnership(branchId, templateId);
+    const minioKey = `branch-templates/${tpl.branch.code.toLowerCase()}/${tpl.code.toLowerCase().replace(/_/g, '-')}.hbs`;
+    await this.storage.uploadFile(minioKey, Buffer.from(content, 'utf-8'), 'text/plain');
+    const updated = await this.prisma.branchDocumentTemplate.update({
+      where: { id: templateId },
+      data: { hbsTemplate: minioKey },
+      include: { fields: { orderBy: { sortOrder: 'asc' } } },
+    });
+    return this.toTemplateDto(updated);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Field CRUD (ADM)
+  // ---------------------------------------------------------------------------
+
+  async createField(
+    branchId: string,
+    templateId: string,
+    dto: CreateBranchDocumentTemplateFieldInput,
+  ): Promise<BranchDocumentTemplate> {
+    await this.assertTemplateOwnership(branchId, templateId);
+    try {
+      await this.prisma.branchDocumentTemplateField.create({
+        data: {
+          templateId,
+          key: dto.key,
+          label: dto.label,
+          type: dto.type,
+          required: dto.required ?? false,
+          sourceField: dto.sourceField ?? null,
+          placeholder: dto.placeholder ?? null,
+          options: dto.options ?? [],
+          sortOrder: dto.sortOrder ?? 0,
+        },
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new ConflictException(`Field with key '${dto.key}' already exists in this template`);
+      }
+      throw e;
+    }
+    const template = await this.prisma.branchDocumentTemplate.findUnique({
+      where: { id: templateId },
+      include: { fields: { orderBy: { sortOrder: 'asc' } } },
+    });
+    return this.toTemplateDto(template!);
+  }
+
+  async updateField(
+    branchId: string,
+    templateId: string,
+    fieldId: string,
+    dto: UpdateBranchDocumentTemplateFieldInput,
+  ): Promise<BranchDocumentTemplate> {
+    await this.assertTemplateOwnership(branchId, templateId);
+    const field = await this.prisma.branchDocumentTemplateField.findUnique({
+      where: { id: fieldId },
+    });
+    if (!field || field.templateId !== templateId)
+      throw new NotFoundException(`Field ${fieldId} not found`);
+
+    await this.prisma.branchDocumentTemplateField.update({
+      where: { id: fieldId },
+      data: {
+        ...(dto.label !== undefined && { label: dto.label }),
+        ...(dto.type !== undefined && { type: dto.type }),
+        ...(dto.required !== undefined && { required: dto.required }),
+        ...(dto.sourceField !== undefined && { sourceField: dto.sourceField ?? null }),
+        ...(dto.placeholder !== undefined && { placeholder: dto.placeholder ?? null }),
+        ...(dto.options !== undefined && { options: dto.options }),
+        ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
+      },
+    });
+
+    const template = await this.prisma.branchDocumentTemplate.findUnique({
+      where: { id: templateId },
+      include: { fields: { orderBy: { sortOrder: 'asc' } } },
+    });
+    return this.toTemplateDto(template!);
+  }
+
+  async deleteField(branchId: string, templateId: string, fieldId: string): Promise<void> {
+    await this.assertTemplateOwnership(branchId, templateId);
+    const field = await this.prisma.branchDocumentTemplateField.findUnique({
+      where: { id: fieldId },
+    });
+    if (!field || field.templateId !== templateId)
+      throw new NotFoundException(`Field ${fieldId} not found`);
+    await this.prisma.branchDocumentTemplateField.delete({ where: { id: fieldId } });
+  }
+
+  async reorderFields(
+    branchId: string,
+    templateId: string,
+    items: ReorderTemplateFieldsInput,
+  ): Promise<BranchDocumentTemplate> {
+    await this.assertTemplateOwnership(branchId, templateId);
+    await this.prisma.$transaction(
+      items.map((item) =>
+        this.prisma.branchDocumentTemplateField.update({
+          where: { id: item.id },
+          data: { sortOrder: item.sortOrder },
+        }),
+      ),
+    );
+    const template = await this.prisma.branchDocumentTemplate.findUnique({
+      where: { id: templateId },
+      include: { fields: { orderBy: { sortOrder: 'asc' } } },
+    });
+    return this.toTemplateDto(template!);
+  }
+
+  // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
 
@@ -256,6 +471,9 @@ export class BranchDocumentsService {
         phone: nomination.branch?.phone ?? null,
       },
       doc: docData,
+      dispatchTypes: ['EXPORTACIÓN', 'TRÁNSITO', 'CABOTAJE', 'TRANSBORDO', 'TURISMO', 'LASTRE'].map(
+        (label) => ({ label, selected: label === (docData['dispatch_type'] ?? '') }),
+      ),
       generatedAt: new Date().toLocaleString('es-VE'),
     };
   }

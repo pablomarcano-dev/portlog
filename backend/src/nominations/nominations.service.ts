@@ -32,9 +32,19 @@ function formatSnOt(correlative: number, dateNominated: Date): string {
 
 const DETAIL_INCLUDE = {
   shipParticular: {
-    select: { id: true, name: true, callSign: true, imoNumber: true, abbreviation: true },
+    select: {
+      id: true,
+      name: true,
+      callSign: true,
+      imoNumber: true,
+      abbreviation: true,
+      loa: true,
+      grt: true,
+      nrt: true,
+      flag: { select: { name: true } },
+    },
   },
-  branch: { select: { id: true, name: true, code: true } },
+  branch: { select: { id: true, name: true, code: true, contactName: true, contactTitle: true } },
   opPort: { select: { id: true, name: true, abbreviation: true } },
   pier: { select: { id: true, name: true } },
   lastPort: { select: { id: true, name: true, abbreviation: true } },

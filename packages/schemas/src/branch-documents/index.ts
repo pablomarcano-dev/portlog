@@ -86,3 +86,57 @@ export const UpdateBranchDocumentInstanceSchema = z.object({
   data: z.record(z.unknown()),
 });
 export type UpdateBranchDocumentInstanceInput = z.infer<typeof UpdateBranchDocumentInstanceSchema>;
+
+// --- Template CRUD schemas ---
+
+export const CreateBranchDocumentTemplateSchema = z.object({
+  name: z.string().min(1).max(100),
+  code: z
+    .string()
+    .min(1)
+    .max(50)
+    .regex(/^[A-Z0-9_]+$/, 'Must be uppercase letters, digits, or underscores'),
+  description: z.string().max(500).nullable().optional(),
+  sortOrder: z.number().int().min(0).default(0),
+});
+export type CreateBranchDocumentTemplateInput = z.infer<typeof CreateBranchDocumentTemplateSchema>;
+
+export const UpdateBranchDocumentTemplateSchema = CreateBranchDocumentTemplateSchema.partial();
+export type UpdateBranchDocumentTemplateInput = z.infer<typeof UpdateBranchDocumentTemplateSchema>;
+
+// --- Field CRUD schemas ---
+
+export const CreateBranchDocumentTemplateFieldSchema = z.object({
+  key: z
+    .string()
+    .min(1)
+    .max(100)
+    .regex(/^[a-z0-9_]+$/, 'Must be snake_case'),
+  label: z.string().min(1).max(200),
+  type: BranchDocumentFieldTypeSchema,
+  required: z.boolean().default(false),
+  sourceField: z.string().nullable().optional(),
+  placeholder: z.string().nullable().optional(),
+  options: z.array(z.string()).default([]),
+  sortOrder: z.number().int().min(0).default(0),
+});
+export type CreateBranchDocumentTemplateFieldInput = z.infer<
+  typeof CreateBranchDocumentTemplateFieldSchema
+>;
+
+export const UpdateBranchDocumentTemplateFieldSchema =
+  CreateBranchDocumentTemplateFieldSchema.partial();
+export type UpdateBranchDocumentTemplateFieldInput = z.infer<
+  typeof UpdateBranchDocumentTemplateFieldSchema
+>;
+
+export const ReorderTemplateFieldsSchema = z.array(
+  z.object({ id: z.string(), sortOrder: z.number().int().min(0) }),
+);
+export type ReorderTemplateFieldsInput = z.infer<typeof ReorderTemplateFieldsSchema>;
+
+// HBS file content uploaded as JSON (avoids multipart infrastructure)
+export const UploadHbsSchema = z.object({
+  content: z.string().min(1, 'Template content cannot be empty'),
+});
+export type UploadHbsInput = z.infer<typeof UploadHbsSchema>;

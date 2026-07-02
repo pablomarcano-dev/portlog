@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useState, useCallback } from 'react';
-import { Stack, TextInput, Textarea } from '@mantine/core';
+import { Stack, Tabs, TextInput, Textarea } from '@mantine/core';
 import { BranchCreateSchema } from '@portlog/schemas';
 import type { BranchCreate } from '@portlog/schemas';
 import { MasterDetailShell } from '../../../components/master-data/MasterDetailShell';
@@ -11,6 +11,7 @@ import {
   useDeleteBranch,
   branchesApi,
 } from '../../../lib/api/master-data/branches';
+import { BranchDocumentTemplateAdminPanel } from '../../../features/branch-documents/components/admin/BranchDocumentTemplateAdminPanel';
 
 export const Route = createFileRoute('/_protected/master-data/branches')({
   component: BranchesScreen,
@@ -75,7 +76,22 @@ function BranchesScreen() {
       onDelete={onDelete}
       searchFn={searchFn}
     >
-      {(form) => <BranchFields form={form} />}
+      {(form) => (
+        <Tabs defaultValue="info">
+          <Tabs.List mb="md">
+            <Tabs.Tab value="info">Branch Info</Tabs.Tab>
+            {selectedId && <Tabs.Tab value="templates">Document Templates</Tabs.Tab>}
+          </Tabs.List>
+          <Tabs.Panel value="info">
+            <BranchFields form={form} />
+          </Tabs.Panel>
+          {selectedId && (
+            <Tabs.Panel value="templates">
+              <BranchDocumentTemplateAdminPanel branchId={selectedId} />
+            </Tabs.Panel>
+          )}
+        </Tabs>
+      )}
     </MasterDetailShell>
   );
 }
