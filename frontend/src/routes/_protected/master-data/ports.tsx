@@ -285,9 +285,9 @@ function PortsScreen() {
   }
 
   return (
-    <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} noValidate>
+    <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} noValidate style={{ height: '100%' }}>
       <FormProvider {...form}>
-        <Grid h="100%" gutter={0}>
+        <Grid h="100%" gutter={0} styles={{ inner: { height: '100%', minHeight: 0 } }}>
           {/* Left rail — flat port list */}
           <Grid.Col
             span={3}
@@ -296,6 +296,7 @@ function PortsScreen() {
               display: 'flex',
               flexDirection: 'column',
               height: '100%',
+              minHeight: 0,
             }}
           >
             <Stack gap="xs" p="sm" style={{ flexShrink: 0 }}>
@@ -320,7 +321,7 @@ function PortsScreen() {
           </Grid.Col>
 
           {/* Right panel — detail form */}
-          <Grid.Col span={9}>
+          <Grid.Col span={9} style={{ height: '100%', minHeight: 0 }}>
             <Stack h="100%" gap={0}>
               <Paper
                 px="md"
