@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
-import { apiRequest } from '../../lib/api/client';
+import { apiRequest, apiRequestBlob } from '../../lib/api/client';
 import type {
   SHDocumentDto,
   CreateSHDocumentInput,
@@ -34,15 +34,12 @@ const shDocumentsApi = {
     }),
 
   generate: (nominationId: string, shId: string) =>
-    apiRequest<{ minioKey: string; downloadUrl: string }>(
-      `/nominations/${nominationId}/sh-documents/${shId}/generate`,
-      { method: 'POST' },
-    ),
+    apiRequest<{ minioKey: string }>(`/nominations/${nominationId}/sh-documents/${shId}/generate`, {
+      method: 'POST',
+    }),
 
-  pdfUrl: (nominationId: string, shId: string) =>
-    apiRequest<{ url: string; expiresAt: string }>(
-      `/nominations/${nominationId}/sh-documents/${shId}/pdf-url`,
-    ),
+  downloadPdf: (nominationId: string, shId: string) =>
+    apiRequestBlob(`/nominations/${nominationId}/sh-documents/${shId}/download`),
 
   send: (nominationId: string, shId: string, body: SendShDocumentInput) =>
     apiRequest<{ shDocument: SHDocumentDto; dispatch: unknown }>(
@@ -64,8 +61,6 @@ export const shDocumentsKeys = {
   list: (nominationId: string) => ['nomination', nominationId, 'sh-documents'] as const,
   detail: (nominationId: string, shId: string) =>
     ['nomination', nominationId, 'sh-documents', shId] as const,
-  pdfUrl: (nominationId: string, shId: string) =>
-    ['nomination', nominationId, 'sh-documents', shId, 'pdf-url'] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -163,12 +158,21 @@ export function useGenerateShDocument(nominationId: string) {
   });
 }
 
-export function usePdfUrl(nominationId: string, shId: string | null) {
-  return useQuery({
-    queryKey: shDocumentsKeys.pdfUrl(nominationId, shId ?? ''),
-    queryFn: () => shDocumentsApi.pdfUrl(nominationId, shId!),
-    enabled: Boolean(nominationId) && Boolean(shId),
-    staleTime: 5 * 60_000, // pre-signed URLs are valid for a while; refetch less aggressively
+export function useOpenShDocumentPdf(nominationId: string) {
+  return useMutation({
+    mutationFn: (shId: string) => shDocumentsApi.downloadPdf(nominationId, shId),
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    },
+    onError: (err: unknown) => {
+      notifications.show({
+        title: 'Error',
+        message: err instanceof Error ? err.message : 'Failed to open PDF.',
+        color: 'red',
+      });
+    },
   });
 }
 

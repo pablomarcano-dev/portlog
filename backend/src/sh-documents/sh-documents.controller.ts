@@ -9,7 +9,9 @@ import {
   Post,
   Put,
   Req,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { SHDocumentsService } from './sh-documents.service.js';
 import { Roles } from '../auth/roles.decorator.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
@@ -85,12 +87,18 @@ export class SHDocumentsController {
     return this.service.generatePdf(nominationId, shId);
   }
 
-  @Get(':shId/pdf-url')
-  getPdfUrl(
+  @Get(':shId/download')
+  async download(
     @Param('nominationId', ParseUUIDPipe) nominationId: string,
     @Param('shId', ParseUUIDPipe) shId: string,
+    @Res() res: Response,
   ) {
-    return this.service.getPdfUrl(nominationId, shId);
+    const { buffer, filename } = await this.service.downloadPdf(nominationId, shId);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="${filename}"`,
+    });
+    res.send(buffer);
   }
 
   @Delete(':shId')

@@ -136,10 +136,7 @@ export class BranchDocumentsService {
     return this.toInstanceDto(updated);
   }
 
-  async generatePdf(
-    nominationId: string,
-    instanceId: string,
-  ): Promise<{ minioKey: string; downloadUrl: string }> {
+  async generatePdf(nominationId: string, instanceId: string): Promise<{ minioKey: string }> {
     const instance = await this.getOrThrow(nominationId, instanceId);
 
     const nomination = await this.prisma.nomination.findUnique({
@@ -176,19 +173,17 @@ export class BranchDocumentsService {
       data: { minioKey: newKey, pdfGeneratedAt: new Date() },
     });
 
-    const downloadUrl = await this.storage.getPresignedUrl(newKey, 3600);
-    return { minioKey: newKey, downloadUrl };
+    return { minioKey: newKey };
   }
 
-  async getPdfUrl(
+  async downloadPdf(
     nominationId: string,
     instanceId: string,
-  ): Promise<{ url: string; expiresAt: string }> {
+  ): Promise<{ buffer: Buffer; filename: string }> {
     const instance = await this.getOrThrow(nominationId, instanceId);
     if (!instance.minioKey) throw new BadRequestException('No PDF generated yet');
-    const url = await this.storage.getPresignedUrl(instance.minioKey, 3600);
-    const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
-    return { url, expiresAt };
+    const buffer = await this.storage.getFileBuffer(instance.minioKey);
+    return { buffer, filename: `${instance.template.code}.pdf` };
   }
 
   async delete(nominationId: string, instanceId: string): Promise<void> {

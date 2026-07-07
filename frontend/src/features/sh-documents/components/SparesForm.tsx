@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Anchor, Button, Group, Loader, Stack, Table, Text, TextInput } from '@mantine/core';
+import { Alert, Button, Group, Loader, Stack, Table, Text, TextInput } from '@mantine/core';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -10,7 +10,7 @@ import {
   useUpdateShDocument,
   useFinalizeShDocument,
   useGenerateShDocument,
-  usePdfUrl,
+  useOpenShDocumentPdf,
 } from '../api';
 import { ShDocStatusBadge } from './ShDocStatusBadge';
 import { SendShDocumentDrawer } from './SendShDocumentDrawer';
@@ -84,7 +84,7 @@ export function SparesForm({ nominationId, doc, isLoading, docType, title }: Spa
   const updateDoc = useUpdateShDocument(nominationId);
   const finalizeDoc = useFinalizeShDocument(nominationId);
   const generateDoc = useGenerateShDocument(nominationId);
-  const pdfUrlQuery = usePdfUrl(nominationId, doc?.minioKey ? doc.id : null);
+  const openPdf = useOpenShDocumentPdf(nominationId);
 
   const isSent = doc?.status === 'SENT';
   const isDisabled = isSent;
@@ -350,10 +350,15 @@ export function SparesForm({ nominationId, doc, isLoading, docType, title }: Spa
               </Button>
             )}
 
-            {doc.minioKey && pdfUrlQuery.data && (
-              <Anchor href={pdfUrlQuery.data.url} target="_blank" size="xs">
+            {doc.minioKey && (
+              <Button
+                size="xs"
+                variant="subtle"
+                loading={openPdf.isPending}
+                onClick={() => openPdf.mutate(doc.id)}
+              >
                 Abrir PDF
-              </Anchor>
+              </Button>
             )}
 
             {doc.status !== 'DRAFT' && (

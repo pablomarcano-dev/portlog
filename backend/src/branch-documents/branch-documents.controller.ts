@@ -10,7 +10,9 @@ import {
   Post,
   Put,
   Req,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { BranchDocumentsService } from './branch-documents.service.js';
 import { Roles } from '../auth/roles.decorator.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
@@ -101,12 +103,18 @@ export class BranchDocumentsController {
     return this.service.generatePdf(nominationId, instanceId);
   }
 
-  @Get('nominations/:nominationId/branch-documents/:instanceId/pdf-url')
-  getPdfUrl(
+  @Get('nominations/:nominationId/branch-documents/:instanceId/download')
+  async download(
     @Param('nominationId', ParseUUIDPipe) nominationId: string,
     @Param('instanceId', ParseUUIDPipe) instanceId: string,
+    @Res() res: Response,
   ) {
-    return this.service.getPdfUrl(nominationId, instanceId);
+    const { buffer, filename } = await this.service.downloadPdf(nominationId, instanceId);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="${filename}"`,
+    });
+    res.send(buffer);
   }
 
   @Delete('nominations/:nominationId/branch-documents/:instanceId')

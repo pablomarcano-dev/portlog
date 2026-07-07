@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button, Group, Loader, Modal, ScrollArea, Table, Text, TextInput } from '@mantine/core';
+import { useDebouncedValue } from '@mantine/hooks';
 import { useQuery } from '@tanstack/react-query';
 import { clientsApi } from '../../lib/api/master-data/clients';
 import { useColumnResize } from '../table/useColumnResize';
@@ -22,11 +23,12 @@ interface ClientPickerModalProps {
 
 export function ClientPickerModal({ opened, onClose, onSelect }: ClientPickerModalProps) {
   const [search, setSearch] = useState('');
+  const [debouncedSearch] = useDebouncedValue(search, 300);
   const { colWidths, startResize } = useColumnResize<ColKey>(INITIAL_WIDTHS);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['clients', 'list', search],
-    queryFn: () => clientsApi.list({ q: search || undefined, limit: 50 }),
+    queryKey: ['clients', 'list', debouncedSearch],
+    queryFn: () => clientsApi.list({ q: debouncedSearch || undefined, limit: 50 }),
     staleTime: 30_000,
     enabled: opened,
   });

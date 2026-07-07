@@ -20,6 +20,7 @@ import {
   useDeleteBranchDocument,
   useFinalizeBranchDocument,
   useGenerateBranchDocumentPdf,
+  useOpenBranchDocumentPdf,
   useUpdateBranchDocument,
 } from '../api';
 import { BranchDocumentFormDrawer } from './BranchDocumentFormDrawer';
@@ -51,6 +52,7 @@ export function BranchDocumentsPanel({ nomination }: Props) {
   const updateDoc = useUpdateBranchDocument(nominationId);
   const finalizeDoc = useFinalizeBranchDocument(nominationId);
   const generatePdf = useGenerateBranchDocumentPdf(nominationId);
+  const openPdf = useOpenBranchDocumentPdf(nominationId);
   const deleteDoc = useDeleteBranchDocument(nominationId);
 
   if (!branchId) {
@@ -97,10 +99,8 @@ export function BranchDocumentsPanel({ nomination }: Props) {
   async function handleGeneratePdf(instanceId: string) {
     setGeneratingId(instanceId);
     try {
-      const result = await generatePdf.mutateAsync(instanceId);
-      if (result?.downloadUrl) {
-        window.open(result.downloadUrl, '_blank');
-      }
+      await generatePdf.mutateAsync(instanceId);
+      await openPdf.mutateAsync(instanceId);
     } finally {
       setGeneratingId(null);
     }
@@ -108,10 +108,7 @@ export function BranchDocumentsPanel({ nomination }: Props) {
 
   async function handleDownload(instance: BranchDocumentInstance) {
     if (!instance.minioKey) return;
-    const result = await generatePdf.mutateAsync(instance.id);
-    if (result?.downloadUrl) {
-      window.open(result.downloadUrl, '_blank');
-    }
+    await openPdf.mutateAsync(instance.id);
   }
 
   return (

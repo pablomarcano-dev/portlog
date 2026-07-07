@@ -107,10 +107,7 @@ export class SHDocumentsService {
     return this.toDto(updated);
   }
 
-  async generatePdf(
-    nominationId: string,
-    shId: string,
-  ): Promise<{ minioKey: string; downloadUrl: string }> {
+  async generatePdf(nominationId: string, shId: string): Promise<{ minioKey: string }> {
     const doc = await this.getOrThrow(nominationId, shId);
     if (doc.status === 'SENT') throw new ConflictException('Document has been sent — read-only');
     if (doc.type === 'COMMENT' || doc.type === 'OTHER') {
@@ -152,16 +149,17 @@ export class SHDocumentsService {
       data: { minioKey: newKey, pdfGeneratedAt: new Date() },
     });
 
-    const downloadUrl = await this.storage.getPresignedUrl(newKey, 3600);
-    return { minioKey: newKey, downloadUrl };
+    return { minioKey: newKey };
   }
 
-  async getPdfUrl(nominationId: string, shId: string): Promise<{ url: string; expiresAt: string }> {
+  async downloadPdf(
+    nominationId: string,
+    shId: string,
+  ): Promise<{ buffer: Buffer; filename: string }> {
     const doc = await this.getOrThrow(nominationId, shId);
     if (!doc.minioKey) throw new BadRequestException('No PDF generated yet');
-    const url = await this.storage.getPresignedUrl(doc.minioKey, 3600);
-    const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
-    return { url, expiresAt };
+    const buffer = await this.storage.getFileBuffer(doc.minioKey);
+    return { buffer, filename: `${doc.type}.pdf` };
   }
 
   async delete(nominationId: string, shId: string): Promise<void> {

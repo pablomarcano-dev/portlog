@@ -87,3 +87,40 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
 
   return res.json() as Promise<T>;
 }
+
+export async function apiRequestBlob(path: string): Promise<Blob> {
+  const token = accessTokenStore.get();
+  const headers: Record<string, string> = {
+    ...(token !== null ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  let res = await fetch(`${BASE_URL}${path}`, { credentials: 'include', headers });
+
+  if (res.status === 401 && !path.startsWith('/auth/')) {
+    if (refreshInFlight === null) {
+      refreshInFlight = doRefresh().finally(() => {
+        refreshInFlight = null;
+      });
+    }
+
+    let newToken: string;
+    try {
+      newToken = await refreshInFlight;
+    } catch (err) {
+      accessTokenStore.set(null);
+      throw err;
+    }
+
+    accessTokenStore.set(newToken);
+    res = await fetch(`${BASE_URL}${path}`, {
+      credentials: 'include',
+      headers: { ...headers, Authorization: `Bearer ${newToken}` },
+    });
+  }
+
+  if (!res.ok) {
+    throw new ApiError(res.status, await res.text());
+  }
+
+  return res.blob();
+}

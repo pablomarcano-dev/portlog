@@ -612,6 +612,7 @@ export class NominationsService {
       // SOF-specific — populated below when actionType === 'SOF'
       statement_of_facts_log: '',
       bl_figures_section: '',
+      slop_bunkers_section: '',
       letters_section: '',
       remarks_section: '',
     };
@@ -690,6 +691,39 @@ export class NominationsService {
         return lines.join('\n');
       });
       templateVars.bl_figures_section = blBlocks.join('\n\n');
+
+      // Slop discharged / bunkers received
+      type SlopRow = { event?: string; date?: string; time?: string };
+      const slopData = sof?.slopDischargedData as { rows?: SlopRow[] } | null;
+      const slopLines = (slopData?.rows ?? [])
+        .filter((r) => r.date || r.time)
+        .map((r) => `${r.event ?? ''}: ${r.date ?? ''} ${r.time ?? ''}`.trim());
+
+      type BunkerRow = { event?: string; values?: string[]; water?: string };
+      const bunkersData = sof?.bunkersReceivedData as {
+        columns?: string[];
+        rows?: BunkerRow[];
+      } | null;
+      const bunkerCols = bunkersData?.columns ?? [];
+      const bunkerLines = (bunkersData?.rows ?? [])
+        .filter((r) => (r.values ?? []).some((v) => v) || r.water)
+        .map((r) => {
+          const grades = bunkerCols
+            .map((col, i) => (r.values?.[i] ? `${col}: ${r.values[i]}` : ''))
+            .filter(Boolean)
+            .join('  ');
+          const water = r.water ? `Water: ${r.water}` : '';
+          return [r.event ?? '', grades, water].filter(Boolean).join('  ');
+        });
+
+      const slopBunkersBlocks: string[] = [];
+      if (slopLines.length > 0) {
+        slopBunkersBlocks.push(['Slop Discharged:', ...slopLines].join('\n'));
+      }
+      if (bunkerLines.length > 0) {
+        slopBunkersBlocks.push(['Bunkers Received:', ...bunkerLines].join('\n'));
+      }
+      templateVars.slop_bunkers_section = slopBunkersBlocks.join('\n\n');
 
       // Letters of protest
       type LetterItem = { from?: string; to?: string; comment?: string };
@@ -993,18 +1027,18 @@ export class NominationsService {
           pierId: dto.pierId ?? null,
           captain: dto.captain ?? null,
           mobileOnBoard: dto.mobileOnBoard ?? null,
-          ...(dto.bunkersData != null && { bunkersData: dto.bunkersData as object }),
-          ...(dto.draftData != null && { draftData: dto.draftData as object }),
-          ...(dto.sofParcelsData != null && { sofParcelsData: dto.sofParcelsData as object }),
-          ...(dto.blFiguresData != null && { blFiguresData: dto.blFiguresData as object }),
-          ...(dto.shipFiguresData != null && { shipFiguresData: dto.shipFiguresData as object }),
-          ...(dto.lettersData != null && { lettersData: dto.lettersData as object }),
-          ...(dto.remarksData != null && { remarksData: dto.remarksData as object }),
+          ...(dto.bunkersData != null && { bunkersData: dto.bunkersData }),
+          ...(dto.draftData != null && { draftData: dto.draftData }),
+          ...(dto.sofParcelsData != null && { sofParcelsData: dto.sofParcelsData }),
+          ...(dto.blFiguresData != null && { blFiguresData: dto.blFiguresData }),
+          ...(dto.shipFiguresData != null && { shipFiguresData: dto.shipFiguresData }),
+          ...(dto.lettersData != null && { lettersData: dto.lettersData }),
+          ...(dto.remarksData != null && { remarksData: dto.remarksData }),
           ...(dto.slopDischargedData != null && {
-            slopDischargedData: dto.slopDischargedData as object,
+            slopDischargedData: dto.slopDischargedData,
           }),
           ...(dto.bunkersReceivedData != null && {
-            bunkersReceivedData: dto.bunkersReceivedData as object,
+            bunkersReceivedData: dto.bunkersReceivedData,
           }),
         },
         update: {
@@ -1013,18 +1047,18 @@ export class NominationsService {
           pierId: dto.pierId ?? null,
           captain: dto.captain ?? null,
           mobileOnBoard: dto.mobileOnBoard ?? null,
-          ...(dto.bunkersData != null && { bunkersData: dto.bunkersData as object }),
-          ...(dto.draftData != null && { draftData: dto.draftData as object }),
-          ...(dto.sofParcelsData != null && { sofParcelsData: dto.sofParcelsData as object }),
-          ...(dto.blFiguresData != null && { blFiguresData: dto.blFiguresData as object }),
-          ...(dto.shipFiguresData != null && { shipFiguresData: dto.shipFiguresData as object }),
-          ...(dto.lettersData != null && { lettersData: dto.lettersData as object }),
-          ...(dto.remarksData != null && { remarksData: dto.remarksData as object }),
+          ...(dto.bunkersData != null && { bunkersData: dto.bunkersData }),
+          ...(dto.draftData != null && { draftData: dto.draftData }),
+          ...(dto.sofParcelsData != null && { sofParcelsData: dto.sofParcelsData }),
+          ...(dto.blFiguresData != null && { blFiguresData: dto.blFiguresData }),
+          ...(dto.shipFiguresData != null && { shipFiguresData: dto.shipFiguresData }),
+          ...(dto.lettersData != null && { lettersData: dto.lettersData }),
+          ...(dto.remarksData != null && { remarksData: dto.remarksData }),
           ...(dto.slopDischargedData != null && {
-            slopDischargedData: dto.slopDischargedData as object,
+            slopDischargedData: dto.slopDischargedData,
           }),
           ...(dto.bunkersReceivedData != null && {
-            bunkersReceivedData: dto.bunkersReceivedData as object,
+            bunkersReceivedData: dto.bunkersReceivedData,
           }),
           updatedAt: new Date(),
         },

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
-import { apiRequest } from '../../lib/api/client';
+import { apiRequest, apiRequestBlob } from '../../lib/api/client';
 import type {
   BranchDocumentTemplate,
   BranchDocumentInstance,
@@ -38,15 +38,13 @@ const branchDocumentsApi = {
     ),
 
   generatePdf: (nominationId: string, instanceId: string) =>
-    apiRequest<{ minioKey: string; downloadUrl: string }>(
+    apiRequest<{ minioKey: string }>(
       `/nominations/${nominationId}/branch-documents/${instanceId}/generate-pdf`,
       { method: 'POST' },
     ),
 
-  pdfUrl: (nominationId: string, instanceId: string) =>
-    apiRequest<{ url: string; expiresAt: string }>(
-      `/nominations/${nominationId}/branch-documents/${instanceId}/pdf-url`,
-    ),
+  downloadPdf: (nominationId: string, instanceId: string) =>
+    apiRequestBlob(`/nominations/${nominationId}/branch-documents/${instanceId}/download`),
 
   delete: (nominationId: string, instanceId: string) =>
     apiRequest<void>(`/nominations/${nominationId}/branch-documents/${instanceId}`, {
@@ -61,8 +59,6 @@ const branchDocumentsApi = {
 export const branchDocKeys = {
   templates: (branchId: string) => ['branch', branchId, 'document-templates'] as const,
   list: (nominationId: string) => ['nomination', nominationId, 'branch-documents'] as const,
-  pdfUrl: (nominationId: string, instanceId: string) =>
-    ['nomination', nominationId, 'branch-documents', instanceId, 'pdf-url'] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -134,21 +130,23 @@ export function useGenerateBranchDocumentPdf(nominationId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (instanceId: string) => branchDocumentsApi.generatePdf(nominationId, instanceId),
-    onSuccess: (_data, instanceId) => {
+    onSuccess: () => {
       void qc.invalidateQueries({ queryKey: branchDocKeys.list(nominationId) });
-      void qc.invalidateQueries({ queryKey: branchDocKeys.pdfUrl(nominationId, instanceId) });
       notifications.show({ color: 'green', message: 'PDF generated' });
     },
     onError: () => notifications.show({ color: 'red', message: 'Failed to generate PDF' }),
   });
 }
 
-export function useBranchDocumentPdfUrl(nominationId: string, instanceId: string, enabled = true) {
-  return useQuery({
-    queryKey: branchDocKeys.pdfUrl(nominationId, instanceId),
-    queryFn: () => branchDocumentsApi.pdfUrl(nominationId, instanceId),
-    enabled: enabled && Boolean(nominationId) && Boolean(instanceId),
-    staleTime: 5 * 60_000,
+export function useOpenBranchDocumentPdf(nominationId: string) {
+  return useMutation({
+    mutationFn: (instanceId: string) => branchDocumentsApi.downloadPdf(nominationId, instanceId),
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    },
+    onError: () => notifications.show({ color: 'red', message: 'Failed to open PDF' }),
   });
 }
 

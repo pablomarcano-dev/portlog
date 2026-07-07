@@ -1,5 +1,6 @@
-import { Select } from '@mantine/core';
+import { Select, Loader } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
+import { useDebouncedValue } from '@mantine/hooks';
 import { apiRequest } from '../../lib/api/client';
 
 interface EntityItem {
@@ -46,11 +47,13 @@ export function EntityPicker({
   extraParams,
   disabled: disabledProp,
 }: EntityPickerProps) {
+  const [debouncedSearch] = useDebouncedValue(searchValue, 300);
+
   const { data, isLoading } = useQuery({
-    queryKey: ['entity-picker', endpoint, searchValue, extraParams],
+    queryKey: ['entity-picker', endpoint, debouncedSearch, extraParams],
     queryFn: () => {
       const params = new URLSearchParams({ limit: '50' });
-      if (searchValue) params.set('q', searchValue);
+      if (debouncedSearch) params.set('q', debouncedSearch);
       if (extraParams) {
         for (const [k, v] of Object.entries(extraParams)) params.set(k, v);
       }
@@ -76,7 +79,8 @@ export function EntityPicker({
       searchable
       searchValue={searchValue}
       onSearchChange={onSearchChange}
-      disabled={disabledProp ?? isLoading}
+      disabled={disabledProp}
+      rightSection={isLoading ? <Loader size="xs" /> : undefined}
       clearable
       nothingFoundMessage={isLoading ? 'Loading...' : 'No results found'}
     />
