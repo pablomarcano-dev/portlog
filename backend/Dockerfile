@@ -28,6 +28,10 @@ RUN npm run build -w @portlog/backend
 FROM node:26-alpine AS runtime
 WORKDIR /app
 
+# Chromium for headless PDF rendering (puppeteer-core — no bundled browser)
+RUN apk add --no-cache chromium
+ENV CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
 # Copy only what runtime needs
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/backend/node_modules ./backend/node_modules
