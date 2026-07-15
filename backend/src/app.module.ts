@@ -17,6 +17,7 @@ import { OperatorsModule } from './master-data/operators/operators.module.js';
 import { AgentsModule } from './master-data/agents/agents.module.js';
 import { SuppliersModule } from './master-data/suppliers/suppliers.module.js';
 import { PortsModule } from './master-data/ports/ports.module.js';
+import { CrewModule } from './master-data/crew/crew.module.js';
 import { ContactsModule } from './master-data/contacts/contacts.module.js';
 import { OwnersModule } from './master-data/owners/owners.module.js';
 import { ShipParticularsModule } from './master-data/ship-particulars/ship-particulars.module.js';
@@ -78,6 +79,7 @@ import { UsersModule } from './users/users.module.js';
     AgentsModule,
     SuppliersModule,
     PortsModule,
+    CrewModule,
     ContactsModule,
     OwnersModule,
     ShipParticularsModule,

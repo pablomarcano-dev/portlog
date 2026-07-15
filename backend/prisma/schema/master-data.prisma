@@ -105,6 +105,23 @@ model Pier {
 }
 
 // ---------------------------------------------------------------------------
+// Crew — ship crew member directory
+// ---------------------------------------------------------------------------
+model Crew {
+  id             String   @id @default(cuid())
+  name           String
+  position       String?
+  documentNumber String?
+  nationality    String?
+  comments       String?  @db.Text
+  createdAt      DateTime @default(now()) @db.Timestamptz
+  updatedAt      DateTime @updatedAt @db.Timestamptz
+
+  @@index([name])
+  @@map("crew")
+}
+
+// ---------------------------------------------------------------------------
 // Charterer — vessel charterers
 // ---------------------------------------------------------------------------
 model Charterer {

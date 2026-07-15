@@ -14,3 +14,4 @@ export * from './supplier';
 export * from './client';
 export * from './ship-particular';
 export * from './email-group';
+export * from './crew';

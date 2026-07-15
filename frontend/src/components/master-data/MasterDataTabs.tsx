@@ -18,6 +18,7 @@ const TABS: TabDef[] = [
   { label: 'Activities', path: '/master-data/activities' },
   { label: 'Cargoes', path: '/master-data/cargoes' },
   { label: 'Ports', path: '/master-data/ports' },
+  { label: 'Crew', path: '/master-data/crew' },
   { label: 'Charterers', path: '/master-data/charterers' },
   { label: 'Shippers', path: '/master-data/shippers' },
   { label: 'Agents', path: '/master-data/agents' },
