@@ -652,6 +652,28 @@ async function main(): Promise<void> {
   console.log('Seeded 10 cargoes');
 
   // ---------------------------------------------------------------------------
+  // Services (9) — sale service catalog (no prices; price is typed per sale)
+  // ---------------------------------------------------------------------------
+  const serviceNames = [
+    'Launch / Boat Service',
+    'Crew Change Transport',
+    'Cash to Master',
+    'Fresh Water Supply',
+    'Provisions Delivery',
+    'Garbage Removal',
+    'Customs Clearance',
+    'Medical Assistance',
+    'Courier / Documentation',
+  ];
+  for (const name of serviceNames) {
+    await findOrCreate(
+      () => prisma.service.findFirst({ where: { name } }),
+      () => prisma.service.create({ data: { name } }),
+    );
+  }
+  console.log('Seeded 9 services');
+
+  // ---------------------------------------------------------------------------
   // Ports (10) + Piers
   // ---------------------------------------------------------------------------
   const mvdPort = await findOrCreate(

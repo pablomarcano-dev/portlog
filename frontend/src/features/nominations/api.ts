@@ -3,6 +3,7 @@ import {
   NominationListResponseSchema,
   NominationSchema,
   NominationClientSchema,
+  SaleReadSchema,
   SofTimesheetResponseSchema,
   type NominationListQuery,
   type NominationListResponse,
@@ -13,6 +14,9 @@ import {
   type NominationClientCreate,
   type NominationClientUpdate,
   type Nomination,
+  type SaleRead,
+  type SaleCreate,
+  type SaleUpdate,
   type SofTimesheetInput,
   type SofTimesheetResponse,
 } from '@portlog/schemas';
@@ -92,6 +96,33 @@ export const nominationsApi = {
 
   removeClient: async (nominationId: string, clientId: string): Promise<void> => {
     await apiRequest<unknown>(`/nominations/${nominationId}/clients/${clientId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  listSales: async (nominationId: string): Promise<SaleRead[]> => {
+    const raw = await apiRequest<unknown>(`/nominations/${nominationId}/sales`);
+    return z.array(SaleReadSchema).parse(raw);
+  },
+
+  addSale: async (nominationId: string, data: SaleCreate): Promise<SaleRead> => {
+    const raw = await apiRequest<unknown>(`/nominations/${nominationId}/sales`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return SaleReadSchema.parse(raw);
+  },
+
+  updateSale: async (nominationId: string, saleId: string, data: SaleUpdate): Promise<SaleRead> => {
+    const raw = await apiRequest<unknown>(`/nominations/${nominationId}/sales/${saleId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+    return SaleReadSchema.parse(raw);
+  },
+
+  removeSale: async (nominationId: string, saleId: string): Promise<void> => {
+    await apiRequest<unknown>(`/nominations/${nominationId}/sales/${saleId}`, {
       method: 'DELETE',
     });
   },

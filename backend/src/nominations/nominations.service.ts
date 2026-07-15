@@ -20,6 +20,8 @@ import {
   type NominationListQuery,
   type NominationClientCreate,
   type NominationClientUpdate,
+  type SaleCreate,
+  type SaleUpdate,
   type ComposeData,
   type EtaRecordSaveInput,
   type SofTimesheetInput,
@@ -64,6 +66,11 @@ const LIST_INCLUDE = {
   shipParticular: { select: { id: true, name: true, callSign: true } },
   opPort: { select: { id: true, name: true, abbreviation: true } },
 } satisfies Prisma.NominationInclude;
+
+const SALE_INCLUDE = {
+  client: { select: { id: true, name: true } },
+  service: { select: { id: true, name: true } },
+} satisfies Prisma.SaleInclude;
 
 @Injectable()
 export class NominationsService {
@@ -344,6 +351,52 @@ export class NominationsService {
     await this.assertClientExists(nominationId, clientId);
     await this.prisma.nominationClient.delete({ where: { id: clientId } });
     this.logger.log({ event: 'nomination.client.removed', nominationId, clientId });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sale CRUD — services sold against a nomination (Sales modal)
+  // ---------------------------------------------------------------------------
+
+  async listSales(nominationId: string) {
+    await this.assertNominationExists(nominationId);
+    return this.prisma.sale.findMany({
+      where: { nominationId },
+      orderBy: { date: 'asc' },
+      include: SALE_INCLUDE,
+    });
+  }
+
+  async addSale(nominationId: string, dto: SaleCreate) {
+    await this.assertNominationExists(nominationId);
+    try {
+      return await this.prisma.sale.create({
+        data: { ...dto, nominationId },
+        include: SALE_INCLUDE,
+      });
+    } catch (err: unknown) {
+      this.rethrowSaleFkViolation(err);
+      throw err;
+    }
+  }
+
+  async updateSale(nominationId: string, saleId: string, dto: SaleUpdate) {
+    await this.assertSaleExists(nominationId, saleId);
+    try {
+      return await this.prisma.sale.update({
+        where: { id: saleId },
+        data: dto,
+        include: SALE_INCLUDE,
+      });
+    } catch (err: unknown) {
+      this.rethrowSaleFkViolation(err);
+      throw err;
+    }
+  }
+
+  async removeSale(nominationId: string, saleId: string) {
+    await this.assertSaleExists(nominationId, saleId);
+    await this.prisma.sale.delete({ where: { id: saleId } });
+    this.logger.log({ event: 'nomination.sale.removed', nominationId, saleId });
   }
 
   // ---------------------------------------------------------------------------
@@ -836,6 +889,23 @@ export class NominationsService {
     });
     if (!exists) {
       throw new NotFoundException(`Client ${clientId} not found on nomination ${nominationId}.`);
+    }
+  }
+
+  private async assertSaleExists(nominationId: string, saleId: string): Promise<void> {
+    const exists = await this.prisma.sale.findFirst({
+      where: { id: saleId, nominationId },
+      select: { id: true },
+    });
+    if (!exists) {
+      throw new NotFoundException(`Sale ${saleId} not found on nomination ${nominationId}.`);
+    }
+  }
+
+  /** A stale/bad clientId or serviceId FK violation should surface as a 400, not a 500. */
+  private rethrowSaleFkViolation(err: unknown): void {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
+      throw new BadRequestException('Unknown client or service id.');
     }
   }
 

@@ -1,4 +1,10 @@
-import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  useInfiniteQuery,
+  queryOptions,
+} from '@tanstack/react-query';
 import { apiRequest } from '../client';
 import type { ActivityCreateInput, ActivityUpdateInput, ActivityListQuery } from '@portlog/schemas';
 
@@ -79,6 +85,19 @@ export const activityQueryOptions = (id: string) =>
 
 export function useActivities(query?: Partial<ActivityListQuery>) {
   return useQuery(activitiesQueryOptions(query));
+}
+
+/** Fetches all activities, paging in automatically as the caller reaches the end (`fetchNextPage`). */
+export function useActivitiesInfinite(query?: Partial<Omit<ActivityListQuery, 'cursor'>>) {
+  return useInfiniteQuery({
+    queryKey: ['activities', 'list', 'infinite', query],
+    queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
+      activitiesApi.list({ ...query, limit: query?.limit ?? 100, cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) =>
+      lastPage.hasMore ? (lastPage.nextCursor ?? undefined) : undefined,
+    staleTime: 30_000,
+  });
 }
 
 export function useActivity(id: string) {

@@ -1,12 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Stack, TextInput } from '@mantine/core';
 import { ActivityCreateSchema } from '@portlog/schemas';
 import type { ActivityCreateInput } from '@portlog/schemas';
 import { MasterDetailShell } from '../../../components/master-data/MasterDetailShell';
 import type { ListItem } from '../../../components/master-data/MasterDetailShell';
 import {
-  useActivities,
+  useActivitiesInfinite,
   useSaveActivity,
   useDeleteActivity,
   activitiesApi,
@@ -19,18 +19,23 @@ export const Route = createFileRoute('/_protected/master-data/activities')({
 function ActivitiesScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const listQuery = useActivities();
+  const listQuery = useActivitiesInfinite();
   const saveActivity = useSaveActivity(selectedId);
   const deleteActivity = useDeleteActivity();
+
+  const activities = useMemo(
+    () => listQuery.data?.pages.flatMap((page) => page.items) ?? [],
+    [listQuery.data],
+  );
 
   const shellListQuery = {
     ...listQuery,
     data: listQuery.data
       ? {
-          items: listQuery.data.items.map((a): ListItem => ({ id: a.id, label: a.name })),
+          items: activities.map((a): ListItem => ({ id: a.id, label: a.name })),
         }
       : undefined,
-  } as Parameters<typeof MasterDetailShell>[0]['listQuery'];
+  } as unknown as Parameters<typeof MasterDetailShell>[0]['listQuery'];
 
   const loadById = useCallback(async (id: string): Promise<ActivityCreateInput> => {
     const activity = await activitiesApi.get(id);
@@ -70,6 +75,9 @@ function ActivitiesScreen() {
       onSave={onSave}
       onDelete={onDelete}
       searchFn={searchFn}
+      hasMore={listQuery.hasNextPage}
+      isLoadingMore={listQuery.isFetchingNextPage}
+      onLoadMore={() => void listQuery.fetchNextPage()}
     >
       {(form) => (
         <Stack gap="sm">

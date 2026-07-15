@@ -22,6 +22,7 @@ import { Route as ProtectedNominationsIdRouteImport } from './routes/_protected/
 import { Route as ProtectedMasterDataSuppliersRouteImport } from './routes/_protected/master-data/suppliers'
 import { Route as ProtectedMasterDataShippersRouteImport } from './routes/_protected/master-data/shippers'
 import { Route as ProtectedMasterDataShipParticularsRouteImport } from './routes/_protected/master-data/ship-particulars'
+import { Route as ProtectedMasterDataServicesRouteImport } from './routes/_protected/master-data/services'
 import { Route as ProtectedMasterDataPortsRouteImport } from './routes/_protected/master-data/ports'
 import { Route as ProtectedMasterDataOwnersRouteImport } from './routes/_protected/master-data/owners'
 import { Route as ProtectedMasterDataOperatorsRouteImport } from './routes/_protected/master-data/operators'
@@ -104,6 +105,12 @@ const ProtectedMasterDataShipParticularsRoute =
   ProtectedMasterDataShipParticularsRouteImport.update({
     id: '/ship-particulars',
     path: '/ship-particulars',
+    getParentRoute: () => ProtectedMasterDataRoute,
+  } as any)
+const ProtectedMasterDataServicesRoute =
+  ProtectedMasterDataServicesRouteImport.update({
+    id: '/services',
+    path: '/services',
     getParentRoute: () => ProtectedMasterDataRoute,
   } as any)
 const ProtectedMasterDataPortsRoute =
@@ -213,6 +220,7 @@ export interface FileRoutesByFullPath {
   '/master-data/operators': typeof ProtectedMasterDataOperatorsRoute
   '/master-data/owners': typeof ProtectedMasterDataOwnersRoute
   '/master-data/ports': typeof ProtectedMasterDataPortsRoute
+  '/master-data/services': typeof ProtectedMasterDataServicesRoute
   '/master-data/ship-particulars': typeof ProtectedMasterDataShipParticularsRoute
   '/master-data/shippers': typeof ProtectedMasterDataShippersRoute
   '/master-data/suppliers': typeof ProtectedMasterDataSuppliersRoute
@@ -240,6 +248,7 @@ export interface FileRoutesByTo {
   '/master-data/operators': typeof ProtectedMasterDataOperatorsRoute
   '/master-data/owners': typeof ProtectedMasterDataOwnersRoute
   '/master-data/ports': typeof ProtectedMasterDataPortsRoute
+  '/master-data/services': typeof ProtectedMasterDataServicesRoute
   '/master-data/ship-particulars': typeof ProtectedMasterDataShipParticularsRoute
   '/master-data/shippers': typeof ProtectedMasterDataShippersRoute
   '/master-data/suppliers': typeof ProtectedMasterDataSuppliersRoute
@@ -271,6 +280,7 @@ export interface FileRoutesById {
   '/_protected/master-data/operators': typeof ProtectedMasterDataOperatorsRoute
   '/_protected/master-data/owners': typeof ProtectedMasterDataOwnersRoute
   '/_protected/master-data/ports': typeof ProtectedMasterDataPortsRoute
+  '/_protected/master-data/services': typeof ProtectedMasterDataServicesRoute
   '/_protected/master-data/ship-particulars': typeof ProtectedMasterDataShipParticularsRoute
   '/_protected/master-data/shippers': typeof ProtectedMasterDataShippersRoute
   '/_protected/master-data/suppliers': typeof ProtectedMasterDataSuppliersRoute
@@ -301,6 +311,7 @@ export interface FileRouteTypes {
     | '/master-data/operators'
     | '/master-data/owners'
     | '/master-data/ports'
+    | '/master-data/services'
     | '/master-data/ship-particulars'
     | '/master-data/shippers'
     | '/master-data/suppliers'
@@ -328,6 +339,7 @@ export interface FileRouteTypes {
     | '/master-data/operators'
     | '/master-data/owners'
     | '/master-data/ports'
+    | '/master-data/services'
     | '/master-data/ship-particulars'
     | '/master-data/shippers'
     | '/master-data/suppliers'
@@ -358,6 +370,7 @@ export interface FileRouteTypes {
     | '/_protected/master-data/operators'
     | '/_protected/master-data/owners'
     | '/_protected/master-data/ports'
+    | '/_protected/master-data/services'
     | '/_protected/master-data/ship-particulars'
     | '/_protected/master-data/shippers'
     | '/_protected/master-data/suppliers'
@@ -464,6 +477,13 @@ declare module '@tanstack/react-router' {
       path: '/ship-particulars'
       fullPath: '/master-data/ship-particulars'
       preLoaderRoute: typeof ProtectedMasterDataShipParticularsRouteImport
+      parentRoute: typeof ProtectedMasterDataRoute
+    }
+    '/_protected/master-data/services': {
+      id: '/_protected/master-data/services'
+      path: '/services'
+      fullPath: '/master-data/services'
+      preLoaderRoute: typeof ProtectedMasterDataServicesRouteImport
       parentRoute: typeof ProtectedMasterDataRoute
     }
     '/_protected/master-data/ports': {
@@ -589,6 +609,7 @@ interface ProtectedMasterDataRouteChildren {
   ProtectedMasterDataOperatorsRoute: typeof ProtectedMasterDataOperatorsRoute
   ProtectedMasterDataOwnersRoute: typeof ProtectedMasterDataOwnersRoute
   ProtectedMasterDataPortsRoute: typeof ProtectedMasterDataPortsRoute
+  ProtectedMasterDataServicesRoute: typeof ProtectedMasterDataServicesRoute
   ProtectedMasterDataShipParticularsRoute: typeof ProtectedMasterDataShipParticularsRoute
   ProtectedMasterDataShippersRoute: typeof ProtectedMasterDataShippersRoute
   ProtectedMasterDataSuppliersRoute: typeof ProtectedMasterDataSuppliersRoute
@@ -609,6 +630,7 @@ const ProtectedMasterDataRouteChildren: ProtectedMasterDataRouteChildren = {
   ProtectedMasterDataOperatorsRoute: ProtectedMasterDataOperatorsRoute,
   ProtectedMasterDataOwnersRoute: ProtectedMasterDataOwnersRoute,
   ProtectedMasterDataPortsRoute: ProtectedMasterDataPortsRoute,
+  ProtectedMasterDataServicesRoute: ProtectedMasterDataServicesRoute,
   ProtectedMasterDataShipParticularsRoute:
     ProtectedMasterDataShipParticularsRoute,
   ProtectedMasterDataShippersRoute: ProtectedMasterDataShippersRoute,

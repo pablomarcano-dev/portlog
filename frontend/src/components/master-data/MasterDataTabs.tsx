@@ -26,6 +26,7 @@ const TABS: TabDef[] = [
   { label: 'Contacts', path: '/master-data/contacts' },
   { label: 'Suppliers', path: '/master-data/suppliers' },
   { label: 'Clients', path: '/master-data/clients' },
+  { label: 'Services', path: '/master-data/services' },
   { label: 'Branches', path: '/master-data/branches' },
   { label: 'Email Groups', path: '/master-data/email-groups' },
 ];

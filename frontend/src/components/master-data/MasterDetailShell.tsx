@@ -35,7 +35,7 @@
  * Entity forms render only their domain-specific fields inside the children slot.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import type { ReactNode } from 'react';
 import {
   Grid,
@@ -87,6 +87,12 @@ export interface MasterDetailShellProps<TForm extends FieldValues> {
   onPrint?: () => void;
   /** Search function for the Flash Search panel. Debounced 300ms by FlashSearch. */
   searchFn: (q: string) => Promise<FlashSearchResult[]>;
+  /** Whether more pages are available beyond what `listQuery.data.items` currently holds. */
+  hasMore?: boolean;
+  /** Whether the next page is currently being fetched. */
+  isLoadingMore?: boolean;
+  /** Called when the list is scrolled near the bottom and `hasMore` is true. */
+  onLoadMore?: () => void;
   /** Render-prop slot for entity-specific form fields. Receives the form instance. */
   children: (form: UseFormReturn<TForm>) => ReactNode;
 }
@@ -105,6 +111,9 @@ export function MasterDetailShell<TForm extends FieldValues>({
   onDelete,
   onPrint,
   searchFn,
+  hasMore = false,
+  isLoadingMore = false,
+  onLoadMore,
   children,
 }: MasterDetailShellProps<TForm>) {
   const { data: currentUser } = useCurrentUser();
@@ -112,6 +121,17 @@ export function MasterDetailShell<TForm extends FieldValues>({
 
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const listViewportRef = useRef<HTMLDivElement>(null);
+
+  const handleListScrollPositionChange = useCallback(() => {
+    if (!onLoadMore || !hasMore || isLoadingMore) return;
+    const viewport = listViewportRef.current;
+    if (!viewport) return;
+    const { scrollTop, scrollHeight, clientHeight } = viewport;
+    if (scrollHeight - scrollTop - clientHeight < 120) {
+      onLoadMore();
+    }
+  }, [onLoadMore, hasMore, isLoadingMore]);
 
   const form = useForm<TForm>({
     resolver: zodResolver(schema),
@@ -244,7 +264,12 @@ export function MasterDetailShell<TForm extends FieldValues>({
 
             <Divider />
 
-            <ScrollArea flex={1} p="sm">
+            <ScrollArea
+              flex={1}
+              p="sm"
+              viewportRef={listViewportRef}
+              onScrollPositionChange={handleListScrollPositionChange}
+            >
               {listQuery.isPending && (
                 <Center py="xl">
                   <Loader size="sm" />
@@ -280,6 +305,11 @@ export function MasterDetailShell<TForm extends FieldValues>({
                   </Box>
                 ))}
               </Stack>
+              {isLoadingMore && (
+                <Center py="sm">
+                  <Loader size="xs" />
+                </Center>
+              )}
             </ScrollArea>
           </Grid.Col>
 

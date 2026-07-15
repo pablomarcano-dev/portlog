@@ -293,8 +293,28 @@ model Client {
   createdAt       DateTime @default(now()) @db.Timestamptz
   updatedAt       DateTime @updatedAt @db.Timestamptz
 
+  sales Sale[]
+
   @@index([name])
   @@map("clients")
+}
+
+// ---------------------------------------------------------------------------
+// Service — sale service catalog (Servicios)
+// No default price: price is always typed per sale. Distinct from the future
+// M6 "service requests" operational module (SCOPE.md 08).
+// ---------------------------------------------------------------------------
+model Service {
+  id        String   @id @default(cuid())
+  name      String
+  comments  String?  @db.Text
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  sales Sale[]
+
+  @@index([name])
+  @@map("services")
 }
 
 // ---------------------------------------------------------------------------

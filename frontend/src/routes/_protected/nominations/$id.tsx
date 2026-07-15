@@ -22,6 +22,7 @@ import { MessagesPanel } from '../../../features/nominations/components/Messages
 import { BranchDocumentsPanel } from '../../../features/branch-documents';
 import { EmailActionsPanel } from '../../../features/nominations/components/EmailActionsPanel';
 import { ClientsSection } from '../../../features/nominations/components/ClientsSection';
+import { SalesModal } from '../../../features/nominations/components/SalesModal';
 import { useNomination } from '../../../features/nominations/hooks/useNomination';
 import { useUpdateNomination } from '../../../features/nominations/hooks/useUpdateNomination';
 import { usePedrByNomination } from '../../../features/nominations/api/usePedrByNomination';
@@ -53,6 +54,7 @@ function NominationDetailPage() {
   const [branchDocsOpen, setBranchDocsOpen] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(true);
   const [actionsOpen, setActionsOpen] = useState(true);
+  const [salesOpen, setSalesOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -132,8 +134,21 @@ function NominationDetailPage() {
                   <Badge color={STATUS_COLORS[nomination.status]}>{nomination.status}</Badge>
                 </Group>
               </Stack>
-              <TransitionButtons nominationId={nomination.id} currentStatus={nomination.status} />
+              <Group gap="xs">
+                {/* Sales stay accessible in terminal statuses — billing happens after ops complete */}
+                <Button variant="light" size="xs" onClick={() => setSalesOpen(true)}>
+                  Sales
+                </Button>
+                <TransitionButtons nominationId={nomination.id} currentStatus={nomination.status} />
+              </Group>
             </Group>
+
+            <SalesModal
+              opened={salesOpen}
+              onClose={() => setSalesOpen(false)}
+              nominationId={nomination.id}
+              correlative={nomination.correlative}
+            />
 
             <Divider />
 

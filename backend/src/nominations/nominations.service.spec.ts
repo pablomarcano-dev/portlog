@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { NominationsService } from './nominations.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { EmailService } from '../email/email.service.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -95,8 +96,18 @@ const mockPrisma = {
   nominationStatusHistory: {
     create: jest.fn(),
   },
+  sale: {
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+  },
   $transaction: jest.fn(),
 };
+
+// No spec exercises email paths — an empty mock satisfies DI.
+const mockEmailService = {};
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -109,7 +120,11 @@ describe('NominationsService', () => {
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [NominationsService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        NominationsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: EmailService, useValue: mockEmailService },
+      ],
     }).compile();
 
     service = module.get<NominationsService>(NominationsService);
@@ -241,6 +256,117 @@ describe('NominationsService', () => {
   describe('delete', () => {
     it('throws MethodNotAllowedException', () => {
       expect(() => service.delete()).toThrow(MethodNotAllowedException);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 5. Sale sub-resource CRUD
+  // -------------------------------------------------------------------------
+  const SALE_ID = '00000000-0000-0000-0000-000000000101';
+  const SALE_CREATE = {
+    clientId: 'clclient00000001',
+    serviceId: 'clservice0000001',
+    price: 1500.5,
+    date: NOW,
+    notes: null,
+  };
+  const mockSale = {
+    id: SALE_ID,
+    nominationId: NOM_ID,
+    ...SALE_CREATE,
+    client: { id: SALE_CREATE.clientId, name: 'Acme Shipping S.A.' },
+    service: { id: SALE_CREATE.serviceId, name: 'Launch / Boat Service' },
+    createdAt: NOW,
+    updatedAt: NOW,
+  };
+
+  describe('listSales', () => {
+    it('throws NotFoundException for an unknown nomination', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(null);
+
+      await expect(service.listSales(NOM_ID)).rejects.toThrow(NotFoundException);
+    });
+
+    it('returns sales with client/service includes ordered by date', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue({ id: NOM_ID });
+      mockPrisma.sale.findMany.mockResolvedValue([mockSale]);
+
+      const result = await service.listSales(NOM_ID);
+
+      expect(result).toEqual([mockSale]);
+      expect(mockPrisma.sale.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { nominationId: NOM_ID },
+          orderBy: { date: 'asc' },
+        }),
+      );
+    });
+  });
+
+  describe('addSale', () => {
+    it('spreads nominationId into the created row', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue({ id: NOM_ID });
+      mockPrisma.sale.create.mockResolvedValue(mockSale);
+
+      const result = await service.addSale(NOM_ID, SALE_CREATE);
+
+      expect(result).toEqual(mockSale);
+      expect(mockPrisma.sale.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ ...SALE_CREATE, nominationId: NOM_ID }),
+        }),
+      );
+    });
+
+    it('throws NotFoundException for an unknown nomination', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(null);
+
+      await expect(service.addSale(NOM_ID, SALE_CREATE)).rejects.toThrow(NotFoundException);
+      expect(mockPrisma.sale.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateSale', () => {
+    it('throws NotFoundException when the sale is not on the nomination', async () => {
+      mockPrisma.sale.findFirst.mockResolvedValue(null);
+
+      await expect(service.updateSale(NOM_ID, SALE_ID, { price: 2000 })).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(mockPrisma.sale.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: SALE_ID, nominationId: NOM_ID } }),
+      );
+      expect(mockPrisma.sale.update).not.toHaveBeenCalled();
+    });
+
+    it('updates the sale when it exists', async () => {
+      mockPrisma.sale.findFirst.mockResolvedValue({ id: SALE_ID });
+      mockPrisma.sale.update.mockResolvedValue({ ...mockSale, price: 2000 });
+
+      const result = await service.updateSale(NOM_ID, SALE_ID, { price: 2000 });
+
+      expect((result as { price: number }).price).toBe(2000);
+      expect(mockPrisma.sale.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: SALE_ID }, data: { price: 2000 } }),
+      );
+    });
+  });
+
+  describe('removeSale', () => {
+    it('throws NotFoundException when the sale is not on the nomination', async () => {
+      mockPrisma.sale.findFirst.mockResolvedValue(null);
+
+      await expect(service.removeSale(NOM_ID, SALE_ID)).rejects.toThrow(NotFoundException);
+      expect(mockPrisma.sale.delete).not.toHaveBeenCalled();
+    });
+
+    it('deletes the sale when it exists', async () => {
+      mockPrisma.sale.findFirst.mockResolvedValue({ id: SALE_ID });
+      mockPrisma.sale.delete.mockResolvedValue(mockSale);
+
+      await service.removeSale(NOM_ID, SALE_ID);
+
+      expect(mockPrisma.sale.delete).toHaveBeenCalledWith({ where: { id: SALE_ID } });
     });
   });
 });
