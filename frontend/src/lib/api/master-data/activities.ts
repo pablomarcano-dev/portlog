@@ -85,6 +85,14 @@ export function useActivity(id: string) {
   return useQuery(activityQueryOptions(id));
 }
 
+export function useActivitySearch(q: string) {
+  return useQuery({
+    queryKey: ['activities', 'search', q],
+    queryFn: () => activitiesApi.search(q),
+    staleTime: 30_000,
+  });
+}
+
 export function useSaveActivity(selectedId: string | null) {
   const qc = useQueryClient();
   return useMutation({

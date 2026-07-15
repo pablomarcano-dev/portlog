@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { PortCreateInput, PortUpdateInput, PortListQuery } from '@portlog/schemas';
 
@@ -77,10 +77,17 @@ export class PortsService {
   // create
   // ---------------------------------------------------------------------------
   async create(input: PortCreateInput) {
-    return await this.prisma.port.create({
-      data: input,
-      select: PORT_SELECT,
-    });
+    try {
+      return await this.prisma.port.create({
+        data: input,
+        select: PORT_SELECT,
+      });
+    } catch (err: unknown) {
+      if (this.isPrismaUniqueViolation(err)) {
+        throw new ConflictException(`A port named "${input.name}" already exists.`);
+      }
+      throw err;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -88,11 +95,18 @@ export class PortsService {
   // ---------------------------------------------------------------------------
   async update(id: string, input: PortUpdateInput) {
     await this.assertExists(id);
-    return await this.prisma.port.update({
-      where: { id },
-      data: input,
-      select: PORT_SELECT,
-    });
+    try {
+      return await this.prisma.port.update({
+        where: { id },
+        data: input,
+        select: PORT_SELECT,
+      });
+    } catch (err: unknown) {
+      if (this.isPrismaUniqueViolation(err)) {
+        throw new ConflictException(`A port named "${input.name ?? ''}" already exists.`);
+      }
+      throw err;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -122,5 +136,14 @@ export class PortsService {
     if (!exists) {
       throw new NotFoundException(`Port ${id} not found.`);
     }
+  }
+
+  private isPrismaUniqueViolation(err: unknown): boolean {
+    return (
+      typeof err === 'object' &&
+      err !== null &&
+      'code' in err &&
+      (err as { code: string }).code === 'P2002'
+    );
   }
 }

@@ -31,6 +31,7 @@ import {
   portsApi,
   piersApi,
 } from '../../../lib/api/master-data/ports';
+import type { PortRecord } from '../../../lib/api/master-data/ports';
 
 export const Route = createFileRoute('/_protected/master-data/ports')({
   component: PortsScreen,
@@ -218,8 +219,14 @@ function PortsScreen() {
 
   const onSubmit = useCallback(
     async (values: PortCreateInput) => {
-      const result = await savePort.mutateAsync(values);
-      const portId = selectedId ?? (result as { id: string }).id;
+      let result: PortRecord;
+      try {
+        result = await savePort.mutateAsync(values);
+      } catch {
+        // useSavePort's onError already shows the failure notification.
+        return;
+      }
+      const portId = selectedId ?? result.id;
       await Promise.all(pendingPierDeletes.map((pierId) => piersApi.delete(portId, pierId)));
       setPendingPierDeletes([]);
       notifications.show({ message: 'Record saved successfully.', color: 'green' });

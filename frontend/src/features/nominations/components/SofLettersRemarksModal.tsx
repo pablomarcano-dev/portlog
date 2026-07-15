@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Modal, Table, TextInput, Button, Group, Stack, Box, Text } from '@mantine/core';
+import { Modal, Table, TextInput, Select, Button, Group, Stack, Box, Text } from '@mantine/core';
 import { DateTimePicker } from '@mantine/dates';
 import type { SofTimesheetResponse, SofLettersData, SofRemarksData } from '@portlog/schemas';
 import { useColumnResize } from '../../../components/table/useColumnResize';
@@ -54,6 +54,8 @@ type RemarkRow = {
 };
 
 const INPUT_STYLES = { input: { fontSize: 12 } } as const;
+
+const LETTER_PARTY_OPTIONS = ['Master', 'Shore', 'Surveyor', 'Bunker Supplier', 'Bunker Vessel'];
 
 const EMPTY_LETTER = (): LetterRow => ({ from: '', to: '', comment: '' });
 const EMPTY_REMARK = (): RemarkRow => ({
@@ -178,19 +180,23 @@ export function SofLettersRemarksModal({
                     </Text>
                   </Table.Td>
                   <Table.Td style={{ width: lettersWidths.from }}>
-                    <TextInput
+                    <Select
                       size="xs"
                       styles={INPUT_STYLES}
+                      data={LETTER_PARTY_OPTIONS}
                       value={row.from}
-                      onChange={(e) => updateLetter(idx, 'from', e.currentTarget.value)}
+                      onChange={(value) => updateLetter(idx, 'from', value ?? '')}
+                      clearable
                     />
                   </Table.Td>
                   <Table.Td style={{ width: lettersWidths.to }}>
-                    <TextInput
+                    <Select
                       size="xs"
                       styles={INPUT_STYLES}
+                      data={LETTER_PARTY_OPTIONS}
                       value={row.to}
-                      onChange={(e) => updateLetter(idx, 'to', e.currentTarget.value)}
+                      onChange={(value) => updateLetter(idx, 'to', value ?? '')}
+                      clearable
                     />
                   </Table.Td>
                   <Table.Td style={{ width: lettersWidths.comment }}>

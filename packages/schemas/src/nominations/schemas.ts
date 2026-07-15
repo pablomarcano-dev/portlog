@@ -13,7 +13,7 @@ const cuidFk = z.string().cuid();
 
 // ---------------------------------------------------------------------------
 // NominationCreateSchema
-// Required: shipParticularId, voyageNumber, dateNominated, nominationType
+// Required: shipParticularId, branchId, dateNominated, nominationType
 // All other fields optional. Status is implicitly DRAFT (server-assigned).
 // correlative is server-assigned — never accepted on input.
 // ---------------------------------------------------------------------------
@@ -26,7 +26,7 @@ export const NominationCreateSchema = z
     voyageNumber: z.string().max(20).optional(),
 
     // Branch — resolves Open Question #5
-    branchId: cuidFk.optional(),
+    branchId: cuidFk,
 
     // Supplementary fields from legacy General Info tab
     nomReply: z.coerce.date().optional(),

@@ -3,9 +3,9 @@ import { ListQuerySchema } from '../../common/pagination';
 
 export const PortCreateSchema = z.object({
   name: z.string().min(1).max(120),
-  abbreviation: z.string().min(1).max(20).optional(),
+  abbreviation: z.string().max(20).optional(),
   country: z.string().min(1).max(120).optional(),
-  emailGroup: z.string().min(1).max(120).optional(),
+  emailGroup: z.string().max(120).optional(),
   comments: z.string().max(10_000).optional(),
 });
 

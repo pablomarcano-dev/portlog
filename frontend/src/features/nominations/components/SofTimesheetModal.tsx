@@ -14,7 +14,7 @@ import {
   Divider,
 } from '@mantine/core';
 import { DatePickerInput, TimeInput } from '@mantine/dates';
-import { useDisclosure } from '@mantine/hooks';
+import { useDisclosure, useDebouncedValue } from '@mantine/hooks';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -22,7 +22,7 @@ import { EntityPicker } from '../../../components/master-data/EntityPicker';
 import { useColumnResize } from '../../../components/table/useColumnResize';
 import { ResizableTh } from '../../../components/table/ResizableTh';
 import { useNominationSof, useNominationSofSave } from '../hooks/useNominationSof';
-import { useActivities } from '../../../lib/api/master-data/activities';
+import { useActivitySearch } from '../../../lib/api/master-data/activities';
 import type { SofTimesheetResponse } from '@portlog/schemas';
 import { SofBunkersDraftParcelModal } from './SofBunkersDraftParcelModal';
 import { SofBillShipFiguresModal } from './SofBillShipFiguresModal';
@@ -109,6 +109,40 @@ function buildDefaultValues(data: SofTimesheetResponse | undefined): SofFormValu
 }
 
 // ---------------------------------------------------------------------------
+// Activity cell — typeahead search against /master-data/activities/search
+// instead of loading the full activity catalog into the dropdown.
+// ---------------------------------------------------------------------------
+
+function ActivityCell({
+  value,
+  onChange,
+}: {
+  value: string | null;
+  onChange: (val: string | null) => void;
+}) {
+  const [search, setSearch] = useState('');
+  const [debouncedSearch] = useDebouncedValue(search, 300);
+  const { data, isLoading } = useActivitySearch(debouncedSearch);
+  const options = (data ?? []).map((a) => ({ value: a.id, label: a.label }));
+
+  return (
+    <Select
+      value={value}
+      onChange={onChange}
+      data={options}
+      searchable
+      searchValue={search}
+      onSearchChange={setSearch}
+      clearable
+      placeholder="Select..."
+      size="xs"
+      styles={{ input: { fontSize: 12 } }}
+      nothingFoundMessage={isLoading ? 'Loading...' : 'No results found'}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 
@@ -138,13 +172,6 @@ export function SofTimesheetModal({
   const [lastPortSearch, setLastPortSearch] = useState('');
   const [nextPortSearch, setNextPortSearch] = useState('');
   const [pierSearch, setPierSearch] = useState('');
-
-  // Activities for dropdown
-  const { data: activitiesData } = useActivities({ limit: 200 });
-  const activityOptions = (activitiesData?.items ?? []).map((a) => ({
-    value: a.id,
-    label: a.name,
-  }));
 
   const form = useForm<SofFormValues>({
     resolver: zodResolver(sofFormSchema),
@@ -469,16 +496,7 @@ export function SofTimesheetModal({
                             name={`entries.${index}.activityId`}
                             control={control}
                             render={({ field: f }) => (
-                              <Select
-                                value={f.value}
-                                onChange={f.onChange}
-                                data={activityOptions}
-                                searchable
-                                clearable
-                                placeholder="Select..."
-                                size="xs"
-                                styles={{ input: { fontSize: 12 } }}
-                              />
+                              <ActivityCell value={f.value} onChange={f.onChange} />
                             )}
                           />
                         </Table.Td>

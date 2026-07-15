@@ -5,8 +5,10 @@ import { isValidTransition } from '../transitions.js';
 // Minimal valid create payload (only required fields)
 // ---------------------------------------------------------------------------
 const VALID_SHIP_ID = 'clxxxxxxxxxxxxxxxxxxxxxxxx'; // valid cuid shape
+const VALID_BRANCH_ID = 'clyyyyyyyyyyyyyyyyyyyyyyyy'; // valid cuid shape
 const VALID_CREATE_PAYLOAD = {
   shipParticularId: VALID_SHIP_ID,
+  branchId: VALID_BRANCH_ID,
   voyageNumber: '01/PLC',
   dateNominated: '2026-05-13T00:00:00.000Z',
   nominationType: 'FULL_AGENCY' as const,
@@ -24,14 +26,20 @@ describe('NominationCreateSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('fails when voyageNumber is missing', () => {
+  it('passes when voyageNumber is missing (auto-assigned from correlative)', () => {
     const payload = { ...VALID_CREATE_PAYLOAD, voyageNumber: undefined };
     const result = NominationCreateSchema.safeParse(payload);
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it('fails when dateNominated is missing', () => {
     const payload = { ...VALID_CREATE_PAYLOAD, dateNominated: undefined };
+    const result = NominationCreateSchema.safeParse(payload);
+    expect(result.success).toBe(false);
+  });
+
+  it('fails when branchId is missing', () => {
+    const payload = { ...VALID_CREATE_PAYLOAD, branchId: undefined };
     const result = NominationCreateSchema.safeParse(payload);
     expect(result.success).toBe(false);
   });

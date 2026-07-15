@@ -131,6 +131,7 @@ describe('NominationsService', () => {
       const result = await service.create(
         {
           shipParticularId: 'clship0000000001',
+          branchId: 'clbranch000000001',
           voyageNumber: '01/PLC',
           dateNominated: NOW,
           nominationType: 'FULL_AGENCY',

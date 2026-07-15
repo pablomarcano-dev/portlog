@@ -33,6 +33,8 @@ import { ClientNamePicker } from '../../../components/master-data/ClientNamePick
 import { ClientPickerModal } from '../../../components/master-data/ClientPickerModal';
 import { ParcelsFieldArray } from './ParcelsFieldArray';
 import { NewShipParticularModal } from './NewShipParticularModal';
+import { NewPortModal } from './NewPortModal';
+import { NewPierModal } from './NewPierModal';
 
 const NOMINATION_TYPE_OPTIONS = [
   { value: 'FULL_AGENCY', label: 'Full Agency' },
@@ -92,6 +94,10 @@ export function NominationForm({
 }: NominationFormProps) {
   const navigate = useNavigate();
   const [newShipModalOpen, setNewShipModalOpen] = useState(false);
+  const [portModalTarget, setPortModalTarget] = useState<
+    'opPortId' | 'lastPortId' | 'nextPortId' | null
+  >(null);
+  const [newPierModalOpen, setNewPierModalOpen] = useState(false);
 
   const defaultClients =
     mode === 'create'
@@ -115,7 +121,6 @@ export function NominationForm({
   const shipParticularId = watch('shipParticularId');
   const opPortId = watch('opPortId') ?? null;
   const branchId = watch('branchId');
-  const voyageNumber = watch('voyageNumber') ?? '';
 
   // Fetch vessel details (IMO + name + abbreviation) for vessel data fetch and subject generation
   const shipQuery = useQuery({
@@ -153,22 +158,22 @@ export function NominationForm({
     const ship = shipQuery.data;
     const branch = branchQuery.data;
     const port = portsQuery.data?.items.find((p) => p.id === opPortId);
-    const shipAbbr = ship?.abbreviation ?? ship?.name ?? '';
-    const portName = port?.abbreviation ?? port?.name ?? '';
+    const shipName = ship?.name ?? '';
+    const portName = port?.name ?? '';
     const branchCode = branch?.code ?? '';
     const yy = String(new Date().getFullYear()).slice(-2);
     const corrStr = correlative != null ? String(correlative) : '';
-    return `7-SEAS VOY. ${voyageNumber} - CALLING TO ${portName} TERMINAL ${branchCode} ${shipAbbr}${corrStr}/${yy}/${branchCode}`;
+    return `${shipName} - Calling to ${portName} SN${corrStr}/${yy}/${branchCode}`;
   }
 
   // Auto-fill subject in create mode when it's still empty and we have enough data
   useEffect(() => {
     if (mode !== 'create') return;
-    if (!shipQuery.data || !branchQuery.data || !opPortId) return;
+    if (!shipQuery.data || !branchQuery.data || !portsQuery.data || !opPortId) return;
     const current = (form.getValues('subject') ?? '').trim();
     if (current !== '') return;
     setValue('subject', buildSubject(), { shouldDirty: true });
-  }, [shipQuery.data, branchQuery.data, opPortId, voyageNumber]);
+  }, [shipQuery.data, branchQuery.data, portsQuery.data, opPortId]);
 
   const [isFetchingVessel, setIsFetchingVessel] = useState(false);
   const [clientPickerIndex, setClientPickerIndex] = useState<number | null>(null);
@@ -274,12 +279,37 @@ export function NominationForm({
     setShipSearch('');
   }
 
+  function handlePortCreated(id: string) {
+    if (portModalTarget === null) return;
+    setValue(portModalTarget, id, { shouldValidate: true, shouldDirty: true });
+    if (portModalTarget === 'opPortId') setOpPortSearch('');
+    if (portModalTarget === 'lastPortId') setLastPortSearch('');
+    if (portModalTarget === 'nextPortId') setNextPortSearch('');
+    setPortModalTarget(null);
+  }
+
+  function handlePierCreated(id: string) {
+    setValue('pierId', id, { shouldValidate: true, shouldDirty: true });
+    setPierSearch('');
+  }
+
   return (
     <>
       <NewShipParticularModal
         opened={newShipModalOpen}
         onClose={() => setNewShipModalOpen(false)}
         onCreated={(id) => handleShipCreated(id)}
+      />
+      <NewPortModal
+        opened={portModalTarget !== null}
+        onClose={() => setPortModalTarget(null)}
+        onCreated={(id) => handlePortCreated(id)}
+      />
+      <NewPierModal
+        opened={newPierModalOpen}
+        portId={opPortId}
+        onClose={() => setNewPierModalOpen(false)}
+        onCreated={(id) => handlePierCreated(id)}
       />
       <ClientPickerModal
         opened={clientPickerIndex !== null}
@@ -312,6 +342,7 @@ export function NominationForm({
                   <EntityPicker
                     endpoint="/master-data/branches"
                     label="Branch"
+                    required
                     value={field.value ?? null}
                     onChange={field.onChange}
                     searchValue={branchSearch}
@@ -465,42 +496,73 @@ export function NominationForm({
           {/* Row 3 — Op. Port / Berth / External Port */}
           <Grid gutter="xs" align="flex-end">
             <Grid.Col span={4}>
-              <Controller
-                name="opPortId"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <EntityPicker
-                    endpoint="/master-data/ports"
-                    label="Oper. Port"
-                    value={field.value ?? null}
-                    onChange={field.onChange}
-                    searchValue={opPortSearch}
-                    onSearchChange={setOpPortSearch}
-                    error={fieldState.error?.message}
+              <Group gap={4} align="flex-end" wrap="nowrap">
+                <div style={{ flex: 1 }}>
+                  <Controller
+                    name="opPortId"
+                    control={control}
+                    render={({ field, fieldState }) => (
+                      <EntityPicker
+                        endpoint="/master-data/ports"
+                        label="Oper. Port"
+                        value={field.value ?? null}
+                        onChange={field.onChange}
+                        searchValue={opPortSearch}
+                        onSearchChange={setOpPortSearch}
+                        error={fieldState.error?.message}
+                      />
+                    )}
                   />
+                </div>
+                {!isReadOnly && (
+                  <Tooltip label="New port">
+                    <ActionIcon
+                      variant="default"
+                      size="lg"
+                      onClick={() => setPortModalTarget('opPortId')}
+                    >
+                      +
+                    </ActionIcon>
+                  </Tooltip>
                 )}
-              />
+              </Group>
             </Grid.Col>
             <Grid.Col span={4}>
-              <Controller
-                name="pierId"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <EntityPicker
-                    endpoint={
-                      opPortId ? `/master-data/ports/${opPortId}/piers` : '/master-data/ports'
-                    }
-                    label="Pier"
-                    value={field.value ?? null}
-                    onChange={field.onChange}
-                    searchValue={pierSearch}
-                    onSearchChange={setPierSearch}
-                    error={fieldState.error?.message}
-                    disabled={!opPortId}
-                    placeholder={opPortId ? 'Search piers...' : 'Select Oper. Port first'}
+              <Group gap={4} align="flex-end" wrap="nowrap">
+                <div style={{ flex: 1 }}>
+                  <Controller
+                    name="pierId"
+                    control={control}
+                    render={({ field, fieldState }) => (
+                      <EntityPicker
+                        endpoint={
+                          opPortId ? `/master-data/ports/${opPortId}/piers` : '/master-data/ports'
+                        }
+                        label="Pier"
+                        value={field.value ?? null}
+                        onChange={field.onChange}
+                        searchValue={pierSearch}
+                        onSearchChange={setPierSearch}
+                        error={fieldState.error?.message}
+                        disabled={!opPortId}
+                        placeholder={opPortId ? 'Search piers...' : 'Select Oper. Port first'}
+                      />
+                    )}
                   />
+                </div>
+                {!isReadOnly && (
+                  <Tooltip label={opPortId ? 'New pier' : 'Select Oper. Port first'}>
+                    <ActionIcon
+                      variant="default"
+                      size="lg"
+                      disabled={!opPortId}
+                      onClick={() => setNewPierModalOpen(true)}
+                    >
+                      +
+                    </ActionIcon>
+                  </Tooltip>
                 )}
-              />
+              </Group>
             </Grid.Col>
             <Grid.Col span={4}>
               <Controller
@@ -524,38 +586,68 @@ export function NominationForm({
           {/* Row 4 — Last Port / Next Port / ETA */}
           <Grid gutter="xs" align="flex-end">
             <Grid.Col span={4}>
-              <Controller
-                name="lastPortId"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <EntityPicker
-                    endpoint="/master-data/ports"
-                    label="Last Port"
-                    value={field.value ?? null}
-                    onChange={field.onChange}
-                    searchValue={lastPortSearch}
-                    onSearchChange={setLastPortSearch}
-                    error={fieldState.error?.message}
+              <Group gap={4} align="flex-end" wrap="nowrap">
+                <div style={{ flex: 1 }}>
+                  <Controller
+                    name="lastPortId"
+                    control={control}
+                    render={({ field, fieldState }) => (
+                      <EntityPicker
+                        endpoint="/master-data/ports"
+                        label="Last Port"
+                        value={field.value ?? null}
+                        onChange={field.onChange}
+                        searchValue={lastPortSearch}
+                        onSearchChange={setLastPortSearch}
+                        error={fieldState.error?.message}
+                      />
+                    )}
                   />
+                </div>
+                {!isReadOnly && (
+                  <Tooltip label="New port">
+                    <ActionIcon
+                      variant="default"
+                      size="lg"
+                      onClick={() => setPortModalTarget('lastPortId')}
+                    >
+                      +
+                    </ActionIcon>
+                  </Tooltip>
                 )}
-              />
+              </Group>
             </Grid.Col>
             <Grid.Col span={4}>
-              <Controller
-                name="nextPortId"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <EntityPicker
-                    endpoint="/master-data/ports"
-                    label="Next Port"
-                    value={field.value ?? null}
-                    onChange={field.onChange}
-                    searchValue={nextPortSearch}
-                    onSearchChange={setNextPortSearch}
-                    error={fieldState.error?.message}
+              <Group gap={4} align="flex-end" wrap="nowrap">
+                <div style={{ flex: 1 }}>
+                  <Controller
+                    name="nextPortId"
+                    control={control}
+                    render={({ field, fieldState }) => (
+                      <EntityPicker
+                        endpoint="/master-data/ports"
+                        label="Next Port"
+                        value={field.value ?? null}
+                        onChange={field.onChange}
+                        searchValue={nextPortSearch}
+                        onSearchChange={setNextPortSearch}
+                        error={fieldState.error?.message}
+                      />
+                    )}
                   />
+                </div>
+                {!isReadOnly && (
+                  <Tooltip label="New port">
+                    <ActionIcon
+                      variant="default"
+                      size="lg"
+                      onClick={() => setPortModalTarget('nextPortId')}
+                    >
+                      +
+                    </ActionIcon>
+                  </Tooltip>
                 )}
-              />
+              </Group>
             </Grid.Col>
             <Grid.Col span={4}>
               <Controller

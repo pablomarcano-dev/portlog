@@ -24,8 +24,7 @@ enum NominationType {
 model Nomination {
   id          String @id @default(uuid()) @db.Uuid
   // Correlative drives the SN/OT number. Format rendered by service layer as `${YY}/${n.padStart(4,'0')}`.
-  // The sequence `nomination_correlative_seq` is created in the migration raw SQL.
-  correlative Int    @unique @default(dbgenerated("nextval('nomination_correlative_seq')"))
+  correlative Int    @unique @default(autoincrement())
 
   // Voyage
   voyageNumber String  // e.g. "01/PLC" — free text, Zod-validated in M3-S1

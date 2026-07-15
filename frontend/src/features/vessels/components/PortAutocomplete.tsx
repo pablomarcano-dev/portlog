@@ -73,9 +73,11 @@ export function PortAutocomplete({ onPortSelect, selectedPort }: PortAutocomplet
             <Text size="xs" c="dimmed">
               {selectedPort.country_name}
             </Text>
-            <Text size="xs" c="dimmed">
-              {selectedPort.lat.toFixed(4)}, {selectedPort.lon.toFixed(4)}
-            </Text>
+            {typeof selectedPort.lat === 'number' && typeof selectedPort.lon === 'number' && (
+              <Text size="xs" c="dimmed">
+                {selectedPort.lat.toFixed(4)}, {selectedPort.lon.toFixed(4)}
+              </Text>
+            )}
             {selectedPort.area_lvl1 && (
               <Text size="xs" c="dimmed">
                 {selectedPort.area_lvl1}

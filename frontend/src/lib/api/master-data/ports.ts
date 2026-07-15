@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
+import { notifications } from '@mantine/notifications';
 import { apiRequest } from '../client';
 import type { PortCreateInput, PortUpdateInput } from '@portlog/schemas';
 
@@ -117,6 +118,13 @@ export function useSavePort(selectedId: string | null) {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['ports'] });
+    },
+    onError: (err) => {
+      notifications.show({
+        color: 'red',
+        title: 'Save failed',
+        message: err instanceof Error ? err.message : 'Unknown error',
+      });
     },
   });
 }

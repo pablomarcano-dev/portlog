@@ -142,7 +142,16 @@ export function MasterDetailShell<TForm extends FieldValues>({
 
   const onSubmit = useCallback(
     async (values: TForm) => {
-      await onSave(values);
+      try {
+        await onSave(values);
+      } catch (err: unknown) {
+        notifications.show({
+          color: 'red',
+          title: 'Save failed',
+          message: err instanceof Error ? err.message : 'Unknown error',
+        });
+        return;
+      }
       notifications.show({
         message: 'Record saved successfully.',
         color: 'green',

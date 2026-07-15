@@ -453,6 +453,7 @@ export class NominationsService {
           branch: {
             select: {
               name: true,
+              code: true,
               email: true,
               address: true,
               phone: true,
@@ -512,14 +513,13 @@ export class NominationsService {
     const vesselName = nomination.shipParticular?.name ?? '';
     const voyageNo = nomination.voyageNumber ?? '';
     const terminalName = nomination.opPort?.name ?? '';
-    const refLine = [
-      vesselName,
-      voyageNo ? `Voy. ${voyageNo}` : '',
-      terminalName ? `CALLING TO ${terminalName}` : '',
-      snRef,
-    ]
-      .filter(Boolean)
-      .join(' ');
+    const branchCode = branch?.code ?? '';
+    const yy = String(nomination.dateNominated.getFullYear()).slice(-2);
+    // Default matches the nomination form's auto-generated subject. If the user
+    // edited the nomination's subject, that edit is preserved and reused here so
+    // every email for this nomination shares the same reference line.
+    const defaultRefLine = `${vesselName} - Calling to ${terminalName} SN${nomination.correlative}/${yy}/${branchCode}`;
+    const refLine = nomination.subject?.trim() || defaultRefLine;
 
     // Load ETA record for ETA action types
     const isEtaType = ['ETA_REQUEST', 'ETA_TERMINAL', 'ETA_REPLY'].includes(
@@ -657,11 +657,14 @@ export class NominationsService {
       const fmtSofDate = (d: Date) =>
         `${SOF_MONTHS[d.getMonth()]}. ${ordinal(d.getDate())}, ${d.getFullYear()}`;
 
-      // Log entries
+      // Log entries — a "." activity is a continuation marker, so its comment
+      // stays inline on the same row instead of wrapping to an indented line.
       const logLines = (sof?.entries ?? []).map((e) => {
         const d = new Date(e.occurredAt);
-        const line = `${fmtSofDate(d)}  ${fmtTime(d)}  ${e.activity?.name ?? ''}`;
-        return e.comment ? `${line}\n     ${e.comment}` : line;
+        const activityName = e.activity?.name ?? '';
+        const line = `${fmtSofDate(d)}  ${fmtTime(d)}  ${activityName}`;
+        if (!e.comment) return line;
+        return activityName === '.' ? `${line}  ${e.comment}` : `${line}\n     ${e.comment}`;
       });
       templateVars.statement_of_facts_log = logLines.join('\n');
 
