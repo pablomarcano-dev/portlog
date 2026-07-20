@@ -1,12 +1,10 @@
 import { z } from 'zod';
 
-export const NominationStatusSchema = z.enum([
-  'DRAFT',
-  'CONFIRMED',
-  'IN_PROGRESS',
-  'COMPLETED',
-  'CANCELLED',
-]);
+// Nomination lifecycle. NOMINATED / IN_PORT / FULL_AWAY are DERIVED from facts
+// (see deriveNominationStatus in status.ts) and are never manually assigned.
+// Only NOMINATED (the default) and CANCELLED are ever persisted in the DB column;
+// CANCELLED is a manual override that wins over the derived value.
+export const NominationStatusSchema = z.enum(['NOMINATED', 'IN_PORT', 'FULL_AWAY', 'CANCELLED']);
 
 export const NominationTypeSchema = z.enum([
   'FULL_AGENCY',

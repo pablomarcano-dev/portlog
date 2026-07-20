@@ -7,11 +7,13 @@
 // NominationStatusHistory is append-only (enforced at service layer in M3-S2).
 // ---------------------------------------------------------------------------
 
+// NOMINATED / IN_PORT / FULL_AWAY are DERIVED at read time (see
+// packages/schemas deriveNominationStatus). The persisted column only ever holds
+// NOMINATED (default) or CANCELLED — CANCELLED is a manual override.
 enum NominationStatus {
-  DRAFT
-  CONFIRMED
-  IN_PROGRESS
-  COMPLETED
+  NOMINATED
+  IN_PORT
+  FULL_AWAY
   CANCELLED
 }
 
@@ -40,18 +42,17 @@ model Nomination {
 
   // Supplementary fields from legacy General Info tab
   nomReply       DateTime? @db.Timestamptz(6)   // "Nom. Reply" — date nomination was acknowledged
-  externalPortId String?
-  externalPort   Port? @relation("NominationExternalPort", fields: [externalPortId], references: [id], onDelete: Restrict)
   mobileOnBoard  String?   // mobile number for person on board
   referenceNo    String?   // "Reference N°" free-text
 
   contactBlackBerry String?
   blindCopy         String?
 
-  // Email recipients — populated at nomination creation and used by all email sends in this nomination flow
-  emailTo  String[]
-  emailCc  String[]
-  emailBcc String[]
+  // Email recipients — populated at nomination creation and used by all email sends in this nomination flow.
+  // Default to [] so direct inserts (e.g. seed) match the app's Zod default and never hit the NOT NULL constraint.
+  emailTo  String[] @default([])
+  emailCc  String[] @default([])
+  emailBcc String[] @default([])
 
   // Ports — five named relations to the Port table; cuid() PKs so plain String FKs
   opPortId    String?
@@ -87,8 +88,9 @@ model Nomination {
   // Parcels (Product/Qtty/Unit/Oper rows + cargo-update figures) as JSON; Zod-validated at service layer
   parcels Json @default("[]")
 
-  // State machine
-  status NominationStatus @default(DRAFT)
+  // Persisted state — only NOMINATED (default) or CANCELLED; the operational
+  // IN_PORT / FULL_AWAY statuses are derived at read time from message + laydays.
+  status NominationStatus @default(NOMINATED)
 
   // Audit — createdById is a required cuid FK to users
   createdById String
@@ -127,7 +129,7 @@ model NominationStatusHistory {
   id           String            @id @default(uuid()) @db.Uuid
   nominationId String            @db.Uuid
   nomination   Nomination        @relation(fields: [nominationId], references: [id], onDelete: Cascade)
-  fromStatus   NominationStatus? // null on initial DRAFT insert
+  fromStatus   NominationStatus? // null on initial NOMINATED insert
   toStatus     NominationStatus
   // changedById is a cuid FK to users — plain String
   changedById String

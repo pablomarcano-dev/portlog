@@ -10,7 +10,7 @@ import {
   useRemoveClient,
 } from '../hooks/useNominationClients';
 
-type ClientColKey = 'type' | 'name' | 'voyageRef' | 'refNo' | 'proforma' | 'broker' | 'actions';
+type ClientColKey = 'type' | 'name' | 'voyageRef' | 'refNo' | 'actions';
 
 interface ClientRowProps {
   client: NominationClient;
@@ -91,32 +91,6 @@ function ClientRow({
           }}
         />
       </Table.Td>
-      <Table.Td style={{ width: colWidths.proforma }}>
-        <TextInput
-          size="xs"
-          defaultValue={client.proforma ?? ''}
-          disabled={isBusy}
-          onBlur={(e) => {
-            const val = e.currentTarget.value.trim();
-            if (val !== (client.proforma ?? '')) {
-              onUpdate(clientId, 'proforma', val);
-            }
-          }}
-        />
-      </Table.Td>
-      <Table.Td style={{ width: colWidths.broker }}>
-        <TextInput
-          size="xs"
-          defaultValue={client.broker ?? ''}
-          disabled={isBusy}
-          onBlur={(e) => {
-            const val = e.currentTarget.value.trim();
-            if (val !== (client.broker ?? '')) {
-              onUpdate(clientId, 'broker', val);
-            }
-          }}
-        />
-      </Table.Td>
       <Table.Td style={{ width: colWidths.actions }}>
         <Button
           size="compact-xs"
@@ -153,8 +127,6 @@ export function ClientsSection({ nominationId }: ClientsSectionProps) {
     name: 180,
     voyageRef: 130,
     refNo: 120,
-    proforma: 120,
-    broker: 120,
     actions: 60,
   };
   const { colWidths, startResize } = useColumnResize<ClientColKey>(INITIAL_WIDTHS);
@@ -223,12 +195,6 @@ export function ClientsSection({ nominationId }: ClientsSectionProps) {
               </ResizableTh>
               <ResizableTh width={colWidths.refNo} onResize={(e) => startResize('refNo', e)}>
                 Ref. No.
-              </ResizableTh>
-              <ResizableTh width={colWidths.proforma} onResize={(e) => startResize('proforma', e)}>
-                Proforma
-              </ResizableTh>
-              <ResizableTh width={colWidths.broker} onResize={(e) => startResize('broker', e)}>
-                Broker
               </ResizableTh>
               <ResizableTh width={colWidths.actions} onResize={(e) => startResize('actions', e)} />
             </Table.Tr>

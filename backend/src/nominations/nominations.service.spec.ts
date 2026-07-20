@@ -72,12 +72,14 @@ const mockNomBase = {
   nominationType: 'FULL_AGENCY' as const,
   subject: null,
   parcels: [],
-  status: 'DRAFT' as const,
+  status: 'NOMINATED' as const,
   statusHistory: [],
   createdById: USER_ID,
   createdBy: { id: USER_ID, email: 'ops@portlog.com' },
   createdAt: NOW,
   updatedAt: NOW,
+  // Status facts include (no sent PREARRIVAL/SOF dispatches) → derives to NOMINATED.
+  pedr: { emailDispatches: [] },
 };
 
 // ---------------------------------------------------------------------------
@@ -94,6 +96,13 @@ const mockPrisma = {
     delete: jest.fn(),
   },
   nominationStatusHistory: {
+    create: jest.fn(),
+  },
+  pedr: {
+    create: jest.fn(),
+    findUnique: jest.fn(),
+  },
+  pedrStageHistory: {
     create: jest.fn(),
   },
   sale: {
@@ -134,11 +143,13 @@ describe('NominationsService', () => {
   // 1. create — happy path
   // -------------------------------------------------------------------------
   describe('create', () => {
-    it('returns nomination with snOt and initial DRAFT history row', async () => {
+    it('returns nomination with snOt, initial NOMINATED history row, and auto-created PEDR', async () => {
       mockPrisma.$transaction.mockImplementation(
         async (fn: (tx: typeof mockPrisma) => Promise<unknown>) => {
           mockPrisma.nomination.create.mockResolvedValue(mockNomBase);
           mockPrisma.nominationStatusHistory.create.mockResolvedValue({});
+          mockPrisma.pedr.create.mockResolvedValue({ id: 'clpedr0000000001' });
+          mockPrisma.pedrStageHistory.create.mockResolvedValue({});
           return fn(mockPrisma);
         },
       );
@@ -157,11 +168,13 @@ describe('NominationsService', () => {
 
       expect(result.snOt).toBe('SN-26/0001');
       expect(result.correlative).toBe(1);
+      expect(result.status).toBe('NOMINATED');
       expect(mockPrisma.nominationStatusHistory.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ fromStatus: null, toStatus: 'DRAFT' }),
+          data: expect.objectContaining({ fromStatus: null, toStatus: 'NOMINATED' }),
         }),
       );
+      expect(mockPrisma.pedr.create).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -169,12 +182,14 @@ describe('NominationsService', () => {
   // 2. update — terminal status blocks edit
   // -------------------------------------------------------------------------
   describe('update', () => {
-    it('throws ConflictException when nomination is COMPLETED', async () => {
-      mockPrisma.nomination.findUnique.mockResolvedValue({ id: NOM_ID, status: 'COMPLETED' });
+    it('allows update when the nomination is not cancelled', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue({ id: NOM_ID, status: 'NOMINATED' });
+      mockPrisma.nomination.update.mockResolvedValue({ ...mockNomBase, voyageNumber: 'NEW' });
 
-      await expect(service.update(NOM_ID, { voyageNumber: 'NEW' }, USER_ID)).rejects.toThrow(
-        ConflictException,
-      );
+      const result = await service.update(NOM_ID, { voyageNumber: 'NEW' }, USER_ID);
+
+      expect(result.voyageNumber).toBe('NEW');
+      expect(result.status).toBe('NOMINATED');
     });
 
     it('throws ConflictException when nomination is CANCELLED', async () => {
@@ -198,53 +213,53 @@ describe('NominationsService', () => {
   // 3. transition — invalid transition throws BadRequest
   // -------------------------------------------------------------------------
   describe('transition', () => {
-    it('throws BadRequestException for invalid transition DRAFT → COMPLETED', async () => {
-      mockPrisma.nomination.findUnique.mockResolvedValue({
-        id: NOM_ID,
-        status: 'DRAFT',
-        correlative: 1,
-      });
+    it('throws BadRequestException for a non-CANCELLED target (status is derived)', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue({ ...mockNomBase, status: 'NOMINATED' });
 
-      await expect(service.transition(NOM_ID, { toStatus: 'COMPLETED' }, USER_ID)).rejects.toThrow(
+      await expect(service.transition(NOM_ID, { toStatus: 'IN_PORT' }, USER_ID)).rejects.toThrow(
         BadRequestException,
       );
     });
 
-    it('throws BadRequestException for DRAFT → CANCELLED without reason', async () => {
-      mockPrisma.nomination.findUnique.mockResolvedValue({
-        id: NOM_ID,
-        status: 'DRAFT',
-        correlative: 1,
-      });
+    it('throws BadRequestException for CANCELLED without reason', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue({ ...mockNomBase, status: 'NOMINATED' });
 
       await expect(service.transition(NOM_ID, { toStatus: 'CANCELLED' }, USER_ID)).rejects.toThrow(
         BadRequestException,
       );
     });
 
-    it('succeeds for IN_PROGRESS → COMPLETED and writes one history row', async () => {
-      const completedNom = { ...mockNomBase, status: 'COMPLETED' as const };
+    it('throws BadRequestException when the nomination is already cancelled', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue({ ...mockNomBase, status: 'CANCELLED' });
 
-      mockPrisma.nomination.findUnique.mockResolvedValue({
-        id: NOM_ID,
-        status: 'IN_PROGRESS',
-        correlative: 1,
-      });
+      await expect(
+        service.transition(NOM_ID, { toStatus: 'CANCELLED', reason: 'dupe' }, USER_ID),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('cancels a NOMINATED nomination and writes one history row', async () => {
+      const cancelledNom = { ...mockNomBase, status: 'CANCELLED' as const };
+
+      mockPrisma.nomination.findUnique.mockResolvedValue({ ...mockNomBase, status: 'NOMINATED' });
       mockPrisma.$transaction.mockImplementation(
         async (fn: (tx: typeof mockPrisma) => Promise<unknown>) => {
-          mockPrisma.nomination.update.mockResolvedValue(completedNom);
+          mockPrisma.nomination.update.mockResolvedValue(cancelledNom);
           mockPrisma.nominationStatusHistory.create.mockResolvedValue({});
           return fn(mockPrisma);
         },
       );
 
-      const result = await service.transition(NOM_ID, { toStatus: 'COMPLETED' }, USER_ID);
+      const result = await service.transition(
+        NOM_ID,
+        { toStatus: 'CANCELLED', reason: 'duplicate nomination' },
+        USER_ID,
+      );
 
-      expect((result as { status: string }).status).toBe('COMPLETED');
+      expect((result as { status: string }).status).toBe('CANCELLED');
       expect(mockPrisma.nominationStatusHistory.create).toHaveBeenCalledTimes(1);
       expect(mockPrisma.nominationStatusHistory.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ fromStatus: 'IN_PROGRESS', toStatus: 'COMPLETED' }),
+          data: expect.objectContaining({ fromStatus: 'NOMINATED', toStatus: 'CANCELLED' }),
         }),
       );
     });

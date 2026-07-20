@@ -1,8 +1,19 @@
-import { Alert, Button, Drawer, Group, Stack, Text, Textarea, TextInput } from '@mantine/core';
-import { useForm } from 'react-hook-form';
+import {
+  Alert,
+  Button,
+  Drawer,
+  Group,
+  Stack,
+  TagsInput,
+  Text,
+  Textarea,
+  TextInput,
+} from '@mantine/core';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useSendShDocument } from '../api';
+import { EmailGroupPicker } from '../../../components/master-data/EmailGroupPicker';
 import type { SHDocumentDto } from '@portlog/schemas';
 
 // ---------------------------------------------------------------------------
@@ -10,8 +21,8 @@ import type { SHDocumentDto } from '@portlog/schemas';
 // ---------------------------------------------------------------------------
 
 const sendSchema = z.object({
-  toAddresses: z.string().min(1, 'Al menos un destinatario es requerido'),
-  ccAddresses: z.string().default(''),
+  toAddresses: z.array(z.string()).min(1, 'Al menos un destinatario es requerido'),
+  ccAddresses: z.array(z.string()).default([]),
   subject: z.string().min(1, 'El asunto es requerido'),
   bodyHtml: z.string().default(''),
 });
@@ -46,12 +57,15 @@ export function SendShDocumentDrawer({
     register,
     handleSubmit,
     reset,
+    control,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<SendForm>({
     resolver: zodResolver(sendSchema),
     defaultValues: {
-      toAddresses: '',
-      ccAddresses: '',
+      toAddresses: [],
+      ccAddresses: [],
       subject: defaultSubject,
       bodyHtml: '',
     },
@@ -63,17 +77,8 @@ export function SendShDocumentDrawer({
   }
 
   async function onSubmit(values: SendForm) {
-    const toAddresses = values.toAddresses
-      .split(',')
-      .map((e) => e.trim())
-      .filter(Boolean);
-
-    const ccAddresses = values.ccAddresses
-      ? values.ccAddresses
-          .split(',')
-          .map((e) => e.trim())
-          .filter(Boolean)
-      : [];
+    const toAddresses = values.toAddresses.map((e) => e.trim()).filter(Boolean);
+    const ccAddresses = values.ccAddresses.map((e) => e.trim()).filter(Boolean);
 
     sendDoc.mutate(
       {
@@ -116,22 +121,55 @@ export function SendShDocumentDrawer({
       ) : (
         <form onSubmit={(e) => void handleSubmit(onSubmit)(e)}>
           <Stack gap="sm">
-            <TextInput
-              label="Para"
-              description="Direcciones de correo separadas por coma"
-              placeholder="destinatario@ejemplo.com, otro@ejemplo.com"
-              required
-              data-cy="sh-send-to"
-              {...register('toAddresses')}
-              error={errors.toAddresses?.message}
+            <Controller
+              name="toAddresses"
+              control={control}
+              render={({ field }) => (
+                <TagsInput
+                  label="Para"
+                  description="Escriba un correo y presione Enter, o agregue desde un grupo"
+                  placeholder="destinatario@ejemplo.com"
+                  required
+                  data-cy="sh-send-to"
+                  value={field.value}
+                  onChange={field.onChange}
+                  splitChars={[',', ' ']}
+                  error={errors.toAddresses?.message}
+                />
+              )}
             />
 
-            <TextInput
-              label="CC"
-              description="Opcional — separadas por coma"
-              placeholder="cc@ejemplo.com"
-              {...register('ccAddresses')}
-              error={errors.ccAddresses?.message}
+            <Controller
+              name="ccAddresses"
+              control={control}
+              render={({ field }) => (
+                <TagsInput
+                  label="CC"
+                  description="Opcional"
+                  placeholder="cc@ejemplo.com"
+                  value={field.value}
+                  onChange={field.onChange}
+                  splitChars={[',', ' ']}
+                  error={errors.ccAddresses?.message}
+                />
+              )}
+            />
+
+            <EmailGroupPicker
+              targets={[
+                {
+                  key: 'to',
+                  label: 'Para',
+                  value: watch('toAddresses'),
+                  onChange: (v) => setValue('toAddresses', v, { shouldValidate: true }),
+                },
+                {
+                  key: 'cc',
+                  label: 'CC',
+                  value: watch('ccAddresses'),
+                  onChange: (v) => setValue('ccAddresses', v),
+                },
+              ]}
             />
 
             <TextInput

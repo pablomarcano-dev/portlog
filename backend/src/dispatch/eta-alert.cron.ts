@@ -19,12 +19,13 @@ export class EtaAlertCron {
 
     const staleThreshold = new Date(Date.now() - ETA_STALE_HOURS * 60 * 60 * 1000);
 
-    // Find all PEDRs whose nomination is IN_PROGRESS or CONFIRMED
+    // Active = nomination not cancelled and vessel not yet departed (no final SOF
+    // sent). Once the final SOF goes out the nomination is FULL_AWAY and no longer
+    // needs ETA/ETB chasing.
     const activePedrs = await this.prisma.pedr.findMany({
       where: {
-        nomination: {
-          status: { in: ['IN_PROGRESS', 'CONFIRMED'] },
-        },
+        nomination: { status: { not: 'CANCELLED' } },
+        emailDispatches: { none: { subDocType: 'SOF', sentAt: { not: null } } },
       },
       select: {
         id: true,

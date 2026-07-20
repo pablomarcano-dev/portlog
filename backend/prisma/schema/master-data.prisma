@@ -76,7 +76,6 @@ model Port {
   nominationsAsLastPort     Nomination[] @relation("NominationLastPort")
   nominationsAsNextPort     Nomination[] @relation("NominationNextPort")
   nominationsAsDisPort      Nomination[] @relation("NominationDisPort")
-  nominationsAsExternalPort Nomination[] @relation("NominationExternalPort")
 
   // SOF back-relations
   sofTimesheetsAsLastPort SofTimesheet[] @relation("SofTimesheetLastPort")

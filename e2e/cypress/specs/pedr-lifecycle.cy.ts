@@ -1,6 +1,6 @@
 /// <reference types="cypress" />
 
-import { createAndConfirmNomination, sendSubDoc } from '../support/pedr-helpers';
+import { createNomination, sendSubDoc } from '../support/pedr-helpers';
 
 export {};
 
@@ -8,7 +8,7 @@ export {};
  * E2E: Full PEDR lifecycle via API
  *
  * Exercises the PEDR state machine end-to-end:
- *   Nomination (DRAFT → CONFIRMED) → create PEDR → dispatch sub-documents
+ *   Nomination (PEDR auto-created) → dispatch sub-documents
  *   → stage transitions (PREARRIBO → ATENCION → DESPACHO → CIERRE)
  *   → assert immutability of closed PEDR.
  *
@@ -36,23 +36,22 @@ describe('PEDR lifecycle — E2E', () => {
     });
   });
 
-  // ── 1. Create nomination and confirm it ─────────────────────────────────────
-  it('1. Create and confirm a nomination', () => {
-    createAndConfirmNomination(token).then((result) => {
+  // ── 1. Create nomination (PEDR auto-created) ────────────────────────────────
+  it('1. Create a nomination', () => {
+    createNomination(token).then((result) => {
       nominationId = result.nominationId;
       expect(nominationId).to.be.a('string').and.have.length.greaterThan(0);
     });
   });
 
-  // ── 2. Create PEDR → 201, stage = PREARRIBO ─────────────────────────────────
-  it('2. Create PEDR from confirmed nomination → 201, stage = PREARRIBO', () => {
+  // ── 2. PEDR is auto-created at stage = PREARRIBO ────────────────────────────
+  it('2. Auto-created PEDR is available at stage = PREARRIBO', () => {
     cy.request({
-      method: 'POST',
-      url: `${API_URL}/pedr`,
+      method: 'GET',
+      url: `${API_URL}/pedr/by-nomination/${nominationId}`,
       headers: authHeaders(),
-      body: { nominationId },
     }).then((res) => {
-      expect(res.status).to.eq(201);
+      expect(res.status).to.eq(200);
       const body = res.body as { id: string; currentStage: string };
       expect(body.currentStage).to.eq('PREARRIBO');
       expect(body.id).to.be.a('string');

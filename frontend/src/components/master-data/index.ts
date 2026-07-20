@@ -6,3 +6,5 @@ export type { FlashSearchProps, FlashSearchResult } from './FlashSearch';
 export { CommentarioField } from './CommentarioField';
 export { ButtonBar } from './ButtonBar';
 export type { ButtonBarProps } from './ButtonBar';
+export { EmailGroupPicker } from './EmailGroupPicker';
+export type { EmailRecipientTarget } from './EmailGroupPicker';

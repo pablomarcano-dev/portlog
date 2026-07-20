@@ -78,7 +78,8 @@ function FlagsScreen() {
           />
           <TextInput
             label="Abbreviation"
-            placeholder="e.g. PA"
+            placeholder="e.g. PAN"
+            description="Optional — defaults to the first 3 letters of the name."
             error={form.formState.errors.abbreviation?.message}
             {...form.register('abbreviation')}
           />

@@ -2,18 +2,16 @@ import { Badge } from '@mantine/core';
 import type { NominationStatus } from '@portlog/schemas';
 
 const STATUS_COLORS: Record<NominationStatus, string> = {
-  DRAFT: 'gray',
-  CONFIRMED: 'blue',
-  IN_PROGRESS: 'yellow',
-  COMPLETED: 'green',
+  NOMINATED: 'blue',
+  IN_PORT: 'teal',
+  FULL_AWAY: 'green',
   CANCELLED: 'red',
 };
 
 const STATUS_LABELS: Record<NominationStatus, string> = {
-  DRAFT: 'Draft',
-  CONFIRMED: 'Confirmed',
-  IN_PROGRESS: 'In Progress',
-  COMPLETED: 'Completed',
+  NOMINATED: 'Nominated',
+  IN_PORT: 'In Port',
+  FULL_AWAY: 'Full Away',
   CANCELLED: 'Cancelled',
 };
 

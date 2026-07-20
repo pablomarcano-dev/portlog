@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import {
   Modal,
   Stack,
@@ -8,7 +8,6 @@ import {
   Textarea,
   TextInput,
   TagsInput,
-  MultiSelect,
   Alert,
   Loader,
   Box,
@@ -20,13 +19,12 @@ import { DateTimePicker, DatePickerInput } from '@mantine/dates';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useQueryClient } from '@tanstack/react-query';
 import { usePedrEvents } from '../api/usePedrEvents';
 import type { SubDocType } from '@portlog/schemas';
 import { useEmailDispatch } from '../api/useEmailDispatch';
 import { useNominationCompose } from '../api/useNominationCompose';
 import { useNominationSendEmail } from '../api/useNominationSendEmail';
-import { useEmailGroups, emailGroupQueryOptions } from '../../../lib/api/master-data/email-groups';
+import { EmailGroupPicker } from '../../../components/master-data/EmailGroupPicker';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -78,8 +76,6 @@ const composeSchema = z.object({
 });
 type ComposeForm = z.infer<typeof composeSchema>;
 
-type RecipientField = 'toAddresses' | 'ccAddresses' | 'bccAddresses';
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -93,7 +89,6 @@ export function EmailComposeDrawer({
   defaultSubject,
   defaultBody = '',
 }: EmailComposeDrawerProps) {
-  const qc = useQueryClient();
   const composeQuery = useNominationCompose(nominationId, subDocType, opened);
   const dispatch = useEmailDispatch(pedrId, nominationId);
   const nominationSend = useNominationSendEmail(nominationId);
@@ -104,9 +99,6 @@ export function EmailComposeDrawer({
     subDocType === 'ETA_TERMINAL' ||
     subDocType === 'ETA_REPLY';
   const pedrEventsQuery = usePedrEvents(subDocType === 'SOF' ? pedrId : '');
-  const emailGroupsQuery = useEmailGroups({ pageSize: 100 });
-  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
-  const [isResolvingGroups, setIsResolvingGroups] = useState(false);
 
   const {
     register,
@@ -158,27 +150,8 @@ export function EmailComposeDrawer({
   const blQuantity = watch('blQuantity');
   const blDate = watch('blDate');
 
-  // Resolve selected group IDs → emails, append to the target field (deduplicated)
-  async function handleAddGroups(field: RecipientField) {
-    if (!selectedGroupIds.length) return;
-    setIsResolvingGroups(true);
-    try {
-      const fullGroups = await Promise.all(
-        selectedGroupIds.map((id) => qc.fetchQuery(emailGroupQueryOptions(id))),
-      );
-      const newEmails = fullGroups.flatMap((g) => g.members.map((m) => m.email));
-      const existing = watch(field);
-      const merged = Array.from(new Set([...existing, ...newEmails]));
-      setValue(field, merged, { shouldValidate: true });
-      setSelectedGroupIds([]);
-    } finally {
-      setIsResolvingGroups(false);
-    }
-  }
-
   function handleClose() {
     reset();
-    setSelectedGroupIds([]);
     onClose();
   }
 
@@ -235,12 +208,6 @@ export function EmailComposeDrawer({
       );
     }
   }
-
-  const groupSelectData =
-    emailGroupsQuery.data?.items.map((g) => ({
-      value: g.id,
-      label: `${g.name} (${g.memberCount})`,
-    })) ?? [];
 
   const isLoading = composeQuery.isLoading && !!nominationId;
 
@@ -323,57 +290,28 @@ export function EmailComposeDrawer({
             />
 
             {/* Add from group */}
-            <Box
-              p="xs"
-              style={{
-                border: '1px solid var(--mantine-color-gray-2)',
-                borderRadius: 'var(--mantine-radius-sm)',
-                background: 'var(--mantine-color-gray-0)',
-              }}
-            >
-              <Text size="xs" c="dimmed" mb={6}>
-                Add from group
-              </Text>
-              <Group gap="xs" align="flex-end">
-                <MultiSelect
-                  style={{ flex: 1 }}
-                  placeholder="Search groups…"
-                  data={groupSelectData}
-                  value={selectedGroupIds}
-                  onChange={setSelectedGroupIds}
-                  searchable
-                  clearable
-                  size="xs"
-                />
-                <Button
-                  size="xs"
-                  variant="light"
-                  disabled={!selectedGroupIds.length}
-                  loading={isResolvingGroups}
-                  onClick={() => void handleAddGroups('toAddresses')}
-                >
-                  + To
-                </Button>
-                <Button
-                  size="xs"
-                  variant="light"
-                  disabled={!selectedGroupIds.length}
-                  loading={isResolvingGroups}
-                  onClick={() => void handleAddGroups('ccAddresses')}
-                >
-                  + CC
-                </Button>
-                <Button
-                  size="xs"
-                  variant="light"
-                  disabled={!selectedGroupIds.length}
-                  loading={isResolvingGroups}
-                  onClick={() => void handleAddGroups('bccAddresses')}
-                >
-                  + BCC
-                </Button>
-              </Group>
-            </Box>
+            <EmailGroupPicker
+              targets={[
+                {
+                  key: 'to',
+                  label: 'To',
+                  value: toAddresses,
+                  onChange: (v) => setValue('toAddresses', v, { shouldValidate: true }),
+                },
+                {
+                  key: 'cc',
+                  label: 'CC',
+                  value: ccAddresses,
+                  onChange: (v) => setValue('ccAddresses', v),
+                },
+                {
+                  key: 'bcc',
+                  label: 'BCC',
+                  value: bccAddresses,
+                  onChange: (v) => setValue('bccAddresses', v),
+                },
+              ]}
+            />
 
             {/* Subject */}
             <TextInput

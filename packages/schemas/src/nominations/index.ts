@@ -3,6 +3,7 @@ export * from './parcel.js';
 export * from './client.js';
 export * from './sale.js';
 export * from './transitions.js';
+export * from './status.js';
 export * from './schemas.js';
 export * from './messages.js';
 export * from './compose.js';

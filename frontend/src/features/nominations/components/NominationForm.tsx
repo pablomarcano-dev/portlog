@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   ActionIcon,
+  Autocomplete,
   Button,
   Fieldset,
   Grid,
@@ -28,6 +29,7 @@ import {
 import type { NominationCreateInput } from '@portlog/schemas';
 import { apiRequest } from '../../../lib/api/client';
 import { EntityPicker } from '../../../components/master-data/EntityPicker';
+import { EmailGroupPicker } from '../../../components/master-data/EmailGroupPicker';
 import { ContactNamePicker } from '../../../components/master-data/ContactNamePicker';
 import { ClientNamePicker } from '../../../components/master-data/ClientNamePicker';
 import { ClientPickerModal } from '../../../components/master-data/ClientPickerModal';
@@ -59,12 +61,15 @@ function matchPort(
   );
 }
 
-const DEFAULT_CLIENT_TYPES = [
+// Client-type rows pre-populated on every new nomination. Operators can add
+// any further types (predefined or custom) separately via "+ Add row".
+const DEFAULT_CLIENT_TYPES = ['Charterer', 'Disponent Owner', 'Commercial Operator', 'Shipper'];
+
+// Suggested types offered when adding a client row manually — the former
+// defaults plus other common roles. Free text is still allowed.
+const ADDITIONAL_CLIENT_TYPES = [
   'Head Owner',
-  'Charterer',
-  'Disponent Owner',
   'Technical Operator',
-  'Commercial Operator',
   'Manning Agents',
   'Catering Agents',
   'Ship Management',
@@ -116,7 +121,11 @@ export function NominationForm({
 
   const { register, handleSubmit, control, reset, formState, watch, setValue } = form;
 
-  const { fields: clientFields } = useFieldArray({ control, name: 'nominationClients' });
+  const {
+    fields: clientFields,
+    append: appendClient,
+    remove: removeClient,
+  } = useFieldArray({ control, name: 'nominationClients' });
 
   const shipParticularId = watch('shipParticularId');
   const opPortId = watch('opPortId') ?? null;
@@ -266,7 +275,6 @@ export function NominationForm({
   const [pierSearch, setPierSearch] = useState('');
   const [lastPortSearch, setLastPortSearch] = useState('');
   const [nextPortSearch, setNextPortSearch] = useState('');
-  const [externalPortSearch, setExternalPortSearch] = useState('');
 
   // Clear pier selection whenever the operational port changes
   useEffect(() => {
@@ -564,23 +572,6 @@ export function NominationForm({
                 )}
               </Group>
             </Grid.Col>
-            <Grid.Col span={4}>
-              <Controller
-                name="externalPortId"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <EntityPicker
-                    endpoint="/master-data/ports"
-                    label="External Port"
-                    value={field.value ?? null}
-                    onChange={field.onChange}
-                    searchValue={externalPortSearch}
-                    onSearchChange={setExternalPortSearch}
-                    error={fieldState.error?.message}
-                  />
-                )}
-              />
-            </Grid.Col>
           </Grid>
 
           {/* Row 4 — Last Port / Next Port / ETA */}
@@ -786,72 +777,101 @@ export function NominationForm({
                     <Table.Th>Name</Table.Th>
                     <Table.Th style={{ width: 100 }}>Voy.</Table.Th>
                     <Table.Th style={{ width: 120 }}>Ref. No.</Table.Th>
-                    <Table.Th style={{ width: 120 }}>Proforma</Table.Th>
-                    <Table.Th style={{ width: 160 }}>Broker</Table.Th>
+                    <Table.Th style={{ width: 40 }} />
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {clientFields.map((field, index) => (
-                    <Table.Tr key={field.id}>
-                      <Table.Td>
-                        <TextInput size="xs" value={field.type} readOnly disabled />
-                      </Table.Td>
-                      <Table.Td>
-                        <Controller
-                          control={control}
-                          name={`nominationClients.${index}.name`}
-                          render={({ field }) => (
-                            <ClientNamePicker
-                              placeholder="Name"
-                              value={field.value}
-                              onChange={field.onChange}
-                              size="xs"
-                              rightSection={
-                                <ActionIcon
+                  {clientFields.map((field, index) => {
+                    const isDefault = index < DEFAULT_CLIENT_TYPES.length;
+                    return (
+                      <Table.Tr key={field.id}>
+                        <Table.Td>
+                          {isDefault ? (
+                            <TextInput size="xs" value={field.type} readOnly disabled />
+                          ) : (
+                            <Controller
+                              control={control}
+                              name={`nominationClients.${index}.type`}
+                              render={({ field: typeField }) => (
+                                <Autocomplete
                                   size="xs"
-                                  variant="subtle"
-                                  onClick={() => setClientPickerIndex(index)}
-                                  title="Browse clients"
-                                >
-                                  ⌕
-                                </ActionIcon>
-                              }
+                                  placeholder="Type"
+                                  data={ADDITIONAL_CLIENT_TYPES}
+                                  value={typeField.value}
+                                  onChange={typeField.onChange}
+                                />
+                              )}
                             />
                           )}
-                        />
-                      </Table.Td>
-                      <Table.Td>
-                        <TextInput
-                          size="xs"
-                          placeholder="Voy."
-                          {...register(`nominationClients.${index}.voyageRef`)}
-                        />
-                      </Table.Td>
-                      <Table.Td>
-                        <TextInput
-                          size="xs"
-                          placeholder="Ref. No."
-                          {...register(`nominationClients.${index}.referenceNo`)}
-                        />
-                      </Table.Td>
-                      <Table.Td>
-                        <TextInput
-                          size="xs"
-                          placeholder="Proforma"
-                          {...register(`nominationClients.${index}.proforma`)}
-                        />
-                      </Table.Td>
-                      <Table.Td>
-                        <TextInput
-                          size="xs"
-                          placeholder="Broker"
-                          {...register(`nominationClients.${index}.broker`)}
-                        />
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
+                        </Table.Td>
+                        <Table.Td>
+                          <Controller
+                            control={control}
+                            name={`nominationClients.${index}.name`}
+                            render={({ field }) => (
+                              <ClientNamePicker
+                                placeholder="Name"
+                                value={field.value}
+                                onChange={field.onChange}
+                                size="xs"
+                                rightSection={
+                                  <ActionIcon
+                                    size="xs"
+                                    variant="subtle"
+                                    onClick={() => setClientPickerIndex(index)}
+                                    title="Browse clients"
+                                  >
+                                    ⌕
+                                  </ActionIcon>
+                                }
+                              />
+                            )}
+                          />
+                        </Table.Td>
+                        <Table.Td>
+                          <TextInput
+                            size="xs"
+                            placeholder="Voy."
+                            {...register(`nominationClients.${index}.voyageRef`)}
+                          />
+                        </Table.Td>
+                        <Table.Td>
+                          <TextInput
+                            size="xs"
+                            placeholder="Ref. No."
+                            {...register(`nominationClients.${index}.referenceNo`)}
+                          />
+                        </Table.Td>
+                        <Table.Td>
+                          {!isDefault && (
+                            <ActionIcon
+                              size="sm"
+                              color="red"
+                              variant="subtle"
+                              onClick={() => removeClient(index)}
+                              title="Remove row"
+                              aria-label="Remove client row"
+                            >
+                              ×
+                            </ActionIcon>
+                          )}
+                        </Table.Td>
+                      </Table.Tr>
+                    );
+                  })}
                 </Table.Tbody>
               </Table>
+              <Group mt="xs">
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={() =>
+                    appendClient({ type: '', name: '', sortOrder: clientFields.length })
+                  }
+                >
+                  + Add row
+                </Button>
+              </Group>
             </Fieldset>
           )}
 
@@ -908,6 +928,31 @@ export function NominationForm({
                   />
                 )}
               />
+              {!isReadOnly && (
+                <EmailGroupPicker
+                  targets={[
+                    {
+                      key: 'to',
+                      label: 'To',
+                      value: watch('emailTo') ?? [],
+                      onChange: (v) =>
+                        setValue('emailTo', v, { shouldDirty: true, shouldValidate: true }),
+                    },
+                    {
+                      key: 'cc',
+                      label: 'CC',
+                      value: watch('emailCc') ?? [],
+                      onChange: (v) => setValue('emailCc', v, { shouldDirty: true }),
+                    },
+                    {
+                      key: 'bcc',
+                      label: 'BCC',
+                      value: watch('emailBcc') ?? [],
+                      onChange: (v) => setValue('emailBcc', v, { shouldDirty: true }),
+                    },
+                  ]}
+                />
+              )}
             </Stack>
           </Fieldset>
 

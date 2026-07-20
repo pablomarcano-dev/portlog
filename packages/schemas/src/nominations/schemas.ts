@@ -30,7 +30,6 @@ export const NominationCreateSchema = z
 
     // Supplementary fields from legacy General Info tab
     nomReply: z.coerce.date().optional(),
-    externalPortId: cuidFk.optional(),
     mobileOnBoard: z.string().max(50).optional(),
     referenceNo: z.string().max(100).optional(),
 
@@ -229,14 +228,6 @@ export const NominationSchema = z.object({
 
   // Supplementary fields from legacy General Info tab
   nomReply: z.coerce.date().nullable(),
-  externalPortId: z.string().nullable(),
-  externalPort: z
-    .object({
-      id: cuidFk,
-      name: z.string(),
-      abbreviation: z.string().nullable(),
-    })
-    .nullable(),
   mobileOnBoard: z.string().nullable(),
   referenceNo: z.string().nullable(),
 

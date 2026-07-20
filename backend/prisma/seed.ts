@@ -2167,6 +2167,7 @@ async function main(): Promise<void> {
     where: { correlative: 1 },
     update: {},
     create: {
+      correlative: 1,
       voyageNumber: '001/MVD',
       voyageCode: 'GRA',
       shipParticularId: vessel1.id,
@@ -2178,13 +2179,13 @@ async function main(): Promise<void> {
       dateNominated: new Date('2026-05-20T10:00:00Z'),
       etaDate: new Date('2026-05-28T06:00:00Z'),
       nominationType: NominationType.FULL_AGENCY,
-      status: NominationStatus.DRAFT,
+      status: NominationStatus.NOMINATED,
       nominatedById: opsUser.id,
       master: 'Capt. John Anderson',
       parcels: [{ product: 'Soja', quantity: 25000, unit: 'MT', operation: 'Carga' }],
       createdById: opsUser.id,
       statusHistory: {
-        create: { fromStatus: null, toStatus: NominationStatus.DRAFT, changedById: opsUser.id },
+        create: { fromStatus: null, toStatus: NominationStatus.NOMINATED, changedById: opsUser.id },
       },
     },
   });
@@ -2192,6 +2193,7 @@ async function main(): Promise<void> {
     where: { correlative: 2 },
     update: {},
     create: {
+      correlative: 2,
       voyageNumber: '002/MVD',
       voyageCode: 'GRA',
       shipParticularId: vessel2.id,
@@ -2202,22 +2204,22 @@ async function main(): Promise<void> {
       dateNominated: new Date('2026-05-15T08:00:00Z'),
       etaDate: new Date('2026-05-22T14:00:00Z'),
       nominationType: NominationType.FULL_AGENCY,
-      status: NominationStatus.IN_PROGRESS,
+      status: NominationStatus.NOMINATED,
       nominatedById: opsUser.id,
       master: 'Capt. María García',
       parcels: [{ product: 'Trigo', quantity: 60000, unit: 'MT', operation: 'Descarga' }],
       createdById: adminUser.id,
       statusHistory: {
         create: [
-          { fromStatus: null, toStatus: NominationStatus.DRAFT, changedById: adminUser.id },
+          { fromStatus: null, toStatus: NominationStatus.NOMINATED, changedById: adminUser.id },
           {
-            fromStatus: NominationStatus.DRAFT,
-            toStatus: NominationStatus.CONFIRMED,
+            fromStatus: NominationStatus.NOMINATED,
+            toStatus: NominationStatus.NOMINATED,
             changedById: adminUser.id,
           },
           {
-            fromStatus: NominationStatus.CONFIRMED,
-            toStatus: NominationStatus.IN_PROGRESS,
+            fromStatus: NominationStatus.NOMINATED,
+            toStatus: NominationStatus.NOMINATED,
             changedById: adminUser.id,
           },
         ],
@@ -2228,6 +2230,7 @@ async function main(): Promise<void> {
     where: { correlative: 3 },
     update: {},
     create: {
+      correlative: 3,
       voyageNumber: '003/NPA',
       voyageCode: 'CEL',
       shipParticularId: vessel3.id,
@@ -2237,16 +2240,16 @@ async function main(): Promise<void> {
       dateNominated: new Date('2026-05-22T09:00:00Z'),
       etaDate: new Date('2026-06-01T10:00:00Z'),
       nominationType: NominationType.OWNERS_AGENTS_ONLY,
-      status: NominationStatus.CONFIRMED,
+      status: NominationStatus.NOMINATED,
       master: 'Capt. Roberto Silva',
       parcels: [{ product: 'Celulosa', quantity: 10000, unit: 'MT', operation: 'Carga' }],
       createdById: opsUser.id,
       statusHistory: {
         create: [
-          { fromStatus: null, toStatus: NominationStatus.DRAFT, changedById: opsUser.id },
+          { fromStatus: null, toStatus: NominationStatus.NOMINATED, changedById: opsUser.id },
           {
-            fromStatus: NominationStatus.DRAFT,
-            toStatus: NominationStatus.CONFIRMED,
+            fromStatus: NominationStatus.NOMINATED,
+            toStatus: NominationStatus.NOMINATED,
             changedById: adminUser.id,
           },
         ],
@@ -2257,6 +2260,7 @@ async function main(): Promise<void> {
     where: { correlative: 4 },
     update: {},
     create: {
+      correlative: 4,
       voyageNumber: '004/MVD',
       voyageCode: 'GRA',
       shipParticularId: vessel4.id,
@@ -2267,17 +2271,17 @@ async function main(): Promise<void> {
       dateNominated: new Date('2026-06-01T09:00:00Z'),
       etaDate: new Date('2026-06-08T08:00:00Z'),
       nominationType: NominationType.FULL_AGENCY,
-      status: NominationStatus.CONFIRMED,
+      status: NominationStatus.NOMINATED,
       nominatedById: user3.id,
       master: 'Capt. Nikos Papadakis',
       parcels: [{ product: 'Maíz', quantity: 45000, unit: 'MT', operation: 'Descarga' }],
       createdById: user3.id,
       statusHistory: {
         create: [
-          { fromStatus: null, toStatus: NominationStatus.DRAFT, changedById: user3.id },
+          { fromStatus: null, toStatus: NominationStatus.NOMINATED, changedById: user3.id },
           {
-            fromStatus: NominationStatus.DRAFT,
-            toStatus: NominationStatus.CONFIRMED,
+            fromStatus: NominationStatus.NOMINATED,
+            toStatus: NominationStatus.NOMINATED,
             changedById: adminUser.id,
           },
         ],
@@ -2288,6 +2292,7 @@ async function main(): Promise<void> {
     where: { correlative: 5 },
     update: {},
     create: {
+      correlative: 5,
       voyageNumber: '005/NPA',
       voyageCode: 'SOJ',
       shipParticularId: vessel5.id,
@@ -2298,7 +2303,7 @@ async function main(): Promise<void> {
       dateNominated: new Date('2026-06-03T14:00:00Z'),
       etaDate: new Date('2026-06-10T06:00:00Z'),
       nominationType: NominationType.FULL_AGENCY,
-      status: NominationStatus.IN_PROGRESS,
+      status: NominationStatus.NOMINATED,
       nominatedById: user4.id,
       master: 'Capt. Igor Volkov',
       parcels: [
@@ -2308,15 +2313,15 @@ async function main(): Promise<void> {
       createdById: user4.id,
       statusHistory: {
         create: [
-          { fromStatus: null, toStatus: NominationStatus.DRAFT, changedById: user4.id },
+          { fromStatus: null, toStatus: NominationStatus.NOMINATED, changedById: user4.id },
           {
-            fromStatus: NominationStatus.DRAFT,
-            toStatus: NominationStatus.CONFIRMED,
+            fromStatus: NominationStatus.NOMINATED,
+            toStatus: NominationStatus.NOMINATED,
             changedById: adminUser.id,
           },
           {
-            fromStatus: NominationStatus.CONFIRMED,
-            toStatus: NominationStatus.IN_PROGRESS,
+            fromStatus: NominationStatus.NOMINATED,
+            toStatus: NominationStatus.NOMINATED,
             changedById: user4.id,
           },
         ],
@@ -2327,6 +2332,7 @@ async function main(): Promise<void> {
     where: { correlative: 6 },
     update: {},
     create: {
+      correlative: 6,
       voyageNumber: '006/MVD',
       voyageCode: 'FER',
       shipParticularId: vessel6.id,
@@ -2336,12 +2342,12 @@ async function main(): Promise<void> {
       dateNominated: new Date('2026-06-05T10:00:00Z'),
       etaDate: new Date('2026-06-14T12:00:00Z'),
       nominationType: NominationType.CHARTERERS_AGENTS_ONLY,
-      status: NominationStatus.DRAFT,
+      status: NominationStatus.NOMINATED,
       master: 'Capt. James Morrison',
       parcels: [{ product: 'Fertilizantes', quantity: 32000, unit: 'MT', operation: 'Descarga' }],
       createdById: opsUser.id,
       statusHistory: {
-        create: { fromStatus: null, toStatus: NominationStatus.DRAFT, changedById: opsUser.id },
+        create: { fromStatus: null, toStatus: NominationStatus.NOMINATED, changedById: opsUser.id },
       },
     },
   });
@@ -2349,6 +2355,7 @@ async function main(): Promise<void> {
     where: { correlative: 7 },
     update: {},
     create: {
+      correlative: 7,
       voyageNumber: '007/FBT',
       voyageCode: 'CEL',
       shipParticularId: vessel7.id,
@@ -2359,26 +2366,26 @@ async function main(): Promise<void> {
       dateNominated: new Date('2026-06-07T08:00:00Z'),
       etaDate: new Date('2026-06-15T10:00:00Z'),
       nominationType: NominationType.FULL_AGENCY,
-      status: NominationStatus.COMPLETED,
+      status: NominationStatus.NOMINATED,
       master: 'Capt. Anastasios Dimas',
       parcels: [{ product: 'Celulosa', quantity: 55000, unit: 'MT', operation: 'Carga' }],
       createdById: adminUser.id,
       statusHistory: {
         create: [
-          { fromStatus: null, toStatus: NominationStatus.DRAFT, changedById: opsUser.id },
+          { fromStatus: null, toStatus: NominationStatus.NOMINATED, changedById: opsUser.id },
           {
-            fromStatus: NominationStatus.DRAFT,
-            toStatus: NominationStatus.CONFIRMED,
+            fromStatus: NominationStatus.NOMINATED,
+            toStatus: NominationStatus.NOMINATED,
             changedById: adminUser.id,
           },
           {
-            fromStatus: NominationStatus.CONFIRMED,
-            toStatus: NominationStatus.IN_PROGRESS,
+            fromStatus: NominationStatus.NOMINATED,
+            toStatus: NominationStatus.NOMINATED,
             changedById: opsUser.id,
           },
           {
-            fromStatus: NominationStatus.IN_PROGRESS,
-            toStatus: NominationStatus.COMPLETED,
+            fromStatus: NominationStatus.NOMINATED,
+            toStatus: NominationStatus.NOMINATED,
             changedById: adminUser.id,
           },
         ],
@@ -2389,6 +2396,7 @@ async function main(): Promise<void> {
     where: { correlative: 8 },
     update: {},
     create: {
+      correlative: 8,
       voyageNumber: '008/MVD',
       voyageCode: 'COM',
       shipParticularId: vessel8.id,
@@ -2398,12 +2406,12 @@ async function main(): Promise<void> {
       dateNominated: new Date('2026-06-10T11:00:00Z'),
       etaDate: new Date('2026-06-18T07:00:00Z'),
       nominationType: NominationType.OWNERS_AGENTS_ONLY,
-      status: NominationStatus.DRAFT,
+      status: NominationStatus.NOMINATED,
       master: 'Capt. Ole Hansen',
       parcels: [{ product: 'Carga General', quantity: 8000, unit: 'MT', operation: 'Carga' }],
       createdById: user3.id,
       statusHistory: {
-        create: { fromStatus: null, toStatus: NominationStatus.DRAFT, changedById: user3.id },
+        create: { fromStatus: null, toStatus: NominationStatus.NOMINATED, changedById: user3.id },
       },
     },
   });
@@ -2411,6 +2419,7 @@ async function main(): Promise<void> {
     where: { correlative: 9 },
     update: {},
     create: {
+      correlative: 9,
       voyageNumber: '009/LGR',
       voyageCode: 'GRA',
       shipParticularId: vessel9.id,
@@ -2421,17 +2430,17 @@ async function main(): Promise<void> {
       dateNominated: new Date('2026-06-12T09:00:00Z'),
       etaDate: new Date('2026-06-20T06:00:00Z'),
       nominationType: NominationType.FULL_AGENCY,
-      status: NominationStatus.CONFIRMED,
+      status: NominationStatus.NOMINATED,
       nominatedById: user4.id,
       master: 'Capt. Wei Zhang',
       parcels: [{ product: 'Soja', quantity: 72000, unit: 'MT', operation: 'Carga' }],
       createdById: user4.id,
       statusHistory: {
         create: [
-          { fromStatus: null, toStatus: NominationStatus.DRAFT, changedById: user4.id },
+          { fromStatus: null, toStatus: NominationStatus.NOMINATED, changedById: user4.id },
           {
-            fromStatus: NominationStatus.DRAFT,
-            toStatus: NominationStatus.CONFIRMED,
+            fromStatus: NominationStatus.NOMINATED,
+            toStatus: NominationStatus.NOMINATED,
             changedById: adminUser.id,
           },
         ],
@@ -2442,6 +2451,7 @@ async function main(): Promise<void> {
     where: { correlative: 10 },
     update: {},
     create: {
+      correlative: 10,
       voyageNumber: '010/MVD',
       voyageCode: 'COM',
       shipParticularId: vessel10.id,
@@ -2458,9 +2468,9 @@ async function main(): Promise<void> {
       createdById: opsUser.id,
       statusHistory: {
         create: [
-          { fromStatus: null, toStatus: NominationStatus.DRAFT, changedById: opsUser.id },
+          { fromStatus: null, toStatus: NominationStatus.NOMINATED, changedById: opsUser.id },
           {
-            fromStatus: NominationStatus.DRAFT,
+            fromStatus: NominationStatus.NOMINATED,
             toStatus: NominationStatus.CANCELLED,
             changedById: adminUser.id,
             reason: 'Operación cancelada por el fletador.',
@@ -2512,6 +2522,12 @@ async function main(): Promise<void> {
       data: { opPortId: mvdPort.id, pierId: pierMvdD.id },
     }),
   ]);
+  // Correlatives are seeded explicitly (above), which does NOT advance the
+  // autoincrement sequence. Bump it past the max so the next app-created
+  // nomination doesn't collide with a seeded correlative.
+  await prisma.$executeRawUnsafe(
+    "SELECT setval('nomination_correlative_seq', (SELECT COALESCE(MAX(correlative), 1) FROM nominations))",
+  );
   console.log('Seeded 10 nominations');
 
   // ---------------------------------------------------------------------------
@@ -2686,24 +2702,12 @@ async function main(): Promise<void> {
   const nom10Record = await prisma.nomination.findUnique({ where: { correlative: 10 } });
 
   // ---------------------------------------------------------------------------
-  // Nomination Client Default Types (12 per nomination = 120 total)
+  // Nomination Client Default Types (4 per nomination).
   // These represent the standard client-type slots for every nomination.
-  // Each row seeds with an empty name so operators can fill them in later.
+  // Each row seeds with an empty name so operators can fill them in later, and
+  // any further types can be added per-nomination via the client roster UI.
   // ---------------------------------------------------------------------------
-  const defaultClientTypes = [
-    'Head Owner',
-    'Charterer',
-    'Disponent Owner',
-    'Technical Operator',
-    'Commercial Operator',
-    'Manning Agents',
-    'Catering Agents',
-    'Ship Management',
-    'Hub Agents',
-    'Administrative Agents',
-    'Time Charter',
-    'Receivers',
-  ];
+  const defaultClientTypes = ['Charterer', 'Disponent Owner', 'Commercial Operator', 'Shipper'];
 
   const allNominationIds: string[] = [
     nom1.id,

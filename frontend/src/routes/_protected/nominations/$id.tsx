@@ -16,7 +16,7 @@ import {
 } from '@mantine/core';
 import { useState } from 'react';
 import { NominationForm } from '../../../features/nominations/components/NominationForm';
-import { TransitionButtons } from '../../../features/nominations/components/TransitionButtons';
+import { CancelNominationButton } from '../../../features/nominations/components/CancelNominationButton';
 import { StatusHistoryTimeline } from '../../../features/nominations/components/StatusHistoryTimeline';
 import { MessagesPanel } from '../../../features/nominations/components/MessagesPanel';
 import { BranchDocumentsPanel } from '../../../features/branch-documents';
@@ -32,13 +32,10 @@ export const Route = createFileRoute('/_protected/nominations/$id')({
   component: NominationDetailPage,
 });
 
-const TERMINAL_STATUSES: NominationStatus[] = ['COMPLETED', 'CANCELLED'];
-
 const STATUS_COLORS: Record<NominationStatus, string> = {
-  DRAFT: 'gray',
-  CONFIRMED: 'blue',
-  IN_PROGRESS: 'teal',
-  COMPLETED: 'green',
+  NOMINATED: 'blue',
+  IN_PORT: 'teal',
+  FULL_AWAY: 'green',
   CANCELLED: 'red',
 };
 
@@ -74,13 +71,12 @@ function NominationDetailPage() {
     );
   }
 
-  const isReadOnly = TERMINAL_STATUSES.includes(nomination.status);
+  const isReadOnly = nomination.status === 'CANCELLED';
 
   const defaultValues: Partial<NominationCreateInput> = {
     shipParticularId: nomination.shipParticularId,
     branchId: nomination.branchId ?? undefined,
     nomReply: nomination.nomReply ?? undefined,
-    externalPortId: nomination.externalPortId ?? undefined,
     mobileOnBoard: nomination.mobileOnBoard ?? undefined,
     referenceNo: nomination.referenceNo ?? undefined,
     contactBlackBerry: nomination.contactBlackBerry ?? undefined,
@@ -135,11 +131,14 @@ function NominationDetailPage() {
                 </Group>
               </Stack>
               <Group gap="xs">
-                {/* Sales stay accessible in terminal statuses — billing happens after ops complete */}
+                {/* Sales stay accessible after departure — billing happens after ops complete */}
                 <Button variant="light" size="xs" onClick={() => setSalesOpen(true)}>
                   Sales
                 </Button>
-                <TransitionButtons nominationId={nomination.id} currentStatus={nomination.status} />
+                <CancelNominationButton
+                  nominationId={nomination.id}
+                  currentStatus={nomination.status}
+                />
               </Group>
             </Group>
 

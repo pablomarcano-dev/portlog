@@ -72,10 +72,8 @@ export class PedrService {
       throw new NotFoundException(`Nomination ${nominationId} not found.`);
     }
 
-    if (nomination.status !== 'CONFIRMED' && nomination.status !== 'IN_PROGRESS') {
-      throw new BadRequestException(
-        `Nomination must be CONFIRMED or IN_PROGRESS to create a PEDR. Current status: ${nomination.status}.`,
-      );
+    if (nomination.status === 'CANCELLED') {
+      throw new BadRequestException('Cannot create a PEDR for a cancelled nomination.');
     }
 
     const existing = await this.prisma.pedr.findUnique({

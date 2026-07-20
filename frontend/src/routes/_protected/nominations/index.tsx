@@ -8,7 +8,8 @@ import { NominationTable } from '../../../features/nominations/components/Nomina
 import { useNominationList } from '../../../features/nominations/hooks/useNominationList';
 
 // Statuses considered "active" — nominations the OPS team is actively working on
-const ACTIVE_STATUSES: NominationStatus[] = ['IN_PROGRESS', 'CONFIRMED'];
+// (not yet departed and not cancelled).
+const ACTIVE_STATUSES: NominationStatus[] = ['NOMINATED', 'IN_PORT'];
 
 export const Route = createFileRoute('/_protected/nominations/')({
   validateSearch: (search) => NominationListQuerySchema.parse(search),
@@ -69,7 +70,7 @@ function NominationListPage() {
 
       <Group justify="flex-end">
         <Switch
-          label="Active nominations only (In Progress + Confirmed)"
+          label="Active nominations only (Nominated + In Port)"
           checked={activeOnly}
           onChange={(e) => setActiveOnly(e.currentTarget.checked)}
           size="sm"

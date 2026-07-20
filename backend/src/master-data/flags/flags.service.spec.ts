@@ -108,6 +108,26 @@ describe('FlagsService', () => {
       expect(mockPrisma.flag.create).toHaveBeenCalledTimes(1);
     });
 
+    it('keeps a provided abbreviation instead of deriving one', async () => {
+      mockPrisma.flag.create.mockResolvedValue(mockFlag);
+
+      await service.create({ name: 'Panama', abbreviation: 'pa' });
+
+      expect(mockPrisma.flag.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ abbreviation: 'pa' }) }),
+      );
+    });
+
+    it('defaults the abbreviation to the first 3 letters of the name when omitted', async () => {
+      mockPrisma.flag.create.mockResolvedValue(mockFlag);
+
+      await service.create({ name: 'Panama' });
+
+      expect(mockPrisma.flag.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ abbreviation: 'PAN' }) }),
+      );
+    });
+
     it('throws ConflictException on Prisma P2002 unique violation', async () => {
       mockPrisma.flag.create.mockRejectedValue({ code: 'P2002' });
 

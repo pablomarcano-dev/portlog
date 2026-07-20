@@ -61,6 +61,15 @@ export class DispatchService {
 
     const { nomination } = pedr;
 
+    // Resolve a client name from the nomination's roster by its Type row
+    // (case-insensitive). Returns '' when the type isn't present or is unfilled.
+    const clientName = (type: string): string =>
+      (
+        nomination.nominationClients?.find(
+          (c) => c.type.trim().toLowerCase() === type.toLowerCase(),
+        )?.name ?? ''
+      ).trim();
+
     // 2. Build template data based on sub-document type
     const baseData: Record<string, unknown> = {
       vesselName: nomination.shipParticular?.name ?? '',
@@ -70,10 +79,13 @@ export class DispatchService {
       eta: nomination.etaDate ? nomination.etaDate.toISOString() : '',
       correlative: nomination.correlative,
       voyageNumber: nomination.voyageNumber,
-      charterer: '',
-      chartererName: '',
-      owner: '',
-      operator: '',
+      // Derived from the nomination client roster (Charterer / Owner / Operator).
+      // Templates currently render {{chartererName}}; the rest are kept in sync
+      // for any template that references them.
+      charterer: clientName('Charterer'),
+      chartererName: clientName('Charterer'),
+      owner: clientName('Head Owner') || clientName('Disponent Owner'),
+      operator: clientName('Commercial Operator') || clientName('Technical Operator'),
       agentName: '',
       sentAt: new Date().toISOString(),
     };

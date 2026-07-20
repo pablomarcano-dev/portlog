@@ -8,10 +8,9 @@ import type { NominationStatus } from '@portlog/schemas';
 
 const STATUS_OPTIONS: Array<{ value: NominationStatus | ''; label: string }> = [
   { value: '', label: 'All statuses' },
-  { value: 'DRAFT', label: 'Draft' },
-  { value: 'CONFIRMED', label: 'Confirmed' },
-  { value: 'IN_PROGRESS', label: 'In Progress' },
-  { value: 'COMPLETED', label: 'Completed' },
+  { value: 'NOMINATED', label: 'Nominated' },
+  { value: 'IN_PORT', label: 'In Port' },
+  { value: 'FULL_AWAY', label: 'Full Away' },
   { value: 'CANCELLED', label: 'Cancelled' },
 ];
 

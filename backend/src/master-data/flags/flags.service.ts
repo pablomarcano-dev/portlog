@@ -57,7 +57,10 @@ export class FlagsService {
   async create(input: FlagCreateInput) {
     try {
       return await this.prisma.flag.create({
-        data: input,
+        data: {
+          ...input,
+          abbreviation: input.abbreviation?.trim() || this.deriveAbbreviation(input.name),
+        },
         select: { id: true, name: true, abbreviation: true, comments: true },
       });
     } catch (err: unknown) {
@@ -70,10 +73,15 @@ export class FlagsService {
 
   async update(id: string, input: FlagUpdateInput) {
     await this.assertExists(id);
+    // When the abbreviation is cleared alongside a name, re-derive the default.
+    const data: FlagUpdateInput = { ...input };
+    if (data.abbreviation !== undefined && data.name !== undefined) {
+      data.abbreviation = data.abbreviation.trim() || this.deriveAbbreviation(data.name);
+    }
     try {
       return await this.prisma.flag.update({
         where: { id },
-        data: input,
+        data,
         select: { id: true, name: true, abbreviation: true, comments: true },
       });
     } catch (err: unknown) {
@@ -100,6 +108,11 @@ export class FlagsService {
       select: { id: true, name: true },
     });
     return items.map((f) => ({ id: f.id, label: f.name }));
+  }
+
+  /** Default abbreviation: the first 3 letters of the country name, uppercased. */
+  private deriveAbbreviation(name: string): string {
+    return name.trim().slice(0, 3).toUpperCase();
   }
 
   private async assertExists(id: string): Promise<void> {

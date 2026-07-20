@@ -9,17 +9,14 @@ function authHeaders(token: string): Record<string, string> {
 }
 
 /**
- * Create a nomination (DRAFT) and advance it to CONFIRMED.
- * Returns the nominationId for use in PEDR creation.
+ * Create a nomination. Its PEDR is auto-created server-side on creation, so no
+ * confirm/start step is needed. Returns the nominationId.
  *
  * Relies on a seeded ShipParticular being present in the database
  * (same assumption as nominations.cy.ts).
  */
-export function createAndConfirmNomination(
-  token: string,
-): Cypress.Chainable<{ nominationId: string }> {
+export function createNomination(token: string): Cypress.Chainable<{ nominationId: string }> {
   let shipParticularId: string;
-  let nominationId: string;
 
   return cy
     .request({
@@ -47,19 +44,9 @@ export function createAndConfirmNomination(
     })
     .then((res) => {
       expect(res.status).to.eq(201);
-      nominationId = (res.body as { id: string }).id;
-
-      return cy.request({
-        method: 'POST',
-        url: `${API_URL}/nominations/${nominationId}/transition`,
-        headers: authHeaders(token),
-        body: { toStatus: 'CONFIRMED' },
-      });
-    })
-    .then((res) => {
-      expect(res.status).to.eq(201);
-      expect((res.body as { status: string }).status).to.eq('CONFIRMED');
-      return cy.wrap({ nominationId });
+      const body = res.body as { id: string; status: string };
+      expect(body.status).to.eq('NOMINATED');
+      return cy.wrap({ nominationId: body.id });
     });
 }
 

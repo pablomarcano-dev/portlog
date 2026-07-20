@@ -1,5 +1,6 @@
 import { NominationCreateSchema, NominationStatusTransitionSchema } from '../schemas.js';
 import { isValidTransition } from '../transitions.js';
+import { deriveNominationStatus } from '../status.js';
 
 // ---------------------------------------------------------------------------
 // Minimal valid create payload (only required fields)
@@ -115,7 +116,7 @@ describe('NominationStatusTransitionSchema', () => {
   });
 
   it('succeeds when toStatus is not CANCELLED and reason is absent', () => {
-    const result = NominationStatusTransitionSchema.safeParse({ toStatus: 'CONFIRMED' });
+    const result = NominationStatusTransitionSchema.safeParse({ toStatus: 'IN_PORT' });
     expect(result.success).toBe(true);
   });
 
@@ -126,38 +127,77 @@ describe('NominationStatusTransitionSchema', () => {
 });
 
 // ---------------------------------------------------------------------------
-// isValidTransition
+// isValidTransition — the only manual transition is to CANCELLED
 // ---------------------------------------------------------------------------
 describe('isValidTransition', () => {
-  it('returns true for DRAFT → CONFIRMED', () => {
-    expect(isValidTransition('DRAFT', 'CONFIRMED')).toBe(true);
+  it('returns true for NOMINATED → CANCELLED', () => {
+    expect(isValidTransition('NOMINATED', 'CANCELLED')).toBe(true);
   });
 
-  it('returns true for DRAFT → CANCELLED', () => {
-    expect(isValidTransition('DRAFT', 'CANCELLED')).toBe(true);
+  it('returns true for IN_PORT → CANCELLED', () => {
+    expect(isValidTransition('IN_PORT', 'CANCELLED')).toBe(true);
   });
 
-  it('returns false for DRAFT → COMPLETED (skip not allowed)', () => {
-    expect(isValidTransition('DRAFT', 'COMPLETED')).toBe(false);
+  it('returns true for FULL_AWAY → CANCELLED', () => {
+    expect(isValidTransition('FULL_AWAY', 'CANCELLED')).toBe(true);
   });
 
-  it('returns false for COMPLETED → DRAFT (terminal state)', () => {
-    expect(isValidTransition('COMPLETED', 'DRAFT')).toBe(false);
+  it('returns false for NOMINATED → IN_PORT (derived, not manual)', () => {
+    expect(isValidTransition('NOMINATED', 'IN_PORT')).toBe(false);
   });
 
-  it('returns false for CANCELLED → DRAFT (terminal state)', () => {
-    expect(isValidTransition('CANCELLED', 'DRAFT')).toBe(false);
+  it('returns false for CANCELLED → NOMINATED (terminal state)', () => {
+    expect(isValidTransition('CANCELLED', 'NOMINATED')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deriveNominationStatus — status computed from facts
+// ---------------------------------------------------------------------------
+describe('deriveNominationStatus', () => {
+  const before = new Date('2026-05-01T00:00:00.000Z');
+  const first = new Date('2026-05-10T00:00:00.000Z');
+  const last = new Date('2026-05-20T00:00:00.000Z');
+  const now = new Date('2026-05-25T00:00:00.000Z');
+
+  const base = {
+    cancelled: false,
+    prearrivalSent: false,
+    sofSent: false,
+    layDaysFirst: first,
+    layDaysLast: last,
+    now,
+  };
+
+  it('is NOMINATED by default', () => {
+    expect(deriveNominationStatus(base)).toBe('NOMINATED');
   });
 
-  it('returns true for CONFIRMED → IN_PROGRESS', () => {
-    expect(isValidTransition('CONFIRMED', 'IN_PROGRESS')).toBe(true);
+  it('CANCELLED wins over everything', () => {
+    expect(
+      deriveNominationStatus({ ...base, cancelled: true, prearrivalSent: true, sofSent: true }),
+    ).toBe('CANCELLED');
   });
 
-  it('returns true for IN_PROGRESS → COMPLETED', () => {
-    expect(isValidTransition('IN_PROGRESS', 'COMPLETED')).toBe(true);
+  it('IN_PORT once prearrival is sent and past layDaysFirst', () => {
+    expect(deriveNominationStatus({ ...base, prearrivalSent: true })).toBe('IN_PORT');
   });
 
-  it('returns true for IN_PROGRESS → CANCELLED', () => {
-    expect(isValidTransition('IN_PROGRESS', 'CANCELLED')).toBe(true);
+  it('stays NOMINATED if prearrival sent but still before layDaysFirst', () => {
+    expect(deriveNominationStatus({ ...base, prearrivalSent: true, now: before })).toBe(
+      'NOMINATED',
+    );
+  });
+
+  it('FULL_AWAY once SOF is sent and past layDaysLast', () => {
+    expect(deriveNominationStatus({ ...base, prearrivalSent: true, sofSent: true })).toBe(
+      'FULL_AWAY',
+    );
+  });
+
+  it('stays IN_PORT if SOF sent but layDaysLast is null', () => {
+    expect(
+      deriveNominationStatus({ ...base, prearrivalSent: true, sofSent: true, layDaysLast: null }),
+    ).toBe('IN_PORT');
   });
 });

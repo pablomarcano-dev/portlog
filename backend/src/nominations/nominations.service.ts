@@ -14,6 +14,8 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import {
   isValidTransition,
+  deriveNominationStatus,
+  type NominationStatus,
   type NominationCreateInput,
   type NominationUpdateInput,
   type NominationStatusTransition,
@@ -30,6 +32,74 @@ import {
 function formatSnOt(correlative: number, dateNominated: Date): string {
   const yy = String(dateNominated.getFullYear()).slice(-2);
   return `SN-${yy}/${String(correlative).padStart(4, '0')}`;
+}
+
+// Fetches the sent PREARRIVAL / SOF dispatches used to derive the operational
+// status (IN_PORT / FULL_AWAY). Merged into DETAIL_INCLUDE and LIST_INCLUDE.
+const STATUS_FACTS_INCLUDE = {
+  pedr: {
+    select: {
+      emailDispatches: {
+        where: { subDocType: { in: ['PREARRIVAL', 'SOF'] as const }, sentAt: { not: null } },
+        select: { subDocType: true },
+      },
+    },
+  },
+} satisfies Prisma.NominationInclude;
+
+type StatusFacts = {
+  status: NominationStatus;
+  correlative: number;
+  dateNominated: Date;
+  layDaysFirst: Date | null;
+  layDaysLast: Date | null;
+  pedr: { emailDispatches: { subDocType: string }[] } | null;
+};
+
+// Strips the internal `pedr` facts, replaces `status` with the derived value, and
+// attaches snOt — the canonical shape returned by every nomination read.
+function present<T extends StatusFacts>(n: T, now: Date = new Date()) {
+  const { pedr, ...rest } = n;
+  const dispatches = pedr?.emailDispatches ?? [];
+  const status = deriveNominationStatus({
+    cancelled: rest.status === 'CANCELLED',
+    prearrivalSent: dispatches.some((d) => d.subDocType === 'PREARRIVAL'),
+    sofSent: dispatches.some((d) => d.subDocType === 'SOF'),
+    layDaysFirst: rest.layDaysFirst,
+    layDaysLast: rest.layDaysLast,
+    now,
+  });
+  return { ...rest, status, snOt: formatSnOt(rest.correlative, rest.dateNominated) };
+}
+
+// Translates a derived-status filter into a Prisma where clause so list filtering
+// and pagination stay correct without a stored column for IN_PORT / FULL_AWAY.
+function statusWhere(status: NominationStatus, now: Date): Prisma.NominationWhereInput {
+  const prearrivalSent: Prisma.NominationWhereInput = {
+    pedr: { emailDispatches: { some: { subDocType: 'PREARRIVAL', sentAt: { not: null } } } },
+  };
+  const sofSent: Prisma.NominationWhereInput = {
+    pedr: { emailDispatches: { some: { subDocType: 'SOF', sentAt: { not: null } } } },
+  };
+  const inPort: Prisma.NominationWhereInput = {
+    AND: [prearrivalSent, { layDaysFirst: { lt: now } }],
+  };
+  const fullAway: Prisma.NominationWhereInput = {
+    AND: [sofSent, { layDaysLast: { lt: now } }],
+  };
+  const notCancelled: Prisma.NominationWhereInput = { status: { not: 'CANCELLED' } };
+
+  switch (status) {
+    case 'CANCELLED':
+      return { status: 'CANCELLED' };
+    case 'FULL_AWAY':
+      return { AND: [notCancelled, fullAway] };
+    case 'IN_PORT':
+      return { AND: [notCancelled, inPort, { NOT: fullAway }] };
+    case 'NOMINATED':
+    default:
+      return { AND: [notCancelled, { NOT: inPort }, { NOT: fullAway }] };
+  }
 }
 
 const DETAIL_INCLUDE = {
@@ -52,7 +122,6 @@ const DETAIL_INCLUDE = {
   lastPort: { select: { id: true, name: true, abbreviation: true } },
   nextPort: { select: { id: true, name: true, abbreviation: true } },
   disPort: { select: { id: true, name: true, abbreviation: true } },
-  externalPort: { select: { id: true, name: true, abbreviation: true } },
   createdBy: { select: { id: true, email: true } },
   nominatedBy: { select: { id: true, email: true } },
   statusHistory: {
@@ -60,11 +129,13 @@ const DETAIL_INCLUDE = {
     include: { changedBy: { select: { id: true, email: true } } },
   },
   nominationClients: { orderBy: { sortOrder: 'asc' as const } },
+  ...STATUS_FACTS_INCLUDE,
 } satisfies Prisma.NominationInclude;
 
 const LIST_INCLUDE = {
   shipParticular: { select: { id: true, name: true, callSign: true } },
   opPort: { select: { id: true, name: true, abbreviation: true } },
+  ...STATUS_FACTS_INCLUDE,
 } satisfies Prisma.NominationInclude;
 
 const SALE_INCLUDE = {
@@ -103,9 +174,34 @@ export class NominationsService {
         data: {
           nominationId: nomination.id,
           fromStatus: null,
-          toStatus: 'DRAFT',
+          toStatus: 'NOMINATED',
           changedById: userId,
         },
+      });
+      // Auto-create the PEDR up front. The lifecycle no longer has a manual
+      // "Start" step, and sending the prearrival message (which drives IN_PORT)
+      // requires a PEDR to exist.
+      const pedr = await tx.pedr.create({
+        data: {
+          nominationId: nomination.id,
+          currentStage: 'PRE_ARRIVAL',
+          createdById: userId,
+        },
+      });
+      await tx.pedrStageHistory.create({
+        data: {
+          pedrId: pedr.id,
+          fromStage: null,
+          toStage: 'PRE_ARRIVAL',
+          changedById: userId,
+        },
+      });
+      this.logger.log({
+        event: 'pedr.created',
+        pedrId: pedr.id,
+        nominationId: nomination.id,
+        userId,
+        trigger: 'nomination.created',
       });
       if (clientRows && clientRows.length > 0) {
         await tx.nominationClient.createMany({
@@ -126,7 +222,7 @@ export class NominationsService {
         correlative: nomination.correlative,
         userId,
       });
-      return { ...nomination, snOt: formatSnOt(nomination.correlative, nomination.dateNominated) };
+      return present(nomination);
     });
   }
 
@@ -135,12 +231,15 @@ export class NominationsService {
       query;
     const skip = (page - 1) * pageSize;
 
+    const now = new Date();
     const where: Prisma.NominationWhereInput = {};
     // Each independent filter that needs an OR across the several port relations
     // is pushed as its own AND clause so the groups don't clobber one another.
     const and: Prisma.NominationWhereInput[] = [];
 
-    if (status) where.status = status;
+    // Status is derived (IN_PORT / FULL_AWAY are not stored), so a status filter
+    // is translated into an equivalent where clause to keep pagination correct.
+    if (status) and.push(statusWhere(status, now));
     if (shipParticularId) where.shipParticularId = shipParticularId;
     if (portId) {
       and.push({
@@ -199,10 +298,7 @@ export class NominationsService {
     ]);
 
     return {
-      items: items.map((n) => ({
-        ...n,
-        snOt: formatSnOt(n.correlative, n.dateNominated),
-      })),
+      items: items.map((n) => present(n, now)),
       total,
       page,
       pageSize,
@@ -217,7 +313,7 @@ export class NominationsService {
     if (!nomination) {
       throw new NotFoundException(`Nomination ${id} not found.`);
     }
-    return { ...nomination, snOt: formatSnOt(nomination.correlative, nomination.dateNominated) };
+    return present(nomination);
   }
 
   async update(id: string, dto: NominationUpdateInput, userId: string) {
@@ -228,10 +324,8 @@ export class NominationsService {
     if (!existing) {
       throw new NotFoundException(`Nomination ${id} not found.`);
     }
-    if (existing.status === 'COMPLETED' || existing.status === 'CANCELLED') {
-      throw new ConflictException(
-        `Nomination is in terminal state ${existing.status} and cannot be updated.`,
-      );
+    if (existing.status === 'CANCELLED') {
+      throw new ConflictException('Nomination is cancelled and cannot be updated.');
     }
     try {
       const updated = await this.prisma.nomination.update({
@@ -243,7 +337,7 @@ export class NominationsService {
         include: DETAIL_INCLUDE,
       });
       this.logger.log({ event: 'nomination.updated', nominationId: id, userId });
-      return { ...updated, snOt: formatSnOt(updated.correlative, updated.dateNominated) };
+      return present(updated);
     } catch (err: unknown) {
       if (this.isFkViolation(err)) {
         throw new BadRequestException('Invalid foreign key reference.');
@@ -252,17 +346,27 @@ export class NominationsService {
     }
   }
 
+  // Status is derived automatically (see deriveNominationStatus); the only manual
+  // transition a user can make is cancellation, which persists CANCELLED.
   async transition(id: string, dto: NominationStatusTransition, userId: string) {
     const existing = await this.prisma.nomination.findUnique({
       where: { id },
-      select: { id: true, status: true, correlative: true },
+      include: DETAIL_INCLUDE,
     });
     if (!existing) {
       throw new NotFoundException(`Nomination ${id} not found.`);
     }
 
     const { toStatus, reason } = dto;
-    const fromStatus = existing.status;
+
+    if (toStatus !== 'CANCELLED') {
+      throw new BadRequestException(
+        'Nomination status is derived automatically; the only manual transition is CANCELLED.',
+      );
+    }
+
+    // fromStatus is the derived current status (NOMINATED / IN_PORT / FULL_AWAY).
+    const fromStatus = present(existing).status;
 
     if (!isValidTransition(fromStatus, toStatus)) {
       throw new BadRequestException({
@@ -272,14 +376,14 @@ export class NominationsService {
       });
     }
 
-    if (toStatus === 'CANCELLED' && !reason) {
+    if (!reason) {
       throw new BadRequestException('reason is required when cancelling a nomination.');
     }
 
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.nomination.update({
         where: { id },
-        data: { status: toStatus },
+        data: { status: 'CANCELLED' },
         include: DETAIL_INCLUDE,
       });
       await tx.nominationStatusHistory.create({
@@ -288,40 +392,9 @@ export class NominationsService {
           fromStatus,
           toStatus,
           changedById: userId,
-          reason: reason ?? null,
+          reason,
         },
       });
-
-      if (toStatus === 'IN_PROGRESS') {
-        const existingPedr = await tx.pedr.findUnique({
-          where: { nominationId: id },
-          select: { id: true },
-        });
-        if (!existingPedr) {
-          const pedr = await tx.pedr.create({
-            data: {
-              nominationId: id,
-              currentStage: 'PRE_ARRIVAL',
-              createdById: userId,
-            },
-          });
-          await tx.pedrStageHistory.create({
-            data: {
-              pedrId: pedr.id,
-              fromStage: null,
-              toStage: 'PRE_ARRIVAL',
-              changedById: userId,
-            },
-          });
-          this.logger.log({
-            event: 'pedr.created',
-            pedrId: pedr.id,
-            nominationId: id,
-            userId,
-            trigger: 'nomination.transition',
-          });
-        }
-      }
 
       this.logger.log({
         event: 'nomination.transition',
@@ -330,9 +403,9 @@ export class NominationsService {
         fromStatus,
         toStatus,
         userId,
-        ...(reason ? { reason } : {}),
+        reason,
       });
-      return { ...updated, snOt: formatSnOt(updated.correlative, updated.dateNominated) };
+      return present(updated);
     });
   }
 
