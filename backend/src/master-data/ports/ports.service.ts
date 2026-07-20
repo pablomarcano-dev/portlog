@@ -119,6 +119,19 @@ export class PortsService {
   }
 
   // ---------------------------------------------------------------------------
+  // countries — distinct, non-empty country values across all ports (for filters)
+  // ---------------------------------------------------------------------------
+  async countries(): Promise<string[]> {
+    const rows = await this.prisma.port.findMany({
+      where: { country: { not: null } },
+      distinct: ['country'],
+      select: { country: true },
+      orderBy: { country: 'asc' },
+    });
+    return rows.map((r) => r.country).filter((c): c is string => c != null && c.trim() !== '');
+  }
+
+  // ---------------------------------------------------------------------------
   // search — quick type-ahead
   // ---------------------------------------------------------------------------
   async search(q: string) {

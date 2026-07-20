@@ -53,6 +53,8 @@ export const portsApi = {
       `/master-data/ports/search?q=${encodeURIComponent(q)}`,
     ),
 
+  countries: () => apiRequest<string[]>('/master-data/ports/countries'),
+
   create: (data: PortCreateInput) =>
     apiRequest<PortRecord>('/master-data/ports', {
       method: 'POST',
@@ -105,6 +107,14 @@ export const portQueryOptions = (id: string) =>
 
 export function usePort(id: string) {
   return useQuery(portQueryOptions(id));
+}
+
+export function usePortCountries() {
+  return useQuery({
+    queryKey: ['ports', 'countries'],
+    queryFn: () => portsApi.countries(),
+    staleTime: 60_000,
+  });
 }
 
 export function useSavePort(selectedId: string | null) {

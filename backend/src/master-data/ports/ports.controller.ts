@@ -27,6 +27,11 @@ export class PortsController {
     return this.portsService.search(q ?? '');
   }
 
+  @Get('countries')
+  countries() {
+    return this.portsService.countries();
+  }
+
   @Get()
   list(@Query(new ZodValidationPipe(PortListQuerySchema)) query: PortListQuery) {
     return this.portsService.list(query);

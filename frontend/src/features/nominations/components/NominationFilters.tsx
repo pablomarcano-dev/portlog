@@ -3,6 +3,7 @@ import { DatePickerInput } from '@mantine/dates';
 import { useDebouncedValue } from '@mantine/hooks';
 import { useState, useEffect } from 'react';
 import { EntityPicker } from '../../../components/master-data/EntityPicker';
+import { usePortCountries } from '../../../lib/api/master-data/ports';
 import type { NominationStatus } from '@portlog/schemas';
 
 const STATUS_OPTIONS: Array<{ value: NominationStatus | ''; label: string }> = [
@@ -17,12 +18,14 @@ const STATUS_OPTIONS: Array<{ value: NominationStatus | ''; label: string }> = [
 interface NominationFiltersProps {
   status: NominationStatus | undefined;
   portId: string | undefined;
+  country: string | undefined;
   shipParticularId: string | undefined;
   dateFrom: Date | undefined;
   dateTo: Date | undefined;
   search: string | undefined;
   onStatusChange: (val: NominationStatus | undefined) => void;
   onPortChange: (val: string | undefined) => void;
+  onCountryChange: (val: string | undefined) => void;
   onVesselChange: (val: string | undefined) => void;
   onDateFromChange: (val: Date | undefined) => void;
   onDateToChange: (val: Date | undefined) => void;
@@ -33,18 +36,25 @@ interface NominationFiltersProps {
 export function NominationFilters({
   status,
   portId,
+  country,
   shipParticularId,
   dateFrom,
   dateTo,
   search,
   onStatusChange,
   onPortChange,
+  onCountryChange,
   onVesselChange,
   onDateFromChange,
   onDateToChange,
   onSearchChange,
   onClear,
 }: NominationFiltersProps) {
+  const { data: countries } = usePortCountries();
+  const countryOptions = [
+    { value: '', label: 'All countries' },
+    ...(countries ?? []).map((c) => ({ value: c, label: c })),
+  ];
   // Local search state for debouncing
   const [localSearch, setLocalSearch] = useState(search ?? '');
   const [debouncedSearch] = useDebouncedValue(localSearch, 300);
@@ -100,6 +110,15 @@ export function NominationFilters({
           searchValue={portSearch}
           onSearchChange={setPortSearch}
           placeholder="All ports"
+        />
+        <Select
+          label="Country"
+          value={country ?? ''}
+          onChange={(val) => onCountryChange(val ? val : undefined)}
+          data={countryOptions}
+          w={160}
+          searchable
+          clearable={false}
         />
         <EntityPicker
           endpoint="/master-data/ship-particulars"

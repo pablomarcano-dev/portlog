@@ -131,21 +131,41 @@ export class NominationsService {
   }
 
   async list(query: NominationListQuery) {
-    const { page, pageSize, status, portId, shipParticularId, dateFrom, dateTo, search } = query;
+    const { page, pageSize, status, portId, country, shipParticularId, dateFrom, dateTo, search } =
+      query;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.NominationWhereInput = {};
+    // Each independent filter that needs an OR across the several port relations
+    // is pushed as its own AND clause so the groups don't clobber one another.
+    const and: Prisma.NominationWhereInput[] = [];
 
     if (status) where.status = status;
     if (shipParticularId) where.shipParticularId = shipParticularId;
     if (portId) {
-      where.OR = [
-        { opPortId: portId },
-        { pier: { portId } },
-        { lastPortId: portId },
-        { nextPortId: portId },
-        { disPortId: portId },
-      ];
+      and.push({
+        OR: [
+          { opPortId: portId },
+          { pier: { portId } },
+          { lastPortId: portId },
+          { nextPortId: portId },
+          { disPortId: portId },
+        ],
+      });
+    }
+    if (country) {
+      // country is free text on Port; match it across every port a nomination
+      // references (operational, last, next, discharge, and the pier's port).
+      const countryFilter = { country: { equals: country, mode: 'insensitive' as const } };
+      and.push({
+        OR: [
+          { opPort: countryFilter },
+          { lastPort: countryFilter },
+          { nextPort: countryFilter },
+          { disPort: countryFilter },
+          { pier: { port: countryFilter } },
+        ],
+      });
     }
     if (dateFrom || dateTo) {
       where.dateNominated = {
@@ -162,8 +182,10 @@ export class NominationsService {
       if (!isNaN(correlativeNum)) {
         searchClauses.push({ correlative: correlativeNum });
       }
-      where.OR = searchClauses;
+      and.push({ OR: searchClauses });
     }
+
+    if (and.length > 0) where.AND = and;
 
     const [items, total] = await Promise.all([
       this.prisma.nomination.findMany({

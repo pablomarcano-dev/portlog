@@ -52,12 +52,14 @@ function NominationListPage() {
       <NominationFilters
         status={search.status}
         portId={search.portId}
+        country={search.country}
         shipParticularId={search.shipParticularId}
         dateFrom={search.dateFrom}
         dateTo={search.dateTo}
         search={search.search}
         onStatusChange={(val) => setSearch({ status: val, page: 1 })}
         onPortChange={(val) => setSearch({ portId: val, page: 1 })}
+        onCountryChange={(val) => setSearch({ country: val, page: 1 })}
         onVesselChange={(val) => setSearch({ shipParticularId: val, page: 1 })}
         onDateFromChange={(val) => setSearch({ dateFrom: val, page: 1 })}
         onDateToChange={(val) => setSearch({ dateTo: val, page: 1 })}

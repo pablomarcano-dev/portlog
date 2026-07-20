@@ -131,6 +131,7 @@ export const NominationStatusTransitionSchema = z
 export const NominationListQuerySchema = z.object({
   status: NominationStatusSchema.optional(),
   portId: cuidFk.optional(),
+  country: z.string().max(120).optional(),
   shipParticularId: cuidFk.optional(),
   dateFrom: z.coerce.date().optional(),
   dateTo: z.coerce.date().optional(),

@@ -27,6 +27,7 @@ export const nominationsApi = {
     const params = new URLSearchParams();
     if (q.status) params.set('status', q.status);
     if (q.portId) params.set('portId', q.portId);
+    if (q.country) params.set('country', q.country);
     if (q.shipParticularId) params.set('shipParticularId', q.shipParticularId);
     if (q.dateFrom) params.set('dateFrom', q.dateFrom.toISOString());
     if (q.dateTo) params.set('dateTo', q.dateTo.toISOString());
