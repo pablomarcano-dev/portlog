@@ -100,7 +100,8 @@ export function EmailComposeDrawer({
     subDocType === 'PREARRIVAL' ||
     subDocType === 'ETA_REQUEST' ||
     subDocType === 'ETA_TERMINAL' ||
-    subDocType === 'ETA_REPLY';
+    subDocType === 'ETA_REPLY' ||
+    subDocType === 'CARGO_UPDATE';
   const pedrEventsQuery = usePedrEvents(subDocType === 'SOF' ? pedrId : '');
 
   const {
@@ -142,9 +143,12 @@ export function EmailComposeDrawer({
       setValue('ccAddresses', d.ccAddresses);
       setValue('bccAddresses', d.bccAddresses);
       setValue('subject', d.subject);
-      setValue('bodyHtml', d.bodyHtml);
+      // Prefer a caller-supplied body (e.g. the Cargo Update modal builds its
+      // own parcel-based body with user-entered date/time/ETD) over the
+      // server-composed default.
+      setValue('bodyHtml', defaultBody || d.bodyHtml);
     }
-  }, [opened, composeQuery.data, setValue]);
+  }, [opened, composeQuery.data, defaultBody, setValue]);
 
   const toAddresses = watch('toAddresses');
   const ccAddresses = watch('ccAddresses');
@@ -447,8 +451,10 @@ export function EmailComposeDrawer({
               </>
             )}
 
-            {/* CARGO_UPDATE extra fields */}
-            {subDocType === 'CARGO_UPDATE' && (
+            {/* CARGO_UPDATE extra fields — BL reconciliation figures apply only
+                to the dispatch-based flow; the nomination-level cargo update
+                carries its figures in the body built by the Cargo Update modal. */}
+            {subDocType === 'CARGO_UPDATE' && !isNominationLevel && (
               <>
                 <Divider label="Cargo Update Details" labelPosition="left" />
                 <Controller
@@ -547,7 +553,9 @@ export function EmailComposeDrawer({
                 loading={(isNominationLevel ? nominationSend : dispatch).isPending}
                 disabled={
                   (subDocType === 'NOR' && !norTenderedAt) ||
-                  (subDocType === 'CARGO_UPDATE' && (blQuantity == null || !blDate))
+                  (subDocType === 'CARGO_UPDATE' &&
+                    !isNominationLevel &&
+                    (blQuantity == null || !blDate))
                 }
               >
                 Send

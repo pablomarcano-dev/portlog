@@ -158,6 +158,7 @@ export function EmailActionsPanel({
         opened={cargoUpdateOpen}
         onClose={() => setCargoUpdateOpen(false)}
         nominationId={nominationId}
+        pedrId={pedrId}
         initialParcels={parcels}
       />
 

@@ -17,10 +17,10 @@ import { notifications } from '@mantine/notifications';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { NominationParcelRead } from '@portlog/schemas';
 import { nominationsApi } from '../api';
-import { useNominationSendEmail } from '../api/useNominationSendEmail';
 import { useNominationCompose } from '../api/useNominationCompose';
 import { useColumnResize } from '../../../components/table/useColumnResize';
 import { ResizableTh } from '../../../components/table/ResizableTh';
+import { EmailComposeDrawer } from './EmailComposeDrawer';
 
 const OPERATION_OPTIONS = [
   { value: 'Load', label: 'Load' },
@@ -84,6 +84,7 @@ interface CargoUpdateModalProps {
   opened: boolean;
   onClose: () => void;
   nominationId: string;
+  pedrId: string;
   initialParcels: NominationParcelRead[];
 }
 
@@ -111,6 +112,7 @@ export function CargoUpdateModal({
   opened,
   onClose,
   nominationId,
+  pedrId,
   initialParcels,
 }: CargoUpdateModalProps) {
   const qc = useQueryClient();
@@ -123,6 +125,11 @@ export function CargoUpdateModal({
   const [timeUpdate, setTimeUpdate] = useState(fmtTime(now));
   const [dateEtd, setDateEtd] = useState<Date | null>(null);
   const [timeEtd, setTimeEtd] = useState('');
+
+  // Compose drawer (the "edit email" screen) — opened after parcels are saved
+  // and the email body is built, so the user can review/edit before sending.
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [emailBody, setEmailBody] = useState('');
 
   const { colWidths, startResize } = useColumnResize<ColKey>(INITIAL_WIDTHS);
 
@@ -146,8 +153,6 @@ export function CargoUpdateModal({
       notifications.show({ title: 'Error', message: 'Failed to save parcels.', color: 'red' });
     },
   });
-
-  const sendEmail = useNominationSendEmail(nominationId);
 
   function updateRow(key: string, field: keyof ParcelRow, value: unknown) {
     setRows((prev) => prev.map((r) => (r._key === key ? { ...r, [field]: value } : r)));
@@ -209,14 +214,10 @@ export function CargoUpdateModal({
 
     const bodyHtml = `<pre style="font-family:'Courier New',Consolas,monospace;font-size:13px;line-height:1.5;white-space:pre-wrap;padding:16px;margin:0;">${bodyText}</pre>`;
 
-    sendEmail.mutate({
-      subDocType: 'CARGO_UPDATE',
-      toAddresses: composeData.toAddresses,
-      ccAddresses: composeData.ccAddresses,
-      bccAddresses: composeData.bccAddresses,
-      subject: composeData.subject,
-      bodyHtml,
-    });
+    // Hand the built body to the compose drawer so the user can review and edit
+    // recipients/subject/body before the email is actually sent.
+    setEmailBody(bodyHtml);
+    setComposeOpen(true);
   }
 
   // -------------------------------------------------------------------------
@@ -224,221 +225,232 @@ export function CargoUpdateModal({
   // -------------------------------------------------------------------------
 
   return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      title={
-        <Text fw={600} size="sm">
-          Cargo Update
-        </Text>
-      }
-      padding="lg"
-      size="70vw"
-      styles={{
-        content: {
-          resize: 'both',
-          overflow: 'auto',
-          width: '100%',
-          minWidth: 400,
-          minHeight: 300,
-        },
-      }}
-    >
-      <Stack gap="sm">
-        {/* Date / ETD — at top, matching other modal patterns */}
-        <Group gap="xl">
-          <Group gap="xs" align="flex-end">
-            <DateInput
-              label="Date Update"
-              size="sm"
-              value={dateUpdate}
-              onChange={setDateUpdate}
-              style={{ width: 150 }}
-            />
-            <TextInput
-              label="Time"
-              size="sm"
-              placeholder="HH:MM"
-              value={timeUpdate}
-              onChange={(e) => setTimeUpdate(e.currentTarget.value)}
-              style={{ width: 80 }}
-            />
+    <>
+      <Modal
+        opened={opened && !composeOpen}
+        onClose={onClose}
+        title={
+          <Text fw={600} size="sm">
+            Cargo Update
+          </Text>
+        }
+        padding="lg"
+        size="70vw"
+        styles={{
+          content: {
+            resize: 'both',
+            overflow: 'auto',
+            width: '100%',
+            minWidth: 400,
+            minHeight: 300,
+          },
+        }}
+      >
+        <Stack gap="sm">
+          {/* Date / ETD — at top, matching other modal patterns */}
+          <Group gap="xl">
+            <Group gap="xs" align="flex-end">
+              <DateInput
+                label="Date Update"
+                size="sm"
+                value={dateUpdate}
+                onChange={setDateUpdate}
+                style={{ width: 150 }}
+              />
+              <TextInput
+                label="Time"
+                size="sm"
+                placeholder="HH:MM"
+                value={timeUpdate}
+                onChange={(e) => setTimeUpdate(e.currentTarget.value)}
+                style={{ width: 80 }}
+              />
+            </Group>
+            <Group gap="xs" align="flex-end">
+              <DateInput
+                label="Date ETD"
+                size="sm"
+                value={dateEtd}
+                onChange={setDateEtd}
+                style={{ width: 150 }}
+              />
+              <TextInput
+                label="Time"
+                size="sm"
+                placeholder="HH:MM"
+                value={timeEtd}
+                onChange={(e) => setTimeEtd(e.currentTarget.value)}
+                style={{ width: 80 }}
+              />
+            </Group>
           </Group>
-          <Group gap="xs" align="flex-end">
-            <DateInput
-              label="Date ETD"
-              size="sm"
-              value={dateEtd}
-              onChange={setDateEtd}
-              style={{ width: 150 }}
-            />
-            <TextInput
-              label="Time"
-              size="sm"
-              placeholder="HH:MM"
-              value={timeEtd}
-              onChange={(e) => setTimeEtd(e.currentTarget.value)}
-              style={{ width: 80 }}
-            />
-          </Group>
-        </Group>
 
-        <Divider />
+          <Divider />
 
-        {/* Parcel table */}
-        <div style={{ overflowX: 'auto' }}>
-          <Table
-            withTableBorder
-            withColumnBorders
-            fz="xs"
-            style={{ tableLayout: 'fixed', width: 'max-content', minWidth: '100%' }}
-          >
-            <Table.Thead>
-              <Table.Tr>
-                {(Object.keys(INITIAL_WIDTHS) as ColKey[]).map((col) => (
-                  <ResizableTh
-                    key={col}
-                    width={colWidths[col]}
-                    onResize={(e) => startResize(col, e)}
-                  >
-                    {COL_LABELS[col]}
-                  </ResizableTh>
-                ))}
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {rows.length === 0 && (
+          {/* Parcel table */}
+          <div style={{ overflowX: 'auto' }}>
+            <Table
+              withTableBorder
+              withColumnBorders
+              fz="xs"
+              style={{ tableLayout: 'fixed', width: 'max-content', minWidth: '100%' }}
+            >
+              <Table.Thead>
                 <Table.Tr>
-                  <Table.Td colSpan={11}>
-                    <Text size="xs" c="dimmed" ta="center">
-                      No parcels — add a row below.
-                    </Text>
-                  </Table.Td>
-                </Table.Tr>
-              )}
-              {rows.map((row, i) => (
-                <Table.Tr key={row._key}>
-                  <Table.Td style={{ width: colWidths.idx }}>{i + 1}</Table.Td>
-                  <Table.Td style={{ width: colWidths.product }}>
-                    <TextInput
-                      size="xs"
-                      value={row.product}
-                      onChange={(e) => updateRow(row._key, 'product', e.currentTarget.value)}
-                    />
-                  </Table.Td>
-                  <Table.Td style={{ width: colWidths.etcDate }}>
-                    <TextInput
-                      size="xs"
-                      placeholder="MM/DD/YYYY"
-                      value={row.etcDate ?? ''}
-                      onChange={(e) => updateRow(row._key, 'etcDate', e.currentTarget.value)}
-                    />
-                  </Table.Td>
-                  <Table.Td style={{ width: colWidths.operation }}>
-                    <Select
-                      size="xs"
-                      data={OPERATION_OPTIONS}
-                      value={row.operation ?? null}
-                      onChange={(v) => updateRow(row._key, 'operation', v ?? '')}
-                      comboboxProps={{ withinPortal: true }}
-                    />
-                  </Table.Td>
-                  <Table.Td style={{ width: colWidths.qtyOnBoard }}>
-                    <NumberInput
-                      size="xs"
-                      min={0}
-                      value={row.qtyOnBoard ?? 0}
-                      onChange={(v) => updateRow(row._key, 'qtyOnBoard', v)}
-                    />
-                  </Table.Td>
-                  <Table.Td style={{ width: colWidths.qtyOnBoardUnit }}>
-                    <TextInput
-                      size="xs"
-                      value={row.qtyOnBoardUnit ?? row.unit ?? ''}
-                      onChange={(e) => updateRow(row._key, 'qtyOnBoardUnit', e.currentTarget.value)}
-                    />
-                  </Table.Td>
-                  <Table.Td style={{ width: colWidths.qtyToGo }}>
-                    <NumberInput
-                      size="xs"
-                      min={0}
-                      value={row.qtyToGo ?? 0}
-                      onChange={(v) => updateRow(row._key, 'qtyToGo', v)}
-                    />
-                  </Table.Td>
-                  <Table.Td style={{ width: colWidths.qtyToGoUnit }}>
-                    <TextInput
-                      size="xs"
-                      value={row.qtyToGoUnit ?? row.unit ?? ''}
-                      onChange={(e) => updateRow(row._key, 'qtyToGoUnit', e.currentTarget.value)}
-                    />
-                  </Table.Td>
-                  <Table.Td style={{ width: colWidths.loadingRate }}>
-                    <NumberInput
-                      size="xs"
-                      min={0}
-                      value={row.loadingRate ?? 0}
-                      onChange={(v) => updateRow(row._key, 'loadingRate', v)}
-                    />
-                  </Table.Td>
-                  <Table.Td style={{ width: colWidths.loadingRateUnit }}>
-                    <TextInput
-                      size="xs"
-                      value={row.loadingRateUnit ?? ''}
-                      onChange={(e) =>
-                        updateRow(row._key, 'loadingRateUnit', e.currentTarget.value)
-                      }
-                    />
-                  </Table.Td>
-                  <Table.Td style={{ width: colWidths.actions }}>
-                    <ActionIcon
-                      size="sm"
-                      color="red"
-                      variant="subtle"
-                      onClick={() => removeRow(row._key)}
-                      aria-label="Remove row"
+                  {(Object.keys(INITIAL_WIDTHS) as ColKey[]).map((col) => (
+                    <ResizableTh
+                      key={col}
+                      width={colWidths[col]}
+                      onResize={(e) => startResize(col, e)}
                     >
-                      ×
-                    </ActionIcon>
-                  </Table.Td>
+                      {COL_LABELS[col]}
+                    </ResizableTh>
+                  ))}
                 </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
-        </div>
+              </Table.Thead>
+              <Table.Tbody>
+                {rows.length === 0 && (
+                  <Table.Tr>
+                    <Table.Td colSpan={11}>
+                      <Text size="xs" c="dimmed" ta="center">
+                        No parcels — add a row below.
+                      </Text>
+                    </Table.Td>
+                  </Table.Tr>
+                )}
+                {rows.map((row, i) => (
+                  <Table.Tr key={row._key}>
+                    <Table.Td style={{ width: colWidths.idx }}>{i + 1}</Table.Td>
+                    <Table.Td style={{ width: colWidths.product }}>
+                      <TextInput
+                        size="xs"
+                        value={row.product}
+                        onChange={(e) => updateRow(row._key, 'product', e.currentTarget.value)}
+                      />
+                    </Table.Td>
+                    <Table.Td style={{ width: colWidths.etcDate }}>
+                      <TextInput
+                        size="xs"
+                        placeholder="MM/DD/YYYY"
+                        value={row.etcDate ?? ''}
+                        onChange={(e) => updateRow(row._key, 'etcDate', e.currentTarget.value)}
+                      />
+                    </Table.Td>
+                    <Table.Td style={{ width: colWidths.operation }}>
+                      <Select
+                        size="xs"
+                        data={OPERATION_OPTIONS}
+                        value={row.operation ?? null}
+                        onChange={(v) => updateRow(row._key, 'operation', v ?? '')}
+                        comboboxProps={{ withinPortal: true }}
+                      />
+                    </Table.Td>
+                    <Table.Td style={{ width: colWidths.qtyOnBoard }}>
+                      <NumberInput
+                        size="xs"
+                        min={0}
+                        value={row.qtyOnBoard ?? 0}
+                        onChange={(v) => updateRow(row._key, 'qtyOnBoard', v)}
+                      />
+                    </Table.Td>
+                    <Table.Td style={{ width: colWidths.qtyOnBoardUnit }}>
+                      <TextInput
+                        size="xs"
+                        value={row.qtyOnBoardUnit ?? row.unit ?? ''}
+                        onChange={(e) =>
+                          updateRow(row._key, 'qtyOnBoardUnit', e.currentTarget.value)
+                        }
+                      />
+                    </Table.Td>
+                    <Table.Td style={{ width: colWidths.qtyToGo }}>
+                      <NumberInput
+                        size="xs"
+                        min={0}
+                        value={row.qtyToGo ?? 0}
+                        onChange={(v) => updateRow(row._key, 'qtyToGo', v)}
+                      />
+                    </Table.Td>
+                    <Table.Td style={{ width: colWidths.qtyToGoUnit }}>
+                      <TextInput
+                        size="xs"
+                        value={row.qtyToGoUnit ?? row.unit ?? ''}
+                        onChange={(e) => updateRow(row._key, 'qtyToGoUnit', e.currentTarget.value)}
+                      />
+                    </Table.Td>
+                    <Table.Td style={{ width: colWidths.loadingRate }}>
+                      <NumberInput
+                        size="xs"
+                        min={0}
+                        value={row.loadingRate ?? 0}
+                        onChange={(v) => updateRow(row._key, 'loadingRate', v)}
+                      />
+                    </Table.Td>
+                    <Table.Td style={{ width: colWidths.loadingRateUnit }}>
+                      <TextInput
+                        size="xs"
+                        value={row.loadingRateUnit ?? ''}
+                        onChange={(e) =>
+                          updateRow(row._key, 'loadingRateUnit', e.currentTarget.value)
+                        }
+                      />
+                    </Table.Td>
+                    <Table.Td style={{ width: colWidths.actions }}>
+                      <ActionIcon
+                        size="sm"
+                        color="red"
+                        variant="subtle"
+                        onClick={() => removeRow(row._key)}
+                        aria-label="Remove row"
+                      >
+                        ×
+                      </ActionIcon>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </div>
 
-        <Button size="xs" variant="subtle" onClick={addRow} style={{ alignSelf: 'flex-start' }}>
-          + Add row
-        </Button>
-
-        {/* Actions */}
-        <Group justify="space-between" mt="sm">
-          <Button
-            variant="light"
-            size="sm"
-            loading={sendEmail.isPending}
-            onClick={() => void handleSend()}
-          >
-            Send Message
+          <Button size="xs" variant="subtle" onClick={addRow} style={{ alignSelf: 'flex-start' }}>
+            + Add row
           </Button>
-          <Group gap="xs">
+
+          {/* Actions */}
+          <Group justify="space-between" mt="sm">
             <Button
-              variant="default"
-              onClick={onClose}
-              disabled={saveMutation.isPending || sendEmail.isPending}
-            >
-              Close
-            </Button>
-            <Button
-              variant="default"
+              variant="light"
+              size="sm"
               loading={saveMutation.isPending}
-              onClick={() => saveMutation.mutate()}
+              onClick={() => void handleSend()}
             >
-              Save as Draft
+              Send Message
             </Button>
+            <Group gap="xs">
+              <Button variant="default" onClick={onClose} disabled={saveMutation.isPending}>
+                Close
+              </Button>
+              <Button
+                variant="default"
+                loading={saveMutation.isPending}
+                onClick={() => saveMutation.mutate()}
+              >
+                Save as Draft
+              </Button>
+            </Group>
           </Group>
-        </Group>
-      </Stack>
-    </Modal>
+        </Stack>
+      </Modal>
+
+      {/* Edit-email screen — review recipients/subject/body before sending */}
+      <EmailComposeDrawer
+        opened={composeOpen}
+        onClose={() => setComposeOpen(false)}
+        pedrId={pedrId}
+        nominationId={nominationId}
+        subDocType="CARGO_UPDATE"
+        defaultSubject={composeData?.subject ?? ''}
+        defaultBody={emailBody}
+      />
+    </>
   );
 }
