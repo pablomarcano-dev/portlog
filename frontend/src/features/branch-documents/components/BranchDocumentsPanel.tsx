@@ -11,6 +11,7 @@ import {
   Text,
 } from '@mantine/core';
 import { useState } from 'react';
+import { formatDateTime } from '../../../lib/format/datetime';
 import type { BranchDocumentInstance, BranchDocumentTemplate } from '@portlog/schemas';
 import type { Nomination } from '@portlog/schemas';
 import {
@@ -224,7 +225,7 @@ function InstanceRow({
           </Text>
         </Group>
         <Text size="xs" c="dimmed">
-          by {instance.createdBy.email} · {new Date(instance.updatedAt).toLocaleString('es-VE')}
+          by {instance.createdBy.email} · {formatDateTime(instance.updatedAt, 'es-VE')}
         </Text>
       </Stack>
 

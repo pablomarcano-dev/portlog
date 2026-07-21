@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { PdfService } from '../pdf/pdf.service.js';
 import { StorageService } from '../storage/storage.service.js';
+import { AttachmentsService } from '../attachments/attachments.service.js';
 import type { SendSubDocumentInput, SubDocExtraData } from '@portlog/schemas';
 import type { PedrSubDocumentType } from '@portlog/schemas';
 
@@ -30,11 +31,20 @@ export class DispatchService {
     private readonly emailService: EmailService,
     private readonly pdfService: PdfService,
     private readonly storageService: StorageService,
+    private readonly attachmentsService: AttachmentsService,
   ) {}
 
   async sendSubDocument(pedrId: string, dto: SendSubDocumentInput, userId: string) {
-    const { subDocType, toAddresses, ccAddresses, bccAddresses, subject, bodyHtml, extraData } =
-      dto;
+    const {
+      subDocType,
+      toAddresses,
+      ccAddresses,
+      bccAddresses,
+      subject,
+      bodyHtml,
+      extraData,
+      attachmentIds,
+    } = dto;
 
     // 1. Fetch PEDR + nomination data
     const pedr = await this.prisma.pedr.findUnique({
@@ -164,6 +174,11 @@ export class DispatchService {
       // Non-fatal: email will still be sent, storage key will be null
     }
 
+    // 4b. Resolve any user-uploaded attachments up front so a bad id / oversize
+    // fails fast before we record the dispatch. Returns [] when none requested
+    // (so a MinIO outage still doesn't block PDF-only sends).
+    const userAttachments = await this.attachmentsService.resolveForSend(attachmentIds ?? []);
+
     // 5. Create EmailDispatch record (PENDING — sentAt is null until send succeeds)
     const dispatch = await this.prisma.emailDispatch.create({
       data: {
@@ -195,14 +210,16 @@ export class DispatchService {
             content: pdfBuffer,
             contentType: 'application/pdf',
           },
+          ...userAttachments,
         ],
       });
 
-      // 7. Mark sentAt
+      // 7. Mark sentAt + link uploaded attachments to this dispatch (audit trail)
       const updated = await this.prisma.emailDispatch.update({
         where: { id: dispatch.id },
         data: { sentAt: new Date() },
       });
+      await this.attachmentsService.linkToEmailDispatch(attachmentIds ?? [], dispatch.id);
 
       this.logger.log({
         event: 'dispatch.sent',

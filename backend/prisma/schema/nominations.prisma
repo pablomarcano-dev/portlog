@@ -23,13 +23,21 @@ enum NominationType {
   CHARTERERS_AGENTS_ONLY
 }
 
+// SN or OT series. Chosen at creation and immutable thereafter. OT nominations
+// only accept OT-category products (Cargo.category); SN is unrestricted. The
+// correlative counter is shared — kind only changes the rendered prefix.
+enum NominationKind {
+  SN
+  OT
+}
+
 model Nomination {
   id          String @id @default(uuid()) @db.Uuid
   // Correlative drives the SN/OT number. Format rendered by service layer as `${YY}/${n.padStart(4,'0')}`.
   correlative Int    @unique @default(autoincrement())
 
   // Voyage
-  voyageNumber String  // e.g. "01/PLC" — free text, Zod-validated in M3-S1
+  voyageNumber String // e.g. "01/PLC" — free text, Zod-validated in M3-S1
   voyageCode   String? // small dropdown next to Voy field (slide 4)
 
   // Vessel — required FK; cuid() PK on ShipParticular so plain String (no @db.Uuid)
@@ -41,9 +49,9 @@ model Nomination {
   branch   Branch? @relation(fields: [branchId], references: [id], onDelete: Restrict)
 
   // Supplementary fields from legacy General Info tab
-  nomReply       DateTime? @db.Timestamptz(6)   // "Nom. Reply" — date nomination was acknowledged
-  mobileOnBoard  String?   // mobile number for person on board
-  referenceNo    String?   // "Reference N°" free-text
+  nomReply      DateTime? @db.Timestamptz(6) // "Nom. Reply" — date nomination was acknowledged
+  mobileOnBoard String? // mobile number for person on board
+  referenceNo   String? // "Reference N°" free-text
 
   contactBlackBerry String?
   blindCopy         String?
@@ -55,16 +63,16 @@ model Nomination {
   emailBcc String[] @default([])
 
   // Ports — five named relations to the Port table; cuid() PKs so plain String FKs
-  opPortId    String?
-  pierId      String?
-  lastPortId  String?
-  nextPortId  String?
-  disPortId   String?
-  opPort      Port? @relation("NominationOpPort", fields: [opPortId], references: [id], onDelete: Restrict)
-  pier        Pier? @relation(fields: [pierId], references: [id], onDelete: Restrict)
-  lastPort    Port? @relation("NominationLastPort", fields: [lastPortId], references: [id], onDelete: Restrict)
-  nextPort    Port? @relation("NominationNextPort", fields: [nextPortId], references: [id], onDelete: Restrict)
-  disPort     Port? @relation("NominationDisPort", fields: [disPortId], references: [id], onDelete: Restrict)
+  opPortId   String?
+  pierId     String?
+  lastPortId String?
+  nextPortId String?
+  disPortId  String?
+  opPort     Port?   @relation("NominationOpPort", fields: [opPortId], references: [id], onDelete: Restrict)
+  pier       Pier?   @relation(fields: [pierId], references: [id], onDelete: Restrict)
+  lastPort   Port?   @relation("NominationLastPort", fields: [lastPortId], references: [id], onDelete: Restrict)
+  nextPort   Port?   @relation("NominationNextPort", fields: [nextPortId], references: [id], onDelete: Restrict)
+  disPort    Port?   @relation("NominationDisPort", fields: [disPortId], references: [id], onDelete: Restrict)
 
   // Dates — always UTC; Golden Rule applies
   dateNominated DateTime  @db.Timestamptz(6)
@@ -83,6 +91,9 @@ model Nomination {
 
   // Type + subject
   nominationType NominationType @default(FULL_AGENCY)
+  // SN or OT series — immutable after creation; drives the SN-/OT- reference prefix
+  // and, for OT, restricts parcels to OT-category products.
+  kind           NominationKind @default(SN)
   subject        String?
 
   // Parcels (Product/Qtty/Unit/Oper rows + cargo-update figures) as JSON; Zod-validated at service layer
@@ -94,7 +105,7 @@ model Nomination {
 
   // Audit — createdById is a required cuid FK to users
   createdById String
-  createdBy   User   @relation("NominationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdBy   User     @relation("NominationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   createdAt   DateTime @default(now()) @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @db.Timestamptz(6)
 
@@ -132,12 +143,12 @@ model NominationStatusHistory {
   fromStatus   NominationStatus? // null on initial NOMINATED insert
   toStatus     NominationStatus
   // changedById is a cuid FK to users — plain String
-  changedById String
-  changedBy   User   @relation("NominationStatusChangedBy", fields: [changedById], references: [id], onDelete: Restrict)
+  changedById  String
+  changedBy    User              @relation("NominationStatusChangedBy", fields: [changedById], references: [id], onDelete: Restrict)
   // reason is required when toStatus = CANCELLED — enforced by DB CHECK constraint in migration SQL
-  reason    String?
+  reason       String?
   // No updatedAt — this table is append-only (service layer enforces no deletes/updates in M3-S2)
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  createdAt    DateTime          @default(now()) @db.Timestamptz(6)
 
   @@index([nominationId, createdAt])
   @@map("nomination_status_history")
@@ -152,7 +163,7 @@ model NominationClient {
   id           String     @id @default(uuid()) @db.Uuid
   nominationId String     @db.Uuid
   nomination   Nomination @relation(fields: [nominationId], references: [id], onDelete: Cascade)
-  type         String     // "Time Charter", "Receivers", etc. — free-text; no enum, client varies
+  type         String // "Time Charter", "Receivers", etc. — free-text; no enum, client varies
   name         String
   voyageRef    String?
   referenceNo  String?
@@ -199,17 +210,17 @@ model Sale {
 // All timestamps are Timestamptz(6) — UTC-only, Golden Rule applies.
 // ---------------------------------------------------------------------------
 model SofTimesheet {
-  id            String     @id @default(cuid())
-  nominationId  String     @unique @db.Uuid
-  nomination    Nomination @relation(fields: [nominationId], references: [id], onDelete: Cascade)
-  lastPortId    String?
-  lastPort      Port?      @relation("SofTimesheetLastPort", fields: [lastPortId], references: [id], onDelete: Restrict)
-  nextPortId    String?
-  nextPort      Port?      @relation("SofTimesheetNextPort", fields: [nextPortId], references: [id], onDelete: Restrict)
-  pierId        String?
-  pier          Pier?      @relation("SofTimesheetPier", fields: [pierId], references: [id], onDelete: Restrict)
-  captain       String?
-  mobileOnBoard String?
+  id                  String     @id @default(cuid())
+  nominationId        String     @unique @db.Uuid
+  nomination          Nomination @relation(fields: [nominationId], references: [id], onDelete: Cascade)
+  lastPortId          String?
+  lastPort            Port?      @relation("SofTimesheetLastPort", fields: [lastPortId], references: [id], onDelete: Restrict)
+  nextPortId          String?
+  nextPort            Port?      @relation("SofTimesheetNextPort", fields: [nextPortId], references: [id], onDelete: Restrict)
+  pierId              String?
+  pier                Pier?      @relation("SofTimesheetPier", fields: [pierId], references: [id], onDelete: Restrict)
+  captain             String?
+  mobileOnBoard       String?
   // Sub-modal JSON blobs — one per support dialog
   bunkersData         Json?
   draftData           Json?
@@ -220,8 +231,8 @@ model SofTimesheet {
   remarksData         Json?
   slopDischargedData  Json?
   bunkersReceivedData Json?
-  createdAt     DateTime   @default(now()) @db.Timestamptz(6)
-  updatedAt     DateTime   @updatedAt @db.Timestamptz(6)
+  createdAt           DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime   @updatedAt @db.Timestamptz(6)
 
   entries SofEntry[]
 

@@ -11,6 +11,7 @@ const mockCargo = {
   id: 'cargo-cuid-1',
   name: 'Crude Oil',
   bblUnit: 'BBL',
+  category: 'OT' as const,
   comments: null,
   label: 'Crude Oil',
 };
@@ -54,6 +55,45 @@ describe('CargoesService', () => {
       expect(result.items).toHaveLength(1);
       expect(result.items[0]?.name).toBe('Crude Oil');
       expect(result.hasMore).toBe(false);
+    });
+
+    it('applies the category filter to the where clause when provided', async () => {
+      mockPrisma.cargo.findMany.mockResolvedValue([mockCargo]);
+
+      await service.list({ q: undefined, limit: 50, cursor: undefined, category: 'OT' });
+
+      expect(mockPrisma.cargo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ category: 'OT' }) }),
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // search
+  // -------------------------------------------------------------------------
+  describe('search', () => {
+    it('filters by category and returns it on each result', async () => {
+      mockPrisma.cargo.findMany.mockResolvedValue([
+        { id: 'cargo-cuid-1', name: 'Crude Oil', category: 'OT' },
+      ]);
+
+      const result = await service.search('Crude', 'OT');
+
+      expect(mockPrisma.cargo.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ category: 'OT' }) }),
+      );
+      expect(result[0]).toEqual({ id: 'cargo-cuid-1', label: 'Crude Oil', category: 'OT' });
+    });
+
+    it('omits the category filter when none is given', async () => {
+      mockPrisma.cargo.findMany.mockResolvedValue([]);
+
+      await service.search('Crude');
+
+      const call = mockPrisma.cargo.findMany.mock.calls[0]?.[0] as {
+        where: Record<string, unknown>;
+      };
+      expect(call.where).not.toHaveProperty('category');
     });
   });
 

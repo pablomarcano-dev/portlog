@@ -631,17 +631,19 @@ async function main(): Promise<void> {
   // ---------------------------------------------------------------------------
   // Cargoes (10)
   // ---------------------------------------------------------------------------
+  // category defaults to 'SN' (unrestricted); a couple are marked 'OT' so OT
+  // nominations have eligible products to select in dev.
   const cargoData = [
-    { name: 'Soja', bblUnit: 'MT' },
-    { name: 'Trigo', bblUnit: 'MT' },
-    { name: 'Maíz', bblUnit: 'MT' },
-    { name: 'Celulosa', bblUnit: 'MT' },
-    { name: 'Fertilizantes', bblUnit: 'MT' },
-    { name: 'Combustible', bblUnit: 'BBL' },
-    { name: 'Carga General', bblUnit: 'MT' },
-    { name: 'Contenedores', bblUnit: 'TEU' },
-    { name: 'Pellets de Madera', bblUnit: 'MT' },
-    { name: 'Aceite Vegetal', bblUnit: 'MT' },
+    { name: 'Soja', bblUnit: 'MT', category: 'SN' as const },
+    { name: 'Trigo', bblUnit: 'MT', category: 'SN' as const },
+    { name: 'Maíz', bblUnit: 'MT', category: 'SN' as const },
+    { name: 'Celulosa', bblUnit: 'MT', category: 'SN' as const },
+    { name: 'Fertilizantes', bblUnit: 'MT', category: 'SN' as const },
+    { name: 'Combustible', bblUnit: 'BBL', category: 'OT' as const },
+    { name: 'Carga General', bblUnit: 'MT', category: 'SN' as const },
+    { name: 'Contenedores', bblUnit: 'TEU', category: 'SN' as const },
+    { name: 'Pellets de Madera', bblUnit: 'MT', category: 'SN' as const },
+    { name: 'Aceite Vegetal', bblUnit: 'MT', category: 'OT' as const },
   ];
   for (const c of cargoData) {
     await findOrCreate(

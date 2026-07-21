@@ -2,6 +2,8 @@ import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Logger } from 'nestjs-pino';
 import fastifyCookie from '@fastify/cookie';
+import fastifyMultipart from '@fastify/multipart';
+import { MAX_ATTACHMENT_SIZE_BYTES, MAX_ATTACHMENTS_PER_EMAIL } from '@portlog/schemas';
 import { AppModule } from './app.module.js';
 
 async function bootstrap() {
@@ -21,6 +23,18 @@ async function bootstrap() {
   // because fastifyCookie is a valid Fastify plugin at runtime.
 
   await app.register(fastifyCookie as unknown as Parameters<typeof app.register>[0]);
+
+  // Register @fastify/multipart for email attachment uploads (POST /api/attachments).
+  // One file per request; the frontend uploads each selected file separately.
+  // fileSize is the hard per-file cap — @fastify/multipart aborts the stream past it.
+  await app.register(fastifyMultipart, {
+    limits: {
+      fileSize: MAX_ATTACHMENT_SIZE_BYTES,
+      files: 1,
+      // Small non-file field allowance (none expected, but keep the parser happy).
+      fields: MAX_ATTACHMENTS_PER_EMAIL,
+    },
+  });
 
   // CORS: allow the frontend origin with credentials (required for httpOnly cookie exchange).
   // SameSite=Lax on the cookie is sufficient for CSRF protection; credentials: true

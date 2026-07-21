@@ -1,6 +1,7 @@
 import { Autocomplete } from '@mantine/core';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import type { CargoCategory } from '@portlog/schemas';
 import { cargoesApi } from '../../../lib/api/master-data/cargoes';
 
 interface CargoNamePickerProps {
@@ -11,6 +12,8 @@ interface CargoNamePickerProps {
   error?: string;
   disabled?: boolean;
   style?: React.CSSProperties;
+  /** When set, only products in this category are suggested (e.g. "OT" for OT nominations). */
+  category?: CargoCategory;
 }
 
 export function CargoNamePicker({
@@ -21,12 +24,13 @@ export function CargoNamePicker({
   error,
   disabled,
   style,
+  category,
 }: CargoNamePickerProps) {
   const [search, setSearch] = useState('');
 
   const { data } = useQuery({
-    queryKey: ['cargoes', 'search', search],
-    queryFn: () => cargoesApi.search(search),
+    queryKey: ['cargoes', 'search', search, category ?? 'ALL'],
+    queryFn: () => cargoesApi.search(search, category),
     enabled: search.length > 0,
     staleTime: 30_000,
   });

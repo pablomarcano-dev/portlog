@@ -20,21 +20,22 @@ enum SubDocType {
 }
 
 model EmailDispatch {
-  id            String      @id @default(cuid())
-  pedrId        String      @db.Uuid
-  pedr          Pedr        @relation("PedrEmailDispatches", fields: [pedrId], references: [id], onDelete: Cascade)
+  id            String     @id @default(cuid())
+  pedrId        String     @db.Uuid
+  pedr          Pedr       @relation("PedrEmailDispatches", fields: [pedrId], references: [id], onDelete: Cascade)
   subDocType    SubDocType
   toAddresses   String[]
-  ccAddresses   String[]    @default([])
-  bccAddresses  String[]    @default([])
+  ccAddresses   String[]   @default([])
+  bccAddresses  String[]   @default([])
   subject       String
-  bodyHtml      String?     @db.Text
+  bodyHtml      String?    @db.Text
   pdfStorageKey String?
-  sentAt        DateTime?   @db.Timestamptz
+  sentAt        DateTime?  @db.Timestamptz
   sentById      String
-  sentBy        User        @relation("DispatchSentBy", fields: [sentById], references: [id], onDelete: Restrict)
+  sentBy        User       @relation("DispatchSentBy", fields: [sentById], references: [id], onDelete: Restrict)
   error         String?
-  createdAt     DateTime    @default(now()) @db.Timestamptz
+  createdAt     DateTime   @default(now()) @db.Timestamptz
+  attachments   EmailAttachment[]
 
   @@index([pedrId, subDocType])
   @@map("email_dispatches")

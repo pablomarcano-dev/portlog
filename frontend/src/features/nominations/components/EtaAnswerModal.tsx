@@ -137,6 +137,7 @@ export function EtaAnswerModal({
               label="Msg. ETA"
               description="When master's ETA message was received"
               placeholder="Select date and time"
+              valueFormat="DD/MM/YYYY HH:mm"
               value={msgEta}
               onChange={setMsgEta}
               clearable
@@ -155,6 +156,7 @@ export function EtaAnswerModal({
                 label="ETA Notify"
                 description="ETA reported by master"
                 placeholder="Select date and time"
+                valueFormat="DD/MM/YYYY HH:mm"
                 value={etaNotify}
                 onChange={setEtaNotify}
                 clearable
@@ -173,6 +175,7 @@ export function EtaAnswerModal({
                 label="ETPOB"
                 description="Estimated Time Pilot On Board"
                 placeholder="Select date and time"
+                valueFormat="DD/MM/YYYY HH:mm"
                 value={etpob}
                 onChange={setEtpob}
                 clearable
@@ -191,6 +194,7 @@ export function EtaAnswerModal({
                 label="ETB"
                 description="Estimated Time of Berthing"
                 placeholder="Select date and time"
+                valueFormat="DD/MM/YYYY HH:mm"
                 value={etb}
                 onChange={setEtb}
                 clearable

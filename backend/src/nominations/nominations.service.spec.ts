@@ -8,6 +8,7 @@ import {
 import { NominationsService } from './nominations.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
+import { AttachmentsService } from '../attachments/attachments.service.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -70,6 +71,7 @@ const mockNomBase = {
   boardingClerk: null,
   inspector: null,
   nominationType: 'FULL_AGENCY' as const,
+  kind: 'SN' as const,
   subject: null,
   parcels: [],
   status: 'NOMINATED' as const,
@@ -105,6 +107,9 @@ const mockPrisma = {
   pedrStageHistory: {
     create: jest.fn(),
   },
+  cargo: {
+    findMany: jest.fn(),
+  },
   sale: {
     findMany: jest.fn(),
     findFirst: jest.fn(),
@@ -117,6 +122,9 @@ const mockPrisma = {
 
 // No spec exercises email paths — an empty mock satisfies DI.
 const mockEmailService = {};
+
+// No spec exercises attachment paths — an empty mock satisfies DI.
+const mockAttachmentsService = {};
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -133,6 +141,7 @@ describe('NominationsService', () => {
         NominationsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EmailService, useValue: mockEmailService },
+        { provide: AttachmentsService, useValue: mockAttachmentsService },
       ],
     }).compile();
 
@@ -175,6 +184,90 @@ describe('NominationsService', () => {
         }),
       );
       expect(mockPrisma.pedr.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('renders an OT- prefix and accepts an OT-category product', async () => {
+      const otNom = {
+        ...mockNomBase,
+        correlative: 8,
+        kind: 'OT' as const,
+        parcels: [{ product: 'Combustible', quantity: 100, unit: 'BBL', operation: 'Load' }],
+      };
+      mockPrisma.cargo.findMany.mockResolvedValue([{ name: 'Combustible' }]);
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (tx: typeof mockPrisma) => Promise<unknown>) => {
+          mockPrisma.nomination.create.mockResolvedValue(otNom);
+          mockPrisma.nominationStatusHistory.create.mockResolvedValue({});
+          mockPrisma.pedr.create.mockResolvedValue({ id: 'clpedr0000000001' });
+          mockPrisma.pedrStageHistory.create.mockResolvedValue({});
+          return fn(mockPrisma);
+        },
+      );
+
+      const result = await service.create(
+        {
+          shipParticularId: 'clship0000000001',
+          branchId: 'clbranch000000001',
+          dateNominated: NOW,
+          nominationType: 'FULL_AGENCY',
+          kind: 'OT',
+          parcels: [{ product: 'Combustible', quantity: 100, unit: 'BBL', operation: 'Load' }],
+        },
+        USER_ID,
+      );
+
+      expect(result.snOt).toBe('OT-26/0008');
+      expect(result.kind).toBe('OT');
+      expect(mockPrisma.nomination.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects an OT nomination carrying a non-OT product with BadRequest', async () => {
+      // No OT cargo matches the parcel product → validation fails before insert.
+      mockPrisma.cargo.findMany.mockResolvedValue([]);
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (tx: typeof mockPrisma) => Promise<unknown>) => fn(mockPrisma),
+      );
+
+      await expect(
+        service.create(
+          {
+            shipParticularId: 'clship0000000001',
+            branchId: 'clbranch000000001',
+            dateNominated: NOW,
+            nominationType: 'FULL_AGENCY',
+            kind: 'OT',
+            parcels: [{ product: 'Soja', quantity: 100, unit: 'MT', operation: 'Load' }],
+          },
+          USER_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.nomination.create).not.toHaveBeenCalled();
+    });
+
+    it('does not query the product catalog for SN nominations', async () => {
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (tx: typeof mockPrisma) => Promise<unknown>) => {
+          mockPrisma.nomination.create.mockResolvedValue(mockNomBase);
+          mockPrisma.nominationStatusHistory.create.mockResolvedValue({});
+          mockPrisma.pedr.create.mockResolvedValue({ id: 'clpedr0000000001' });
+          mockPrisma.pedrStageHistory.create.mockResolvedValue({});
+          return fn(mockPrisma);
+        },
+      );
+
+      await service.create(
+        {
+          shipParticularId: 'clship0000000001',
+          branchId: 'clbranch000000001',
+          dateNominated: NOW,
+          nominationType: 'FULL_AGENCY',
+          kind: 'SN',
+          parcels: [{ product: 'Soja', quantity: 100, unit: 'MT', operation: 'Load' }],
+        },
+        USER_ID,
+      );
+
+      expect(mockPrisma.cargo.findMany).not.toHaveBeenCalled();
     });
   });
 

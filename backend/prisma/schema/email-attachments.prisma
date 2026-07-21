@@ -1,0 +1,36 @@
+// ---------------------------------------------------------------------------
+// Email attachments — user-uploaded files stored in MinIO
+// ---------------------------------------------------------------------------
+// A file an operator uploads to attach to an outgoing email. Rows are created
+// "staged" (no dispatch link) at upload time, then linked to exactly one
+// dispatch record at send time. This gives a per-email audit trail of which
+// files were attached, by whom, and when. The binary lives in MinIO under the
+// `email-attachments/` prefix; `minioKey` is the object key.
+//
+// A staged row (both dispatch links null) may be deleted by the uploader
+// before it is sent. Once linked to a dispatch it is part of the audit record
+// and must not be deleted (see AttachmentsService).
+// ---------------------------------------------------------------------------
+
+model EmailAttachment {
+  id           String   @id @default(cuid())
+  minioKey     String   @unique
+  filename     String
+  mimeType     String
+  sizeBytes    Int
+  uploadedById String
+  uploadedBy   User     @relation("EmailAttachmentUploadedBy", fields: [uploadedById], references: [id], onDelete: Restrict)
+  createdAt    DateTime @default(now()) @db.Timestamptz
+
+  // Linked to at most one dispatch record at send time (null while staged).
+  emailDispatchId String?
+  emailDispatch   EmailDispatch? @relation(fields: [emailDispatchId], references: [id], onDelete: SetNull)
+
+  shDocumentDispatchId String?
+  shDocumentDispatch   ShDocumentDispatch? @relation(fields: [shDocumentDispatchId], references: [id], onDelete: SetNull)
+
+  @@index([emailDispatchId])
+  @@index([shDocumentDispatchId])
+  @@index([uploadedById])
+  @@map("email_attachments")
+}

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Modal,
   Stack,
@@ -25,6 +25,8 @@ import { useEmailDispatch } from '../api/useEmailDispatch';
 import { useNominationCompose } from '../api/useNominationCompose';
 import { useNominationSendEmail } from '../api/useNominationSendEmail';
 import { EmailGroupPicker } from '../../../components/master-data/EmailGroupPicker';
+import { EmailAttachmentsField } from '../../../components/master-data/EmailAttachmentsField';
+import { formatDateTime } from '../../../lib/format/datetime';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -62,6 +64,7 @@ const composeSchema = z.object({
   bccAddresses: z.array(z.string()).default([]),
   subject: z.string().min(1, 'Subject is required'),
   bodyHtml: z.string().default(''),
+  attachmentIds: z.array(z.string()).default([]),
   etb: z.date().nullable().optional(),
   berthNumber: z.string().optional(),
   etcDate: z.date().nullable().optional(),
@@ -116,6 +119,7 @@ export function EmailComposeDrawer({
       bccAddresses: [],
       subject: defaultSubject,
       bodyHtml: defaultBody,
+      attachmentIds: [],
       etb: null,
       berthNumber: '',
       etcDate: null,
@@ -146,12 +150,18 @@ export function EmailComposeDrawer({
   const ccAddresses = watch('ccAddresses');
   const bccAddresses = watch('bccAddresses');
   const bodyHtml = watch('bodyHtml');
+  const attachmentIds = watch('attachmentIds');
   const norTenderedAt = watch('norTenderedAt');
   const blQuantity = watch('blQuantity');
   const blDate = watch('blDate');
 
+  // Bumped on close so EmailAttachmentsField remounts fresh (clears its internal
+  // file list) — the form value resets, but the widget keeps local UI metadata.
+  const [attachKey, setAttachKey] = useState(0);
+
   function handleClose() {
     reset();
+    setAttachKey((k) => k + 1);
     onClose();
   }
 
@@ -190,6 +200,7 @@ export function EmailComposeDrawer({
           bccAddresses: values.bccAddresses,
           subject: values.subject,
           bodyHtml: values.bodyHtml || '',
+          attachmentIds: values.attachmentIds,
         },
         { onSuccess: () => handleClose() },
       );
@@ -203,6 +214,7 @@ export function EmailComposeDrawer({
           subject: values.subject,
           bodyHtml: values.bodyHtml || undefined,
           extraData,
+          attachmentIds: values.attachmentIds,
         },
         { onSuccess: () => handleClose() },
       );
@@ -256,7 +268,7 @@ export function EmailComposeDrawer({
                     <Table.Tbody>
                       {pedrEventsQuery.data?.map((ev) => (
                         <Table.Tr key={ev.id}>
-                          <Table.Td>{new Date(ev.occurredAt).toLocaleString()}</Table.Td>
+                          <Table.Td>{formatDateTime(ev.occurredAt)}</Table.Td>
                           <Table.Td>{ev.kind.replace(/_/g, ' ')}</Table.Td>
                           <Table.Td>{ev.note ?? ''}</Table.Td>
                         </Table.Tr>
@@ -332,6 +344,14 @@ export function EmailComposeDrawer({
               placeholder="HTML email body…"
             />
 
+            {/* Attachments */}
+            <EmailAttachmentsField
+              key={attachKey}
+              value={attachmentIds}
+              onChange={(ids) => setValue('attachmentIds', ids)}
+              disabled={(isNominationLevel ? nominationSend : dispatch).isPending}
+            />
+
             {/* ETA/ETB extra fields */}
             {subDocType === 'ETA_ETB' && (
               <>
@@ -343,6 +363,7 @@ export function EmailComposeDrawer({
                     <DateTimePicker
                       label="ETB (Estimated Time of Berthing)"
                       placeholder="Select date and time"
+                      valueFormat="DD/MM/YYYY HH:mm"
                       value={field.value ?? null}
                       onChange={field.onChange}
                       clearable
@@ -363,6 +384,7 @@ export function EmailComposeDrawer({
                     <DateTimePicker
                       label="ETC (Estimated Time of Completion)"
                       placeholder="Select date and time"
+                      valueFormat="DD/MM/YYYY HH:mm"
                       value={field.value ?? null}
                       onChange={field.onChange}
                       clearable
@@ -384,6 +406,7 @@ export function EmailComposeDrawer({
                     <DateTimePicker
                       label="NOR Tendered At"
                       placeholder="Select date and time"
+                      valueFormat="DD/MM/YYYY HH:mm"
                       value={field.value ?? null}
                       onChange={field.onChange}
                       required
@@ -398,6 +421,7 @@ export function EmailComposeDrawer({
                     <DateTimePicker
                       label="NOR Accepted At"
                       placeholder="Select date and time"
+                      valueFormat="DD/MM/YYYY HH:mm"
                       value={field.value ?? null}
                       onChange={field.onChange}
                       clearable
@@ -412,6 +436,7 @@ export function EmailComposeDrawer({
                     <DateTimePicker
                       label="Lay Time Commences"
                       placeholder="Select date and time"
+                      valueFormat="DD/MM/YYYY HH:mm"
                       value={field.value ?? null}
                       onChange={field.onChange}
                       clearable

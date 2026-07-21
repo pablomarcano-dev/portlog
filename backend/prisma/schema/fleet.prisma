@@ -1,11 +1,11 @@
 model FleetVessel {
-  id           String    @id @default(cuid())
-  userId       String
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  portUnlocode String
-  imo          String
-  name         String?
-  addedAt      DateTime  @default(now()) @db.Timestamptz
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  portUnlocode   String
+  imo            String
+  name           String?
+  addedAt        DateTime  @default(now()) @db.Timestamptz
   departureSince DateTime? @db.Timestamptz
 
   @@unique([userId, portUnlocode, imo])

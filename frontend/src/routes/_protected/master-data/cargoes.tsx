@@ -29,6 +29,13 @@ const BBL_UNIT_OPTIONS = [
   { value: 'LT', label: 'LT — Long Tons' },
 ];
 
+// Product category. OT nominations only accept OT products; SN (the default) is
+// unrestricted and behaves as before.
+const CATEGORY_OPTIONS = [
+  { value: 'SN', label: 'SN — Standard' },
+  { value: 'OT', label: 'OT' },
+];
+
 function CargoesScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -50,6 +57,7 @@ function CargoesScreen() {
     return {
       name: cargo.name,
       bblUnit: cargo.bblUnit,
+      category: cargo.category,
       comments: cargo.comments ?? undefined,
     };
   }, []);
@@ -103,6 +111,11 @@ function CargoFields({
     name: 'bblUnit',
     control: form.control,
   });
+  const { field: categoryField, fieldState: categoryState } = useController({
+    name: 'category',
+    control: form.control,
+    defaultValue: 'SN',
+  });
 
   return (
     <Stack gap="sm">
@@ -120,6 +133,17 @@ function CargoFields({
         onChange={(value) => bblUnitField.onChange(value ?? '')}
         onBlur={bblUnitField.onBlur}
         error={bblUnitState.error?.message}
+        required
+      />
+      <Select
+        label="Category"
+        description="OT nominations only accept OT products; SN is unrestricted."
+        data={CATEGORY_OPTIONS}
+        value={categoryField.value ?? 'SN'}
+        onChange={(value) => categoryField.onChange(value ?? 'SN')}
+        onBlur={categoryField.onBlur}
+        error={categoryState.error?.message}
+        allowDeselect={false}
         required
       />
     </Stack>

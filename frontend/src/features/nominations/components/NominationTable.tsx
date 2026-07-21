@@ -15,7 +15,7 @@ const SKELETON_ROWS = 8;
 type ColKey = 'sn' | 'voyage' | 'vessel' | 'opPort' | 'date' | 'status' | 'createdAt';
 
 const INITIAL_WIDTHS: Record<ColKey, number> = {
-  sn: 80,
+  sn: 110,
   voyage: 120,
   vessel: 160,
   opPort: 120,
@@ -94,7 +94,7 @@ export function NominationTable({ items, isLoading, onRowClick }: NominationTabl
           >
             <Table.Td style={{ width: colWidths.sn }}>
               <Text size="sm" ff="monospace">
-                {item.correlative}
+                {item.snOt}
               </Text>
             </Table.Td>
             <Table.Td style={{ width: colWidths.voyage }}>

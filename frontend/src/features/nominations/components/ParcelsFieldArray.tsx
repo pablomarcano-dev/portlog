@@ -1,7 +1,7 @@
 import { useFieldArray, Controller } from 'react-hook-form';
 import type { Control } from 'react-hook-form';
 import { Button, Group, NumberInput, Select, Stack, Text } from '@mantine/core';
-import type { NominationCreateInput } from '@portlog/schemas';
+import type { NominationCreateInput, NominationKind } from '@portlog/schemas';
 import { CargoNamePicker } from './CargoNamePicker';
 
 const UNIT_OPTIONS = [
@@ -26,16 +26,24 @@ const OPERATION_OPTIONS = [
 interface ParcelsFieldArrayProps {
   control: Control<NominationCreateInput>;
   disabled?: boolean;
+  /** Nomination series. OT restricts the product picker to OT-marked products. */
+  kind?: NominationKind;
 }
 
-export function ParcelsFieldArray({ control, disabled }: ParcelsFieldArrayProps) {
+export function ParcelsFieldArray({ control, disabled, kind = 'SN' }: ParcelsFieldArrayProps) {
   const { fields, append, remove } = useFieldArray({
     control,
     name: 'parcels',
   });
+  const productCategory = kind === 'OT' ? 'OT' : undefined;
 
   return (
     <Stack gap="xs">
+      {kind === 'OT' && (
+        <Text size="xs" c="dimmed">
+          OT nomination — only products marked OT can be added.
+        </Text>
+      )}
       {fields.length === 0 && (
         <Text size="sm" c="dimmed">
           No parcels added.
@@ -52,6 +60,7 @@ export function ParcelsFieldArray({ control, disabled }: ParcelsFieldArrayProps)
                 placeholder="e.g. Soybeans"
                 style={{ flex: 3 }}
                 disabled={disabled}
+                category={productCategory}
                 error={fieldState.error?.message}
                 value={f.value}
                 onChange={f.onChange}

@@ -61,23 +61,23 @@ enum PedrEventKind {
 // Pedr — one row per nomination, stage-aware compliance shell
 // ---------------------------------------------------------------------------
 model Pedr {
-  id           String    @id @default(uuid()) @db.Uuid
-  nominationId String    @unique @db.Uuid
+  id           String     @id @default(uuid()) @db.Uuid
+  nominationId String     @unique @db.Uuid
   nomination   Nomination @relation(fields: [nominationId], references: [id], onDelete: Restrict)
 
   currentStage PedrStage @default(PRE_ARRIVAL)
 
   // ADM-editable free-text checklist / requirements per stage
-  requirements String?   @db.Text
+  requirements String? @db.Text
 
   // Operational metadata — mutable JSON bag for alert flags and computed state.
   // Used by the ETA stale-alert cron to record { etaStaleAlert, etaLastSent }.
-  metadata     Json?
+  metadata Json?
 
   createdById String
-  createdBy   User      @relation("PedrCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
-  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+  createdBy   User     @relation("PedrCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
 
   stageHistory    PedrStageHistory[]
   subDocuments    PedrSubDocument[]
@@ -123,33 +123,33 @@ model PedrStageHistory {
 // Partial unique index enforces singleton sub-docs for ACKNOWLEDGEMENT,
 // PREARRIVAL, ETA_ETB, NOR (SOF and CARGO_UPDATE may have multiple instances).
 model PedrSubDocument {
-  id            String                @id @default(uuid()) @db.Uuid
-  pedrId        String                @db.Uuid
-  pedr          Pedr                  @relation(fields: [pedrId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid()) @db.Uuid
+  pedrId String @db.Uuid
+  pedr   Pedr   @relation(fields: [pedrId], references: [id], onDelete: Cascade)
 
-  type          PedrSubDocumentType
-  status        PedrSubDocumentStatus @default(DRAFT)
-  stage         PedrStage
+  type   PedrSubDocumentType
+  status PedrSubDocumentStatus @default(DRAFT)
+  stage  PedrStage
 
   // Per-type form fields, Zod-validated in M4-S1
-  payload       Json                  @default("{}")
+  payload    Json    @default("{}")
   // Array of { contactId?, email, name? }
-  recipients    Json                  @default("[]")
+  recipients Json    @default("[]")
   // Free-text body for simple form sub-docs
-  body          String?               @db.Text
+  body       String? @db.Text
 
   // Finalization — legally significant for SOF
-  finalizedAt   DateTime?             @db.Timestamptz(6)
+  finalizedAt   DateTime? @db.Timestamptz(6)
   finalizedById String?
-  finalizedBy   User?                 @relation("PedrSubDocumentFinalizedBy", fields: [finalizedById], references: [id], onDelete: Restrict)
+  finalizedBy   User?     @relation("PedrSubDocumentFinalizedBy", fields: [finalizedById], references: [id], onDelete: Restrict)
 
-  createdById   String
-  createdBy     User                  @relation("PedrSubDocumentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  createdAt     DateTime              @default(now()) @db.Timestamptz(6)
-  updatedAt     DateTime              @updatedAt @db.Timestamptz(6)
+  createdById String
+  createdBy   User     @relation("PedrSubDocumentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
 
-  events        PedrEvent[]
-  documents     Document[]
+  events    PedrEvent[]
+  documents Document[]
 
   @@index([pedrId, type])
   @@map("pedr_sub_documents")
@@ -162,23 +162,23 @@ model PedrSubDocument {
 // real-world time the event happened). recordedAt is the DB insert time.
 // No updatedAt — append-only. Mutating events rewrites legal history.
 model PedrEvent {
-  id            String          @id @default(uuid()) @db.Uuid
-  pedrId        String          @db.Uuid
-  pedr          Pedr            @relation(fields: [pedrId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid()) @db.Uuid
+  pedrId String @db.Uuid
+  pedr   Pedr   @relation(fields: [pedrId], references: [id], onDelete: Cascade)
 
   // Nullable: events can belong to a SOF sub-doc or float at PEDR level
-  subDocumentId String?         @db.Uuid
+  subDocumentId String?          @db.Uuid
   subDocument   PedrSubDocument? @relation(fields: [subDocumentId], references: [id], onDelete: SetNull)
 
-  kind          PedrEventKind
+  kind       PedrEventKind
   // The legally recorded timestamp — when the event actually happened
-  occurredAt    DateTime        @db.Timestamptz(6)
-  note          String?         @db.Text
+  occurredAt DateTime      @db.Timestamptz(6)
+  note       String?       @db.Text
 
-  recordedById  String
-  recordedBy    User            @relation("PedrEventRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
+  recordedById String
+  recordedBy   User     @relation("PedrEventRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
   // recordedAt is the DB insert time — not the event time
-  recordedAt    DateTime        @default(now()) @db.Timestamptz(6)
+  recordedAt   DateTime @default(now()) @db.Timestamptz(6)
   // No updatedAt — append-only
 
   @@index([pedrId, occurredAt])
@@ -218,30 +218,30 @@ model PedrEtaRecord {
 // nominationId is kept as a direct FK for fast cross-cutting queries
 // (e.g. "all documents for nomination X" without joining through Pedr).
 model Document {
-  id            String          @id @default(uuid()) @db.Uuid
+  id String @id @default(uuid()) @db.Uuid
 
   // Direct FK to Nomination for cross-cutting queries (M5 reuse)
-  nominationId  String          @db.Uuid
-  nomination    Nomination      @relation(fields: [nominationId], references: [id], onDelete: Restrict)
+  nominationId String     @db.Uuid
+  nomination   Nomination @relation(fields: [nominationId], references: [id], onDelete: Restrict)
 
   // Nullable: some documents are PEDR-level, not sub-document-level
-  pedrId        String?         @db.Uuid
-  pedr          Pedr?           @relation(fields: [pedrId], references: [id], onDelete: Cascade)
+  pedrId String? @db.Uuid
+  pedr   Pedr?   @relation(fields: [pedrId], references: [id], onDelete: Cascade)
 
-  subDocumentId String?         @db.Uuid
+  subDocumentId String?          @db.Uuid
   subDocument   PedrSubDocument? @relation(fields: [subDocumentId], references: [id], onDelete: SetNull)
 
-  stage         PedrStage
+  stage     PedrStage
   // Wide type string — M5 SH-xx rows can reuse this table
-  docType       String
+  docType   String
   // Full object path in MinIO — unique and immutable
-  minioKey      String          @unique
-  mimeType      String          @default("application/pdf")
-  sizeBytes     Int?
+  minioKey  String    @unique
+  mimeType  String    @default("application/pdf")
+  sizeBytes Int?
 
-  createdById   String
-  createdBy     User            @relation("DocumentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  createdAt     DateTime        @default(now()) @db.Timestamptz(6)
+  createdById String
+  createdBy   User     @relation("DocumentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
 
   @@index([nominationId, createdAt])
   @@index([pedrId, stage])

@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { PdfService } from '../pdf/pdf.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { EmailService } from '../email/email.service.js';
+import { AttachmentsService } from '../attachments/attachments.service.js';
 import {
   type CreateSHDocumentInput,
   type UpdateSHDocumentInput,
@@ -31,6 +32,7 @@ export class SHDocumentsService {
     private readonly pdf: PdfService,
     private readonly storage: StorageService,
     private readonly email: EmailService,
+    private readonly attachments: AttachmentsService,
   ) {}
 
   async create(
@@ -200,6 +202,10 @@ export class SHDocumentsService {
     });
     const subject = dto.subject ?? `${doc.type} — ${nomination?.correlative ?? nominationId}`;
 
+    // Resolve user-uploaded attachments up front so a bad id / oversize aborts
+    // before we flip the document to SENT.
+    const userAttachments = await this.attachments.resolveForSend(dto.attachmentIds ?? []);
+
     // --- Tx 1: record dispatch (pending) + flip doc status to SENT ---
     // IMPORTANT: Status flip to SENT happens BEFORE email send. If SMTP fails,
     // status stays SENT and the dispatch row records the error. Operators must
@@ -254,6 +260,7 @@ export class SHDocumentsService {
             content: pdfBuffer,
             contentType: 'application/pdf',
           },
+          ...userAttachments,
         ],
       });
       sentAt = new Date();
@@ -261,6 +268,7 @@ export class SHDocumentsService {
         where: { id: dispatch.id },
         data: { sentAt },
       });
+      await this.attachments.linkToShDocumentDispatch(dto.attachmentIds ?? [], dispatch.id);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       await this.prisma.shDocumentDispatch.update({

@@ -11,3 +11,4 @@ export * from './fleet/index.js';
 export * from './dispatch/index.js';
 export * from './sh-documents/index.js';
 export * from './branch-documents/index.js';
+export * from './attachments/index.js';

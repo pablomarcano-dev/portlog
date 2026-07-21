@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { NominationStatusSchema, NominationTypeSchema } from './enums.js';
+import { NominationStatusSchema, NominationTypeSchema, NominationKindSchema } from './enums.js';
 import { NominationParcelSchema, NominationParcelReadSchema } from './parcel.js';
 import { BranchSummarySchema } from '../master-data/branch/index.js';
 import { NominationClientSchema, NominationClientCreateSchema } from './client.js';
@@ -64,6 +64,9 @@ export const NominationCreateSchema = z
 
     // Type + subject
     nominationType: NominationTypeSchema.default('FULL_AGENCY'),
+    // SN or OT series — chosen at creation, then immutable (omitted from update).
+    // OT nominations only accept OT-category products (enforced in the service layer).
+    kind: NominationKindSchema.default('SN'),
     subject: z.string().max(500).optional(),
 
     // Parcels (JSON array of Product/Qtty/Unit/Oper rows, extended with cargo-update figures)
@@ -91,7 +94,7 @@ export const NominationCreateSchema = z
 // Partial of create, excluding status (status transitions via separate endpoint)
 // ---------------------------------------------------------------------------
 export const NominationUpdateSchema = NominationCreateSchema.innerType()
-  .omit({ nominationClients: true })
+  .omit({ nominationClients: true, kind: true })
   .partial()
   .superRefine((data, ctx) => {
     if (
@@ -149,6 +152,9 @@ export const NominationListItemSchema = z.object({
   voyageCode: z.string().nullable(),
   status: NominationStatusSchema,
   nominationType: NominationTypeSchema,
+  kind: NominationKindSchema,
+  // Rendered reference, e.g. "SN-26/0007" or "OT-26/0008" (attached by the service layer).
+  snOt: z.string(),
   dateNominated: z.coerce.date(),
   shipParticular: z.object({
     id: cuidFk,
@@ -268,6 +274,9 @@ export const NominationSchema = z.object({
 
   // Type + subject
   nominationType: NominationTypeSchema,
+  // SN or OT series + its rendered reference (e.g. "OT-26/0008")
+  kind: NominationKindSchema,
+  snOt: z.string(),
   subject: z.string().nullable(),
 
   // Parcels — lenient read schema; strict validation only on create/update

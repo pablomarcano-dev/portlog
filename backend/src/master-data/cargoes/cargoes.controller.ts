@@ -28,8 +28,9 @@ export class CargoesController {
   }
 
   @Get('search')
-  search(@Query('q') q: string) {
-    return this.cargoesService.search(q ?? '');
+  search(@Query('q') q: string, @Query('category') category?: string) {
+    const cat = category === 'OT' || category === 'SN' ? category : undefined;
+    return this.cargoesService.search(q ?? '', cat);
   }
 
   @Get(':id')

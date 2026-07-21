@@ -12,10 +12,12 @@ import { Prisma } from '@prisma/client';
 import Handlebars from 'handlebars';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
+import { AttachmentsService } from '../attachments/attachments.service.js';
 import {
   isValidTransition,
   deriveNominationStatus,
   type NominationStatus,
+  type NominationKind,
   type NominationCreateInput,
   type NominationUpdateInput,
   type NominationStatusTransition,
@@ -27,11 +29,13 @@ import {
   type ComposeData,
   type EtaRecordSaveInput,
   type SofTimesheetInput,
+  type SendNominationEmailInput,
 } from '@portlog/schemas';
 
-function formatSnOt(correlative: number, dateNominated: Date): string {
+function formatSnOt(correlative: number, dateNominated: Date, kind: NominationKind): string {
   const yy = String(dateNominated.getFullYear()).slice(-2);
-  return `SN-${yy}/${String(correlative).padStart(4, '0')}`;
+  const prefix = kind === 'OT' ? 'OT' : 'SN';
+  return `${prefix}-${yy}/${String(correlative).padStart(4, '0')}`;
 }
 
 // Fetches the sent PREARRIVAL / SOF dispatches used to derive the operational
@@ -51,6 +55,7 @@ type StatusFacts = {
   status: NominationStatus;
   correlative: number;
   dateNominated: Date;
+  kind: NominationKind;
   layDaysFirst: Date | null;
   layDaysLast: Date | null;
   pedr: { emailDispatches: { subDocType: string }[] } | null;
@@ -69,7 +74,7 @@ function present<T extends StatusFacts>(n: T, now: Date = new Date()) {
     layDaysLast: rest.layDaysLast,
     now,
   });
-  return { ...rest, status, snOt: formatSnOt(rest.correlative, rest.dateNominated) };
+  return { ...rest, status, snOt: formatSnOt(rest.correlative, rest.dateNominated, rest.kind) };
 }
 
 // Translates a derived-status filter into a Prisma where clause so list filtering
@@ -150,11 +155,14 @@ export class NominationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
+    private readonly attachmentsService: AttachmentsService,
   ) {}
 
   async create(dto: NominationCreateInput, userId: string) {
     const { nominationClients: clientRows, ...nominationData } = dto;
     return this.prisma.$transaction(async (tx) => {
+      // OT nominations may only carry OT-category products (no-op for SN).
+      await this.assertParcelsMatchKind(tx, nominationData.kind, nominationData.parcels);
       const nomination = await tx.nomination.create({
         data: {
           ...(nominationData as unknown as Prisma.NominationUncheckedCreateInput),
@@ -224,6 +232,44 @@ export class NominationsService {
       });
       return present(nomination);
     });
+  }
+
+  // OT nominations only accept products marked with the OT cargo category. Parcels
+  // store the product as a free-text name, so each is resolved against the OT catalog
+  // (case-insensitive). A missing or non-OT product rejects the whole write with 400.
+  // No-op for SN nominations, which stay unrestricted.
+  private async assertParcelsMatchKind(
+    tx: Prisma.TransactionClient,
+    kind: NominationKind,
+    parcels: { product?: string | null }[] | undefined,
+  ): Promise<void> {
+    if (kind !== 'OT' || !parcels || parcels.length === 0) return;
+
+    const names = Array.from(
+      new Set(
+        parcels
+          .map((p) => p.product?.trim())
+          .filter((n): n is string => !!n)
+          .map((n) => n),
+      ),
+    );
+    if (names.length === 0) return;
+
+    const otCargoes = await tx.cargo.findMany({
+      where: {
+        category: 'OT',
+        OR: names.map((n) => ({ name: { equals: n, mode: 'insensitive' as const } })),
+      },
+      select: { name: true },
+    });
+    const otNames = new Set(otCargoes.map((c) => c.name.toLowerCase()));
+
+    const offenders = Array.from(new Set(names.filter((n) => !otNames.has(n.toLowerCase()))));
+    if (offenders.length > 0) {
+      throw new BadRequestException(
+        `OT nominations only accept products marked OT. Not OT-eligible: ${offenders.join(', ')}.`,
+      );
+    }
   }
 
   async list(query: NominationListQuery) {
@@ -319,13 +365,18 @@ export class NominationsService {
   async update(id: string, dto: NominationUpdateInput, userId: string) {
     const existing = await this.prisma.nomination.findUnique({
       where: { id },
-      select: { id: true, status: true },
+      select: { id: true, status: true, kind: true },
     });
     if (!existing) {
       throw new NotFoundException(`Nomination ${id} not found.`);
     }
     if (existing.status === 'CANCELLED') {
       throw new ConflictException('Nomination is cancelled and cannot be updated.');
+    }
+    // kind is immutable (omitted from the update schema); re-validate parcels against
+    // the nomination's existing kind whenever the parcels are being changed.
+    if (dto.parcels) {
+      await this.assertParcelsMatchKind(this.prisma, existing.kind, dto.parcels);
     }
     try {
       const updated = await this.prisma.nomination.update({
@@ -591,6 +642,7 @@ export class NominationsService {
           dateNominated: true,
           voyageNumber: true,
           correlative: true,
+          kind: true,
           layDaysFirst: true,
           layDaysLast: true,
           etaDate: true,
@@ -657,16 +709,17 @@ export class NominationsService {
     const firstParcel = (parcels as Array<Record<string, unknown>>)[0] ?? {};
     const branch = nomination.branch;
 
-    const snRef = formatSnOt(nomination.correlative, nomination.dateNominated);
+    const snRef = formatSnOt(nomination.correlative, nomination.dateNominated, nomination.kind);
     const vesselName = nomination.shipParticular?.name ?? '';
     const voyageNo = nomination.voyageNumber ?? '';
     const terminalName = nomination.opPort?.name ?? '';
     const branchCode = branch?.code ?? '';
     const yy = String(nomination.dateNominated.getFullYear()).slice(-2);
+    const kindPrefix = nomination.kind === 'OT' ? 'OT' : 'SN';
     // Default matches the nomination form's auto-generated subject. If the user
     // edited the nomination's subject, that edit is preserved and reused here so
     // every email for this nomination shares the same reference line.
-    const defaultRefLine = `${vesselName} - Calling to ${terminalName} SN${nomination.correlative}/${yy}/${branchCode}`;
+    const defaultRefLine = `${vesselName} - Calling to ${terminalName} ${kindPrefix}${nomination.correlative}/${yy}/${branchCode}`;
     const refLine = nomination.subject?.trim() || defaultRefLine;
 
     // Load ETA record for ETA action types
@@ -714,6 +767,8 @@ export class NominationsService {
       parcels: (parcels as Array<Record<string, unknown>>).map((p) => ({
         cargo_grade: String(p['product'] ?? ''),
         operation: String(p['operation'] ?? ''),
+        quantity: String(p['quantity'] ?? '0'),
+        unit: String(p['unit'] ?? ''),
         qty_on_board: String(p['qtyOnBoard'] ?? '0'),
         qty_on_board_unit: String(p['qtyOnBoardUnit'] ?? p['unit'] ?? ''),
         qty_to_go: String(p['qtyToGo'] ?? '0'),
@@ -764,6 +819,29 @@ export class NominationsService {
       letters_section: '',
       remarks_section: '',
     };
+
+    // ---------------------------------------------------------------------------
+    // Cargo Update — enrich the Operation line with every parcel's
+    // "<operation> <quantity> <unit> of <product>" description. Mirrors the SOF
+    // operation format below, but lists all parcels (joined with "; ") since a
+    // cargo update is inherently multi-parcel.
+    // ---------------------------------------------------------------------------
+    if (actionType.toUpperCase() === 'CARGO_UPDATE') {
+      const parcelDescriptions = (parcels as Array<Record<string, unknown>>)
+        .map((p) =>
+          [
+            p['operation'],
+            p['quantity'] ? `${p['quantity']} ${p['unit'] ?? ''}`.trim() : '',
+            p['product'] ? `of ${p['product']}` : '',
+          ]
+            .filter(Boolean)
+            .join(' '),
+        )
+        .filter((desc) => desc.length > 0);
+      if (parcelDescriptions.length > 0) {
+        templateVars.operation = parcelDescriptions.join('; ');
+      }
+    }
 
     // ---------------------------------------------------------------------------
     // SOF — fetch timesheet and build log / BL-figures / letters / remarks vars
@@ -1006,14 +1084,7 @@ export class NominationsService {
 
   async sendEmail(
     nominationId: string,
-    body: {
-      subDocType: string;
-      toAddresses: string[];
-      ccAddresses: string[];
-      bccAddresses: string[];
-      subject: string;
-      bodyHtml: string;
-    },
+    body: SendNominationEmailInput,
     userId: string,
   ): Promise<void> {
     const pedr = await this.prisma.pedr.findUnique({
@@ -1022,10 +1093,13 @@ export class NominationsService {
     });
     if (!pedr) throw new NotFoundException(`No PEDR found for nomination ${nominationId}.`);
 
+    // Resolve user-uploaded attachments up front (fails fast on bad id / oversize).
+    const userAttachments = await this.attachmentsService.resolveForSend(body.attachmentIds ?? []);
+
     const dispatch = await this.prisma.emailDispatch.create({
       data: {
         pedrId: pedr.id,
-        subDocType: body.subDocType as import('@prisma/client').SubDocType,
+        subDocType: body.subDocType,
         toAddresses: body.toAddresses,
         ccAddresses: body.ccAddresses,
         bccAddresses: body.bccAddresses,
@@ -1041,12 +1115,14 @@ export class NominationsService {
       bcc: body.bccAddresses,
       subject: body.subject,
       html: body.bodyHtml,
+      attachments: userAttachments.length ? userAttachments : undefined,
     });
 
     await this.prisma.emailDispatch.update({
       where: { id: dispatch.id },
       data: { sentAt: new Date() },
     });
+    await this.attachmentsService.linkToEmailDispatch(body.attachmentIds ?? [], dispatch.id);
   }
 
   // ---------------------------------------------------------------------------

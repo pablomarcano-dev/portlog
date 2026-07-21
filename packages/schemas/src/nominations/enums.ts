@@ -12,5 +12,11 @@ export const NominationTypeSchema = z.enum([
   'CHARTERERS_AGENTS_ONLY',
 ]);
 
+// Nomination series/kind. Distinct from NominationType (agency arrangement).
+// SN behaves exactly as before (any product); OT nominations only accept products
+// marked with the matching OT cargo category. Chosen at creation and then immutable.
+export const NominationKindSchema = z.enum(['SN', 'OT']);
+
 export type NominationStatus = z.infer<typeof NominationStatusSchema>;
 export type NominationType = z.infer<typeof NominationTypeSchema>;
+export type NominationKind = z.infer<typeof NominationKindSchema>;

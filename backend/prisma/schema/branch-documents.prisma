@@ -24,18 +24,18 @@ enum BranchDocumentStatus {
 // fields: ordered list of form fields for the document
 // ---------------------------------------------------------------------------
 model BranchDocumentTemplate {
-  id          String   @id @default(cuid())
+  id          String                        @id @default(cuid())
   branchId    String
-  branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  branch      Branch                        @relation(fields: [branchId], references: [id], onDelete: Restrict)
   name        String
-  code        String   // e.g. "ANTIDROGAS", "SOLICITUD_ZARPE"
-  description String?  @db.Text
-  hbsTemplate String   // filename e.g. "antidrogas.hbs" (under templates/branch/)
+  code        String // e.g. "ANTIDROGAS", "SOLICITUD_ZARPE"
+  description String?                       @db.Text
+  hbsTemplate String // filename e.g. "antidrogas.hbs" (under templates/branch/)
   fields      BranchDocumentTemplateField[]
   instances   BranchDocumentInstance[]
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt   DateTime @updatedAt      @db.Timestamptz(6)
+  sortOrder   Int                           @default(0)
+  createdAt   DateTime                      @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime                      @updatedAt @db.Timestamptz(6)
 
   @@unique([branchId, code])
   @@index([branchId])
@@ -51,11 +51,11 @@ model BranchDocumentTemplateField {
   id          String                  @id @default(cuid())
   templateId  String
   template    BranchDocumentTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  key         String                  // Handlebars variable e.g. "vessel_name"
-  label       String                  // UI label e.g. "Vessel Name"
+  key         String // Handlebars variable e.g. "vessel_name"
+  label       String // UI label e.g. "Vessel Name"
   type        BranchDocumentFieldType @default(TEXT)
   required    Boolean                 @default(false)
-  sourceField String?                 // nomination context path for auto-population
+  sourceField String? // nomination context path for auto-population
   placeholder String?
   options     String[]                @default([]) // for SELECT fields
   sortOrder   Int                     @default(0)
@@ -70,25 +70,25 @@ model BranchDocumentTemplateField {
 // as SHDocument.
 // ---------------------------------------------------------------------------
 model BranchDocumentInstance {
-  id             String                 @id @default(uuid()) @db.Uuid
-  templateId     String
-  template       BranchDocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
-  nominationId   String                 @db.Uuid
-  nomination     Nomination             @relation(fields: [nominationId], references: [id], onDelete: Cascade)
+  id           String                 @id @default(uuid()) @db.Uuid
+  templateId   String
+  template     BranchDocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  nominationId String                 @db.Uuid
+  nomination   Nomination             @relation(fields: [nominationId], references: [id], onDelete: Cascade)
 
   // Form contents — keyed by field.key values
-  data           Json                   @default("{}")
-  status         BranchDocumentStatus   @default(DRAFT)
-  title          String?
+  data   Json                 @default("{}")
+  status BranchDocumentStatus @default(DRAFT)
+  title  String?
 
   // PDF output
-  minioKey       String?                @unique
-  pdfGeneratedAt DateTime?              @db.Timestamptz(6)
+  minioKey       String?   @unique
+  pdfGeneratedAt DateTime? @db.Timestamptz(6)
 
-  createdById    String
-  createdBy      User                   @relation("BranchDocInstanceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  createdAt      DateTime               @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime               @updatedAt      @db.Timestamptz(6)
+  createdById String
+  createdBy   User     @relation("BranchDocInstanceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
 
   @@index([nominationId])
   @@index([templateId])

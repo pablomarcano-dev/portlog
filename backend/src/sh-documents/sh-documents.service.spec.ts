@@ -28,6 +28,7 @@ describe('SHDocumentsService FSM', () => {
   let prismaMock: Record<string, unknown>;
   let pdfMock: Record<string, unknown>;
   let storageMock: Record<string, unknown>;
+  let attachmentsMock: Record<string, unknown>;
 
   beforeEach(() => {
     prismaMock = {
@@ -46,9 +47,19 @@ describe('SHDocumentsService FSM', () => {
     storageMock = {
       uploadFile: vi.fn(),
       getPresignedUrl: vi.fn().mockResolvedValue('https://minio/url'),
+      getFileBuffer: vi.fn().mockResolvedValue(Buffer.from('pdf')),
       deleteFile: vi.fn(),
     };
-    service = new SHDocumentsService(prismaMock as never, pdfMock as never, storageMock as never);
+    attachmentsMock = {
+      resolveForSend: vi.fn().mockResolvedValue([]),
+      linkToShDocumentDispatch: vi.fn().mockResolvedValue(undefined),
+    };
+    service = new SHDocumentsService(
+      prismaMock as never,
+      pdfMock as never,
+      storageMock as never,
+      attachmentsMock as never,
+    );
   });
 
   it('finalize: DRAFT → FINALIZED succeeds', async () => {

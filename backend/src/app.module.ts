@@ -35,6 +35,7 @@ import { ServicesModule } from './master-data/services/services.module.js';
 import { SHDocumentsModule } from './sh-documents/sh-documents.module.js';
 import { BranchDocumentsModule } from './branch-documents/branch-documents.module.js';
 import { UsersModule } from './users/users.module.js';
+import { AttachmentsModule } from './attachments/attachments.module.js';
 
 @Module({
   imports: [
@@ -98,6 +99,7 @@ import { UsersModule } from './users/users.module.js';
     ClientsModule,
     ServicesModule,
     UsersModule,
+    AttachmentsModule,
   ],
   providers: [
     // ThrottlerGuard must run first (before auth) so rate limits apply to all routes.

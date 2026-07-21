@@ -19,6 +19,7 @@ import { useNavigate } from '@tanstack/react-router';
 import type { EnrichedVessel } from '../lib/types';
 import { useOwnershipForImo } from '../api/useVesselOwnership';
 import { contactsApi } from '../../../lib/api/master-data/contacts';
+import { formatDateTime } from '../../../lib/format/datetime';
 import { useColumnResize } from '../../../components/table/useColumnResize';
 import { ResizableTh } from '../../../components/table/ResizableTh';
 
@@ -64,7 +65,7 @@ interface VesselTableProps {
 
 function formatEpoch(epoch: number | null | undefined): string {
   if (!epoch) return '—';
-  return new Date(epoch * 1_000).toLocaleString();
+  return formatDateTime(epoch * 1_000);
 }
 
 // Fetches its own ownership data — only mounts when a row is expanded,

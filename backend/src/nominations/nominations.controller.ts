@@ -23,12 +23,14 @@ import {
   NominationListQuerySchema,
   etaRecordSaveSchema,
   SofTimesheetInputSchema,
+  sendNominationEmailSchema,
   type NominationCreateInput,
   type NominationUpdateInput,
   type NominationStatusTransition,
   type NominationListQuery,
   type EtaRecordSaveInput,
   type SofTimesheetInput,
+  type SendNominationEmailInput,
 } from '@portlog/schemas';
 import type { RequestUser } from '../auth/jwt.strategy.js';
 import {
@@ -111,15 +113,7 @@ export class NominationsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   sendEmail(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body()
-    body: {
-      subDocType: string;
-      toAddresses: string[];
-      ccAddresses: string[];
-      bccAddresses: string[];
-      subject: string;
-      bodyHtml: string;
-    },
+    @Body(new ZodValidationPipe(sendNominationEmailSchema)) body: SendNominationEmailInput,
     @Req() req: { user: RequestUser },
   ) {
     return this.svc.sendEmail(id, body, req.user.sub);

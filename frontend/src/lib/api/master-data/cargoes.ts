@@ -1,6 +1,11 @@
 import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
 import { apiRequest } from '../client';
-import type { CargoCreateInput, CargoUpdateInput, CargoListQuery } from '@portlog/schemas';
+import type {
+  CargoCreateInput,
+  CargoUpdateInput,
+  CargoListQuery,
+  CargoCategory,
+} from '@portlog/schemas';
 
 // ---------------------------------------------------------------------------
 // Types mirroring backend response shapes
@@ -10,6 +15,7 @@ export interface CargoRecord {
   id: string;
   name: string;
   bblUnit: string;
+  category: CargoCategory;
   comments?: string | null;
   label: string;
 }
@@ -30,16 +36,20 @@ export const cargoesApi = {
     if (query?.q) params.set('q', query.q);
     if (query?.limit) params.set('limit', String(query.limit));
     if (query?.cursor) params.set('cursor', query.cursor);
+    if (query?.category) params.set('category', query.category);
     const qs = params.toString();
     return apiRequest<CargoListResponse>(`/master-data/cargoes${qs ? `?${qs}` : ''}`);
   },
 
   get: (id: string) => apiRequest<CargoRecord>(`/master-data/cargoes/${id}`),
 
-  search: (q: string) =>
-    apiRequest<Array<{ id: string; label: string }>>(
-      `/master-data/cargoes/search?q=${encodeURIComponent(q)}`,
-    ),
+  search: (q: string, category?: CargoCategory) => {
+    const params = new URLSearchParams({ q });
+    if (category) params.set('category', category);
+    return apiRequest<Array<{ id: string; label: string; category: CargoCategory }>>(
+      `/master-data/cargoes/search?${params.toString()}`,
+    );
+  },
 
   create: (data: CargoCreateInput) =>
     apiRequest<CargoRecord>('/master-data/cargoes', {

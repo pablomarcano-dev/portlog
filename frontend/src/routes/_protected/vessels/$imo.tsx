@@ -23,6 +23,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import { useDatalastic } from '../../../features/vessels/api/useDatalastic';
 import { contactsApi } from '../../../lib/api/master-data/contacts';
+import { formatDateTime } from '../../../lib/format/datetime';
 import type { ContactCreateInput } from '@portlog/schemas';
 import type {
   VesselInfo,
@@ -414,7 +415,7 @@ function VesselDetailPage() {
                 label="Última Actualización"
                 value={
                   pro.last_position_epoch
-                    ? new Date(pro.last_position_epoch * 1_000).toLocaleString()
+                    ? formatDateTime(pro.last_position_epoch * 1_000)
                     : undefined
                 }
               />

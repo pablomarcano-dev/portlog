@@ -21,21 +21,21 @@ enum Role {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
+  id            String         @id @default(cuid())
+  email         String         @unique
   passwordHash  String
-  displayName   String?             // full name for email signatures e.g. "Carlos Ferrer"
-  phone         String?             // office direct line
-  mobile        String?             // personal / 24h mobile
-  fax           String?             // office fax
-  role          Role      @default(OPS)
-  isActive      Boolean   @default(true)
+  displayName   String? // full name for email signatures e.g. "Carlos Ferrer"
+  phone         String? // office direct line
+  mobile        String? // personal / 24h mobile
+  fax           String? // office fax
+  role          Role           @default(OPS)
+  isActive      Boolean        @default(true)
   // permissions is a flexible array of permission strings.
   // Reserved values for M2: "owner.financial" (gates Owner Acuerdos + financial history fields).
   // This approach is more flexible than a third role and avoids exploding the Role enum.
-  permissions   String[]  @default([])
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  permissions   String[]       @default([])
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   lastLoginAt   DateTime?
   refreshTokens RefreshToken[]
   auditLogs     AuditLog[]
@@ -46,17 +46,18 @@ model User {
   nominationStatusChanges NominationStatusHistory[] @relation("NominationStatusChangedBy")
 
   // PEDR back-relations (M4)
-  pedrsCreated               Pedr[]            @relation("PedrCreatedBy")
-  pedrStageChanges           PedrStageHistory[] @relation("PedrStageChangedBy")
-  pedrSubDocumentsCreated    PedrSubDocument[] @relation("PedrSubDocumentCreatedBy")
-  pedrSubDocumentsFinalized  PedrSubDocument[] @relation("PedrSubDocumentFinalizedBy")
-  pedrEventsRecorded         PedrEvent[]       @relation("PedrEventRecordedBy")
-  documentsCreated           Document[]        @relation("DocumentCreatedBy")
-  shDocumentsCreated         SHDocument[]      @relation("SHDocCreatedBy")
-  shDocumentDispatches       ShDocumentDispatch[] @relation("ShDocDispatchSentBy")
-  fleetVessels               FleetVessel[]
-  emailDispatchesSent        EmailDispatch[]   @relation("DispatchSentBy")
-  branchDocInstancesCreated  BranchDocumentInstance[] @relation("BranchDocInstanceCreatedBy")
+  pedrsCreated              Pedr[]                   @relation("PedrCreatedBy")
+  pedrStageChanges          PedrStageHistory[]       @relation("PedrStageChangedBy")
+  pedrSubDocumentsCreated   PedrSubDocument[]        @relation("PedrSubDocumentCreatedBy")
+  pedrSubDocumentsFinalized PedrSubDocument[]        @relation("PedrSubDocumentFinalizedBy")
+  pedrEventsRecorded        PedrEvent[]              @relation("PedrEventRecordedBy")
+  documentsCreated          Document[]               @relation("DocumentCreatedBy")
+  shDocumentsCreated        SHDocument[]             @relation("SHDocCreatedBy")
+  shDocumentDispatches      ShDocumentDispatch[]     @relation("ShDocDispatchSentBy")
+  fleetVessels              FleetVessel[]
+  emailDispatchesSent       EmailDispatch[]          @relation("DispatchSentBy")
+  branchDocInstancesCreated BranchDocumentInstance[] @relation("BranchDocInstanceCreatedBy")
+  emailAttachmentsUploaded  EmailAttachment[]        @relation("EmailAttachmentUploadedBy")
 
   @@map("users")
 }

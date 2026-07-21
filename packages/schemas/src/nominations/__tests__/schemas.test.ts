@@ -1,4 +1,8 @@
-import { NominationCreateSchema, NominationStatusTransitionSchema } from '../schemas.js';
+import {
+  NominationCreateSchema,
+  NominationUpdateSchema,
+  NominationStatusTransitionSchema,
+} from '../schemas.js';
 import { isValidTransition } from '../transitions.js';
 import { deriveNominationStatus } from '../status.js';
 
@@ -59,6 +63,41 @@ describe('NominationCreateSchema', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.parcels).toEqual([]);
+    }
+  });
+
+  it('defaults kind to SN when omitted', () => {
+    const result = NominationCreateSchema.safeParse(VALID_CREATE_PAYLOAD);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.kind).toBe('SN');
+    }
+  });
+
+  it('accepts an explicit OT kind', () => {
+    const result = NominationCreateSchema.safeParse({ ...VALID_CREATE_PAYLOAD, kind: 'OT' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.kind).toBe('OT');
+    }
+  });
+
+  it('rejects an unknown kind value', () => {
+    const result = NominationCreateSchema.safeParse({ ...VALID_CREATE_PAYLOAD, kind: 'XX' });
+    expect(result.success).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// NominationUpdateSchema — kind is locked (omitted from the update shape)
+// ---------------------------------------------------------------------------
+describe('NominationUpdateSchema', () => {
+  it('drops kind from the parsed output so it can never be changed', () => {
+    const result = NominationUpdateSchema.safeParse({ kind: 'OT', voyageNumber: 'NEW' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect('kind' in result.data).toBe(false);
+      expect(result.data.voyageNumber).toBe('NEW');
     }
   });
 

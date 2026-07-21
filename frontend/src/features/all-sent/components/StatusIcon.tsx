@@ -1,5 +1,6 @@
 import { Tooltip, ThemeIcon } from '@mantine/core';
 import type { CellStatus } from '@portlog/schemas';
+import { formatDateTime } from '../../../lib/format/datetime';
 
 interface StatusIconProps {
   cell: CellStatus;
@@ -16,7 +17,7 @@ interface StatusIconProps {
 export function StatusIcon({ cell }: StatusIconProps) {
   if (cell.status === 'SENT') {
     return (
-      <Tooltip label={`Sent at ${new Date(cell.sentAt).toLocaleString()}`} withArrow>
+      <Tooltip label={`Sent at ${formatDateTime(cell.sentAt)}`} withArrow>
         <ThemeIcon color="green" variant="light" size="sm" radius="xl" aria-label="Sent">
           ✓
         </ThemeIcon>

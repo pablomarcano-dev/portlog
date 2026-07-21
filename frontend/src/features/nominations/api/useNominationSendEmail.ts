@@ -9,6 +9,7 @@ interface SendEmailBody {
   bccAddresses: string[];
   subject: string;
   bodyHtml: string;
+  attachmentIds?: string[];
 }
 
 export function useNominationSendEmail(nominationId: string | undefined) {

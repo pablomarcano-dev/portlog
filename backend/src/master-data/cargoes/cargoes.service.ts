@@ -1,6 +1,11 @@
 import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import type { CargoCreateInput, CargoUpdateInput, CargoListQuery } from '@portlog/schemas';
+import type {
+  CargoCreateInput,
+  CargoUpdateInput,
+  CargoListQuery,
+  CargoCategory,
+} from '@portlog/schemas';
 
 @Injectable()
 export class CargoesService {
@@ -9,21 +14,17 @@ export class CargoesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(query: CargoListQuery) {
-    const { q, limit, cursor } = query;
+    const { q, limit, cursor, category } = query;
 
     const items = await this.prisma.cargo.findMany({
       take: limit + 1,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-      where: q
-        ? {
-            name: {
-              contains: q,
-              mode: 'insensitive',
-            },
-          }
-        : undefined,
+      where: {
+        ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
+        ...(category ? { category } : {}),
+      },
       orderBy: { name: 'asc' },
-      select: { id: true, name: true, bblUnit: true, comments: true },
+      select: { id: true, name: true, bblUnit: true, category: true, comments: true },
     });
 
     const hasMore = items.length > limit;
@@ -40,7 +41,7 @@ export class CargoesService {
   async getById(id: string) {
     const cargo = await this.prisma.cargo.findUnique({
       where: { id },
-      select: { id: true, name: true, bblUnit: true, comments: true },
+      select: { id: true, name: true, bblUnit: true, category: true, comments: true },
     });
 
     if (!cargo) {
@@ -54,7 +55,7 @@ export class CargoesService {
     try {
       return await this.prisma.cargo.create({
         data: input,
-        select: { id: true, name: true, bblUnit: true, comments: true },
+        select: { id: true, name: true, bblUnit: true, category: true, comments: true },
       });
     } catch (err: unknown) {
       if (this.isPrismaUniqueViolation(err)) {
@@ -70,7 +71,7 @@ export class CargoesService {
       return await this.prisma.cargo.update({
         where: { id },
         data: input,
-        select: { id: true, name: true, bblUnit: true, comments: true },
+        select: { id: true, name: true, bblUnit: true, category: true, comments: true },
       });
     } catch (err: unknown) {
       if (this.isPrismaUniqueViolation(err)) {
@@ -86,16 +87,17 @@ export class CargoesService {
     this.logger.log({ event: 'cargoes.delete', id });
   }
 
-  async search(q: string) {
+  async search(q: string, category?: CargoCategory) {
     const items = await this.prisma.cargo.findMany({
       take: 20,
       where: {
         name: { contains: q, mode: 'insensitive' },
+        ...(category ? { category } : {}),
       },
       orderBy: { name: 'asc' },
-      select: { id: true, name: true },
+      select: { id: true, name: true, category: true },
     });
-    return items.map((c) => ({ id: c.id, label: c.name }));
+    return items.map((c) => ({ id: c.id, label: c.name, category: c.category }));
   }
 
   private async assertExists(id: string): Promise<void> {

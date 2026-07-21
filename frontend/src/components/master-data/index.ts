@@ -8,3 +8,5 @@ export { ButtonBar } from './ButtonBar';
 export type { ButtonBarProps } from './ButtonBar';
 export { EmailGroupPicker } from './EmailGroupPicker';
 export type { EmailRecipientTarget } from './EmailGroupPicker';
+export { EmailAttachmentsField } from './EmailAttachmentsField';
+export type { EmailAttachmentsFieldProps } from './EmailAttachmentsField';

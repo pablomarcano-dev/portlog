@@ -43,15 +43,23 @@ model Activity {
 }
 
 // ---------------------------------------------------------------------------
-// Cargo — cargo type catalog
+// Cargo — cargo type catalog (a.k.a. "products" on nomination parcels)
+// category gates which nominations a product may appear on: OT nominations only
+// accept OT-category products; SN products (the default) are unrestricted.
 // ---------------------------------------------------------------------------
+enum CargoCategory {
+  SN
+  OT
+}
+
 model Cargo {
-  id        String   @id @default(cuid())
+  id        String        @id @default(cuid())
   name      String
-  bblUnit   String   // e.g. "BBL", "MT"
-  comments  String?  @db.Text
-  createdAt DateTime @default(now()) @db.Timestamptz
-  updatedAt DateTime @updatedAt @db.Timestamptz
+  bblUnit   String // e.g. "BBL", "MT"
+  category  CargoCategory @default(SN)
+  comments  String?       @db.Text
+  createdAt DateTime      @default(now()) @db.Timestamptz
+  updatedAt DateTime      @updatedAt @db.Timestamptz
 
   @@map("cargoes")
 }
@@ -72,10 +80,10 @@ model Port {
   piers Pier[]
 
   // Named back-relations for the port FK fields on Nomination
-  nominationsAsOpPort       Nomination[] @relation("NominationOpPort")
-  nominationsAsLastPort     Nomination[] @relation("NominationLastPort")
-  nominationsAsNextPort     Nomination[] @relation("NominationNextPort")
-  nominationsAsDisPort      Nomination[] @relation("NominationDisPort")
+  nominationsAsOpPort   Nomination[] @relation("NominationOpPort")
+  nominationsAsLastPort Nomination[] @relation("NominationLastPort")
+  nominationsAsNextPort Nomination[] @relation("NominationNextPort")
+  nominationsAsDisPort  Nomination[] @relation("NominationDisPort")
 
   // SOF back-relations
   sofTimesheetsAsLastPort SofTimesheet[] @relation("SofTimesheetLastPort")
@@ -96,7 +104,7 @@ model Pier {
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz
 
-  nominations  Nomination[]
+  nominations   Nomination[]
   sofTimesheets SofTimesheet[] @relation("SofTimesheetPier")
 
   @@index([portId])
@@ -356,18 +364,18 @@ model Contact {
 model Branch {
   id            String   @id @default(cuid())
   name          String
-  code          String   @unique   // short identifier e.g. "LGR", "PLC"
+  code          String   @unique // short identifier e.g. "LGR", "PLC"
   comments      String?  @db.Text
   // Operational contact details — used in email signatures
-  email         String?            // branch operational email e.g. lgr@navieramar.com
+  email         String? // branch operational email e.g. lgr@navieramar.com
   address       String?  @db.Text
   phone         String?
   fax           String?
-  mobile24h     String?            // 24h mobile(s), free text (may contain multiple numbers)
-  coverage      String?  @db.Text  // ports/terminals attended by this branch
+  mobile24h     String? // 24h mobile(s), free text (may contain multiple numbers)
+  coverage      String?  @db.Text // ports/terminals attended by this branch
   // Branch contact person
-  contactName   String?            // e.g. "Ms. Cindy Moreno"
-  contactTitle  String?            // e.g. "Branch Manager"
+  contactName   String? // e.g. "Ms. Cindy Moreno"
+  contactTitle  String? // e.g. "Branch Manager"
   contactMobile String?
   contactEmail  String?
   // Central emails to always CC

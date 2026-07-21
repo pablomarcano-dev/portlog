@@ -88,6 +88,57 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
   return res.json() as Promise<T>;
 }
 
+/**
+ * Multipart upload. Unlike apiRequest, this must NOT set Content-Type — the
+ * browser sets `multipart/form-data` with the correct boundary for a FormData
+ * body. Shares the single-flight refresh + retry-once behaviour.
+ */
+export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+  const buildHeaders = (tok: string | null): Record<string, string> =>
+    tok !== null ? { Authorization: `Bearer ${tok}` } : {};
+
+  let res = await fetch(`${BASE_URL}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: buildHeaders(accessTokenStore.get()),
+    body: formData,
+  });
+
+  if (res.status === 401 && !path.startsWith('/auth/')) {
+    if (refreshInFlight === null) {
+      refreshInFlight = doRefresh().finally(() => {
+        refreshInFlight = null;
+      });
+    }
+
+    let newToken: string;
+    try {
+      newToken = await refreshInFlight;
+    } catch (err) {
+      accessTokenStore.set(null);
+      throw err;
+    }
+
+    accessTokenStore.set(newToken);
+    res = await fetch(`${BASE_URL}${path}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: buildHeaders(newToken),
+      body: formData,
+    });
+  }
+
+  if (!res.ok) {
+    throw new ApiError(res.status, await res.text());
+  }
+
+  if (res.status === 204 || res.headers.get('content-length') === '0') {
+    return undefined as T;
+  }
+
+  return res.json() as Promise<T>;
+}
+
 export async function apiRequestBlob(path: string): Promise<Blob> {
   const token = accessTokenStore.get();
   const headers: Record<string, string> = {

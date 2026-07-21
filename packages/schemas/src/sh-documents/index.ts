@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { attachmentIdsSchema } from '../attachments/index.js';
 
 export const SHDocumentTypeSchema = z.enum([
   'SH_66A',
@@ -108,6 +109,9 @@ export const SendShDocumentSchema = z.object({
   ccAddresses: z.array(z.string().email()).optional().default([]),
   subject: z.string().max(500).optional(),
   bodyHtml: z.string().optional(),
+  // IDs of previously uploaded EmailAttachment rows to attach (in addition to
+  // the SH document's own generated PDF).
+  attachmentIds: attachmentIdsSchema,
 });
 export type SendShDocumentInput = z.infer<typeof SendShDocumentSchema>;
 

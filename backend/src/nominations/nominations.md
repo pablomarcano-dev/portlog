@@ -34,6 +34,34 @@ Design decisions (Sales, 2026-07-15):
 
 ## Major changes — repro log
 
+### 2026-07-20 — SN/OT nomination kind + OT product gating
+
+Context: a nomination is now either **SN** (unchanged — any product) or **OT** (only accepts
+products marked with the OT cargo category). `kind` (`NominationKind` = `SN` | `OT`) is a first-class
+column, chosen on create and immutable after; it drives the reference prefix (`SN-`/`OT-`, shared
+counter — see `formatSnOt`) and, for OT, restricts parcels. Products are the `Cargo` catalog, which
+gains a `category` (`CargoCategory` = `SN` | `OT`, default `SN`). Both columns default to `SN`, so
+existing rows keep today's behavior. Parcels store the product as free text, so OT enforcement lives
+in `NominationsService.assertParcelsMatchKind` (resolve name → OT cargo, 400 on a non-OT product);
+it runs on create and on any parcels update.
+
+Repro:
+
+1. `npm run build -w @portlog/schemas` (new `NominationKindSchema`, `kind`/`snOt` on read schemas, `CargoCategorySchema`)
+2. `cd backend && npx prisma migrate deploy` (applies `20260721001157_add_nomination_kind_and_cargo_category`: adds the two enums + `nominations.kind`/`cargoes.category`, both `DEFAULT 'SN'`)
+3. `npm run seed` (marks `Combustible` and `Aceite Vegetal` as OT for dev), then `npm run dev`
+
+Verify:
+
+- `npm run test -w @portlog/backend -- nominations.service` / `-- cargoes.service` and `npm run test -w @portlog/schemas` pass.
+- Mark products SN/OT in Master Data → Cargoes.
+- Create an **SN** nomination → any product accepted (unchanged). Create an **OT** nomination → the
+  parcels product picker only suggests OT products; `POST /api/nominations` with `kind:'OT'` and a
+  non-OT product → 400; with an OT product → 201 and `snOt` renders `OT-YY/NNNN`.
+- `kind` is read-only on the detail form; the header/list show the `snOt` reference.
+
+Rollback: revert the feature commit and drop the `kind`/`category` columns + `NominationKind`/`CargoCategory` enums (OT rows collapse to unrestricted SN; numbering is shared so no disambiguation needed).
+
 ### 2026-07-20 — Simplify status to a derived lifecycle
 
 Context: replace the 5-state manual state machine (DRAFT/CONFIRMED/IN_PROGRESS/COMPLETED/CANCELLED + advance buttons) with a derived 3-state lifecycle (NOMINATED → IN_PORT → FULL_AWAY) plus CANCELLED as a manual override. Status is computed from message sends + laydays; PEDR is now auto-created on nomination create (there is no manual Start step); the only manual `/transition` is cancellation.

@@ -44,6 +44,12 @@ const NOMINATION_TYPE_OPTIONS = [
   { value: 'CHARTERERS_AGENTS_ONLY', label: "Charterer's Agents" },
 ];
 
+// SN or OT series. Chosen on create, then locked — OT restricts parcels to OT products.
+const NOMINATION_KIND_OPTIONS = [
+  { value: 'SN', label: 'SN' },
+  { value: 'OT', label: 'OT' },
+];
+
 function matchPort(
   ports: { id: string; name: string; abbreviation: string | null }[],
   name: string | null | undefined,
@@ -113,6 +119,7 @@ export function NominationForm({
     resolver: zodResolver(NominationCreateSchema),
     defaultValues: {
       nominationType: 'FULL_AGENCY',
+      kind: 'SN',
       parcels: [],
       nominationClients: defaultClients,
       ...defaultValues,
@@ -130,6 +137,7 @@ export function NominationForm({
   const shipParticularId = watch('shipParticularId');
   const opPortId = watch('opPortId') ?? null;
   const branchId = watch('branchId');
+  const kind = watch('kind') ?? 'SN';
 
   // Fetch vessel details (IMO + name + abbreviation) for vessel data fetch and subject generation
   const shipQuery = useQuery({
@@ -172,7 +180,8 @@ export function NominationForm({
     const branchCode = branch?.code ?? '';
     const yy = String(new Date().getFullYear()).slice(-2);
     const corrStr = correlative != null ? String(correlative) : '';
-    return `${shipName} - Calling to ${portName} SN${corrStr}/${yy}/${branchCode}`;
+    const kindPrefix = kind === 'OT' ? 'OT' : 'SN';
+    return `${shipName} - Calling to ${portName} ${kindPrefix}${corrStr}/${yy}/${branchCode}`;
   }
 
   // Auto-fill subject in create mode when it's still empty and we have enough data
@@ -342,6 +351,24 @@ export function NominationForm({
                 placeholder="Auto"
               />
             </Grid.Col>
+            <Grid.Col span={2}>
+              <Controller
+                name="kind"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <Select
+                    label="Kind"
+                    data={NOMINATION_KIND_OPTIONS}
+                    value={field.value ?? 'SN'}
+                    onChange={(val) => field.onChange(val ?? 'SN')}
+                    // Locked after creation — kind is immutable once a nomination exists.
+                    disabled={mode === 'edit' || isReadOnly}
+                    allowDeselect={false}
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
+            </Grid.Col>
             <Grid.Col span={4}>
               <Controller
                 name="branchId"
@@ -360,7 +387,7 @@ export function NominationForm({
                 )}
               />
             </Grid.Col>
-            <Grid.Col span={3}>
+            <Grid.Col span={2}>
               <Controller
                 name="layDaysFirst"
                 control={control}
@@ -377,7 +404,7 @@ export function NominationForm({
                 )}
               />
             </Grid.Col>
-            <Grid.Col span={3}>
+            <Grid.Col span={2}>
               <Controller
                 name="layDaysLast"
                 control={control}
@@ -877,7 +904,7 @@ export function NominationForm({
 
           {/* Parcels */}
           <Fieldset legend="Parcels">
-            <ParcelsFieldArray control={control} disabled={isReadOnly} />
+            <ParcelsFieldArray control={control} disabled={isReadOnly} kind={kind} />
           </Fieldset>
 
           {/* Email Recipients */}

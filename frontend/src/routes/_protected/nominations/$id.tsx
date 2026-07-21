@@ -100,6 +100,7 @@ function NominationDetailPage() {
     boardingClerk: nomination.boardingClerk ?? undefined,
     inspector: nomination.inspector ?? undefined,
     nominationType: nomination.nominationType,
+    kind: nomination.kind,
     subject: nomination.subject ?? undefined,
     parcels: (nomination.parcels ?? []).filter(
       (f): f is NominationParcel =>
@@ -127,6 +128,9 @@ function NominationDetailPage() {
                   <Text size="sm" c="dimmed">
                     {nomination.shipParticular.name}
                   </Text>
+                  <Badge variant="outline" color={nomination.kind === 'OT' ? 'grape' : 'blue'}>
+                    {nomination.snOt}
+                  </Badge>
                   <Badge color={STATUS_COLORS[nomination.status]}>{nomination.status}</Badge>
                 </Group>
               </Stack>

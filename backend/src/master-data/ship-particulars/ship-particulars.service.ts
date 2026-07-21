@@ -94,8 +94,7 @@ export class ShipParticularsService {
   async create(input: ShipParticularCreateInput) {
     try {
       return await this.prisma.shipParticular.create({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        data: input as any,
+        data: input as unknown as Prisma.ShipParticularUncheckedCreateInput,
         select: SELECT,
       });
     } catch (err: unknown) {
@@ -109,8 +108,7 @@ export class ShipParticularsService {
     try {
       return await this.prisma.shipParticular.update({
         where: { id },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        data: input as any,
+        data: input as unknown as Prisma.ShipParticularUncheckedUpdateInput,
         select: SELECT,
       });
     } catch (err: unknown) {

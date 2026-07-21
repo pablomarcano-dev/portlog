@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { attachmentIdsSchema } from '../attachments/index.js';
 
 // ---------------------------------------------------------------------------
 // SubDocType enum — mirrors Prisma SubDocType enum in dispatch.prisma
@@ -45,8 +46,28 @@ export const sendSubDocumentSchema = z.object({
   subject: z.string().min(1).max(500),
   bodyHtml: z.string().optional(),
   extraData: subDocExtraDataSchema.optional(),
+  // IDs of previously uploaded EmailAttachment rows to attach (in addition to
+  // the generated sub-document PDF).
+  attachmentIds: attachmentIdsSchema,
 });
 export type SendSubDocumentInput = z.infer<typeof sendSubDocumentSchema>;
+
+// ---------------------------------------------------------------------------
+// Send nomination-level email — POST /nominations/:id/send-email
+// ---------------------------------------------------------------------------
+// Nomination-level messages (ACKNOWLEDGEMENT, PREARRIVAL, ETA_REQUEST,
+// ETA_TERMINAL, ETA_REPLY, CARGO_UPDATE, re-sends). Unlike sub-document
+// dispatch, there is no generated PDF — only user-supplied attachments.
+export const sendNominationEmailSchema = z.object({
+  subDocType: subDocTypeSchema,
+  toAddresses: z.array(z.string().email()).min(1, 'At least one recipient required'),
+  ccAddresses: z.array(z.string().email()).default([]),
+  bccAddresses: z.array(z.string().email()).default([]),
+  subject: z.string().min(1).max(500),
+  bodyHtml: z.string().default(''),
+  attachmentIds: attachmentIdsSchema,
+});
+export type SendNominationEmailInput = z.infer<typeof sendNominationEmailSchema>;
 
 // ---------------------------------------------------------------------------
 // Response shapes

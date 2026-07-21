@@ -9,11 +9,14 @@ import {
   Textarea,
   TextInput,
 } from '@mantine/core';
+import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useSendShDocument } from '../api';
 import { EmailGroupPicker } from '../../../components/master-data/EmailGroupPicker';
+import { EmailAttachmentsField } from '../../../components/master-data/EmailAttachmentsField';
+import { formatDateTime } from '../../../lib/format/datetime';
 import type { SHDocumentDto } from '@portlog/schemas';
 
 // ---------------------------------------------------------------------------
@@ -25,6 +28,7 @@ const sendSchema = z.object({
   ccAddresses: z.array(z.string()).default([]),
   subject: z.string().min(1, 'El asunto es requerido'),
   bodyHtml: z.string().default(''),
+  attachmentIds: z.array(z.string()).default([]),
 });
 type SendForm = z.infer<typeof sendSchema>;
 
@@ -68,11 +72,16 @@ export function SendShDocumentDrawer({
       ccAddresses: [],
       subject: defaultSubject,
       bodyHtml: '',
+      attachmentIds: [],
     },
   });
 
+  // Bumped on close so EmailAttachmentsField remounts fresh (clears its file list).
+  const [attachKey, setAttachKey] = useState(0);
+
   function handleClose() {
     reset();
+    setAttachKey((k) => k + 1);
     onClose();
   }
 
@@ -88,6 +97,7 @@ export function SendShDocumentDrawer({
           ccAddresses,
           subject: values.subject,
           bodyHtml: values.bodyHtml || undefined,
+          attachmentIds: values.attachmentIds,
         },
       },
       {
@@ -116,7 +126,7 @@ export function SendShDocumentDrawer({
       {isSent ? (
         <Alert color="green" title="Documento enviado — solo lectura">
           Este documento ya fue enviado el{' '}
-          {doc.sentAt ? new Date(doc.sentAt).toLocaleString() : 'fecha desconocida'}.
+          {doc.sentAt ? formatDateTime(doc.sentAt) : 'fecha desconocida'}.
         </Alert>
       ) : (
         <form onSubmit={(e) => void handleSubmit(onSubmit)(e)}>
@@ -186,6 +196,20 @@ export function SendShDocumentDrawer({
               autosize
               {...register('bodyHtml')}
               error={errors.bodyHtml?.message}
+            />
+
+            <Controller
+              name="attachmentIds"
+              control={control}
+              render={({ field }) => (
+                <EmailAttachmentsField
+                  key={attachKey}
+                  label="Adjuntos"
+                  value={field.value}
+                  onChange={field.onChange}
+                  disabled={sendDoc.isPending}
+                />
+              )}
             />
 
             {sendDoc.isError && (

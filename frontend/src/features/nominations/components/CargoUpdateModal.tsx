@@ -193,6 +193,7 @@ export function CargoUpdateModal({
           `------------------------------------------------------\n` +
           `${updateDateStr} ${timeUpdate} Cargo Update - ${p.product}\n` +
           `------------------------------------------------------\n` +
+          `Quantity         : ${p.quantity ?? 0} ${p.unit ?? ''}\n` +
           `Quantity On Board: ${p.qtyOnBoard ?? 0} ${p.qtyOnBoardUnit ?? p.unit ?? ''}\n` +
           `Quantity To Go   : ${p.qtyToGo ?? 0} ${p.qtyToGoUnit ?? p.unit ?? ''}\n` +
           `Loading Rate     : ${p.loadingRate ?? 0} ${p.loadingRateUnit ?? ''}\n` +
