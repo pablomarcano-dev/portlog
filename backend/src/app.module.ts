@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { ZodValidationPipe } from 'nestjs-zod';
+import { join } from 'node:path';
 import { LoggerModule } from 'nestjs-pino';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { HealthModule } from './health/health.module.js';
@@ -39,7 +41,15 @@ import { AttachmentsModule } from './attachments/attachments.module.js';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    // envFilePath is pinned to this package rather than left to resolve from process.cwd().
+    // The monorepo root also carries a .env (it supplies the docker-compose variables) whose
+    // DATABASE_URL points somewhere else; whichever file won depended on the working directory
+    // the process happened to start in, which made `npm run start:dev` fail against a database
+    // that was not running. In a container the file is absent and real env vars are used.
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: join(__dirname, '..', '.env'),
+    }),
 
     // Golden Rule 8: Structured logging with pino.
     // Redaction ensures passwords, tokens, and hashes never appear in logs.
@@ -102,6 +112,13 @@ import { AttachmentsModule } from './attachments/attachments.module.js';
     AttachmentsModule,
   ],
   providers: [
+    // Golden Rule 2 — every inbound body is validated by its canonical Zod schema.
+    // createZodDto DTOs do nothing on their own; without this pipe the raw JSON body reaches the
+    // service untouched, so no schema check and no preprocess/transform ever ran.
+    {
+      provide: APP_PIPE,
+      useClass: ZodValidationPipe,
+    },
     // ThrottlerGuard must run first (before auth) so rate limits apply to all routes.
     {
       provide: APP_GUARD,
