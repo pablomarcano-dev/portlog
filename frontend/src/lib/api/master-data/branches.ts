@@ -7,7 +7,7 @@ export interface BranchRecord {
   name: string;
   code: string;
   comments?: string | null;
-  email?: string | null;
+  emails: string[];
   address?: string | null;
   phone?: string | null;
   fax?: string | null;
@@ -16,7 +16,7 @@ export interface BranchRecord {
   contactName?: string | null;
   contactTitle?: string | null;
   contactMobile?: string | null;
-  contactEmail?: string | null;
+  contactEmails: string[];
   centralEmails: string[];
   label: string;
 }

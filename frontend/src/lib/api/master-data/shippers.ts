@@ -9,7 +9,7 @@ import type { ShipperCreateInput, ShipperUpdateInput, ShipperListQuery } from '@
 export interface ShipperRecord {
   id: string;
   name: string;
-  email?: string | null;
+  emails: string[];
   businessPhone?: string | null;
   businessFax?: string | null;
   address?: string | null;

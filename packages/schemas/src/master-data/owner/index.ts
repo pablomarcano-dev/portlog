@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { optionalText, optionalUrl } from '../../common/fields';
 import { ListQuerySchema } from '../../common/pagination';
 
 // Owner fields.
@@ -7,20 +8,20 @@ import { ListQuerySchema } from '../../common/pagination';
 // agreements: financial field, access gated by "owner.financial" permission (M2-S12).
 export const OwnerCreateSchema = z.object({
   name: z.string().min(1).max(120),
-  contactList: z.string().min(1).max(120).optional(),
+  contactList: optionalText(120),
   quantity: z.number().int().nonnegative().optional(),
-  contactNumber: z.string().min(1).max(50).optional(),
-  physicalAddress: z.string().min(1).max(500).optional(),
-  phones: z.string().min(1).max(200).optional(),
-  address: z.string().min(1).max(500).optional(),
-  position: z.string().min(1).max(120).optional(),
-  socialMedia: z.string().min(1).max(500).optional(),
+  contactNumber: optionalText(50),
+  physicalAddress: optionalText(500),
+  phones: optionalText(200),
+  address: optionalText(500),
+  position: optionalText(120),
+  socialMedia: optionalText(500),
   notes: z.string().max(10_000).optional(),
-  birthday: z.string().min(1).max(50).optional(),
+  birthday: optionalText(50),
   preferences: z.string().max(10_000).optional(),
   recommendations: z.string().max(10_000).optional(),
   business: z.string().max(10_000).optional(),
-  webpage: z.string().url().optional(),
+  webpage: optionalUrl(),
   agreements: z.string().max(10_000).optional(),
   historyJson: z.preprocess((v) => {
     if (typeof v !== 'string') return v;

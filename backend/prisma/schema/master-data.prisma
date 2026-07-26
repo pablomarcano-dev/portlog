@@ -152,7 +152,7 @@ model Charterer {
 model Shipper {
   id            String   @id @default(cuid())
   name          String
-  email         String?
+  emails        String[] @default([])
   businessPhone String?
   businessFax   String?
   address       String?
@@ -191,7 +191,7 @@ model Agent {
 model Operator {
   id                   String   @id @default(cuid())
   name                 String
-  email                String?
+  emails               String[] @default([])
   businessPhone        String?
   businessFax          String?
   address              String?
@@ -265,7 +265,7 @@ model Supplier {
   services        String?  @db.Text
   kyc             String?  @db.Text
   phones          String?
-  emails          String?  @db.Text
+  emails          String[] @default([])
   certificates    String?  @db.Text
   rates           String?  @db.Text
   serviceContract String?  @db.Text
@@ -293,7 +293,7 @@ model Client {
   otherAddress    String?
   fax             String?
   mobile          String?
-  email           String?
+  emails          String[] @default([])
   emailGroup      String?
   tariff          String?  @db.Text
   instructions    String?  @db.Text
@@ -334,7 +334,7 @@ model Service {
 model Contact {
   id            String     @id @default(cuid())
   name          String
-  email         String?
+  emails        String[] @default([])
   homePhone     String?
   mobile        String?
   businessPhone String?
@@ -367,7 +367,7 @@ model Branch {
   code          String   @unique // short identifier e.g. "LGR", "PLC"
   comments      String?  @db.Text
   // Operational contact details — used in email signatures
-  email         String? // branch operational email e.g. lgr@navieramar.com
+  emails        String[] @default([]) // branch operational email(s) e.g. lgr@navieramar.com
   address       String?  @db.Text
   phone         String?
   fax           String?
@@ -377,7 +377,7 @@ model Branch {
   contactName   String? // e.g. "Ms. Cindy Moreno"
   contactTitle  String? // e.g. "Branch Manager"
   contactMobile String?
-  contactEmail  String?
+  contactEmails String[] @default([])
   // Central emails to always CC
   centralEmails String[] @default([])
   createdAt     DateTime @default(now()) @db.Timestamptz
@@ -409,7 +409,7 @@ model ShipParticular {
   dwt          Decimal?  @db.Decimal(12, 3) // Deadweight Tonnage
   grt          Decimal?  @db.Decimal(12, 3) // Gross Register Tonnage
   nrt          Decimal?  @db.Decimal(12, 3) // Net Register Tonnage
-  email        String?
+  emails       String[] @default([])
   // imoNumber is unique among non-null values (Postgres unique index allows multiple NULLs).
   // Partial-uniqueness concern: Prisma @unique maps to a standard unique index, which is correct here.
   imoNumber    String?   @unique

@@ -15,7 +15,7 @@ import { useColumnResize } from '../../../components/table/useColumnResize';
 import { ResizableTh } from '../../../components/table/ResizableTh';
 import { useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
-import { EmailGroupCreateSchema } from '@portlog/schemas';
+import { EmailGroupCreateSchema, parseEmailList } from '@portlog/schemas';
 import type { EmailGroupCreateInput } from '@portlog/schemas';
 import type { ZodSchema } from 'zod';
 import { MasterDetailShell } from '../../../components/master-data/MasterDetailShell';
@@ -63,6 +63,7 @@ function EmailGroupsScreen() {
 
   const onSave = useCallback(
     async (values: EmailGroupCreateInput) => {
+      // Blank member rows are stripped by EmailGroupCreateSchema before we get here.
       await saveEmailGroup.mutateAsync(values);
     },
     [saveEmailGroup],
@@ -128,19 +129,24 @@ function EmailGroupFields({
   function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
     e.preventDefault();
     const raw = e.clipboardData.getData('text');
-    const entries = raw
-      .split(';')
-      .map((s) => s.trim())
-      .filter(Boolean);
+    // Splitting on ';' alone meant a comma-separated paste arrived as one giant entry and was
+    // rejected wholesale — and the warning then rendered it joined by ', ', so it looked like a
+    // list of individually-rejected addresses (`nuevo sysportlog.pdf`, 22 Jul 2026).
+    const entries = parseEmailList(raw);
     const skipped: string[] = [];
+    const existing = new Set(
+      (form.getValues('members') ?? []).map((m) => m.email?.toLowerCase()).filter(Boolean),
+    );
 
     for (const entry of entries) {
       const parsed = z.string().email().safeParse(entry);
-      if (parsed.success) {
-        append({ email: parsed.data, displayName: undefined, order: fields.length });
-      } else {
+      if (!parsed.success) {
         skipped.push(entry);
+        continue;
       }
+      if (existing.has(parsed.data)) continue;
+      existing.add(parsed.data);
+      append({ email: parsed.data, displayName: undefined, order: fields.length });
     }
 
     if (skipped.length > 0) {
@@ -182,8 +188,8 @@ function EmailGroupFields({
         {/* Paste shortcut */}
         <TextInput
           ref={pasteInputRef}
-          label="Paste emails (semicolons)"
-          placeholder="Paste semicolon-separated emails here..."
+          label="Paste emails"
+          placeholder="Paste addresses separated by commas, semicolons, spaces or newlines…"
           onPaste={handlePaste}
           readOnly={false}
         />
@@ -252,7 +258,7 @@ function EmailGroupFields({
 
         {fields.length === 0 && (
           <Text size="sm" c="dimmed">
-            No members yet. Add rows below or paste semicolon-separated emails above.
+            No members yet. Add rows below or paste addresses above.
           </Text>
         )}
 

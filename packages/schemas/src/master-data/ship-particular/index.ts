@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { emailList, optionalText, optionalCuid } from '../../common/fields';
 import { ListQuerySchema } from '../../common/pagination';
 
 // imoNumber: 7-digit string, nullable for vessels not yet assigned an IMO.
@@ -7,7 +8,7 @@ import { ListQuerySchema } from '../../common/pagination';
 // Decimal fields (loa, dwt, grt, nrt): nonnegative numbers.
 export const ShipParticularCreateSchema = z.object({
   name: z.string().min(1).max(120),
-  abbreviation: z.string().min(1).max(20).optional(),
+  abbreviation: optionalText(20),
   callSign: z
     .string()
     .regex(/^[A-Z0-9]+$/, 'Call sign must be uppercase alphanumeric')
@@ -18,13 +19,13 @@ export const ShipParticularCreateSchema = z.object({
     .string()
     .regex(/^\d{7}$/, 'IMO number must be exactly 7 digits')
     .optional(),
-  email: z.string().email().toLowerCase().optional(),
-  phone: z.string().min(1).max(50).optional(),
-  phone2: z.string().min(1).max(50).optional(),
-  fax: z.string().min(1).max(50).optional(),
+  emails: emailList(),
+  phone: optionalText(50),
+  phone2: optionalText(50),
+  fax: optionalText(50),
   flagId: z.string().cuid(),
-  ownerId: z.string().cuid().optional(),
-  operatorId: z.string().cuid().optional(),
+  ownerId: optionalCuid(),
+  operatorId: optionalCuid(),
   loa: z.number().nonnegative().optional(),
   dwt: z.number().nonnegative().optional(),
   grt: z.number().nonnegative().optional(),

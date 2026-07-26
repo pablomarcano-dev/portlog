@@ -22,7 +22,7 @@ const SELECT = {
   dwt: true,
   grt: true,
   nrt: true,
-  email: true,
+  emails: true,
   imoNumber: true,
   phone: true,
   phone2: true,
@@ -108,7 +108,7 @@ export class ShipParticularsService {
     try {
       return await this.prisma.shipParticular.update({
         where: { id },
-        data: input as unknown as Prisma.ShipParticularUncheckedUpdateInput,
+        data: input,
         select: SELECT,
       });
     } catch (err: unknown) {

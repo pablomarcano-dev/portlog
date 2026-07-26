@@ -3,6 +3,8 @@ import { useState, useCallback } from 'react';
 import { Stack, TextInput, Textarea, Text, Box } from '@mantine/core';
 import { ShipperCreateSchema } from '@portlog/schemas';
 import type { ShipperCreateInput } from '@portlog/schemas';
+import { Controller } from 'react-hook-form';
+import { EmailChipsInput } from '../../../components/master-data/EmailChipsInput';
 import { MasterDetailShell } from '../../../components/master-data/MasterDetailShell';
 import type { ListItem } from '../../../components/master-data/MasterDetailShell';
 import {
@@ -36,7 +38,7 @@ function ShippersScreen() {
     const shipper = await shippersApi.get(id);
     return {
       name: shipper.name,
-      email: shipper.email ?? undefined,
+      emails: shipper.emails ?? [],
       businessPhone: shipper.businessPhone ?? undefined,
       businessFax: shipper.businessFax ?? undefined,
       address: shipper.address ?? undefined,
@@ -96,23 +98,22 @@ function ShipperFields({
         error={form.formState.errors.name?.message}
         {...form.register('name')}
       />
-      <TextInput
-        label="Email"
-        placeholder="e.g. contact@acmeshipping.com"
-        error={form.formState.errors.email?.message}
-        {...form.register('email')}
+      <Controller
+        control={form.control}
+        name="emails"
+        render={({ field, fieldState }) => (
+          <EmailChipsInput
+            value={field.value ?? []}
+            onChange={field.onChange}
+            error={fieldState.error?.message}
+          />
+        )}
       />
       <TextInput
         label="Business Phone"
         placeholder="e.g. +1 555 0100"
         error={form.formState.errors.businessPhone?.message}
         {...form.register('businessPhone')}
-      />
-      <TextInput
-        label="Business Fax"
-        placeholder="e.g. +1 555 0101"
-        error={form.formState.errors.businessFax?.message}
-        {...form.register('businessFax')}
       />
       <Textarea
         label="Address"

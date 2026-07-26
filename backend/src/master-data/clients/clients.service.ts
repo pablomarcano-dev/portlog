@@ -14,7 +14,7 @@ const CLIENT_SELECT = {
   otherAddress: true,
   fax: true,
   mobile: true,
-  email: true,
+  emails: true,
   emailGroup: true,
   tariff: true,
   instructions: true,

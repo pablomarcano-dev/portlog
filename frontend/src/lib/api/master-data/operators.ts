@@ -9,7 +9,7 @@ import type { OperatorCreateInput, OperatorUpdateInput, OperatorListQuery } from
 export interface OperatorRecord {
   id: string;
   name: string;
-  email?: string | null;
+  emails: string[];
   businessPhone?: string | null;
   businessFax?: string | null;
   address?: string | null;

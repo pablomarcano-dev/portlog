@@ -1,7 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useState, useCallback } from 'react';
 import { Stack, TextInput, Textarea, SegmentedControl, Select, Text } from '@mantine/core';
-import { useController } from 'react-hook-form';
+import { useController, Controller } from 'react-hook-form';
+import { EmailChipsInput } from '../../../components/master-data/EmailChipsInput';
 import { ContactCreateSchema } from '@portlog/schemas';
 import type { ContactCreateInput } from '@portlog/schemas';
 import type { ZodSchema } from 'zod';
@@ -58,7 +59,7 @@ function ContactsScreen() {
     const contact = await contactsApi.get(id);
     return {
       name: contact.name,
-      email: contact.email ?? undefined,
+      emails: contact.emails ?? [],
       homePhone: contact.homePhone ?? undefined,
       mobile: contact.mobile ?? undefined,
       businessPhone: contact.businessPhone ?? undefined,
@@ -170,11 +171,16 @@ function ContactFields({
         error={form.formState.errors.name?.message}
         {...form.register('name')}
       />
-      <TextInput
-        label="Email"
-        placeholder="e.g. jane@example.com"
-        error={form.formState.errors.email?.message}
-        {...form.register('email')}
+      <Controller
+        control={form.control}
+        name="emails"
+        render={({ field, fieldState }) => (
+          <EmailChipsInput
+            value={field.value ?? []}
+            onChange={field.onChange}
+            error={fieldState.error?.message}
+          />
+        )}
       />
       <TextInput
         label="Home Phone"
@@ -193,12 +199,6 @@ function ContactFields({
         placeholder="e.g. +1 555 0300"
         error={form.formState.errors.businessPhone?.message}
         {...form.register('businessPhone')}
-      />
-      <TextInput
-        label="Business Fax"
-        placeholder="e.g. +1 555 0301"
-        error={form.formState.errors.businessFax?.message}
-        {...form.register('businessFax')}
       />
       <Textarea
         label="Address"
