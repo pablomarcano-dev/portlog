@@ -3,6 +3,8 @@ import { useState, useCallback } from 'react';
 import { Stack, TextInput, Textarea } from '@mantine/core';
 import { SupplierCreateSchema } from '@portlog/schemas';
 import type { SupplierCreateInput } from '@portlog/schemas';
+import { Controller } from 'react-hook-form';
+import { EmailChipsInput } from '../../../components/master-data/EmailChipsInput';
 import { MasterDetailShell } from '../../../components/master-data/MasterDetailShell';
 import type { ListItem } from '../../../components/master-data/MasterDetailShell';
 import {
@@ -41,7 +43,7 @@ function SuppliersScreen() {
       services: supplier.services ?? undefined,
       kyc: supplier.kyc ?? undefined,
       phones: supplier.phones ?? undefined,
-      emails: supplier.emails ?? undefined,
+      emails: supplier.emails,
       certificates: supplier.certificates ?? undefined,
       rates: supplier.rates ?? undefined,
       serviceContract: supplier.serviceContract ?? undefined,
@@ -128,11 +130,17 @@ function SupplierFields({
         error={form.formState.errors.phones?.message}
         {...form.register('phones')}
       />
-      <TextInput
-        label="Emails"
-        placeholder="e.g. ops@acme.com, billing@acme.com"
-        error={form.formState.errors.emails?.message}
-        {...form.register('emails')}
+      <Controller
+        control={form.control}
+        name="emails"
+        render={({ field, fieldState }) => (
+          <EmailChipsInput
+            label="Emails"
+            value={field.value ?? []}
+            onChange={field.onChange}
+            error={fieldState.error?.message}
+          />
+        )}
       />
       <Textarea
         label="Certificates"

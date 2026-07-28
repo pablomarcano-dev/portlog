@@ -1,18 +1,19 @@
 import { z } from 'zod';
+import { emailList, optionalText, optionalCuid } from '../../common/fields';
 import { ListQuerySchema } from '../../common/pagination';
 
 const ContactBaseSchema = z.object({
   name: z.string().min(1).max(120),
-  email: z.string().email().toLowerCase().optional(),
-  homePhone: z.string().min(1).max(50).optional(),
-  mobile: z.string().min(1).max(50).optional(),
-  businessPhone: z.string().min(1).max(50).optional(),
-  businessFax: z.string().min(1).max(50).optional(),
-  address: z.string().min(1).max(500).optional(),
-  shipperId: z.string().cuid().optional(),
-  operatorId: z.string().cuid().optional(),
-  ownerId: z.string().cuid().optional(),
-  charterId: z.string().cuid().optional(),
+  emails: emailList(),
+  homePhone: optionalText(50),
+  mobile: optionalText(50),
+  businessPhone: optionalText(50),
+  businessFax: optionalText(50),
+  address: optionalText(500),
+  shipperId: optionalCuid(),
+  operatorId: optionalCuid(),
+  ownerId: optionalCuid(),
+  charterId: optionalCuid(),
   comments: z.string().max(10_000).optional(),
 });
 
@@ -42,10 +43,10 @@ export const ContactCreateSchema = ContactBaseSchema.superRefine(singleOwnerRefi
 export const ContactUpdateSchema = ContactBaseSchema.partial().superRefine(singleOwnerRefinement);
 
 export const ContactListQuerySchema = ListQuerySchema.extend({
-  shipperId: z.string().cuid().optional(),
-  operatorId: z.string().cuid().optional(),
-  ownerId: z.string().cuid().optional(),
-  charterId: z.string().cuid().optional(),
+  shipperId: optionalCuid(),
+  operatorId: optionalCuid(),
+  ownerId: optionalCuid(),
+  charterId: optionalCuid(),
 });
 
 export type ContactCreateInput = z.infer<typeof ContactCreateSchema>;

@@ -9,7 +9,7 @@ import type { ContactCreateInput, ContactUpdateInput, ContactListQuery } from '@
 export interface ContactRecord {
   id: string;
   name: string;
-  email?: string | null;
+  emails: string[];
   homePhone?: string | null;
   mobile?: string | null;
   businessPhone?: string | null;

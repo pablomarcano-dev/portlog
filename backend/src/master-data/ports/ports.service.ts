@@ -110,7 +110,9 @@ export class PortsService {
   }
 
   // ---------------------------------------------------------------------------
-  // remove — only when port has no piers; ADM only (enforced by controller)
+  // remove — ADM only (enforced by controller).
+  // Any piers under the port go with it: Pier.portId is onDelete: Cascade. There is deliberately
+  // no "port still has piers" guard here, despite what this comment claimed until 2026-07-26.
   // ---------------------------------------------------------------------------
   async remove(id: string) {
     await this.assertExists(id);

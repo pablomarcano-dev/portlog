@@ -10,7 +10,20 @@ export const EmailGroupCreateSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().max(500).optional(),
   comments: z.string().optional(),
-  members: z.array(EmailGroupMemberSchema).default([]),
+  // The UI's "+ Add row" button seeds a member with an empty email. Validating that as an address
+  // failed the whole form, and because the shell had no invalid-submit feedback the Accept button
+  // simply did nothing ("tampoco se guardan" — `nuevo sysportlog.pdf`, 22 Jul 2026). Blank rows are
+  // dropped here so an unfilled row can never block a save.
+  members: z.preprocess(
+    (v) =>
+      Array.isArray(v)
+        ? v.filter((m) => {
+            const email = (m as { email?: unknown } | null)?.email;
+            return typeof email !== 'string' || email.trim() !== '';
+          })
+        : v,
+    z.array(EmailGroupMemberSchema).default([]),
+  ),
 });
 
 export const EmailGroupUpdateSchema = EmailGroupCreateSchema.partial();

@@ -1,10 +1,11 @@
 import { z } from 'zod';
+import { optionalText } from '../../common/fields';
 import { ListQuerySchema } from '../../common/pagination';
 
 export const PortCreateSchema = z.object({
   name: z.string().min(1).max(120),
   abbreviation: z.string().max(20).optional(),
-  country: z.string().min(1).max(120).optional(),
+  country: optionalText(120),
   emailGroup: z.string().max(120).optional(),
   comments: z.string().max(10_000).optional(),
 });

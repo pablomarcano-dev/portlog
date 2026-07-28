@@ -2,6 +2,8 @@ import {
   NominationCreateSchema,
   NominationUpdateSchema,
   NominationStatusTransitionSchema,
+  NominationListSearchSchema,
+  NominationListQuerySchema,
 } from '../schemas.js';
 import { isValidTransition } from '../transitions.js';
 import { deriveNominationStatus } from '../status.js';
@@ -238,5 +240,56 @@ describe('deriveNominationStatus', () => {
     expect(
       deriveNominationStatus({ ...base, prearrivalSent: true, sofSent: true, layDaysLast: null }),
     ).toBe('IN_PORT');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// NominationListSearchSchema
+//
+// Regression guard for the frozen-tab bug: a Date in TanStack Router search params gets a new
+// instance on every parse (replaceEqualDeep only preserves identity for plain objects/arrays),
+// so useSearch() returns a new object every render and the list page spins forever. Dates must
+// stay strings in the search-param layer.
+// ---------------------------------------------------------------------------
+describe('NominationListSearchSchema', () => {
+  it('keeps dateFrom/dateTo as strings rather than coercing to Date', () => {
+    const result = NominationListSearchSchema.parse({
+      dateFrom: '2026-07-01',
+      dateTo: '2026-07-31',
+    });
+
+    expect(typeof result.dateFrom).toBe('string');
+    expect(typeof result.dateTo).toBe('string');
+    expect(result.dateFrom).toBe('2026-07-01');
+  });
+
+  it('parses to a referentially stable value, unlike a coerced Date', () => {
+    const input = { dateFrom: '2026-07-01' };
+    const a = NominationListSearchSchema.parse(input);
+    const b = NominationListSearchSchema.parse(input);
+
+    // This is the property the router needs and a Date cannot provide.
+    expect(a.dateFrom).toBe(b.dateFrom);
+    expect(NominationListQuerySchema.parse(input).dateFrom).not.toBe(
+      NominationListQuerySchema.parse(input).dateFrom,
+    );
+  });
+
+  it('rejects a non-date-shaped string', () => {
+    expect(NominationListSearchSchema.safeParse({ dateFrom: 'last tuesday' }).success).toBe(false);
+  });
+
+  it('still applies the page/pageSize defaults', () => {
+    const result = NominationListSearchSchema.parse({});
+    expect(result.page).toBe(1);
+    expect(result.pageSize).toBe(25);
+  });
+});
+
+// The API boundary keeps coercing to Date — that is what Prisma needs.
+describe('NominationListQuerySchema', () => {
+  it('coerces date params to Date for the query layer', () => {
+    const result = NominationListQuerySchema.parse({ dateFrom: '2026-07-01' });
+    expect(result.dateFrom).toBeInstanceOf(Date);
   });
 });

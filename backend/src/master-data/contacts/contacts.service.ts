@@ -5,7 +5,7 @@ import type { ContactCreateInput, ContactUpdateInput, ContactListQuery } from '@
 const CONTACT_SELECT = {
   id: true,
   name: true,
-  email: true,
+  emails: true,
   homePhone: true,
   mobile: true,
   businessPhone: true,
@@ -35,7 +35,8 @@ export class ContactsService {
           ? {
               OR: [
                 { name: { contains: q, mode: 'insensitive' } },
-                { email: { contains: q, mode: 'insensitive' } },
+                // emails is text[]; Prisma can only match a whole element, not a substring.
+                { emails: { has: q.toLowerCase() } },
               ],
             }
           : {}),
@@ -110,11 +111,12 @@ export class ContactsService {
       where: {
         OR: [
           { name: { contains: q, mode: 'insensitive' } },
-          { email: { contains: q, mode: 'insensitive' } },
+          // emails is text[]; exact-address match only (see list()).
+          { emails: { has: q.toLowerCase() } },
         ],
       },
       orderBy: { name: 'asc' },
-      select: { id: true, name: true, email: true },
+      select: { id: true, name: true, emails: true },
     });
     return items.map((c) => ({ id: c.id, label: c.name }));
   }

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { emailList } from '../../common/fields';
 import { ListQuerySchema } from '../../common/pagination';
 
 export const ClientCreateSchema = z.object({
@@ -12,7 +13,7 @@ export const ClientCreateSchema = z.object({
   otherAddress: z.string().max(500).optional(),
   fax: z.string().max(50).optional(),
   mobile: z.string().max(50).optional(),
-  email: z.string().max(200).optional(),
+  emails: emailList(),
   emailGroup: z.string().max(200).optional(),
   tariff: z.string().max(100_000).optional(),
   instructions: z.string().max(10_000).optional(),

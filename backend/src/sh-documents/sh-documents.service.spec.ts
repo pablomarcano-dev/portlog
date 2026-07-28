@@ -1,4 +1,3 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   BadRequestException,
   ConflictException,
@@ -33,26 +32,26 @@ describe('SHDocumentsService FSM', () => {
   beforeEach(() => {
     prismaMock = {
       sHDocument: {
-        findFirst: vi.fn(),
-        update: vi.fn(),
-        delete: vi.fn(),
-        create: vi.fn(),
-        findMany: vi.fn(),
+        findFirst: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+        create: jest.fn(),
+        findMany: jest.fn(),
       },
       nomination: {
-        findUnique: vi.fn().mockResolvedValue({ id: 'nom-uuid' }),
+        findUnique: jest.fn().mockResolvedValue({ id: 'nom-uuid' }),
       },
     };
-    pdfMock = { renderTemplate: vi.fn().mockResolvedValue(Buffer.from('pdf')) };
+    pdfMock = { renderTemplate: jest.fn().mockResolvedValue(Buffer.from('pdf')) };
     storageMock = {
-      uploadFile: vi.fn(),
-      getPresignedUrl: vi.fn().mockResolvedValue('https://minio/url'),
-      getFileBuffer: vi.fn().mockResolvedValue(Buffer.from('pdf')),
-      deleteFile: vi.fn(),
+      uploadFile: jest.fn(),
+      getPresignedUrl: jest.fn().mockResolvedValue('https://minio/url'),
+      getFileBuffer: jest.fn().mockResolvedValue(Buffer.from('pdf')),
+      deleteFile: jest.fn(),
     };
     attachmentsMock = {
-      resolveForSend: vi.fn().mockResolvedValue([]),
-      linkToShDocumentDispatch: vi.fn().mockResolvedValue(undefined),
+      resolveForSend: jest.fn().mockResolvedValue([]),
+      linkToShDocumentDispatch: jest.fn().mockResolvedValue(undefined),
     };
     service = new SHDocumentsService(
       prismaMock as never,
@@ -64,8 +63,8 @@ describe('SHDocumentsService FSM', () => {
 
   it('finalize: DRAFT → FINALIZED succeeds', async () => {
     const doc = makeSHDoc();
-    (prismaMock.sHDocument as Record<string, unknown>).findFirst = vi.fn().mockResolvedValue(doc);
-    (prismaMock.sHDocument as Record<string, unknown>).update = vi
+    (prismaMock.sHDocument as Record<string, unknown>).findFirst = jest.fn().mockResolvedValue(doc);
+    (prismaMock.sHDocument as Record<string, unknown>).update = jest
       .fn()
       .mockResolvedValue({ ...doc, status: 'FINALIZED' });
     const result = await service.finalize('nom-uuid', 'doc-uuid');
@@ -74,7 +73,7 @@ describe('SHDocumentsService FSM', () => {
 
   it('finalize: SENT → throws 409', async () => {
     const doc = makeSHDoc({ status: 'SENT' });
-    (prismaMock.sHDocument as Record<string, unknown>).findFirst = vi.fn().mockResolvedValue(doc);
+    (prismaMock.sHDocument as Record<string, unknown>).findFirst = jest.fn().mockResolvedValue(doc);
     await expect(service.finalize('nom-uuid', 'doc-uuid')).rejects.toBeInstanceOf(
       ConflictException,
     );
@@ -82,7 +81,7 @@ describe('SHDocumentsService FSM', () => {
 
   it('finalize: already FINALIZED → throws 409', async () => {
     const doc = makeSHDoc({ status: 'FINALIZED' });
-    (prismaMock.sHDocument as Record<string, unknown>).findFirst = vi.fn().mockResolvedValue(doc);
+    (prismaMock.sHDocument as Record<string, unknown>).findFirst = jest.fn().mockResolvedValue(doc);
     await expect(service.finalize('nom-uuid', 'doc-uuid')).rejects.toBeInstanceOf(
       ConflictException,
     );
@@ -90,7 +89,7 @@ describe('SHDocumentsService FSM', () => {
 
   it('update: SENT → throws 409', async () => {
     const doc = makeSHDoc({ status: 'SENT' });
-    (prismaMock.sHDocument as Record<string, unknown>).findFirst = vi.fn().mockResolvedValue(doc);
+    (prismaMock.sHDocument as Record<string, unknown>).findFirst = jest.fn().mockResolvedValue(doc);
     await expect(service.update('nom-uuid', 'doc-uuid', { data: {} })).rejects.toBeInstanceOf(
       ConflictException,
     );
@@ -98,7 +97,7 @@ describe('SHDocumentsService FSM', () => {
 
   it('update: FINALIZED → throws 403', async () => {
     const doc = makeSHDoc({ status: 'FINALIZED' });
-    (prismaMock.sHDocument as Record<string, unknown>).findFirst = vi.fn().mockResolvedValue(doc);
+    (prismaMock.sHDocument as Record<string, unknown>).findFirst = jest.fn().mockResolvedValue(doc);
     await expect(service.update('nom-uuid', 'doc-uuid', { data: {} })).rejects.toBeInstanceOf(
       ForbiddenException,
     );
@@ -106,7 +105,7 @@ describe('SHDocumentsService FSM', () => {
 
   it('finalize: COMMENT → throws 400', async () => {
     const doc = makeSHDoc({ type: 'COMMENT', data: { html: '<p>hi</p>' } });
-    (prismaMock.sHDocument as Record<string, unknown>).findFirst = vi.fn().mockResolvedValue(doc);
+    (prismaMock.sHDocument as Record<string, unknown>).findFirst = jest.fn().mockResolvedValue(doc);
     await expect(service.finalize('nom-uuid', 'doc-uuid')).rejects.toBeInstanceOf(
       BadRequestException,
     );
@@ -114,7 +113,7 @@ describe('SHDocumentsService FSM', () => {
 
   it('finalize: OTHER → throws 400', async () => {
     const doc = makeSHDoc({ type: 'OTHER', data: { html: '<p>hi</p>' } });
-    (prismaMock.sHDocument as Record<string, unknown>).findFirst = vi.fn().mockResolvedValue(doc);
+    (prismaMock.sHDocument as Record<string, unknown>).findFirst = jest.fn().mockResolvedValue(doc);
     await expect(service.finalize('nom-uuid', 'doc-uuid')).rejects.toBeInstanceOf(
       BadRequestException,
     );
@@ -122,7 +121,7 @@ describe('SHDocumentsService FSM', () => {
 
   it('generatePdf: COMMENT → throws 400', async () => {
     const doc = makeSHDoc({ type: 'COMMENT', data: { html: '<p>hi</p>' } });
-    (prismaMock.sHDocument as Record<string, unknown>).findFirst = vi.fn().mockResolvedValue(doc);
+    (prismaMock.sHDocument as Record<string, unknown>).findFirst = jest.fn().mockResolvedValue(doc);
     await expect(service.generatePdf('nom-uuid', 'doc-uuid')).rejects.toBeInstanceOf(
       BadRequestException,
     );
@@ -130,12 +129,14 @@ describe('SHDocumentsService FSM', () => {
 
   it('delete: non-DRAFT → throws 409', async () => {
     const doc = makeSHDoc({ status: 'FINALIZED' });
-    (prismaMock.sHDocument as Record<string, unknown>).findFirst = vi.fn().mockResolvedValue(doc);
+    (prismaMock.sHDocument as Record<string, unknown>).findFirst = jest.fn().mockResolvedValue(doc);
     await expect(service.delete('nom-uuid', 'doc-uuid')).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('findOne: missing doc → throws 404', async () => {
-    (prismaMock.sHDocument as Record<string, unknown>).findFirst = vi.fn().mockResolvedValue(null);
+    (prismaMock.sHDocument as Record<string, unknown>).findFirst = jest
+      .fn()
+      .mockResolvedValue(null);
     await expect(service.findOne('nom-uuid', 'no-such-id')).rejects.toBeInstanceOf(
       NotFoundException,
     );

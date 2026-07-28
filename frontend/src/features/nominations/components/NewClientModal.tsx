@@ -1,10 +1,11 @@
 import { Button, Group, Modal, Stack, TextInput } from '@mantine/core';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ClientCreateSchema } from '@portlog/schemas';
 import type { ClientCreateInput } from '@portlog/schemas';
 import { apiRequest } from '../../../lib/api/client';
+import { EmailChipsInput } from '../../../components/master-data/EmailChipsInput';
 
 interface Props {
   opened: boolean;
@@ -21,7 +22,7 @@ export function NewClientModal({ opened, onClose, onCreated }: Props) {
 
   const form = useForm<ClientCreateInput>({
     resolver: zodResolver(ClientCreateSchema),
-    defaultValues: { name: '', email: '', phone: '' },
+    defaultValues: { name: '', emails: [], phone: '' },
   });
 
   const { register, handleSubmit, formState, reset } = form;
@@ -57,11 +58,16 @@ export function NewClientModal({ opened, onClose, onCreated }: Props) {
             error={formState.errors.name?.message}
             {...register('name')}
           />
-          <TextInput
-            label="Email"
-            placeholder="e.g. ops@acme.com"
-            error={formState.errors.email?.message}
-            {...register('email')}
+          <Controller
+            control={form.control}
+            name="emails"
+            render={({ field, fieldState }) => (
+              <EmailChipsInput
+                value={field.value ?? []}
+                onChange={field.onChange}
+                error={fieldState.error?.message}
+              />
+            )}
           />
           <TextInput
             label="Phone"

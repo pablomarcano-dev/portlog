@@ -376,12 +376,6 @@ function EditUserModal({ user, onClose }: { user: AdminUser; onClose: () => void
             error={form.formState.errors.mobile?.message}
             {...form.register('mobile')}
           />
-          <TextInput
-            label="Fax"
-            placeholder="+1 555 0102"
-            error={form.formState.errors.fax?.message}
-            {...form.register('fax')}
-          />
           <Controller
             name="role"
             control={form.control}

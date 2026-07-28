@@ -112,7 +112,7 @@ export function ClientPickerModal({ opened, onClose, onSelect }: ClientPickerMod
                   <Table.Td style={{ width: colWidths.name }}>{c.name}</Table.Td>
                   <Table.Td style={{ width: colWidths.email }}>
                     <Text size="xs" c="dimmed">
-                      {c.email ?? '—'}
+                      {c.emails.length > 0 ? c.emails.join(', ') : '—'}
                     </Text>
                   </Table.Td>
                   <Table.Td style={{ width: colWidths.phone }}>

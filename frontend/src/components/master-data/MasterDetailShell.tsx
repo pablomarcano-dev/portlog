@@ -48,10 +48,11 @@ import {
   Center,
   Alert,
   Divider,
+  TextInput,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useForm, FormProvider } from 'react-hook-form';
-import type { UseFormReturn, FieldValues } from 'react-hook-form';
+import type { UseFormReturn, FieldValues, FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { ZodType, ZodTypeDef } from 'zod';
 import type { UseQueryResult } from '@tanstack/react-query';
@@ -121,6 +122,7 @@ export function MasterDetailShell<TForm extends FieldValues>({
 
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [listFilter, setListFilter] = useState('');
   const listViewportRef = useRef<HTMLDivElement>(null);
 
   const handleListScrollPositionChange = useCallback(() => {
@@ -180,8 +182,36 @@ export function MasterDetailShell<TForm extends FieldValues>({
     [onSave],
   );
 
-  // List navigation helpers
-  const items = listQuery.data?.items ?? [];
+  /**
+   * Without this, a failed validation makes Accept do nothing at all — no toast, no scroll — and
+   * the offending field is often below the fold on the longer forms. Reported as "no me deja
+   * avanzar" rather than as a field error (`nuevo sysportlog.pdf`, 22 Jul 2026).
+   */
+  const onInvalid = useCallback((errors: FieldErrors<TForm>) => {
+    const names = Object.keys(errors);
+    const first = names[0];
+    notifications.show({
+      color: 'red',
+      title: "Can't save yet",
+      message:
+        names.length === 1
+          ? `Check the "${first}" field below.`
+          : `Check these fields below: ${names.join(', ')}.`,
+    });
+    if (first !== undefined) {
+      const el = document.querySelector<HTMLElement>(`[name="${CSS.escape(first)}"]`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el?.focus({ preventScroll: true });
+    }
+  }, []);
+
+  // List navigation helpers.
+  // `filter` narrows what is on screen; navigation (Prior/Next/First/Last) follows the filtered
+  // view so the buttons always match what the user can see.
+  const allItems = listQuery.data?.items ?? [];
+  const needle = listFilter.trim().toLowerCase();
+  const items =
+    needle === '' ? allItems : allItems.filter((i) => i.label.toLowerCase().includes(needle));
 
   const currentIndex = selectedId !== null ? items.findIndex((i) => i.id === selectedId) : -1;
 
@@ -236,7 +266,11 @@ export function MasterDetailShell<TForm extends FieldValues>({
   const canNavigate = items.length > 1;
 
   return (
-    <form onSubmit={(e) => void handleSubmit(onSubmit)(e)} noValidate style={{ height: '100%' }}>
+    <form
+      onSubmit={(e) => void handleSubmit(onSubmit, onInvalid)(e)}
+      noValidate
+      style={{ height: '100%' }}
+    >
       <FormProvider {...form}>
         <Grid h="100%" gutter={0} styles={{ inner: { height: '100%', minHeight: 0 } }}>
           {/* Left rail — record list + Flash Search */}
@@ -260,6 +294,15 @@ export function MasterDetailShell<TForm extends FieldValues>({
                 selectedId={selectedId}
                 placeholder={`Search ${entityKey}...`}
               />
+              {/* Narrows the loaded list. Flash Search above still queries the server for
+                  records that have not been paged in yet. */}
+              <TextInput
+                size="xs"
+                placeholder="Filter list…"
+                value={listFilter}
+                onChange={(e) => setListFilter(e.currentTarget.value)}
+                aria-label={`Filter ${entityKey} list`}
+              />
             </Stack>
 
             <Divider />
@@ -282,7 +325,7 @@ export function MasterDetailShell<TForm extends FieldValues>({
               )}
               {!listQuery.isPending && items.length === 0 && (
                 <Text size="sm" c="dimmed">
-                  No records found.
+                  {needle === '' ? 'No records found.' : `No records match "${listFilter.trim()}".`}
                 </Text>
               )}
               <Stack gap={0}>

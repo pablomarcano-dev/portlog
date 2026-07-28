@@ -10,3 +10,4 @@ export { EmailGroupPicker } from './EmailGroupPicker';
 export type { EmailRecipientTarget } from './EmailGroupPicker';
 export { EmailAttachmentsField } from './EmailAttachmentsField';
 export type { EmailAttachmentsFieldProps } from './EmailAttachmentsField';
+export { EmailChipsInput } from './EmailChipsInput';

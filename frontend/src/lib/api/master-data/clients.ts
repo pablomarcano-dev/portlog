@@ -14,7 +14,7 @@ export interface ClientRecord {
   otherAddress?: string | null;
   fax?: string | null;
   mobile?: string | null;
-  email?: string | null;
+  emails: string[];
   emailGroup?: string | null;
   tariff?: string | null;
   instructions?: string | null;

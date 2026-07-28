@@ -26,7 +26,7 @@ export class OperatorsService {
       select: {
         id: true,
         name: true,
-        email: true,
+        emails: true,
         businessPhone: true,
         businessFax: true,
         address: true,
@@ -54,7 +54,7 @@ export class OperatorsService {
       select: {
         id: true,
         name: true,
-        email: true,
+        emails: true,
         businessPhone: true,
         businessFax: true,
         address: true,
@@ -83,7 +83,7 @@ export class OperatorsService {
         select: {
           id: true,
           name: true,
-          email: true,
+          emails: true,
           businessPhone: true,
           businessFax: true,
           address: true,
@@ -114,7 +114,7 @@ export class OperatorsService {
         select: {
           id: true,
           name: true,
-          email: true,
+          emails: true,
           businessPhone: true,
           businessFax: true,
           address: true,

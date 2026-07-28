@@ -1,36 +1,25 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { PortsService } from './ports.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 
 // ---------------------------------------------------------------------------
 // Minimal Prisma mock
+//
+// This spec was originally written (POR-33, commit 9df9ddf) against a self-referencing
+// country → port → terminal hierarchy on Port: a parentId column, a depth limit of 3, and
+// getTree(). Commit 6cdfb37 replaced that design with a flat Port plus a separate Pier child
+// table, but the spec was never updated, so six of its cases exercised methods the service no
+// longer has and failed on every run. Rewritten here against the service as it actually is.
+// Do not reintroduce parentId assertions — terminals and berths are Pier rows now.
 // ---------------------------------------------------------------------------
 
 const mockPort = {
   id: 'port-cuid-1',
-  name: 'Rotterdam',
-  abbreviation: 'RTM',
-  location: 'Netherlands',
-  parentId: null,
-  comments: null,
-};
-
-const mockChild = {
-  id: 'port-cuid-2',
-  name: 'Maasvlakte Terminal',
-  abbreviation: 'MVT',
-  location: null,
-  parentId: 'port-cuid-1',
-  comments: null,
-};
-
-const mockGrandchild = {
-  id: 'port-cuid-3',
-  name: 'Berth 42',
-  abbreviation: null,
-  location: null,
-  parentId: 'port-cuid-2',
+  name: 'Montevideo',
+  abbreviation: 'MVD',
+  country: 'Uruguay',
+  emailGroup: null,
   comments: null,
 };
 
@@ -38,16 +27,13 @@ const mockPrisma = {
   port: {
     findMany: jest.fn(),
     findUnique: jest.fn(),
-    count: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
   },
 };
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
+const uniqueViolation = { code: 'P2002' };
 
 describe('PortsService', () => {
   let service: PortsService;
@@ -66,33 +52,49 @@ describe('PortsService', () => {
   // list
   // -------------------------------------------------------------------------
   describe('list', () => {
-    it('returns top-level ports when parentId is null', async () => {
+    it('returns a single page and reports no more results', async () => {
       mockPrisma.port.findMany.mockResolvedValue([mockPort]);
 
-      const result = await service.list({
-        q: undefined,
-        limit: 50,
-        cursor: undefined,
-        parentId: null,
-      });
+      const result = await service.list({ q: undefined, limit: 50, cursor: undefined });
 
       expect(result.items).toHaveLength(1);
-      expect(result.items[0]?.name).toBe('Rotterdam');
+      expect(result.items[0]?.name).toBe('Montevideo');
       expect(result.hasMore).toBe(false);
+      expect(result.nextCursor).toBeNull();
     });
 
-    it('returns children when parentId is provided', async () => {
-      mockPrisma.port.findMany.mockResolvedValue([mockChild]);
+    it('adds a label alias so the list feeds the shared picker components', async () => {
+      mockPrisma.port.findMany.mockResolvedValue([mockPort]);
 
-      const result = await service.list({
-        q: undefined,
-        limit: 50,
-        cursor: undefined,
-        parentId: 'port-cuid-1',
-      });
+      const result = await service.list({ q: undefined, limit: 50, cursor: undefined });
+
+      expect(result.items[0]?.label).toBe('Montevideo');
+    });
+
+    it('trims the extra row and returns a cursor when more results exist', async () => {
+      // The service over-fetches by one to detect a further page.
+      mockPrisma.port.findMany.mockResolvedValue([
+        mockPort,
+        { ...mockPort, id: 'port-cuid-2', name: 'Nueva Palmira' },
+      ]);
+
+      const result = await service.list({ q: undefined, limit: 1, cursor: undefined });
 
       expect(result.items).toHaveLength(1);
-      expect(result.items[0]?.name).toBe('Maasvlakte Terminal');
+      expect(result.hasMore).toBe(true);
+      expect(result.nextCursor).toBe('port-cuid-1');
+    });
+
+    it('filters by name case-insensitively when q is given', async () => {
+      mockPrisma.port.findMany.mockResolvedValue([]);
+
+      await service.list({ q: 'monte', limit: 50, cursor: undefined });
+
+      expect(mockPrisma.port.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { name: { contains: 'monte', mode: 'insensitive' } },
+        }),
+      );
     });
   });
 
@@ -100,26 +102,23 @@ describe('PortsService', () => {
   // getById
   // -------------------------------------------------------------------------
   describe('getById', () => {
-    it('returns port with parent and children', async () => {
+    it('returns the port with its piers', async () => {
       mockPrisma.port.findUnique.mockResolvedValue({
         ...mockPort,
-        parent: null,
-        children: [
-          { id: mockChild.id, name: mockChild.name, abbreviation: mockChild.abbreviation },
-        ],
+        piers: [{ id: 'pier-1', name: 'Berth 3' }],
       });
 
       const result = await service.getById('port-cuid-1');
 
-      expect(result.name).toBe('Rotterdam');
-      expect(result.children).toHaveLength(1);
-      expect(result.parent).toBeNull();
+      expect(result.name).toBe('Montevideo');
+      expect(result.piers).toHaveLength(1);
+      expect(result.piers[0]?.name).toBe('Berth 3');
     });
 
-    it('throws NotFoundException when port does not exist', async () => {
+    it('throws NotFoundException when the port does not exist', async () => {
       mockPrisma.port.findUnique.mockResolvedValue(null);
 
-      await expect(service.getById('nonexistent')).rejects.toThrow(NotFoundException);
+      await expect(service.getById('missing')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -127,125 +126,109 @@ describe('PortsService', () => {
   // create
   // -------------------------------------------------------------------------
   describe('create', () => {
-    it('creates top-level port without parentId', async () => {
+    it('creates a port', async () => {
       mockPrisma.port.create.mockResolvedValue(mockPort);
 
-      const result = await service.create({ name: 'Rotterdam' });
+      const result = await service.create({ name: 'Montevideo', country: 'Uruguay' });
 
-      expect(result.name).toBe('Rotterdam');
+      expect(result.name).toBe('Montevideo');
     });
 
-    it('creates child port when parentId is valid and depth is allowed', async () => {
-      // assertParentExists → findUnique returns the parent
-      mockPrisma.port.findUnique
-        .mockResolvedValueOnce({ id: mockPort.id }) // parent exists
-        .mockResolvedValueOnce({ parentId: null }); // parent's parent is null → depth 1
-      mockPrisma.port.create.mockResolvedValue(mockChild);
+    it('surfaces a duplicate name as ConflictException, not a raw Prisma error', async () => {
+      mockPrisma.port.create.mockRejectedValue(uniqueViolation);
 
-      const result = await service.create({ name: 'Maasvlakte Terminal', parentId: mockPort.id });
-
-      expect(result.parentId).toBe('port-cuid-1');
-    });
-
-    it('throws BadRequestException when depth would exceed 3 levels', async () => {
-      // Parent exists
-      mockPrisma.port.findUnique
-        .mockResolvedValueOnce({ id: mockChild.id }) // parent exists check
-        // depth walk: child → grandparent → root (3 hops = depth would be 4)
-        .mockResolvedValueOnce({ parentId: mockPort.id }) // mockChild's parent
-        .mockResolvedValueOnce({ parentId: null }); // mockPort has no parent
-
-      await expect(service.create({ name: 'Too Deep', parentId: mockChild.id })).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.create({ name: 'Montevideo' })).rejects.toThrow(ConflictException);
     });
   });
 
   // -------------------------------------------------------------------------
-  // update — cycle prevention
+  // update
   // -------------------------------------------------------------------------
   describe('update', () => {
-    it('rejects self-reference as parent', async () => {
-      mockPrisma.port.findUnique.mockResolvedValue(mockPort);
+    it('updates a port that exists', async () => {
+      mockPrisma.port.findUnique.mockResolvedValue({ id: 'port-cuid-1' });
+      mockPrisma.port.update.mockResolvedValue({ ...mockPort, name: 'Montevideo Puerto' });
 
-      await expect(service.update('port-cuid-1', { parentId: 'port-cuid-1' })).rejects.toThrow(
-        BadRequestException,
-      );
+      const result = await service.update('port-cuid-1', { name: 'Montevideo Puerto' });
+
+      expect(result.name).toBe('Montevideo Puerto');
     });
 
-    it('rejects moving a node under one of its descendants', async () => {
-      // assertExists
-      mockPrisma.port.findUnique.mockResolvedValue(mockPort);
+    it('throws NotFoundException before attempting the update', async () => {
+      mockPrisma.port.findUnique.mockResolvedValue(null);
 
-      // assertNoCycle: descendants of port-cuid-1 include port-cuid-2
-      mockPrisma.port.findMany
-        .mockResolvedValueOnce([{ id: mockChild.id }]) // children of port-cuid-1
-        .mockResolvedValueOnce([]); // children of port-cuid-2
-
-      // targetParentId = port-cuid-2 which is a descendant → cycle
-      await expect(service.update('port-cuid-1', { parentId: 'port-cuid-2' })).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.update('missing', { name: 'x' })).rejects.toThrow(NotFoundException);
+      expect(mockPrisma.port.update).not.toHaveBeenCalled();
     });
 
-    it('updates port name successfully', async () => {
-      mockPrisma.port.findUnique.mockResolvedValue(mockPort);
-      mockPrisma.port.update.mockResolvedValue({ ...mockPort, name: 'Rotterdam Updated' });
+    it('surfaces a duplicate name as ConflictException', async () => {
+      mockPrisma.port.findUnique.mockResolvedValue({ id: 'port-cuid-1' });
+      mockPrisma.port.update.mockRejectedValue(uniqueViolation);
 
-      const result = await service.update('port-cuid-1', { name: 'Rotterdam Updated' });
-
-      expect(result.name).toBe('Rotterdam Updated');
+      await expect(service.update('port-cuid-1', { name: 'Taken' })).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
   // -------------------------------------------------------------------------
   // remove
+  //
+  // Note: piers are removed with the port by `onDelete: Cascade` on Pier.portId — the service
+  // does not guard against a port still having piers.
   // -------------------------------------------------------------------------
   describe('remove', () => {
-    it('deletes port when it has no children', async () => {
-      mockPrisma.port.findUnique.mockResolvedValue(mockPort);
-      mockPrisma.port.count.mockResolvedValue(0);
+    it('deletes the port', async () => {
+      mockPrisma.port.findUnique.mockResolvedValue({ id: 'port-cuid-1' });
       mockPrisma.port.delete.mockResolvedValue(mockPort);
 
-      await expect(service.remove('port-cuid-1')).resolves.toBeUndefined();
+      await service.remove('port-cuid-1');
+
+      expect(mockPrisma.port.delete).toHaveBeenCalledWith({ where: { id: 'port-cuid-1' } });
     });
 
-    it('throws ConflictException (409) when port has children', async () => {
-      mockPrisma.port.findUnique.mockResolvedValue(mockPort);
-      mockPrisma.port.count.mockResolvedValue(2);
-
-      await expect(service.remove('port-cuid-1')).rejects.toThrow(ConflictException);
-    });
-
-    it('throws NotFoundException when port does not exist', async () => {
+    it('throws NotFoundException when the port does not exist', async () => {
       mockPrisma.port.findUnique.mockResolvedValue(null);
 
-      await expect(service.remove('nonexistent')).rejects.toThrow(NotFoundException);
+      await expect(service.remove('missing')).rejects.toThrow(NotFoundException);
+      expect(mockPrisma.port.delete).not.toHaveBeenCalled();
     });
   });
 
   // -------------------------------------------------------------------------
-  // getTree
+  // countries — backs the country filter on the ports screen
   // -------------------------------------------------------------------------
-  describe('getTree', () => {
-    it('returns the hierarchy as nested roots', async () => {
-      mockPrisma.port.findMany.mockResolvedValue([mockPort, mockChild, mockGrandchild]);
+  describe('countries', () => {
+    it('returns the distinct country values', async () => {
+      mockPrisma.port.findMany.mockResolvedValue([
+        { country: 'Argentina' },
+        { country: 'Uruguay' },
+      ]);
 
-      const result = await service.getTree();
-
-      expect(result).toHaveLength(1);
-      expect(result[0]?.name).toBe('Rotterdam');
-      expect(result[0]?.children).toHaveLength(1);
-      expect(result[0]?.children[0]?.name).toBe('Maasvlakte Terminal');
-      expect(result[0]?.children[0]?.children).toHaveLength(1);
+      await expect(service.countries()).resolves.toEqual(['Argentina', 'Uruguay']);
     });
 
-    it('returns empty array when no ports exist', async () => {
-      mockPrisma.port.findMany.mockResolvedValue([]);
+    it('drops null and whitespace-only countries so the filter has no blank option', async () => {
+      mockPrisma.port.findMany.mockResolvedValue([
+        { country: 'Uruguay' },
+        { country: null },
+        { country: '   ' },
+      ]);
 
-      const result = await service.getTree();
+      await expect(service.countries()).resolves.toEqual(['Uruguay']);
+    });
+  });
 
-      expect(result).toHaveLength(0);
+  // -------------------------------------------------------------------------
+  // search
+  // -------------------------------------------------------------------------
+  describe('search', () => {
+    it('returns id/label pairs for the type-ahead', async () => {
+      mockPrisma.port.findMany.mockResolvedValue([{ id: 'port-cuid-1', name: 'Montevideo' }]);
+
+      await expect(service.search('mont')).resolves.toEqual([
+        { id: 'port-cuid-1', label: 'Montevideo' },
+      ]);
     });
   });
 });

@@ -14,7 +14,7 @@ export interface SupplierRecord {
   services?: string | null;
   kyc?: string | null;
   phones?: string | null;
-  emails?: string | null;
+  emails: string[];
   certificates?: string | null;
   rates?: string | null;
   serviceContract?: string | null;

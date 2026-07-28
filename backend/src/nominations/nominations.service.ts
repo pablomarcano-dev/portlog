@@ -313,9 +313,15 @@ export class NominationsService {
       });
     }
     if (dateFrom || dateTo) {
+      // dateNominated is a timestamptz but the filter is a calendar date, so dateTo has to cover
+      // the whole day. `lte: <the date>` resolves to midnight and silently excluded every
+      // nomination recorded later on the end date itself.
+      const dayAfterDateTo = dateTo ? new Date(dateTo) : null;
+      if (dayAfterDateTo) dayAfterDateTo.setDate(dayAfterDateTo.getDate() + 1);
+
       where.dateNominated = {
         ...(dateFrom ? { gte: dateFrom } : {}),
-        ...(dateTo ? { lte: dateTo } : {}),
+        ...(dayAfterDateTo ? { lt: dayAfterDateTo } : {}),
       };
     }
     if (search) {
@@ -654,7 +660,7 @@ export class NominationsService {
             select: {
               name: true,
               code: true,
-              email: true,
+              emails: true,
               address: true,
               phone: true,
               fax: true,
@@ -663,7 +669,7 @@ export class NominationsService {
               contactName: true,
               contactTitle: true,
               contactMobile: true,
-              contactEmail: true,
+              contactEmails: true,
               centralEmails: true,
             },
           },
@@ -795,7 +801,7 @@ export class NominationsService {
       etb_time: fmtTime(etaRecord?.etb ?? null),
       agent_name: agent?.displayName ?? agentEmail.split('@')[0] ?? agentEmail,
       agent_title: '',
-      agent_email: branch?.email ?? agentEmail,
+      agent_email: branch?.emails.length ? branch.emails.join('; ') : agentEmail,
       agent_mobile: agent?.mobile ?? branch?.mobile24h ?? '',
       branch_office: branch?.name ?? '',
       branch_coverage: branch?.coverage ?? '',
@@ -805,7 +811,7 @@ export class NominationsService {
       contact_person: branch?.contactName ?? '',
       contact_title: branch?.contactTitle ?? '',
       contact_mobile: branch?.contactMobile ?? '',
-      contact_email: branch?.contactEmail ?? '',
+      contact_email: branch?.contactEmails?.join('; ') ?? '',
       central_emails: branch?.centralEmails?.join('; ') ?? '',
       // Cargo update date/time — rendered at time of compose
       update_date: fmtDate(new Date()),

@@ -4,6 +4,8 @@ import { Stack, TextInput, Textarea, Checkbox, Select, Button, Tooltip, Text } f
 import { useController } from 'react-hook-form';
 import { OperatorCreateSchema } from '@portlog/schemas';
 import type { OperatorCreateInput } from '@portlog/schemas';
+import { Controller } from 'react-hook-form';
+import { EmailChipsInput } from '../../../components/master-data/EmailChipsInput';
 import type { ZodSchema } from 'zod';
 import { MasterDetailShell } from '../../../components/master-data/MasterDetailShell';
 import type { ListItem } from '../../../components/master-data/MasterDetailShell';
@@ -43,7 +45,7 @@ function OperatorsScreen() {
     const operator = await operatorsApi.get(id);
     return {
       name: operator.name,
-      email: operator.email ?? undefined,
+      emails: operator.emails ?? [],
       businessPhone: operator.businessPhone ?? undefined,
       businessFax: operator.businessFax ?? undefined,
       address: operator.address ?? undefined,
@@ -118,23 +120,22 @@ function OperatorFields({
         error={form.formState.errors.name?.message}
         {...form.register('name')}
       />
-      <TextInput
-        label="Email"
-        placeholder="e.g. ops@company.com"
-        error={form.formState.errors.email?.message}
-        {...form.register('email')}
+      <Controller
+        control={form.control}
+        name="emails"
+        render={({ field, fieldState }) => (
+          <EmailChipsInput
+            value={field.value ?? []}
+            onChange={field.onChange}
+            error={fieldState.error?.message}
+          />
+        )}
       />
       <TextInput
         label="Business Phone"
         placeholder="e.g. +1 555 0100"
         error={form.formState.errors.businessPhone?.message}
         {...form.register('businessPhone')}
-      />
-      <TextInput
-        label="Business Fax"
-        placeholder="e.g. +1 555 0101"
-        error={form.formState.errors.businessFax?.message}
-        {...form.register('businessFax')}
       />
       <Textarea
         label="Address"

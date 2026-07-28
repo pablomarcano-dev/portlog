@@ -2,6 +2,7 @@ export * from './auth';
 export * from './audit';
 export * from './admin';
 export * from './common/pagination';
+export * from './common/fields';
 export * from './master-data';
 export * from './ais/index.js';
 export * from './nominations/index.js';

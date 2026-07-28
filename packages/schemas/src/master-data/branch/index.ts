@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { emailList } from '../../common/fields';
 import { ListQuerySchema } from '../../common/pagination';
 
 // ---------------------------------------------------------------------------
@@ -10,7 +11,7 @@ export const BranchSchema = z.object({
   name: z.string(),
   code: z.string(),
   comments: z.string().nullable().optional(),
-  email: z.string().nullable().optional(),
+  emails: z.array(z.string()).default([]),
   address: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
   fax: z.string().nullable().optional(),
@@ -19,7 +20,7 @@ export const BranchSchema = z.object({
   contactName: z.string().nullable().optional(),
   contactTitle: z.string().nullable().optional(),
   contactMobile: z.string().nullable().optional(),
-  contactEmail: z.string().nullable().optional(),
+  contactEmails: z.array(z.string()).default([]),
   centralEmails: z.array(z.string()).default([]),
 });
 
@@ -27,7 +28,7 @@ export const BranchCreateSchema = z.object({
   name: z.string().min(1).max(200),
   code: z.string().min(1).max(20),
   comments: z.string().optional(),
-  email: z.string().email().optional(),
+  emails: emailList(),
   address: z.string().optional(),
   phone: z.string().optional(),
   fax: z.string().optional(),
@@ -36,7 +37,7 @@ export const BranchCreateSchema = z.object({
   contactName: z.string().optional(),
   contactTitle: z.string().optional(),
   contactMobile: z.string().optional(),
-  contactEmail: z.string().email().optional(),
+  contactEmails: emailList(),
   centralEmails: z.array(z.string().email()).default([]),
 });
 

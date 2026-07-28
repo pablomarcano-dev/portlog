@@ -790,7 +790,7 @@ async function main(): Promise<void> {
       prisma.operator.create({
         data: {
           name: 'Granos del Sur S.A.',
-          email: 'operaciones@granosdelsur.com.uy',
+          emails: ['operaciones@granosdelsur.com.uy'],
           businessPhone: '+598 2 900 1234',
           address: 'Av. Italia 2850, Montevideo',
           location: 'L',
@@ -805,7 +805,7 @@ async function main(): Promise<void> {
       prisma.operator.create({
         data: {
           name: 'Rioplatense Shipping Co.',
-          email: 'ops@rioplatense.com',
+          emails: ['ops@rioplatense.com'],
           businessPhone: '+598 2 711 5678',
           address: 'Rambla 25 de Agosto 490, Montevideo',
           location: 'E',
@@ -819,7 +819,7 @@ async function main(): Promise<void> {
       prisma.operator.create({
         data: {
           name: 'Ultramar Agencia Marítima S.A.',
-          email: 'ops@ultramar.com.uy',
+          emails: ['ops@ultramar.com.uy'],
           businessPhone: '+598 2 916 2200',
           address: 'Juncal 1327, Montevideo',
           location: 'L',
@@ -833,7 +833,7 @@ async function main(): Promise<void> {
       prisma.operator.create({
         data: {
           name: 'Sudatlantic Shipping S.A.',
-          email: 'operations@sudatlantic.com',
+          emails: ['operations@sudatlantic.com'],
           businessPhone: '+54 11 4311 7890',
           address: 'Corrientes 456, Buenos Aires',
           location: 'E',
@@ -847,7 +847,7 @@ async function main(): Promise<void> {
       prisma.operator.create({
         data: {
           name: 'Naviera Austral S.R.L.',
-          email: 'info@navieraustral.com.uy',
+          emails: ['info@navieraustral.com.uy'],
           businessPhone: '+598 2 600 4455',
           address: 'Br. Artigas 1680, Montevideo',
           location: 'L',
@@ -861,7 +861,7 @@ async function main(): Promise<void> {
       prisma.operator.create({
         data: {
           name: 'Portimar Operaciones S.A.',
-          email: 'ops@portimar.com.uy',
+          emails: ['ops@portimar.com.uy'],
           businessPhone: '+598 2 418 3300',
           address: 'Luis A. de Herrera 1248, Montevideo',
           location: 'L',
@@ -875,7 +875,7 @@ async function main(): Promise<void> {
       prisma.operator.create({
         data: {
           name: 'Interocean Shipping Ltd.',
-          email: 'ops@interocean.com',
+          emails: ['ops@interocean.com'],
           businessPhone: '+44 20 7123 4567',
           address: '30 St Mary Axe, London',
           location: 'E',
@@ -889,7 +889,7 @@ async function main(): Promise<void> {
       prisma.operator.create({
         data: {
           name: 'Delta Marine Operators',
-          email: 'ops@deltamarine.com.ar',
+          emails: ['ops@deltamarine.com.ar'],
           businessPhone: '+54 341 440 2200',
           address: 'Córdoba 1250, Rosario',
           location: 'E',
@@ -903,7 +903,7 @@ async function main(): Promise<void> {
       prisma.operator.create({
         data: {
           name: 'Pacific Rim Shipping S.A.',
-          email: 'ops@pacificrim.com',
+          emails: ['ops@pacificrim.com'],
           businessPhone: '+65 6123 4567',
           address: '1 Marina Blvd, Singapore',
           location: 'E',
@@ -917,7 +917,7 @@ async function main(): Promise<void> {
       prisma.operator.create({
         data: {
           name: 'Armadores del Río S.A.',
-          email: 'ops@armadoresrio.com.uy',
+          emails: ['ops@armadoresrio.com.uy'],
           businessPhone: '+598 2 915 0011',
           address: 'Ciudadela 1228, Montevideo',
           location: 'L',
@@ -1184,7 +1184,7 @@ async function main(): Promise<void> {
       prisma.shipper.create({
         data: {
           name: 'ADN Exportaciones S.A.',
-          email: 'embarques@adn.com.uy',
+          emails: ['embarques@adn.com.uy'],
           businessPhone: '+598 2 410 7700',
           address: 'Zonamerica, Montevideo',
         },
@@ -1196,7 +1196,7 @@ async function main(): Promise<void> {
       prisma.shipper.create({
         data: {
           name: 'Granel Export S.R.L.',
-          email: 'embarques@granelexport.com.uy',
+          emails: ['embarques@granelexport.com.uy'],
           businessPhone: '+598 2 300 4455',
           address: 'Av. Millán 4185, Montevideo',
         },
@@ -1208,7 +1208,7 @@ async function main(): Promise<void> {
       prisma.shipper.create({
         data: {
           name: 'Celulosa Argentina S.A.',
-          email: 'embarques@celulosaar.com.ar',
+          emails: ['embarques@celulosaar.com.ar'],
           businessPhone: '+54 11 4326 5500',
           address: 'Tucumán 738, Buenos Aires',
         },
@@ -1220,7 +1220,7 @@ async function main(): Promise<void> {
       prisma.shipper.create({
         data: {
           name: 'Fertilizantes del Río S.A.',
-          email: 'logistica@fertirio.com.uy',
+          emails: ['logistica@fertirio.com.uy'],
           businessPhone: '+598 2 208 1100',
           address: 'Bulevar Artigas 2018, Montevideo',
         },
@@ -1232,7 +1232,7 @@ async function main(): Promise<void> {
       prisma.shipper.create({
         data: {
           name: 'Exportadora Río Grande S.A.',
-          email: 'ops@riogrande.com.uy',
+          emails: ['ops@riogrande.com.uy'],
           businessPhone: '+598 2 400 2200',
           address: 'Dr. Luis Bonavita 1294, Montevideo',
         },
@@ -1244,7 +1244,7 @@ async function main(): Promise<void> {
       prisma.shipper.create({
         data: {
           name: 'SugarPlant Uruguay S.A.',
-          email: 'embarques@sugarplant.com.uy',
+          emails: ['embarques@sugarplant.com.uy'],
           businessPhone: '+598 2 710 8800',
           address: 'Ruta 5 km 8, Montevideo',
         },
@@ -1256,7 +1256,7 @@ async function main(): Promise<void> {
       prisma.shipper.create({
         data: {
           name: 'Forestal Oriental S.A.',
-          email: 'logistica@forestaloriental.com.uy',
+          emails: ['logistica@forestaloriental.com.uy'],
           businessPhone: '+598 4 773 9900',
           address: 'Paysandú, Uruguay',
         },
@@ -1268,7 +1268,7 @@ async function main(): Promise<void> {
       prisma.shipper.create({
         data: {
           name: 'Agronor Exportaciones S.A.',
-          email: 'embarques@agronor.com.uy',
+          emails: ['embarques@agronor.com.uy'],
           businessPhone: '+598 2 619 1234',
           address: 'Av. 8 de Octubre 2801, Montevideo',
         },
@@ -1280,7 +1280,7 @@ async function main(): Promise<void> {
       prisma.shipper.create({
         data: {
           name: 'Petrouruguay S.A.',
-          email: 'tankers@petrouruguay.com.uy',
+          emails: ['tankers@petrouruguay.com.uy'],
           businessPhone: '+598 2 915 3300',
           address: 'Rambla 25 de Agosto 400, Montevideo',
         },
@@ -1292,7 +1292,7 @@ async function main(): Promise<void> {
       prisma.shipper.create({
         data: {
           name: 'Ence Energía y Celulosa',
-          email: 'embarques@ence.es',
+          emails: ['embarques@ence.es'],
           businessPhone: '+34 91 337 9000',
           address: 'Pontevedra, España',
         },
@@ -1423,61 +1423,61 @@ async function main(): Promise<void> {
       name: 'Lanchas del Río S.R.L.',
       services: 'Transporte de tripulación, lanchas de prácticos',
       phones: '+598 99 123 456',
-      emails: 'reservas@lanchita.com.uy',
+      emails: ['reservas@lanchita.com.uy'],
     },
     {
       name: 'Maritax Transporte',
       services: 'Traslados terrestres, taxis portuarios',
       phones: '+598 99 654 321',
-      emails: 'operaciones@maritax.com.uy',
+      emails: ['operaciones@maritax.com.uy'],
     },
     {
       name: 'Vituallas Uruguay S.A.',
       services: 'Provisiones, víveres para buques',
       phones: '+598 2 301 5500',
-      emails: 'ventas@vituallas.com.uy',
+      emails: ['ventas@vituallas.com.uy'],
     },
     {
       name: 'Médica Puerto S.A.',
       services: 'Atención médica a tripulantes, control sanitario',
       phones: '+598 2 916 7700',
-      emails: 'medico@medicapuerto.com.uy',
+      emails: ['medico@medicapuerto.com.uy'],
     },
     {
       name: 'Grúas Portuarias S.A.',
       services: 'Servicios de grúas y equipos de izado',
       phones: '+598 2 309 8800',
-      emails: 'ops@gruasportuarias.com.uy',
+      emails: ['ops@gruasportuarias.com.uy'],
     },
     {
       name: 'Remolcadores del Sur S.A.',
       services: 'Remolque en puerto y rada',
       phones: '+598 2 916 9900',
-      emails: 'ops@remolcadores.com.uy',
+      emails: ['ops@remolcadores.com.uy'],
     },
     {
       name: 'Control Naval S.R.L.',
       services: 'Inspección de carga, calado y estibaje',
       phones: '+598 99 400 500',
-      emails: 'inspecciones@controlnaval.com.uy',
+      emails: ['inspecciones@controlnaval.com.uy'],
     },
     {
       name: 'Aguas y Combustibles S.A.',
       services: 'Suministro de agua dulce y combustible bunker',
       phones: '+598 2 918 1100',
-      emails: 'bunker@aguasycombustibles.com.uy',
+      emails: ['bunker@aguasycombustibles.com.uy'],
     },
     {
       name: 'Manlift Platense S.A.',
       services: 'Mantenimiento técnico y reparaciones a bordo',
       phones: '+598 2 305 7700',
-      emails: 'taller@manlift.com.uy',
+      emails: ['taller@manlift.com.uy'],
     },
     {
       name: 'InterCargo Uruguay S.A.',
       services: 'Estiba, desestiba y movilización de carga',
       phones: '+598 2 916 0022',
-      emails: 'ops@intercargo.com.uy',
+      emails: ['ops@intercargo.com.uy'],
     },
   ];
   for (const s of suppliersData) {
@@ -1497,7 +1497,7 @@ async function main(): Promise<void> {
       prisma.contact.create({
         data: {
           name: 'Carlos Fernández',
-          email: 'cfernandez@granosdelsur.com.uy',
+          emails: ['cfernandez@granosdelsur.com.uy'],
           mobile: '+598 99 201 301',
           businessPhone: '+598 2 900 1234',
           operatorId: op1.id,
@@ -1510,7 +1510,7 @@ async function main(): Promise<void> {
       prisma.contact.create({
         data: {
           name: 'Lars Eriksen',
-          email: 'leriksen@nordicbulk.no',
+          emails: ['leriksen@nordicbulk.no'],
           mobile: '+47 97 123 456',
           businessPhone: '+47 22 123 456',
           ownerId: owner1.id,
@@ -1523,7 +1523,7 @@ async function main(): Promise<void> {
       prisma.contact.create({
         data: {
           name: 'Ana Rodríguez',
-          email: 'arodriguez@cargill.com.uy',
+          emails: ['arodriguez@cargill.com.uy'],
           mobile: '+598 99 500 600',
           businessPhone: '+598 2 628 0000',
           charterId: ch1.id,
@@ -1536,7 +1536,7 @@ async function main(): Promise<void> {
       prisma.contact.create({
         data: {
           name: 'Pablo Giménez',
-          email: 'pgimenez@rioplatense.com',
+          emails: ['pgimenez@rioplatense.com'],
           mobile: '+598 99 712 800',
           businessPhone: '+598 2 711 5678',
           operatorId: op2.id,
@@ -1549,7 +1549,7 @@ async function main(): Promise<void> {
       prisma.contact.create({
         data: {
           name: 'Stavros Papadopoulos',
-          email: 'spapadopoulos@hellas.gr',
+          emails: ['spapadopoulos@hellas.gr'],
           mobile: '+30 694 123 4567',
           businessPhone: '+30 210 429 1234',
           ownerId: owner3.id,
@@ -1562,7 +1562,7 @@ async function main(): Promise<void> {
       prisma.contact.create({
         data: {
           name: 'María José Suárez',
-          email: 'mjsuarez@bunge.com.uy',
+          emails: ['mjsuarez@bunge.com.uy'],
           mobile: '+598 99 200 400',
           businessPhone: '+598 2 2000 3300',
           charterId: ch2.id,
@@ -1575,7 +1575,7 @@ async function main(): Promise<void> {
       prisma.contact.create({
         data: {
           name: 'Roberto Herrera',
-          email: 'rherrera@ultramar.com.uy',
+          emails: ['rherrera@ultramar.com.uy'],
           mobile: '+598 99 916 2299',
           businessPhone: '+598 2 916 2200',
           operatorId: op3.id,
@@ -1588,7 +1588,7 @@ async function main(): Promise<void> {
       prisma.contact.create({
         data: {
           name: 'Jean-Paul Martin',
-          email: 'jpmartin@ldc.com',
+          emails: ['jpmartin@ldc.com'],
           mobile: '+54 9 11 4000 8001',
           businessPhone: '+54 11 4000 8000',
           charterId: ch3.id,
@@ -1601,7 +1601,7 @@ async function main(): Promise<void> {
       prisma.contact.create({
         data: {
           name: 'Gonzalo Ferreiro',
-          email: 'gferreiro@patagoniamarine.com',
+          emails: ['gferreiro@patagoniamarine.com'],
           mobile: '+507 6340 9911',
           businessPhone: '+507 340 9900',
           ownerId: owner2.id,
@@ -1614,7 +1614,7 @@ async function main(): Promise<void> {
       prisma.contact.create({
         data: {
           name: 'Andrea Vieira',
-          email: 'avieira@sudatlantic.com',
+          emails: ['avieira@sudatlantic.com'],
           mobile: '+54 9 11 4311 7891',
           businessPhone: '+54 11 4311 7890',
           operatorId: op4.id,
@@ -1629,7 +1629,7 @@ async function main(): Promise<void> {
   const branchMVD = await prisma.branch.upsert({
     where: { code: 'MVD' },
     update: {
-      email: 'mvd@portlog.local',
+      emails: ['mvd@portlog.local'],
       address: 'Rambla 25 de Agosto de 1825 s/n, Puerto de Montevideo, Uruguay.',
       phone: '+598 2915 4400',
       fax: '+598 2915 4401',
@@ -1638,14 +1638,14 @@ async function main(): Promise<void> {
       contactName: 'Sr. Roberto Álvarez',
       contactTitle: 'Operations Manager',
       contactMobile: '+598 99 111 222',
-      contactEmail: 'ops.mvd@portlog.local',
+      contactEmails: ['ops.mvd@portlog.local'],
       centralEmails: ['admin@portlog.local', 'ops@portlog.local'],
     },
     create: {
       name: 'Montevideo',
       code: 'MVD',
       comments: 'Sede central. Puerto de Montevideo.',
-      email: 'mvd@portlog.local',
+      emails: ['mvd@portlog.local'],
       address: 'Rambla 25 de Agosto de 1825 s/n, Puerto de Montevideo, Uruguay.',
       phone: '+598 2915 4400',
       fax: '+598 2915 4401',
@@ -1654,14 +1654,14 @@ async function main(): Promise<void> {
       contactName: 'Sr. Roberto Álvarez',
       contactTitle: 'Operations Manager',
       contactMobile: '+598 99 111 222',
-      contactEmail: 'ops.mvd@portlog.local',
+      contactEmails: ['ops.mvd@portlog.local'],
       centralEmails: ['admin@portlog.local', 'ops@portlog.local'],
     },
   });
   const branchNPA = await prisma.branch.upsert({
     where: { code: 'NPA' },
     update: {
-      email: 'npa@portlog.local',
+      emails: ['npa@portlog.local'],
       address: 'Av. Artigas 350, Nueva Palmira, Colonia, Uruguay.',
       phone: '+598 4554 2100',
       fax: '+598 4554 2101',
@@ -1670,14 +1670,14 @@ async function main(): Promise<void> {
       contactName: 'Sr. Jorge Pereira',
       contactTitle: 'Branch Supervisor',
       contactMobile: '+598 99 333 444',
-      contactEmail: 'ops.npa@portlog.local',
+      contactEmails: ['ops.npa@portlog.local'],
       centralEmails: ['admin@portlog.local', 'ops@portlog.local'],
     },
     create: {
       name: 'Nueva Palmira',
       code: 'NPA',
       comments: 'Terminal granelera del litoral uruguayo.',
-      email: 'npa@portlog.local',
+      emails: ['npa@portlog.local'],
       address: 'Av. Artigas 350, Nueva Palmira, Colonia, Uruguay.',
       phone: '+598 4554 2100',
       fax: '+598 4554 2101',
@@ -1686,14 +1686,14 @@ async function main(): Promise<void> {
       contactName: 'Sr. Jorge Pereira',
       contactTitle: 'Branch Supervisor',
       contactMobile: '+598 99 333 444',
-      contactEmail: 'ops.npa@portlog.local',
+      contactEmails: ['ops.npa@portlog.local'],
       centralEmails: ['admin@portlog.local', 'ops@portlog.local'],
     },
   });
   const branchFBT = await prisma.branch.upsert({
     where: { code: 'FBT' },
     update: {
-      email: 'fbt@portlog.local',
+      emails: ['fbt@portlog.local'],
       address: 'Puerto de Fray Bentos, Río Uruguay, Uruguay.',
       phone: '+598 4562 3200',
       fax: '+598 4562 3201',
@@ -1702,14 +1702,14 @@ async function main(): Promise<void> {
       contactName: 'Sr. Andrés Cabrera',
       contactTitle: 'Port Agent',
       contactMobile: '+598 99 555 666',
-      contactEmail: 'ops.fbt@portlog.local',
+      contactEmails: ['ops.fbt@portlog.local'],
       centralEmails: ['admin@portlog.local', 'ops@portlog.local'],
     },
     create: {
       name: 'Fray Bentos',
       code: 'FBT',
       comments: 'Puerto fluvial, celulosa y productos forestales.',
-      email: 'fbt@portlog.local',
+      emails: ['fbt@portlog.local'],
       address: 'Puerto de Fray Bentos, Río Uruguay, Uruguay.',
       phone: '+598 4562 3200',
       fax: '+598 4562 3201',
@@ -1718,7 +1718,7 @@ async function main(): Promise<void> {
       contactName: 'Sr. Andrés Cabrera',
       contactTitle: 'Port Agent',
       contactMobile: '+598 99 555 666',
-      contactEmail: 'ops.fbt@portlog.local',
+      contactEmails: ['ops.fbt@portlog.local'],
       centralEmails: ['admin@portlog.local', 'ops@portlog.local'],
     },
   });
@@ -1773,7 +1773,7 @@ async function main(): Promise<void> {
     where: { code: 'LGR' },
     update: {
       name: 'La Guaira Branch Office',
-      email: 'lgr@navieramar.com',
+      emails: ['lgr@navieramar.com'],
       address:
         'Avenida Principal De Weekend con 3ra Transversal Edificio San Miguel, Piso 1, Oficina 08, Catia La Mar, Estado Vargas, Venezuela.',
       phone: '+58 212 3520194',
@@ -1783,13 +1783,13 @@ async function main(): Promise<void> {
       contactName: 'Ms. Cindy Moreno',
       contactTitle: 'Branch Manager',
       contactMobile: '+58 424 1433684',
-      contactEmail: 'lgrmgr@navieramar.com',
+      contactEmails: ['lgrmgr@navieramar.com'],
       centralEmails: ['opsmgr@navieramar.com', 'genmgr@navieramar.com', 'asistmgr@navieramar.com'],
     },
     create: {
       name: 'La Guaira Branch Office',
       code: 'LGR',
-      email: 'lgr@navieramar.com',
+      emails: ['lgr@navieramar.com'],
       address:
         'Avenida Principal De Weekend con 3ra Transversal Edificio San Miguel, Piso 1, Oficina 08, Catia La Mar, Estado Vargas, Venezuela.',
       phone: '+58 212 3520194',
@@ -1799,7 +1799,7 @@ async function main(): Promise<void> {
       contactName: 'Ms. Cindy Moreno',
       contactTitle: 'Branch Manager',
       contactMobile: '+58 424 1433684',
-      contactEmail: 'lgrmgr@navieramar.com',
+      contactEmails: ['lgrmgr@navieramar.com'],
       centralEmails: ['opsmgr@navieramar.com', 'genmgr@navieramar.com', 'asistmgr@navieramar.com'],
     },
   });
@@ -1820,7 +1820,7 @@ async function main(): Promise<void> {
       dwt: 32000,
       grt: 19500,
       nrt: 9800,
-      email: 'captain@nordicstar.no',
+      emails: ['captain@nordicstar.no'],
       phone: '+47 900 12345',
       flagId: flags['MH']!,
       ownerId: owner1.id,
@@ -1874,7 +1874,7 @@ async function main(): Promise<void> {
       dwt: 46000,
       grt: 26000,
       nrt: 12000,
-      email: 'master@hellascarrier.gr',
+      emails: ['master@hellascarrier.gr'],
       phone: '+30 694 333 4444',
       flagId: flags['GR']!,
       ownerId: owner3.id,

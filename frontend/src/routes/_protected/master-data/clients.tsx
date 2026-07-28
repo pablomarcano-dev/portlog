@@ -5,6 +5,8 @@ import { useColumnResize } from '../../../components/table/useColumnResize';
 import { ResizableTh } from '../../../components/table/ResizableTh';
 import { ClientCreateSchema } from '@portlog/schemas';
 import type { ClientCreateInput } from '@portlog/schemas';
+import { Controller } from 'react-hook-form';
+import { EmailChipsInput } from '../../../components/master-data/EmailChipsInput';
 import { MasterDetailShell } from '../../../components/master-data/MasterDetailShell';
 import type { ListItem } from '../../../components/master-data/MasterDetailShell';
 import {
@@ -64,7 +66,7 @@ function ClientsScreen() {
       otherAddress: client.otherAddress ?? undefined,
       fax: client.fax ?? undefined,
       mobile: client.mobile ?? undefined,
-      email: client.email ?? undefined,
+      emails: client.emails ?? [],
       emailGroup: client.emailGroup ?? undefined,
       tariff: client.tariff ?? undefined,
       instructions: client.instructions ?? undefined,
@@ -238,22 +240,22 @@ function ClientFields({
       {/* Contact info row */}
       <Group align="flex-start" grow>
         <TextInput
-          label="Fax"
-          placeholder="Fax number"
-          error={form.formState.errors.fax?.message}
-          {...form.register('fax')}
-        />
-        <TextInput
           label="Mobile"
           placeholder="Mobile number"
           error={form.formState.errors.mobile?.message}
           {...form.register('mobile')}
         />
-        <TextInput
-          label="EMail"
-          placeholder="email@example.com"
-          error={form.formState.errors.email?.message}
-          {...form.register('email')}
+        <Controller
+          control={form.control}
+          name="emails"
+          render={({ field, fieldState }) => (
+            <EmailChipsInput
+              label="EMail"
+              value={field.value ?? []}
+              onChange={field.onChange}
+              error={fieldState.error?.message}
+            />
+          )}
         />
         <TextInput
           label="EMail Group"

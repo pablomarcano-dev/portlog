@@ -143,6 +143,30 @@ export const NominationListQuerySchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// NominationListSearchSchema — the URL search-param shape for the list route.
+//
+// Identical to NominationListQuerySchema except that dateFrom/dateTo stay plain `YYYY-MM-DD`
+// strings instead of being coerced to Date. This is load-bearing, not a style choice:
+// TanStack Router's replaceEqualDeep (router-core/utils) preserves referential identity only for
+// plain objects and arrays — anything else returns the new value. A Date in search params is
+// therefore a brand-new instance on every parse, so useSearch() hands back a new object on every
+// render and the page spins in an infinite render loop. Selecting a date used to wedge the tab.
+//
+// Keep dates as strings anywhere they live in router search params. The API boundary
+// (NominationListQuerySchema, used by the controller) still coerces to Date for Prisma.
+// ---------------------------------------------------------------------------
+export const NominationListSearchSchema = NominationListQuerySchema.extend({
+  dateFrom: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  dateTo: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+});
+
+// ---------------------------------------------------------------------------
 // NominationListItemSchema — slim shape for GET /api/nominations list screen
 // ---------------------------------------------------------------------------
 export const NominationListItemSchema = z.object({
@@ -317,6 +341,7 @@ export type NominationCreateInput = z.infer<typeof NominationCreateSchema>;
 export type NominationUpdateInput = z.infer<typeof NominationUpdateSchema>;
 export type NominationStatusTransition = z.infer<typeof NominationStatusTransitionSchema>;
 export type NominationListQuery = z.infer<typeof NominationListQuerySchema>;
+export type NominationListSearch = z.infer<typeof NominationListSearchSchema>;
 export type NominationListItem = z.infer<typeof NominationListItemSchema>;
 export type NominationStatusHistoryItem = z.infer<typeof NominationStatusHistoryItemSchema>;
 export type Nomination = z.infer<typeof NominationSchema>;

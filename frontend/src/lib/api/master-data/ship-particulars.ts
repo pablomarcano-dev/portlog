@@ -20,7 +20,7 @@ export interface ShipParticularRecord {
   dwt?: number | null;
   grt?: number | null;
   nrt?: number | null;
-  email?: string | null;
+  emails: string[];
   imoNumber?: string | null;
   phone?: string | null;
   phone2?: string | null;

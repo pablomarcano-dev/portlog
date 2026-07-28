@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   Grid,
   Stack,
@@ -14,6 +14,8 @@ import {
   TextInput,
   ActionIcon,
   Group,
+  Select,
+  Switch,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useForm, FormProvider } from 'react-hook-form';
@@ -45,29 +47,91 @@ interface FlatPortItem {
   id: string;
   name: string;
   abbreviation?: string | null;
+  country?: string | null;
 }
 
+const UNGROUPED = 'No country';
+
+/** Group ports under their country, countries A→Z, ports A→Z within each. */
+function groupByCountry(items: FlatPortItem[]): [string, FlatPortItem[]][] {
+  const groups = new Map<string, FlatPortItem[]>();
+  for (const item of items) {
+    const key = item.country?.trim() ? item.country.trim() : UNGROUPED;
+    const bucket = groups.get(key);
+    if (bucket) bucket.push(item);
+    else groups.set(key, [item]);
+  }
+  return [...groups.entries()].sort(([a], [b]) => {
+    // "No country" always sinks to the bottom rather than sorting under "N".
+    if (a === UNGROUPED) return 1;
+    if (b === UNGROUPED) return -1;
+    return a.localeCompare(b);
+  });
+}
+
+function PortRow({
+  port,
+  selectedId,
+  onSelect,
+  pl,
+}: {
+  port: FlatPortItem;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  pl: number;
+}) {
+  return (
+    <NavLink
+      label={port.name}
+      description={port.abbreviation ?? undefined}
+      active={port.id === selectedId}
+      onClick={() => onSelect(port.id)}
+      pl={pl}
+      styles={{ root: { borderRadius: 4 } }}
+    />
+  );
+}
+
+/**
+ * The rail used to be one flat A→Z list mixing Argentine, Uruguayan and Venezuelan ports and
+ * terminals, which made it unreadable (`nuevo sysportlog.pdf`, 22 Jul 2026). Grouping is display
+ * only — terminals remain Port records, they are just filed under their country.
+ */
 function PortNavList({
   items,
   selectedId,
   onSelect,
+  grouped,
 }: {
   items: FlatPortItem[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  grouped: boolean;
 }) {
+  if (!grouped) {
+    return (
+      <>
+        {items.map((p) => (
+          <PortRow key={p.id} port={p} selectedId={selectedId} onSelect={onSelect} pl={8} />
+        ))}
+      </>
+    );
+  }
+
   return (
     <>
-      {items.map((p) => (
+      {groupByCountry(items).map(([country, ports]) => (
         <NavLink
-          key={p.id}
-          label={p.name}
-          description={p.abbreviation ?? undefined}
-          active={p.id === selectedId}
-          onClick={() => onSelect(p.id)}
-          pl={8}
-          styles={{ root: { borderRadius: 4 } }}
-        />
+          key={country}
+          label={`${country} (${ports.length})`}
+          defaultOpened
+          childrenOffset={0}
+          styles={{ root: { borderRadius: 4 }, label: { fontWeight: 600 } }}
+        >
+          {ports.map((p) => (
+            <PortRow key={p.id} port={p} selectedId={selectedId} onSelect={onSelect} pl={20} />
+          ))}
+        </NavLink>
       ))}
     </>
   );
@@ -157,6 +221,9 @@ function PortsScreen() {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingPierDeletes, setPendingPierDeletes] = useState<string[]>([]);
+  const [nameFilter, setNameFilter] = useState('');
+  const [countryFilter, setCountryFilter] = useState<string | null>(null);
+  const [grouped, setGrouped] = useState(true);
 
   const { data: currentUser } = useCurrentUser();
   const isAdm = currentUser?.role === 'ADM';
@@ -247,23 +314,43 @@ function PortsScreen() {
     [deletePort, reloadList],
   );
 
-  const currentIndex = selectedId !== null ? portList.findIndex((n) => n.id === selectedId) : -1;
-  const canNavigate = portList.length > 1;
+  const countryOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of portList) if (p.country?.trim()) set.add(p.country.trim());
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [portList]);
+
+  const visiblePorts = useMemo(() => {
+    const needle = nameFilter.trim().toLowerCase();
+    return portList.filter((p) => {
+      if (countryFilter !== null && (p.country?.trim() ?? '') !== countryFilter) return false;
+      if (needle === '') return true;
+      return (
+        p.name.toLowerCase().includes(needle) ||
+        (p.abbreviation ?? '').toLowerCase().includes(needle)
+      );
+    });
+  }, [portList, nameFilter, countryFilter]);
+
+  // Navigation follows the filtered view so Prior/Next match what is on screen.
+  const currentIndex =
+    selectedId !== null ? visiblePorts.findIndex((n) => n.id === selectedId) : -1;
+  const canNavigate = visiblePorts.length > 1;
 
   function handleFirst() {
-    const f = portList[0];
+    const f = visiblePorts[0];
     if (f) setSelectedId(f.id);
   }
   function handleLast() {
-    const l = portList[portList.length - 1];
+    const l = visiblePorts[visiblePorts.length - 1];
     if (l) setSelectedId(l.id);
   }
   function handlePrior() {
-    if (currentIndex > 0) setSelectedId(portList[currentIndex - 1]!.id);
+    if (currentIndex > 0) setSelectedId(visiblePorts[currentIndex - 1]!.id);
   }
   function handleNext() {
-    if (currentIndex >= 0 && currentIndex < portList.length - 1)
-      setSelectedId(portList[currentIndex + 1]!.id);
+    if (currentIndex >= 0 && currentIndex < visiblePorts.length - 1)
+      setSelectedId(visiblePorts[currentIndex + 1]!.id);
   }
   function handleNew() {
     setSelectedId(null);
@@ -307,9 +394,34 @@ function PortsScreen() {
             }}
           >
             <Stack gap="xs" p="sm" style={{ flexShrink: 0 }}>
-              <Text size="xs" fw={600} tt="uppercase" c="dimmed">
-                Port List
-              </Text>
+              <Group justify="space-between" align="center" wrap="nowrap">
+                <Text size="xs" fw={600} tt="uppercase" c="dimmed">
+                  Port List
+                </Text>
+                <Switch
+                  size="xs"
+                  label="By country"
+                  checked={grouped}
+                  onChange={(e) => setGrouped(e.currentTarget.checked)}
+                />
+              </Group>
+              <TextInput
+                size="xs"
+                placeholder="Filter ports…"
+                value={nameFilter}
+                onChange={(e) => setNameFilter(e.currentTarget.value)}
+                aria-label="Filter ports by name"
+              />
+              <Select
+                size="xs"
+                placeholder="All countries"
+                data={countryOptions}
+                value={countryFilter}
+                onChange={setCountryFilter}
+                clearable
+                searchable
+                aria-label="Filter ports by country"
+              />
             </Stack>
             <Divider />
             <ScrollArea flex={1} p="xs">
@@ -318,12 +430,17 @@ function PortsScreen() {
                   <Loader size="sm" />
                 </Center>
               )}
-              {!isLoadingList && portList.length === 0 && (
+              {!isLoadingList && visiblePorts.length === 0 && (
                 <Text size="sm" c="dimmed" p="sm">
-                  No ports found.
+                  {portList.length === 0 ? 'No ports found.' : 'No ports match these filters.'}
                 </Text>
               )}
-              <PortNavList items={portList} selectedId={selectedId} onSelect={setSelectedId} />
+              <PortNavList
+                items={visiblePorts}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                grouped={grouped}
+              />
             </ScrollArea>
           </Grid.Col>
 

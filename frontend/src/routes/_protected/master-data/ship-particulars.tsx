@@ -7,6 +7,7 @@ import type { ShipParticularCreateInput } from '@portlog/schemas';
 import { MasterDetailShell } from '../../../components/master-data/MasterDetailShell';
 import type { ListItem } from '../../../components/master-data/MasterDetailShell';
 import { EntityPicker } from '../../../components/master-data/EntityPicker';
+import { EmailChipsInput } from '../../../components/master-data/EmailChipsInput';
 import {
   useShipParticulars,
   useSaveShipParticular,
@@ -46,7 +47,7 @@ function ShipParticularsScreen() {
       dwt: ship.dwt ?? undefined,
       grt: ship.grt ?? undefined,
       nrt: ship.nrt ?? undefined,
-      email: ship.email ?? undefined,
+      emails: ship.emails ?? [],
       imoNumber: ship.imoNumber ?? undefined,
       phone: ship.phone ?? undefined,
       phone2: ship.phone2 ?? undefined,
@@ -282,11 +283,16 @@ function ShipParticularFields({
       {/* Row 5: Contact info */}
       <Grid>
         <Grid.Col span={6}>
-          <TextInput
-            label="Email"
-            placeholder="vessel@operator.com"
-            error={form.formState.errors.email?.message}
-            {...form.register('email')}
+          <Controller
+            control={form.control}
+            name="emails"
+            render={({ field, fieldState }) => (
+              <EmailChipsInput
+                value={field.value ?? []}
+                onChange={field.onChange}
+                error={fieldState.error?.message}
+              />
+            )}
           />
         </Grid.Col>
         <Grid.Col span={6}>
@@ -306,14 +312,6 @@ function ShipParticularFields({
             placeholder="+1 555 0101"
             error={form.formState.errors.phone2?.message}
             {...form.register('phone2')}
-          />
-        </Grid.Col>
-        <Grid.Col span={6}>
-          <TextInput
-            label="Fax"
-            placeholder="+1 555 0102"
-            error={form.formState.errors.fax?.message}
-            {...form.register('fax')}
           />
         </Grid.Col>
       </Grid>

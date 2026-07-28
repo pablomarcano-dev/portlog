@@ -1,12 +1,13 @@
 import { z } from 'zod';
+import { emailList, optionalText } from '../../common/fields';
 import { ListQuerySchema } from '../../common/pagination';
 
 export const ShipperCreateSchema = z.object({
   name: z.string().min(1).max(120),
-  email: z.string().email().toLowerCase().optional(),
-  businessPhone: z.string().min(1).max(50).optional(),
-  businessFax: z.string().min(1).max(50).optional(),
-  address: z.string().min(1).max(500).optional(),
+  emails: emailList(),
+  businessPhone: optionalText(50),
+  businessFax: optionalText(50),
+  address: optionalText(500),
   comments: z.string().max(10_000).optional(),
 });
 

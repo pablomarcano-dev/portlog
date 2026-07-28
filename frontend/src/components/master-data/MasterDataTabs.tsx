@@ -11,6 +11,8 @@ interface TabDef {
  * Active tab is derived from the current route pathname so it stays in sync
  * with browser navigation.
  */
+// Clients is intentionally absent: the tab is hidden pending the scope decision in
+// .claude/plans/04-clients-sales-scope.md. The route and its data are untouched.
 const TABS: TabDef[] = [
   { label: 'Ship Particulars', path: '/master-data/ship-particulars' },
   { label: 'Owners', path: '/master-data/owners' },
@@ -25,7 +27,6 @@ const TABS: TabDef[] = [
   { label: 'Operators', path: '/master-data/operators' },
   { label: 'Contacts', path: '/master-data/contacts' },
   { label: 'Suppliers', path: '/master-data/suppliers' },
-  { label: 'Clients', path: '/master-data/clients' },
   { label: 'Services', path: '/master-data/services' },
   { label: 'Branches', path: '/master-data/branches' },
   { label: 'Email Groups', path: '/master-data/email-groups' },

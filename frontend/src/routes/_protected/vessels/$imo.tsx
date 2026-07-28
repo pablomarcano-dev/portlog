@@ -232,7 +232,7 @@ function VesselDetailPage() {
     ].filter(Boolean);
     return {
       name: dd.technical_manager!,
-      email: dd.email ?? undefined,
+      emails: dd.email ? [dd.email] : [],
       businessPhone: dd.phone ?? undefined,
       address: dd.address ?? undefined,
       comments: commentParts.join('\n') || undefined,
