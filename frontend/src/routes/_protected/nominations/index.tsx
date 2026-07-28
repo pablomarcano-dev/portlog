@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { Stack, Group, Title, Button, Alert, Pagination, Text, Switch } from '@mantine/core';
 import { useState } from 'react';
-import { NominationListQuerySchema } from '@portlog/schemas';
-import type { NominationListItem, NominationListQuery, NominationStatus } from '@portlog/schemas';
+import { NominationListSearchSchema } from '@portlog/schemas';
+import type { NominationListItem, NominationListSearch, NominationStatus } from '@portlog/schemas';
 import { NominationFilters } from '../../../features/nominations/components/NominationFilters';
 import { NominationTable } from '../../../features/nominations/components/NominationTable';
 import { useNominationList } from '../../../features/nominations/hooks/useNominationList';
@@ -12,7 +12,7 @@ import { useNominationList } from '../../../features/nominations/hooks/useNomina
 const ACTIVE_STATUSES: NominationStatus[] = ['NOMINATED', 'IN_PORT'];
 
 export const Route = createFileRoute('/_protected/nominations/')({
-  validateSearch: (search) => NominationListQuerySchema.parse(search),
+  validateSearch: (search) => NominationListSearchSchema.parse(search),
   component: NominationListPage,
 });
 
@@ -34,8 +34,8 @@ function NominationListPage() {
 
   const totalPages = data ? Math.ceil(data.total / data.pageSize) : 1;
 
-  function setSearch(updates: Partial<NominationListQuery>) {
-    const next: NominationListQuery = { ...search, ...updates };
+  function setSearch(updates: Partial<NominationListSearch>) {
+    const next: NominationListSearch = { ...search, ...updates };
     void navigate({ to: '/nominations', search: next });
   }
 

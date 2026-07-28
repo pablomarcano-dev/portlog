@@ -29,3 +29,31 @@ const DATE_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
 export function formatDateTime(value: Date | string | number, locale?: string): string {
   return new Date(value).toLocaleString(locale, DATE_TIME_OPTIONS);
 }
+
+/**
+ * Serialises a Date to the `YYYY-MM-DD` form used in URL search params, reading the **local**
+ * calendar date.
+ *
+ * `toISOString().slice(0, 10)` is wrong here: a date picker yields local midnight, which in
+ * GMT-3 is 03:00 UTC the same day but in GMT+2 is 22:00 UTC the *previous* day — so the URL
+ * would carry a different day than the one the user clicked.
+ */
+export function toDateParam(value: Date): string {
+  const y = value.getFullYear();
+  const m = String(value.getMonth() + 1).padStart(2, '0');
+  const d = String(value.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Parses a `YYYY-MM-DD` search param back into a Date at **local** midnight.
+ *
+ * `new Date('2026-07-01')` parses as UTC midnight, which renders as 30 June in any negative
+ * offset — the picker would show the day before the one in the URL.
+ */
+export function fromDateParam(value: string | undefined): Date | null {
+  if (!value) return null;
+  const [y, m, d] = value.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
+}

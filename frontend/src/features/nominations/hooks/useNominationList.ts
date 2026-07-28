@@ -1,14 +1,14 @@
 import { queryOptions, useQuery } from '@tanstack/react-query';
-import type { NominationListQuery, NominationListResponse } from '@portlog/schemas';
+import type { NominationListSearch, NominationListResponse } from '@portlog/schemas';
 import { nominationsApi } from '../api';
 
-export const nominationListQueryOptions = (query: Partial<NominationListQuery>) =>
+export const nominationListQueryOptions = (query: Partial<NominationListSearch>) =>
   queryOptions<NominationListResponse>({
     queryKey: ['nominations', 'list', query],
     queryFn: () => nominationsApi.list(query),
     staleTime: 30_000,
   });
 
-export function useNominationList(query: Partial<NominationListQuery>) {
+export function useNominationList(query: Partial<NominationListSearch>) {
   return useQuery(nominationListQueryOptions(query));
 }

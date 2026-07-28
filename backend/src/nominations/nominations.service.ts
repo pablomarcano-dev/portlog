@@ -313,9 +313,15 @@ export class NominationsService {
       });
     }
     if (dateFrom || dateTo) {
+      // dateNominated is a timestamptz but the filter is a calendar date, so dateTo has to cover
+      // the whole day. `lte: <the date>` resolves to midnight and silently excluded every
+      // nomination recorded later on the end date itself.
+      const dayAfterDateTo = dateTo ? new Date(dateTo) : null;
+      if (dayAfterDateTo) dayAfterDateTo.setDate(dayAfterDateTo.getDate() + 1);
+
       where.dateNominated = {
         ...(dateFrom ? { gte: dateFrom } : {}),
-        ...(dateTo ? { lte: dateTo } : {}),
+        ...(dayAfterDateTo ? { lt: dayAfterDateTo } : {}),
       };
     }
     if (search) {

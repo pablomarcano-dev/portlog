@@ -5,7 +5,7 @@ import {
   NominationClientSchema,
   SaleReadSchema,
   SofTimesheetResponseSchema,
-  type NominationListQuery,
+  type NominationListSearch,
   type NominationListResponse,
   type NominationCreateInput,
   type NominationUpdateInput,
@@ -23,14 +23,15 @@ import {
 import { z } from 'zod';
 
 export const nominationsApi = {
-  list: async (q: Partial<NominationListQuery>): Promise<NominationListResponse> => {
+  list: async (q: Partial<NominationListSearch>): Promise<NominationListResponse> => {
     const params = new URLSearchParams();
     if (q.status) params.set('status', q.status);
     if (q.portId) params.set('portId', q.portId);
     if (q.country) params.set('country', q.country);
     if (q.shipParticularId) params.set('shipParticularId', q.shipParticularId);
-    if (q.dateFrom) params.set('dateFrom', q.dateFrom.toISOString());
-    if (q.dateTo) params.set('dateTo', q.dateTo.toISOString());
+    // Already `YYYY-MM-DD`; the API coerces to Date server-side.
+    if (q.dateFrom) params.set('dateFrom', q.dateFrom);
+    if (q.dateTo) params.set('dateTo', q.dateTo);
     if (q.search) params.set('search', q.search);
     if (q.page) params.set('page', String(q.page));
     if (q.pageSize) params.set('pageSize', String(q.pageSize));

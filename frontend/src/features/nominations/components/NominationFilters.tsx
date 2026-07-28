@@ -4,6 +4,7 @@ import { useDebouncedValue } from '@mantine/hooks';
 import { useState, useEffect } from 'react';
 import { EntityPicker } from '../../../components/master-data/EntityPicker';
 import { usePortCountries } from '../../../lib/api/master-data/ports';
+import { fromDateParam, toDateParam } from '../../../lib/format/datetime';
 import type { NominationStatus } from '@portlog/schemas';
 
 const STATUS_OPTIONS: Array<{ value: NominationStatus | ''; label: string }> = [
@@ -19,15 +20,16 @@ interface NominationFiltersProps {
   portId: string | undefined;
   country: string | undefined;
   shipParticularId: string | undefined;
-  dateFrom: Date | undefined;
-  dateTo: Date | undefined;
+  /** `YYYY-MM-DD`, not Date — see NominationListSearchSchema for why. */
+  dateFrom: string | undefined;
+  dateTo: string | undefined;
   search: string | undefined;
   onStatusChange: (val: NominationStatus | undefined) => void;
   onPortChange: (val: string | undefined) => void;
   onCountryChange: (val: string | undefined) => void;
   onVesselChange: (val: string | undefined) => void;
-  onDateFromChange: (val: Date | undefined) => void;
-  onDateToChange: (val: Date | undefined) => void;
+  onDateFromChange: (val: string | undefined) => void;
+  onDateToChange: (val: string | undefined) => void;
   onSearchChange: (val: string | undefined) => void;
   onClear: () => void;
 }
@@ -130,16 +132,16 @@ export function NominationFilters({
         />
         <DatePickerInput
           label="Date from"
-          value={dateFrom ?? null}
-          onChange={(val) => onDateFromChange(val ?? undefined)}
+          value={fromDateParam(dateFrom)}
+          onChange={(val) => onDateFromChange(val ? toDateParam(val) : undefined)}
           clearable
           placeholder="Any"
           w={150}
         />
         <DatePickerInput
           label="Date to"
-          value={dateTo ?? null}
-          onChange={(val) => onDateToChange(val ?? undefined)}
+          value={fromDateParam(dateTo)}
+          onChange={(val) => onDateToChange(val ? toDateParam(val) : undefined)}
           clearable
           placeholder="Any"
           w={150}

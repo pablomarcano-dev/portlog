@@ -477,4 +477,68 @@ describe('NominationsService', () => {
       expect(mockPrisma.sale.delete).toHaveBeenCalledWith({ where: { id: SALE_ID } });
     });
   });
+
+  // -------------------------------------------------------------------------
+  // list — date range
+  //
+  // dateNominated is a timestamptz while the filter is a calendar date. Using `lte: dateTo`
+  // resolved to midnight, so anything recorded later on the end date itself was silently
+  // dropped — a nomination dated 12 Jun 09:00 vanished from a "to 12 Jun" filter.
+  // -------------------------------------------------------------------------
+  describe('list — date range', () => {
+    beforeEach(() => {
+      mockPrisma.nomination.findMany.mockResolvedValue([]);
+      mockPrisma.nomination.count.mockResolvedValue(0);
+    });
+
+    const whereFromLastCall = (): Record<string, unknown> => {
+      const call = mockPrisma.nomination.findMany.mock.calls.at(-1) as [
+        { where: Record<string, unknown> },
+      ];
+      return call[0].where;
+    };
+
+    it('makes dateTo inclusive of the whole end day', async () => {
+      await service.list({
+        page: 1,
+        pageSize: 25,
+        dateTo: new Date('2026-06-12T00:00:00.000Z'),
+      } as never);
+
+      const range = whereFromLastCall().dateNominated as { lt: Date; lte?: Date };
+      // Exclusive upper bound at the *next* midnight covers all of 12 June.
+      expect(range.lt.toISOString()).toBe('2026-06-13T00:00:00.000Z');
+      expect(range.lte).toBeUndefined();
+    });
+
+    it('keeps dateFrom as an inclusive lower bound', async () => {
+      await service.list({
+        page: 1,
+        pageSize: 25,
+        dateFrom: new Date('2026-06-10T00:00:00.000Z'),
+      } as never);
+
+      const range = whereFromLastCall().dateNominated as { gte: Date };
+      expect(range.gte.toISOString()).toBe('2026-06-10T00:00:00.000Z');
+    });
+
+    it('applies both bounds together', async () => {
+      await service.list({
+        page: 1,
+        pageSize: 25,
+        dateFrom: new Date('2026-06-10T00:00:00.000Z'),
+        dateTo: new Date('2026-06-12T00:00:00.000Z'),
+      } as never);
+
+      const range = whereFromLastCall().dateNominated as { gte: Date; lt: Date };
+      expect(range.gte.toISOString()).toBe('2026-06-10T00:00:00.000Z');
+      expect(range.lt.toISOString()).toBe('2026-06-13T00:00:00.000Z');
+    });
+
+    it('omits the date filter entirely when neither bound is given', async () => {
+      await service.list({ page: 1, pageSize: 25 } as never);
+
+      expect(whereFromLastCall().dateNominated).toBeUndefined();
+    });
+  });
 });
