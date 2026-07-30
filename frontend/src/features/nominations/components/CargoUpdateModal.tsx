@@ -207,16 +207,17 @@ export function CargoUpdateModal({
       )
       .join('\n\n');
 
+    // Keep the template's header (everything before its first rule) and append
+    // the parcel blocks built from the figures entered above.
     const bodyText =
-      composeData.bodyHtml.replace(/<pre[^>]*>|<\/pre>/gi, '').split('------')[0] +
+      composeData.bodyText.split('------')[0] +
       parcelLines +
       `\n\n${etdStr} ${timeEtd} ETD (Subject to Port Security Inspection / Weather Conditions)`;
 
-    const bodyHtml = `<pre style="font-family:'Courier New',Consolas,monospace;font-size:13px;line-height:1.5;white-space:pre-wrap;padding:16px;margin:0;">${bodyText}</pre>`;
-
     // Hand the built body to the compose drawer so the user can review and edit
-    // recipients/subject/body before the email is actually sent.
-    setEmailBody(bodyHtml);
+    // recipients/subject/body before the email is actually sent. Plain text —
+    // the drawer wraps it for display when sending.
+    setEmailBody(bodyText);
     setComposeOpen(true);
   }
 

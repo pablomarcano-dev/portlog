@@ -1,14 +1,123 @@
 {{!-- Subject: {{ref_line}} - Pre-Arrival Notification --}}
-FM: Servicios Navieramar C.A. Operations.
-Ref: {{vessel_name}} Voy. {{voyage_no}} calling to: {{terminal_name}} S/N: {{sn_ref}} to Load {{cargo_quantity}} of {{cargo_grade}}
-Laydays: {{lay_days}}
-ETA: {{eta_date}}
+{{!--
+  Header lines are individually guarded: a nomination with no operator row in
+  its CLIENT LIST, or no laydays yet, must not mail a bare "Cc:" or "Laydays:".
+--}}
+{{#if vessel_name}}
+To: {{vessel_name}}
+{{/if}}
+{{#if operator_name}}
+Cc: {{operator_name}}
+{{/if}}
+Fm: Servicios Navieramar, C.A. (as Agent Only)
+Ref: {{vessel_name}} Voy. {{voyage_no}}{{#if ref_no}}/ {{ref_no}}{{/if}} Calling to {{terminal_name}} {{sn_ot_ref}}
+{{#if lay_days_long}}
+Laydays: {{lay_days_long}}
+{{/if}}
+{{#if cargo_quantity}}
+Load: {{cargo_quantity}} {{cargo_unit}} {{cargo_grade}} +/- 10%
+{{/if}}
 -------------------------------------------------
 
-Good day,
+Dear Master{{#if master_name}} {{master_name}}{{/if}}, good day!
 
-Please be advised that subject vessel is expected to arrive at {{terminal_name}} on {{eta_date}}. We hereby notify all concerned parties of the vessel's pre-arrival in order to coordinate berthing and operational requirements accordingly.
+We have been appointed{{#if charterer_name}} on behalf of Charterers {{charterer_name}}{{/if}} to attend your vessel on this forthcoming call at {{terminal_name}}. Welcome to this port. We are pleased to serve you and your crew during this call. Please keep us updated daily on your best ETA.
 
-Kindly acknowledge receipt and advise berthing prospects at your earliest convenience.
+To facilitate pre-arrival notification and compliance with initial Port Authority formalities, please send us the following documents and information as soon as possible:
+
+- Crew List
+- Last 10 Ports of Call
+- Maritime Declaration of Health
+- Ship Particulars
+- Vaccination List
+- Ship Sanitation Control Exemption Certificate
+- International Tonnage Certificate
+- Last Port Clearance
+- Passenger List (if applicable)
+- NIL List (if applicable)
+- Crew Effects Declaration
+- Last Garbage Certificate
+- Store Declaration
+- Arms and Ammo Declaration
+- Narcotic List
+- Ballast Water Reporting Form (if applicable)
+- Bunker Reporting Form
+- List of Ship Certificates (with issue and expiry dates)
+- List Rafts Certificate
+- Last Slop Report (if applicable)
+- Declaration of Security
+- MARPOL Certificate 78-73 (IOPP & IAPP)
+- Cover Page of Trim & Stability Book
+- Cover Page of Ship Oil Pollution Emergency Plan (SOPEP)
+- Medical Chest Certificate
+- Medical Report Book
+- Temperature Body Log
+- Healthy Letter Stating The Health of The Crew
+- Bill of Lading (if applicable)
+
+IMPORTANT: Timely submission of these documents is critical for pre-arrival clearance. All documents must be duly signed and stamped by the Master; otherwise, they will not be accepted by the Port Authorities.
+
+Please find attached the following documents crucial for your preparation:
+
+- Port Authority Document Requirements - On Board.pdf: This document outlines the specific documents and number of copies required for presentation to Port Authorities during their onboard inspection.
+
+- PDVSA TAECJAA - Platform Port Restriction.pdf: This document contains specific restrictions and regulations related to the TAECJAA platform.
+
+- Emergency Contact List (SNCA).pdf: This document provides a list of emergency contact numbers for urgent situations.
+
+- Pre-Arrival Questionnaire Jose Offshore Platform TAECJAA and SPM.doc: Please complete this questionnaire and return it to us as soon as possible. This information is essential as per terminal request.
+
+In addition to the attached documents, please provide the following information before your arrival:
+
+a) Any requirements you may have at this call (Crew to Doctor, Crew Change, Garbage, Ship Chandlers, or any other services required).
+b) H2S Level in tanks
+c) Arrival Draft and Displacement, Departure Draft and Displacement.
+d) SCAC CODE (if applicable)
+e) Last & Next Port
+
+Kindly review the following important Pre-Arrival Information:
+
+IMPORTANT NOTES
+
+- Marsec Level: MARSEC Level 1 at Jose & Puerto La Cruz anchorage. Please review and adhere to security protocols as detailed in the attached PDVSA TAECJAA.
+
+- H2S Restrictions: H2S emission levels must be below 10 PPM before arrival. Ensure necessary equipment and safety precautions are in place as detailed in the attached PDVSA TAECJAA.
+
+- Garbage Removal Certificate: Ensure a valid certificate is on board (valid for three months).
+
+- Open-Loop Scrubber: The use of Open-Loop scrubbers is strictly prohibited within port limits and anchorages. To prevent environmental contamination, zero effluent or washwater discharge is allowed.
+
+  - Closed-Loop Operations: Vessels equipped with Hybrid or Closed-Loop EGCS are permitted to operate them only if the system runs exclusively in Closed-Loop mode.
+  - Effluent Retention: All produced washwater and chemical residues must be stored entirely on board in dedicated holding tanks and discharged properly outside of national waters.
+
+- Boarding Restrictions: No unauthorized boarding at anchorage. Contact us for any required personnel.
+
+- Venezuelan Flag: Confirm you have the current 8-star Venezuelan flag onboard. If not, we can arrange this.
+
+- Ballast Water Exchange: All vessels must strictly adhere to the BWM Convention. The following documentation and protocols are mandatory:
+
+  - Vessel must carry a ship-specific BWMP (Management Plan), a BWRB (Record Book), and a valid International BWM Certificate.
+  - Standards: Compliance with either D-1 (Ballast Water Exchange) or D-2 (Performance/Treatment System) is required.
+  - Exchange Protocol (D-1): Must be conducted 200 nautical miles from land and 200 meters deep, ensuring a minimum 95% volumetric efficiency.
+
+  The Master must specify the approved method used: Sequential (empty/refill), Flow-through (3x volume), or Dilution (simultaneous fill/discharge).
+
+- Sea Chest Obstruction: Kindly be advised that if, during the underwater inspection on arrival, the divers find the sea chest obstructed, the national guard will request that it be cleaned. According to the port authority regulation, they will re-inspect upon departure again for drugs and contraband, and if the sea chest grid hasn't been cleaned, your vessel cannot receive authorization to sail.
+
+- Free Pratique: The radio free pratique does not apply at this port. The port authorities have requested that the free practice be performed at the anchorage area under daylight and good weather conditions or alongside if necessary.
+
+OTHER IMPORTANT INFORMATION
+
+- Time Zone: LOCAL CENTRAL STANDARD TIME (CST) - Greenwich Mean Time minus 4.0 hours.
+
+- Inward Clearance: A team of officials (Sanitation, Harbour Office, Quarantine (INSAI), Customs, National Guard, Coast Guard, Immigration, Agent) will board for inspection.
+
+- Anchorage: Area granted by VTS port control 24 Hrs prior to arrival. Storing/Bunkering/Crew change permitted with ISPS permission.
+
+- JOSE PILOT BOARDING POSITION: 10° 08' 55" N / 064° 51' 25" W (referential coordinates).
+
+- Provisions, Crew Change, Hull Cleaning, Garbage: Only at Jose Anchorage.
+
+Due to specific terminal restrictions, the requested Owners/Operators requirements cannot be carried out alongside the berth. However, it can be performed at Jose Bay (at anchorage), either before the vessel's berthing or upon completion of berth stay.
 
 {{> signature}}

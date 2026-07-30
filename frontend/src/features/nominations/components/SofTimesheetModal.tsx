@@ -660,7 +660,7 @@ export function SofTimesheetModal({
           nominationId={nominationId}
           subDocType="SOF"
           defaultSubject={sofComposeData?.subject ?? ''}
-          defaultBody={sofComposeData?.bodyHtml}
+          defaultBody={sofComposeData?.bodyText}
         />
       )}
     </>

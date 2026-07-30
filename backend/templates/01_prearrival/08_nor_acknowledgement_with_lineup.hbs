@@ -8,9 +8,15 @@ Cc: {{cc_recipients}}
 {{/if}}
 Fm: Servicios Navieramar, C.A. (as Agent Only)
 Ref: {{ref_line}}
+{{#if laycan}}
 Laycan: {{laycan}}
-To Load: {{cargo_quantity}} {{cargo_grade}} +/- 10%
+{{/if}}
+{{#if cargo_quantity}}
+To Load: {{cargo_quantity}} {{cargo_unit}} {{cargo_grade}} +/- 10%
+{{/if}}
+{{#if lay_days}}
 Laydays: {{lay_days}}
+{{/if}}
 
 Good day, dear Master!
 

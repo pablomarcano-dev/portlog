@@ -5,7 +5,11 @@ import {
   MethodNotAllowedException,
   NotFoundException,
 } from '@nestjs/common';
-import { NominationsService } from './nominations.service.js';
+import {
+  NominationsService,
+  formatCargoQuantity,
+  formatLaydayRange,
+} from './nominations.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { AttachmentsService } from '../attachments/attachments.service.js';
@@ -669,5 +673,123 @@ describe('NominationsService', () => {
       expect(resolve([{ type: 'Charterer', name: '' }], null)).toBe('');
       expect(resolve([], null)).toBe('');
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // resolveClientByType — the pre-arrival letter's "Cc:" (operator) and its
+  // "on behalf of Charterers …" clause read different slices of the same list.
+  // -------------------------------------------------------------------------
+  describe('resolveClientByType', () => {
+    const svc = NominationsService as unknown as {
+      resolveClientByType: (
+        c: { type: string; name: string }[],
+        priority: readonly string[],
+      ) => string;
+      OPERATOR_TYPES: readonly string[];
+      CHARTERER_TYPES: readonly string[];
+    };
+
+    const operator = (clients: { type: string; name: string }[]) =>
+      svc.resolveClientByType(clients, svc.OPERATOR_TYPES);
+    const charterer = (clients: { type: string; name: string }[]) =>
+      svc.resolveClientByType(clients, svc.CHARTERER_TYPES);
+
+    it('picks the commercial operator ahead of the owner rows', () => {
+      expect(
+        operator([
+          { type: 'Head Owner', name: 'Maran Tankers Management INC' },
+          { type: 'Commercial Operator', name: 'Maran Tankers Ops Dpt' },
+        ]),
+      ).toBe('Maran Tankers Ops Dpt');
+    });
+
+    it('falls through to an owner row when no operator is named', () => {
+      expect(
+        operator([
+          { type: 'Commercial Operator', name: '  ' },
+          { type: 'Disponent Owner', name: 'Nordic Bulk Carriers AS' },
+        ]),
+      ).toBe('Nordic Bulk Carriers AS');
+    });
+
+    it('does not treat the charterer as the operator', () => {
+      expect(operator([{ type: 'Charterer', name: 'Reliance Industries Limited' }])).toBe('');
+    });
+
+    it('resolves the charterer, time charter included', () => {
+      expect(charterer([{ type: 'Charterer', name: 'Reliance Industries Limited' }])).toBe(
+        'Reliance Industries Limited',
+      );
+      expect(charterer([{ type: 'Time Charter', name: 'Cargill S.A.' }])).toBe('Cargill S.A.');
+    });
+
+    it('does not treat the operator as the charterer', () => {
+      expect(charterer([{ type: 'Commercial Operator', name: 'Maran Tankers Ops Dpt' }])).toBe('');
+    });
+
+    it('returns empty when nothing matches, so the line is dropped', () => {
+      expect(operator([])).toBe('');
+      expect(charterer([{ type: 'Shipper', name: 'Cargill S.A.' }])).toBe('');
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Notice formatters — these render onto legally binding notices, so the exact
+// output matters and is pinned here.
+// ---------------------------------------------------------------------------
+describe('formatLaydayRange', () => {
+  // Local dates: the formatter reads calendar parts, matching how the agency
+  // reads laydays off the fixture.
+  const d = (y: number, m: number, day: number) => new Date(y, m - 1, day);
+
+  it('collapses month and year when both ends share them', () => {
+    expect(formatLaydayRange(d(2026, 7, 6), d(2026, 7, 10))).toBe('Jul. 06th-10th, 2026');
+  });
+
+  it('repeats the month across a month boundary', () => {
+    expect(formatLaydayRange(d(2026, 7, 30), d(2026, 8, 2))).toBe('Jul. 30th - Aug. 02nd, 2026');
+  });
+
+  it('repeats the year across a year boundary', () => {
+    expect(formatLaydayRange(d(2025, 12, 30), d(2026, 1, 2))).toBe(
+      'Dec. 30th, 2025 - Jan. 02nd, 2026',
+    );
+  });
+
+  it('renders a single date when only one end is set', () => {
+    expect(formatLaydayRange(d(2026, 2, 3), null)).toBe('Feb. 03rd, 2026');
+    expect(formatLaydayRange(null, d(2026, 2, 7))).toBe('Feb. 07th, 2026');
+  });
+
+  it('returns empty when no laydays are recorded, so the line is dropped', () => {
+    expect(formatLaydayRange(null, null)).toBe('');
+  });
+
+  it('uses "th" for the teens rather than st/nd/rd', () => {
+    expect(formatLaydayRange(d(2026, 5, 11), d(2026, 5, 13))).toBe('May. 11th-13th, 2026');
+    expect(formatLaydayRange(d(2026, 5, 21), d(2026, 5, 22))).toBe('May. 21st-22nd, 2026');
+  });
+});
+
+describe('formatCargoQuantity', () => {
+  it('groups thousands so a cargo figure is readable', () => {
+    expect(formatCargoQuantity(1900000)).toBe('1,900,000');
+    expect(formatCargoQuantity(2000)).toBe('2,000');
+    expect(formatCargoQuantity(999)).toBe('999');
+  });
+
+  it('accepts the numeric strings that come out of the parcels JSON', () => {
+    expect(formatCargoQuantity('1900000')).toBe('1,900,000');
+  });
+
+  it('renders nothing for a missing quantity rather than "0" or "NaN"', () => {
+    expect(formatCargoQuantity(null)).toBe('');
+    expect(formatCargoQuantity(undefined)).toBe('');
+    expect(formatCargoQuantity('')).toBe('');
+  });
+
+  it('passes non-numeric text through untouched', () => {
+    expect(formatCargoQuantity('part cargo')).toBe('part cargo');
   });
 });
