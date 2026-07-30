@@ -15,6 +15,7 @@ export type SafeUser = {
   id: string;
   email: string;
   displayName: string | null;
+  jobTitle: string | null;
   phone: string | null;
   mobile: string | null;
   fax: string | null;
@@ -30,6 +31,7 @@ const SAFE_USER_SELECT = {
   id: true,
   email: true,
   displayName: true,
+  jobTitle: true,
   phone: true,
   mobile: true,
   fax: true,
@@ -50,6 +52,7 @@ export type CreateUserDto = {
 
 export type UpdateUserDto = {
   displayName?: string;
+  jobTitle?: string;
   phone?: string;
   mobile?: string;
   fax?: string;
@@ -126,6 +129,7 @@ export class UsersService {
       where: { id },
       data: {
         ...(dto.displayName !== undefined ? { displayName: dto.displayName } : {}),
+        ...(dto.jobTitle !== undefined ? { jobTitle: dto.jobTitle } : {}),
         ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
         ...(dto.mobile !== undefined ? { mobile: dto.mobile } : {}),
         ...(dto.fax !== undefined ? { fax: dto.fax } : {}),

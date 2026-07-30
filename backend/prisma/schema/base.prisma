@@ -25,6 +25,7 @@ model User {
   email         String         @unique
   passwordHash  String
   displayName   String? // full name for email signatures e.g. "Carlos Ferrer"
+  jobTitle      String? // title line in email signatures e.g. "Fleet Manager"
   phone         String? // office direct line
   mobile        String? // personal / 24h mobile
   fax           String? // office fax

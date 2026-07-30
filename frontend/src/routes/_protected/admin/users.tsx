@@ -336,6 +336,7 @@ function EditUserModal({ user, onClose }: { user: AdminUser; onClose: () => void
     resolver: zodResolver(UpdateUserSchema),
     defaultValues: {
       displayName: user.displayName ?? '',
+      jobTitle: user.jobTitle ?? '',
       phone: user.phone ?? '',
       mobile: user.mobile ?? '',
       fax: user.fax ?? '',
@@ -363,6 +364,13 @@ function EditUserModal({ user, onClose }: { user: AdminUser; onClose: () => void
             placeholder="Full name"
             error={form.formState.errors.displayName?.message}
             {...form.register('displayName')}
+          />
+          <TextInput
+            label="Job Title"
+            placeholder="Fleet Manager"
+            description="Shown under the name in email signatures"
+            error={form.formState.errors.jobTitle?.message}
+            {...form.register('jobTitle')}
           />
           <TextInput
             label="Phone"

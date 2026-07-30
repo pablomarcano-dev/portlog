@@ -7,7 +7,9 @@ Oper Port : {{oper_port}}
 Operation : {{operation}}
 Lay Days  : {{lay_days}}
 
+{{#if terminal_name}}
 TO: {{terminal_name}}   ATTN: LOADING MASTER
+{{/if}}
 CC: PDVSA PETROLEO, S.A. C&S
 FM: SERVICIOS NAVIERAMAR, C.A. OPERATIONS
 
@@ -30,13 +32,4 @@ UNQUOTE
 
 Please advise berthing prospects.
 
-BEST REGARDS,
-{{agent_name}}
-{{agent_title}}
-SERVICIOS NAVIERAMAR, C.A. (As Agents Only)
-{{branch_office}}
-Covering/Attending: {{branch_coverage}}
-
-Address: {{branch_address}}
-Mobile 24 hrs: {{agent_mobile}}
-Email: {{agent_email}}
+{{> signature}}

@@ -9,6 +9,7 @@ import { NominationsService } from './nominations.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { AttachmentsService } from '../attachments/attachments.service.js';
+import { EmailTemplateService } from '../email-templates/email-template.service.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -126,6 +127,10 @@ const mockEmailService = {};
 // No spec exercises attachment paths — an empty mock satisfies DI.
 const mockAttachmentsService = {};
 
+// Template rendering is covered by email-template.service.spec.ts, which renders
+// the real files; here an empty mock just satisfies DI.
+const mockEmailTemplateService = {};
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -142,6 +147,7 @@ describe('NominationsService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EmailService, useValue: mockEmailService },
         { provide: AttachmentsService, useValue: mockAttachmentsService },
+        { provide: EmailTemplateService, useValue: mockEmailTemplateService },
       ],
     }).compile();
 
@@ -587,6 +593,81 @@ describe('NominationsService', () => {
       await service.list({ page: 1, pageSize: 25 } as never);
 
       expect(whereFromLastCall().dateNominated).toBeUndefined();
+    });
+  });
+  // -------------------------------------------------------------------------
+  // resolveNominatingParty — the acknowledgement email's "TO:" line
+  //
+  // The nominating company lives only in the client list. The four default rows
+  // are auto-created blank on every nomination, so blanks must be skipped rather
+  // than emitted as a bare "TO:". nominatedById is an internal user and is a last
+  // resort only.
+  // -------------------------------------------------------------------------
+  describe('resolveNominatingParty', () => {
+    const resolve = (
+      clients: { type: string; name: string }[],
+      nominatedBy: { displayName: string | null; email: string } | null = null,
+    ): string =>
+      (
+        NominationsService as unknown as {
+          resolveNominatingParty: (
+            c: { type: string; name: string }[],
+            n: { displayName: string | null; email: string } | null,
+          ) => string;
+        }
+      ).resolveNominatingParty(clients, nominatedBy);
+
+    it('prefers the charterer over other filled rows', () => {
+      expect(
+        resolve([
+          { type: 'Shipper', name: 'Cargill S.A.' },
+          { type: 'Charterer', name: 'Reliance Industries Limited' },
+        ]),
+      ).toBe('Reliance Industries Limited');
+    });
+
+    it('falls through the priority order when the charterer row is blank', () => {
+      expect(
+        resolve([
+          { type: 'Charterer', name: '   ' },
+          { type: 'Disponent Owner', name: 'Nordic Bulk Carriers AS' },
+        ]),
+      ).toBe('Nordic Bulk Carriers AS');
+    });
+
+    it('matches the type case-insensitively and trims the name', () => {
+      expect(resolve([{ type: '  CHARTERER ', name: '  Bunge Uruguay S.A. ' }])).toBe(
+        'Bunge Uruguay S.A.',
+      );
+    });
+
+    it('uses any other filled row before falling back to a user', () => {
+      expect(
+        resolve([{ type: 'Receivers', name: 'SGS Uruguay S.A.' }], {
+          displayName: 'Martin Silva',
+          email: 'ops@portlog.local',
+        }),
+      ).toBe('SGS Uruguay S.A.');
+    });
+
+    it('defaults to nominatedById when no company is recorded', () => {
+      expect(
+        resolve([{ type: 'Charterer', name: '' }], {
+          displayName: 'Martin Silva',
+          email: 'ops@portlog.local',
+        }),
+      ).toBe('Martin Silva');
+    });
+
+    it('uses the user email when that user has no display name', () => {
+      expect(resolve([], { displayName: null, email: 'ops@portlog.local' })).toBe(
+        'ops@portlog.local',
+      );
+    });
+
+    it('returns empty so the TO: line is omitted entirely', () => {
+      expect(resolve([{ type: 'Charterer', name: '' }], null)).toBe('');
+      expect(resolve([], null)).toBe('');
     });
   });
 });

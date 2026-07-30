@@ -1,0 +1,25 @@
+{{!--
+  The one and only email signature. Every template under templates/ ends with
+  {{> signature}} — never inline a sign-off, or the templates drift apart again
+  (the acknowledgement carried two different signatures until 29 Jul 2026).
+
+  Lines whose value is empty are dropped rather than rendered as a bare label,
+  so a branch or user with incomplete master data still produces a clean block.
+--}}
+Best Regards,
+
+{{agent_name}}
+{{#if agent_title}}
+{{agent_title}}
+{{/if}}
+Servicios Navieramar (As Agent Only)
+{{#if agent_email}}
+✉️ {{agent_email}}
+{{/if}}
+{{#if agent_phones}}
+💬 {{agent_phones}}
+{{/if}}
+OPERATIONAL MATTERS: {{agent_email}} | {{company_website}}
+✓ 30 Years of Excellence | © {{current_year}} Servicios Navieramar
+
+The content of this email is confidential and intended for the recipient specified in the message only. It is strictly forbidden to share any part of this message with any third party, without the written consent of the sender. If you received this message by mistake, please reply to this message and follow with its deletion, so that we can ensure such a mistake does not occur in the future.

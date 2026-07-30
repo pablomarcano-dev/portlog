@@ -4,9 +4,10 @@ import { NominationsService } from './nominations.service.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { EmailModule } from '../email/email.module.js';
 import { AttachmentsModule } from '../attachments/attachments.module.js';
+import { EmailTemplatesModule } from '../email-templates/email-templates.module.js';
 
 @Module({
-  imports: [PrismaModule, EmailModule, AttachmentsModule],
+  imports: [PrismaModule, EmailModule, AttachmentsModule, EmailTemplatesModule],
   controllers: [NominationsController],
   providers: [NominationsService],
   exports: [NominationsService],

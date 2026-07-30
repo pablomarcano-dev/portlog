@@ -1,7 +1,11 @@
 {{!-- Subject: {{ref_line}} - Notice of Readiness Tendered --}}
 
+{{#if to_recipients}}
 To: {{to_recipients}}
+{{/if}}
+{{#if cc_recipients}}
 Cc: {{cc_recipients}}
+{{/if}}
 Fm: Servicios Navieramar, C.A. (as Agent Only)
 Ref: {{ref_line}}
 Laycan: {{laycan}}
@@ -20,13 +24,4 @@ Kindly find below the current situation at {{terminal_name}}:
 
 We'll keep you duly updated!
 
-BEST REGARDS,
-{{agent_name}}
-{{agent_title}}
-SERVICIOS NAVIERAMAR, C.A. (As Agents Only)
-{{branch_office}}
-Covering/Attending: {{branch_coverage}}
-
-Address: {{branch_address}}
-Mobile 24 hrs: {{agent_mobile}}
-Email: {{agent_email}}
+{{> signature}}
