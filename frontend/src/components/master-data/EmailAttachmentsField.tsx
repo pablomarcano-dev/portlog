@@ -77,6 +77,12 @@ export function EmailAttachmentsField({
     let remainingSlots = MAX_ATTACHMENTS_PER_EMAIL - value.length - pending.length;
     let runningTotal = uploadedTotal + pending.reduce((s, p) => s + p.sizeBytes, 0);
 
+    // `value` is the prop as of the render that started this loop: it does not
+    // update while we await each upload. Accumulate the ids here and hand the
+    // parent the whole list every time — rebuilding from the stale prop on each
+    // iteration meant a multi-file selection submitted only the last upload.
+    const nextIds = [...value];
+
     for (const file of files) {
       if (remainingSlots <= 0) {
         notifications.show({
@@ -123,7 +129,8 @@ export function EmailAttachmentsField({
           ...prev,
           { id: uploaded.id, filename: uploaded.filename, sizeBytes: uploaded.sizeBytes },
         ]);
-        onChange([...value, uploaded.id]);
+        nextIds.push(uploaded.id);
+        onChange([...nextIds]);
       } catch (err) {
         notifications.show({
           color: 'red',

@@ -66,13 +66,18 @@ describe('EmailTemplateService', () => {
 
     it('never renders a header label with nothing after it', async () => {
       // to_recipients / cc_recipients were referenced by three templates before
-      // anything supplied them, leaving a bare "To:" in the sent email.
+      // anything supplied them, leaving a bare "To:" in the sent email. The
+      // laycan/cargo labels went the same way on a nomination with no laydays
+      // or parcels yet, so they are guarded and asserted here too.
+      //
+      // "Lay Days  :" (the SOF-family spelling) is deliberately not covered —
+      // those ~20 templates still render it unguarded.
       const offenders: { template: string; line: string }[] = [];
 
       for (const relPath of templates) {
         const { bodyText } = await service.render(relPath, VARS);
         for (const line of bodyText.split('\n')) {
-          if (/^(TO|To|CC|Cc|FM|Fm):\s*$/.test(line)) {
+          if (/^(TO|To|CC|Cc|FM|Fm|Laydays|Laycan|Load|To Load):\s*$/.test(line)) {
             offenders.push({ template: relPath, line });
           }
         }
@@ -161,6 +166,102 @@ describe('EmailTemplateService', () => {
 
       expect(bodyHtml.startsWith('<pre style=')).toBe(true);
       expect(bodyHtml.endsWith('</pre>')).toBe(true);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // The pre-arrival notification is the letter the Master reads on approach, so
+  // its header block is pinned line by line.
+  // -------------------------------------------------------------------------
+  describe('pre-arrival notification', () => {
+    const PREARRIVAL = '01_prearrival/10_prearrival_notification.hbs';
+
+    const FULL = {
+      ...VARS,
+      vessel_name: 'MT Maran Leo',
+      operator_name: 'Maran Tankers Management INC Ops Dpt',
+      voyage_no: '031',
+      ref_no: 'RIL CP Dec 02nd-24',
+      terminal_name: 'PDVSA TAECJAA OFF-SHORE PLATFORM, JOSE',
+      sn_ot_ref: 'SN1522/24/JSE',
+      lay_days_long: 'Jul. 06th-10th, 2026',
+      cargo_quantity: '1,900,000',
+      cargo_unit: 'BBLS',
+      cargo_grade: 'MEREY 16 CRUDE OIL',
+      master_name: 'Anjan Saini',
+      charterer_name: 'Reliance Industries Limited',
+    };
+
+    it('renders the agreed header block', async () => {
+      const { bodyText } = await service.render(PREARRIVAL, FULL);
+
+      expect(bodyText.split('-----')[0].trimEnd()).toBe(
+        [
+          'To: MT Maran Leo',
+          'Cc: Maran Tankers Management INC Ops Dpt',
+          'Fm: Servicios Navieramar, C.A. (as Agent Only)',
+          'Ref: MT Maran Leo Voy. 031/ RIL CP Dec 02nd-24 Calling to PDVSA TAECJAA OFF-SHORE PLATFORM, JOSE SN1522/24/JSE',
+          'Laydays: Jul. 06th-10th, 2026',
+          'Load: 1,900,000 BBLS MEREY 16 CRUDE OIL +/- 10%',
+        ].join('\n'),
+      );
+    });
+
+    it('states the cargo quantity with its unit', async () => {
+      // The unit was missing from the Load line, so a 1,900,000 BBLS fixture
+      // read as a bare "1900000".
+      const { bodyText } = await service.render(PREARRIVAL, FULL);
+
+      expect(bodyText).toContain('Load: 1,900,000 BBLS MEREY 16 CRUDE OIL +/- 10%');
+    });
+
+    it('drops the optional header lines rather than leaving bare labels', async () => {
+      const { bodyText } = await service.render(PREARRIVAL, {
+        ...FULL,
+        operator_name: '',
+        lay_days_long: '',
+        cargo_quantity: '',
+      });
+
+      expect(bodyText).not.toMatch(/^Cc:/m);
+      expect(bodyText).not.toMatch(/^Laydays:/m);
+      expect(bodyText).not.toMatch(/^Load:/m);
+      expect(bodyText).toContain('To: MT Maran Leo');
+    });
+
+    it('omits the charter-party reference when none is recorded', async () => {
+      const { bodyText } = await service.render(PREARRIVAL, { ...FULL, ref_no: '' });
+
+      expect(bodyText).toContain(
+        'Ref: MT Maran Leo Voy. 031 Calling to PDVSA TAECJAA OFF-SHORE PLATFORM, JOSE SN1522/24/JSE',
+      );
+    });
+
+    it('greets the Master without a dangling space when no name is recorded', async () => {
+      const { bodyText } = await service.render(PREARRIVAL, { ...FULL, master_name: '' });
+
+      expect(bodyText).toContain('Dear Master, good day!');
+    });
+
+    it('drops the charterer clause rather than stranding "on behalf of"', async () => {
+      const { bodyText } = await service.render(PREARRIVAL, { ...FULL, charterer_name: '' });
+
+      expect(bodyText).toContain('We have been appointed to attend your vessel');
+      expect(bodyText).not.toContain('on behalf of Charterers');
+    });
+
+    it('asks for the documents the port authorities require on board', async () => {
+      const { bodyText } = await service.render(PREARRIVAL, FULL);
+
+      for (const doc of [
+        'Crew List',
+        'Maritime Declaration of Health',
+        'Ship Sanitation Control Exemption Certificate',
+        'MARPOL Certificate 78-73 (IOPP & IAPP)',
+        'Declaration of Security',
+      ]) {
+        expect(bodyText).toContain(doc);
+      }
     });
   });
 });

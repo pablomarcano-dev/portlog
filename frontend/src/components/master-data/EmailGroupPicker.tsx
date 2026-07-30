@@ -7,7 +7,7 @@ import { useEmailGroups, emailGroupQueryOptions } from '../../lib/api/master-dat
 // Types
 // ---------------------------------------------------------------------------
 
-/** One recipient field the picker can append resolved group emails into. */
+/** One recipient field the picker can write resolved group emails into. */
 export interface EmailRecipientTarget {
   /** Stable key for the button (e.g. 'to'). */
   key: string;
@@ -15,7 +15,7 @@ export interface EmailRecipientTarget {
   label: string;
   /** Current recipients in the field. */
   value: string[];
-  /** Called with the merged, de-duplicated recipient list. */
+  /** Called with the de-duplicated recipient list, appended or replaced. */
   onChange: (next: string[]) => void;
 }
 
@@ -33,7 +33,8 @@ interface EmailGroupPickerProps {
 
 /**
  * Searchable email-group selector that resolves a group's members to their
- * email addresses and appends them (de-duplicated) to a chosen recipient field.
+ * email addresses and writes them (de-duplicated) into a chosen recipient
+ * field — either appended ("+ To") or replacing what is there ("⇄").
  *
  * Shared across every email-recipient surface so groups can be searched and
  * added wherever recipients are entered.
@@ -54,17 +55,23 @@ export function EmailGroupPicker({
       label: `${g.name} (${g.memberCount})`,
     })) ?? [];
 
-  // Resolve selected group IDs → member emails, append to the target field.
-  async function handleAdd(target: EmailRecipientTarget) {
+  /**
+   * Resolve selected group IDs → member emails and write them into the target
+   * field. `mode: 'replace'` drops whatever is already there, which is what
+   * swapping distribution lists needs — e.g. a message pre-filled with the
+   * charterer's group that has to go to the operator's group instead. Appending
+   * would leave the charterer copied in.
+   */
+  async function applyGroups(target: EmailRecipientTarget, mode: 'append' | 'replace') {
     if (!selectedGroupIds.length) return;
     setIsResolving(true);
     try {
       const fullGroups = await Promise.all(
         selectedGroupIds.map((id) => qc.fetchQuery(emailGroupQueryOptions(id))),
       );
-      const newEmails = fullGroups.flatMap((g) => g.members.map((m) => m.email));
-      const merged = Array.from(new Set([...target.value, ...newEmails]));
-      target.onChange(merged);
+      const groupEmails = fullGroups.flatMap((g) => g.members.map((m) => m.email));
+      const next = mode === 'replace' ? groupEmails : [...target.value, ...groupEmails];
+      target.onChange(Array.from(new Set(next)));
       setSelectedGroupIds([]);
     } finally {
       setIsResolving(false);
@@ -97,16 +104,29 @@ export function EmailGroupPicker({
           nothingFoundMessage="No groups found"
         />
         {targets.map((target) => (
-          <Button
-            key={target.key}
-            size="xs"
-            variant="light"
-            disabled={disabled || !selectedGroupIds.length}
-            loading={isResolving}
-            onClick={() => void handleAdd(target)}
-          >
-            + {target.label}
-          </Button>
+          <Button.Group key={target.key}>
+            <Button
+              size="xs"
+              variant="light"
+              disabled={disabled || !selectedGroupIds.length}
+              loading={isResolving}
+              onClick={() => void applyGroups(target, 'append')}
+              title={`Add the selected group(s) to ${target.label}`}
+            >
+              + {target.label}
+            </Button>
+            <Button
+              size="xs"
+              variant="light"
+              disabled={disabled || !selectedGroupIds.length}
+              loading={isResolving}
+              onClick={() => void applyGroups(target, 'replace')}
+              title={`Replace ${target.label} with the selected group(s)`}
+              aria-label={`Replace ${target.label} with the selected group or groups`}
+            >
+              ⇄
+            </Button>
+          </Button.Group>
         ))}
       </Group>
     </Box>

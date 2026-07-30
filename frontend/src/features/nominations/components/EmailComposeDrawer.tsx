@@ -27,6 +27,7 @@ import { useNominationSendEmail } from '../api/useNominationSendEmail';
 import { EmailGroupPicker } from '../../../components/master-data/EmailGroupPicker';
 import { EmailAttachmentsField } from '../../../components/master-data/EmailAttachmentsField';
 import { formatDateTime } from '../../../lib/format/datetime';
+import { wrapEmailBody } from '../../../lib/format/emailBody';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -63,7 +64,8 @@ const composeSchema = z.object({
   ccAddresses: z.array(z.string()).default([]),
   bccAddresses: z.array(z.string()).default([]),
   subject: z.string().min(1, 'Subject is required'),
-  bodyHtml: z.string().default(''),
+  // Plain text, as authored. Wrapped to HTML on submit — see wrapEmailBody.
+  bodyText: z.string().default(''),
   attachmentIds: z.array(z.string()).default([]),
   etb: z.date().nullable().optional(),
   berthNumber: z.string().optional(),
@@ -119,7 +121,7 @@ export function EmailComposeDrawer({
       ccAddresses: [],
       bccAddresses: [],
       subject: defaultSubject,
-      bodyHtml: defaultBody,
+      bodyText: defaultBody,
       attachmentIds: [],
       etb: null,
       berthNumber: '',
@@ -146,14 +148,14 @@ export function EmailComposeDrawer({
       // Prefer a caller-supplied body (e.g. the Cargo Update modal builds its
       // own parcel-based body with user-entered date/time/ETD) over the
       // server-composed default.
-      setValue('bodyHtml', defaultBody || d.bodyHtml);
+      setValue('bodyText', defaultBody || d.bodyText);
     }
   }, [opened, composeQuery.data, defaultBody, setValue]);
 
   const toAddresses = watch('toAddresses');
   const ccAddresses = watch('ccAddresses');
   const bccAddresses = watch('bccAddresses');
-  const bodyHtml = watch('bodyHtml');
+  const bodyText = watch('bodyText');
   const attachmentIds = watch('attachmentIds');
   const norTenderedAt = watch('norTenderedAt');
   const blQuantity = watch('blQuantity');
@@ -170,6 +172,10 @@ export function EmailComposeDrawer({
   }
 
   async function onSubmit(values: ComposeForm) {
+    // The editor holds plain text; mail clients need the fixed-width layout
+    // preserved, so wrap it on the way out.
+    const bodyHtml = values.bodyText ? wrapEmailBody(values.bodyText) : '';
+
     const extraData =
       subDocType === 'ETA_ETB'
         ? {
@@ -203,7 +209,7 @@ export function EmailComposeDrawer({
           ccAddresses: values.ccAddresses,
           bccAddresses: values.bccAddresses,
           subject: values.subject,
-          bodyHtml: values.bodyHtml || '',
+          bodyHtml,
           attachmentIds: values.attachmentIds,
         },
         { onSuccess: () => handleClose() },
@@ -216,7 +222,7 @@ export function EmailComposeDrawer({
           ccAddresses: values.ccAddresses,
           bccAddresses: values.bccAddresses,
           subject: values.subject,
-          bodyHtml: values.bodyHtml || undefined,
+          bodyHtml: bodyHtml || undefined,
           extraData,
           attachmentIds: values.attachmentIds,
         },
@@ -340,12 +346,12 @@ export function EmailComposeDrawer({
             {/* Body */}
             <Textarea
               label="Body"
-              value={bodyHtml}
-              onChange={(e) => setValue('bodyHtml', e.currentTarget.value)}
+              value={bodyText}
+              onChange={(e) => setValue('bodyText', e.currentTarget.value)}
               minRows={16}
               autosize
               styles={{ input: { fontFamily: 'monospace', fontSize: 12 } }}
-              placeholder="HTML email body…"
+              placeholder="Email body…"
             />
 
             {/* Attachments */}

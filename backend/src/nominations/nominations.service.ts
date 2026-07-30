@@ -36,6 +36,67 @@ function formatSnOt(correlative: number, dateNominated: Date, kind: NominationKi
   return `${prefix}-${yy}/${String(correlative).padStart(4, '0')}`;
 }
 
+const MONTH_ABBR = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
+
+/** "1st", "02nd", "13th" — English ordinal suffix, teens included. */
+function ordinalSuffix(day: number): string {
+  const teens = day % 100;
+  if (teens >= 11 && teens <= 13) return 'th';
+  return ['th', 'st', 'nd', 'rd'][day % 10] ?? 'th';
+}
+
+/** Zero-padded ordinal day, e.g. 6 -> "06th". */
+function ordinalDay(day: number): string {
+  return `${String(day).padStart(2, '0')}${ordinalSuffix(day)}`;
+}
+
+/**
+ * Laycan-style date range with the month spelled out, e.g.
+ * "Jul. 06th-10th, 2026". The month and year collapse when both ends share
+ * them, which is the common case — laydays are usually a few days apart.
+ * Either end may be missing; a single date renders on its own.
+ */
+export function formatLaydayRange(first: Date | null, last: Date | null): string {
+  const one = (d: Date) =>
+    `${MONTH_ABBR[d.getMonth()]}. ${ordinalDay(d.getDate())}, ${d.getFullYear()}`;
+
+  if (first && last) {
+    if (first.getFullYear() !== last.getFullYear()) return `${one(first)} - ${one(last)}`;
+    if (first.getMonth() !== last.getMonth()) {
+      return `${MONTH_ABBR[first.getMonth()]}. ${ordinalDay(first.getDate())} - ${MONTH_ABBR[last.getMonth()]}. ${ordinalDay(last.getDate())}, ${last.getFullYear()}`;
+    }
+    return `${MONTH_ABBR[first.getMonth()]}. ${ordinalDay(first.getDate())}-${ordinalDay(last.getDate())}, ${first.getFullYear()}`;
+  }
+
+  const only = first ?? last;
+  return only ? one(only) : '';
+}
+
+/**
+ * Thousands-grouped cargo figure, e.g. 1900000 -> "1,900,000". Locale is pinned
+ * so the rendered notice never depends on the server's environment. Anything
+ * non-numeric passes through untouched rather than becoming "NaN" or "0".
+ */
+export function formatCargoQuantity(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '';
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return String(value);
+  return new Intl.NumberFormat('en-US').format(n);
+}
+
 // Fetches the sent PREARRIVAL / SOF dispatches used to derive the operational
 // status (IN_PORT / FULL_AWAY). Merged into DETAIL_INCLUDE and LIST_INCLUDE.
 const STATUS_FACTS_INCLUDE = {
@@ -667,6 +728,8 @@ export class NominationsService {
           layDaysLast: true,
           etaDate: true,
           nominationType: true,
+          // Addressee of the pre-arrival letter ("Dear Master …").
+          master: true,
           // Supplies the body's "TO:" line — see resolveNominatingParty below.
           nominationClients: {
             select: { type: true, name: true },
@@ -742,11 +805,15 @@ export class NominationsService {
     const branchCode = branch?.code ?? '';
     const yy = String(nomination.dateNominated.getFullYear()).slice(-2);
     const kindPrefix = nomination.kind === 'OT' ? 'OT' : 'SN';
+    // "SN1522/24/JSE" — the form the agency writes on notices. Distinct from
+    // formatSnOt's internal "SN-24/1522"; both refer to the same nomination.
+    const snOtRef = `${kindPrefix}${nomination.correlative}/${yy}/${branchCode}`;
+    const refNo = nomination.referenceNo?.trim() ?? '';
     // Default matches the nomination form's auto-generated subject. If the user
     // edited the nomination's subject, that edit is preserved and reused here so
     // every email for this nomination shares the same reference line.
-    const refNoPrefix = nomination.referenceNo?.trim() ? `${nomination.referenceNo.trim()} - ` : '';
-    const defaultRefLine = `${refNoPrefix}${vesselName} - Calling to ${terminalName} ${kindPrefix}${nomination.correlative}/${yy}/${branchCode}`;
+    const refNoPrefix = refNo ? `${refNo} - ` : '';
+    const defaultRefLine = `${refNoPrefix}${vesselName} - Calling to ${terminalName} ${snOtRef}`;
     const refLine = nomination.subject?.trim() || defaultRefLine;
 
     // Load ETA record for ETA action types
@@ -778,17 +845,25 @@ export class NominationsService {
       terminal_name: terminalName,
       oper_port: terminalName,
       sn_ref: snRef,
+      sn_ot_ref: snOtRef,
       ref_line: refLine,
+      // Charter-party reference the agency types into "Reference N°".
+      ref_no: refNo,
       laycan:
         nomination.layDaysFirst || nomination.layDaysLast
           ? `${fmtDate(nomination.layDaysFirst)} - ${fmtDate(nomination.layDaysLast)}`
           : '',
-      cargo_quantity: String(firstParcel['quantity'] ?? ''),
+      cargo_quantity: formatCargoQuantity(firstParcel['quantity']),
+      cargo_unit: String(firstParcel['unit'] ?? ''),
       cargo_grade: String(firstParcel['product'] ?? ''),
       lay_days:
         nomination.layDaysFirst || nomination.layDaysLast
           ? `${fmtDate(nomination.layDaysFirst)} - ${fmtDate(nomination.layDaysLast)}`
           : '',
+      // Month-in-letters laycan, e.g. "Jul. 06th-10th, 2026". Separate from
+      // lay_days so the ~30 templates on the numeric DD/MM/YYYY form keep it
+      // until they are migrated deliberately.
+      lay_days_long: formatLaydayRange(nomination.layDaysFirst, nomination.layDaysLast),
       operation: String(firstParcel['operation'] ?? firstParcel['product'] ?? ''),
       // Cargo update — multi-parcel loop data
       parcels: (parcels as Array<Record<string, unknown>>).map((p) => ({
@@ -807,7 +882,7 @@ export class NominationsService {
       last_port: nomination.lastPort?.name ?? '',
       next_port: nomination.nextPort?.name ?? '',
       flag: '',
-      master_name: '',
+      master_name: nomination.master?.trim() ?? '',
       master_rank: 'MASTER',
       master_msg_date: fmtDate(etaRecord?.msgEta ?? null),
       nomination_date: fmtDate(nomination.dateNominated),
@@ -835,6 +910,19 @@ export class NominationsService {
         nomination.nominationClients,
         nomination.nominatedBy,
       ),
+      // Named on the pre-arrival letter's "Cc:" header and in "on behalf of
+      // Charterers …". Both fall back to the nominating party rather than
+      // rendering an empty phrase mid-sentence.
+      operator_name:
+        NominationsService.resolveClientByType(
+          nomination.nominationClients,
+          NominationsService.OPERATOR_TYPES,
+        ) || NominationsService.resolveNominatingParty(nomination.nominationClients, null),
+      charterer_name:
+        NominationsService.resolveClientByType(
+          nomination.nominationClients,
+          NominationsService.CHARTERER_TYPES,
+        ) || NominationsService.resolveNominatingParty(nomination.nominationClients, null),
       // Header recipient lines. Templates referenced these long before anything
       // supplied them, so they rendered as bare "To:" / "Cc:" labels.
       to_recipients: nomination.emailTo.join('; '),
@@ -1061,6 +1149,10 @@ export class NominationsService {
       toAddresses: nomination.emailTo,
       ccAddresses: nomination.emailCc,
       bccAddresses: nomination.emailBcc,
+      // Both forms: `bodyText` is what the compose editor shows and the agent
+      // edits, `bodyHtml` is the wrapped form actually mailed. Returning only
+      // the latter put raw `<pre …>` markup in the editor.
+      bodyText: rendered.bodyText,
       bodyHtml: rendered.bodyHtml,
     };
   }
@@ -1079,6 +1171,35 @@ export class NominationsService {
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
+
+  /**
+   * CLIENT LIST rows whose `type` names the party operating the vessel, most
+   * specific first. `type` is free text in the DB, so matching is
+   * case-insensitive on the trimmed value.
+   */
+  private static readonly OPERATOR_TYPES = [
+    'commercial operator',
+    'technical operator',
+    'disponent owner',
+    'head owner',
+  ];
+
+  /** CLIENT LIST rows whose `type` names the chartering party. */
+  private static readonly CHARTERER_TYPES = ['charterer', 'time charter'];
+
+  /** First named CLIENT LIST row matching `priority`, or '' when none match. */
+  private static resolveClientByType(
+    clients: { type: string; name: string }[],
+    priority: readonly string[],
+  ): string {
+    for (const wanted of priority) {
+      const match = clients.find(
+        (c) => c.type.trim().toLowerCase() === wanted && c.name.trim() !== '',
+      );
+      if (match) return match.name.trim();
+    }
+    return '';
+  }
 
   /**
    * Resolves the party the nomination came from, for the "TO:" line of outgoing
@@ -1107,12 +1228,8 @@ export class NominationsService {
       'time charter',
     ];
 
-    for (const wanted of PRIORITY) {
-      const match = clients.find(
-        (c) => c.type.trim().toLowerCase() === wanted && c.name.trim() !== '',
-      );
-      if (match) return match.name.trim();
-    }
+    const byType = NominationsService.resolveClientByType(clients, PRIORITY);
+    if (byType) return byType;
 
     // Any other filled row beats falling back to an internal user.
     const anyNamed = clients.find((c) => c.name.trim() !== '');
