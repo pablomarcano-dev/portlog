@@ -371,12 +371,19 @@ describe('NominationsService', () => {
   // 5. Sale sub-resource CRUD
   // -------------------------------------------------------------------------
   const SALE_ID = '00000000-0000-0000-0000-000000000101';
+  const SALE_END = new Date(NOW.getTime() + 3_600_000);
   const SALE_CREATE = {
+    serviceNo: '6009',
     clientId: 'clclient00000001',
     serviceId: 'clservice0000001',
+    route: 'Guaraguao - Muelle 3',
+    portId: 'clport0000000001',
     price: 1500.5,
-    date: NOW,
-    notes: null,
+    startAt: NOW,
+    endAt: SALE_END,
+    description: null,
+    driverId: 'cldriver00000001',
+    userId: 'cluser0000000001',
   };
   const mockSale = {
     id: SALE_ID,
@@ -384,9 +391,14 @@ describe('NominationsService', () => {
     ...SALE_CREATE,
     client: { id: SALE_CREATE.clientId, name: 'Acme Shipping S.A.' },
     service: { id: SALE_CREATE.serviceId, name: 'Launch / Boat Service' },
+    port: { id: SALE_CREATE.portId, name: 'Puerto La Cruz' },
+    driver: { id: SALE_CREATE.driverId, name: 'J. Ramirez' },
+    user: { id: SALE_CREATE.userId, name: 'M. Perez' },
     createdAt: NOW,
     updatedAt: NOW,
   };
+  /** assertSaleExists selects only the service window. */
+  const mockSaleWindow = { startAt: NOW, endAt: SALE_END };
 
   describe('listSales', () => {
     it('throws NotFoundException for an unknown nomination', async () => {
@@ -395,7 +407,7 @@ describe('NominationsService', () => {
       await expect(service.listSales(NOM_ID)).rejects.toThrow(NotFoundException);
     });
 
-    it('returns sales with client/service includes ordered by date', async () => {
+    it('returns sales with client/service/port/driver/user includes ordered by start time', async () => {
       mockPrisma.nomination.findUnique.mockResolvedValue({ id: NOM_ID });
       mockPrisma.sale.findMany.mockResolvedValue([mockSale]);
 
@@ -405,7 +417,12 @@ describe('NominationsService', () => {
       expect(mockPrisma.sale.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { nominationId: NOM_ID },
-          orderBy: { date: 'asc' },
+          orderBy: { startAt: 'asc' },
+          include: expect.objectContaining({
+            port: expect.anything(),
+            driver: expect.anything(),
+            user: expect.anything(),
+          }),
         }),
       );
     });
@@ -448,7 +465,7 @@ describe('NominationsService', () => {
     });
 
     it('updates the sale when it exists', async () => {
-      mockPrisma.sale.findFirst.mockResolvedValue({ id: SALE_ID });
+      mockPrisma.sale.findFirst.mockResolvedValue(mockSaleWindow);
       mockPrisma.sale.update.mockResolvedValue({ ...mockSale, price: 2000 });
 
       const result = await service.updateSale(NOM_ID, SALE_ID, { price: 2000 });
@@ -456,6 +473,37 @@ describe('NominationsService', () => {
       expect((result as { price: number }).price).toBe(2000);
       expect(mockPrisma.sale.update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: SALE_ID }, data: { price: 2000 } }),
+      );
+    });
+
+    // SaleUpdateSchema can only compare the two timestamps when the client sends
+    // both, so a PATCH moving just one of them is validated against the stored row.
+    it('rejects an endAt moved before the stored startAt', async () => {
+      mockPrisma.sale.findFirst.mockResolvedValue(mockSaleWindow);
+
+      await expect(
+        service.updateSale(NOM_ID, SALE_ID, { endAt: new Date(NOW.getTime() - 1000) }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.sale.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a startAt moved after the stored endAt', async () => {
+      mockPrisma.sale.findFirst.mockResolvedValue(mockSaleWindow);
+
+      await expect(
+        service.updateSale(NOM_ID, SALE_ID, { startAt: new Date(SALE_END.getTime() + 1000) }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.sale.update).not.toHaveBeenCalled();
+    });
+
+    it('allows clearing endAt — the service is running again', async () => {
+      mockPrisma.sale.findFirst.mockResolvedValue(mockSaleWindow);
+      mockPrisma.sale.update.mockResolvedValue({ ...mockSale, endAt: null });
+
+      await service.updateSale(NOM_ID, SALE_ID, { endAt: null });
+
+      expect(mockPrisma.sale.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: SALE_ID }, data: { endAt: null } }),
       );
     });
   });
@@ -469,7 +517,7 @@ describe('NominationsService', () => {
     });
 
     it('deletes the sale when it exists', async () => {
-      mockPrisma.sale.findFirst.mockResolvedValue({ id: SALE_ID });
+      mockPrisma.sale.findFirst.mockResolvedValue(mockSaleWindow);
       mockPrisma.sale.delete.mockResolvedValue(mockSale);
 
       await service.removeSale(NOM_ID, SALE_ID);

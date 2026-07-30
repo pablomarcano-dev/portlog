@@ -146,6 +146,9 @@ const LIST_INCLUDE = {
 const SALE_INCLUDE = {
   client: { select: { id: true, name: true } },
   service: { select: { id: true, name: true } },
+  port: { select: { id: true, name: true } },
+  driver: { select: { id: true, name: true } },
+  user: { select: { id: true, name: true } },
 } satisfies Prisma.SaleInclude;
 
 @Injectable()
@@ -513,7 +516,7 @@ export class NominationsService {
     await this.assertNominationExists(nominationId);
     return this.prisma.sale.findMany({
       where: { nominationId },
-      orderBy: { date: 'asc' },
+      orderBy: { startAt: 'asc' },
       include: SALE_INCLUDE,
     });
   }
@@ -532,7 +535,18 @@ export class NominationsService {
   }
 
   async updateSale(nominationId: string, saleId: string, dto: SaleUpdate) {
-    await this.assertSaleExists(nominationId, saleId);
+    const current = await this.assertSaleExists(nominationId, saleId);
+
+    // SaleUpdateSchema can only compare startAt against endAt when the client
+    // sends both. A PATCH touching one of them alone is checked against the
+    // stored value here, so an edit can never leave the row ending before it
+    // started.
+    const startAt = dto.startAt ?? current.startAt;
+    const endAt = dto.endAt === undefined ? current.endAt : dto.endAt;
+    if (startAt != null && endAt != null && startAt > endAt) {
+      throw new BadRequestException('End time must be on or after start time.');
+    }
+
     try {
       return await this.prisma.sale.update({
         where: { id: saleId },
@@ -644,6 +658,7 @@ export class NominationsService {
           emailCc: true,
           emailBcc: true,
           subject: true,
+          referenceNo: true,
           parcels: true,
           dateNominated: true,
           voyageNumber: true,
@@ -725,7 +740,8 @@ export class NominationsService {
     // Default matches the nomination form's auto-generated subject. If the user
     // edited the nomination's subject, that edit is preserved and reused here so
     // every email for this nomination shares the same reference line.
-    const defaultRefLine = `${vesselName} - Calling to ${terminalName} ${kindPrefix}${nomination.correlative}/${yy}/${branchCode}`;
+    const refNoPrefix = nomination.referenceNo?.trim() ? `${nomination.referenceNo.trim()} - ` : '';
+    const defaultRefLine = `${refNoPrefix}${vesselName} - Calling to ${terminalName} ${kindPrefix}${nomination.correlative}/${yy}/${branchCode}`;
     const refLine = nomination.subject?.trim() || defaultRefLine;
 
     // Load ETA record for ETA action types
@@ -1071,20 +1087,25 @@ export class NominationsService {
     }
   }
 
-  private async assertSaleExists(nominationId: string, saleId: string): Promise<void> {
-    const exists = await this.prisma.sale.findFirst({
+  /** Returns the sale's service window so callers can validate partial updates against it. */
+  private async assertSaleExists(
+    nominationId: string,
+    saleId: string,
+  ): Promise<{ startAt: Date; endAt: Date | null }> {
+    const existing = await this.prisma.sale.findFirst({
       where: { id: saleId, nominationId },
-      select: { id: true },
+      select: { startAt: true, endAt: true },
     });
-    if (!exists) {
+    if (!existing) {
       throw new NotFoundException(`Sale ${saleId} not found on nomination ${nominationId}.`);
     }
+    return existing;
   }
 
-  /** A stale/bad clientId or serviceId FK violation should surface as a 400, not a 500. */
+  /** A stale/bad client, service, port, driver or user FK should surface as a 400, not a 500. */
   private rethrowSaleFkViolation(err: unknown): void {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
-      throw new BadRequestException('Unknown client or service id.');
+      throw new BadRequestException('Unknown client, service, port, driver, or user id.');
     }
   }
 

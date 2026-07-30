@@ -89,6 +89,9 @@ model Port {
   sofTimesheetsAsLastPort SofTimesheet[] @relation("SofTimesheetLastPort")
   sofTimesheetsAsNextPort SofTimesheet[] @relation("SofTimesheetNextPort")
 
+  // Sales back-relation — the PUERTO field on the service voucher
+  sales Sale[]
+
   @@index([name])
   @@map("ports")
 }
@@ -322,6 +325,38 @@ model Service {
 
   @@index([name])
   @@map("services")
+}
+
+// ---------------------------------------------------------------------------
+// SalesContact — the people named on the paper service voucher: CONDUCTOR
+// (driver) and USUARIO (whoever received the service).
+//
+// One flat directory feeds both fields; there is deliberately no driver/user
+// role split, since the same person can appear in either line.
+//
+// Deliberately NOT part of the `Contact` directory: those rows hang off a
+// Shipper / Operator / Owner / Charterer cross-link (enforced by a CHECK
+// constraint), and a driver belongs to no such entity.
+// ---------------------------------------------------------------------------
+model SalesContact {
+  id             String   @id @default(cuid())
+  name           String
+  phone          String?
+  mobile         String?
+  // Cédula / national ID, as written on the voucher.
+  documentNumber String?
+  // Vehicle or plate the driver operates.
+  vehicle        String?
+  comments       String?  @db.Text
+  createdAt      DateTime @default(now()) @db.Timestamptz
+  updatedAt      DateTime @updatedAt @db.Timestamptz
+
+  // Back-relations — the same row may serve as either line on a voucher.
+  salesAsDriver Sale[] @relation("SaleDriver")
+  salesAsUser   Sale[] @relation("SaleUser")
+
+  @@index([name])
+  @@map("sales_contacts")
 }
 
 // ---------------------------------------------------------------------------
