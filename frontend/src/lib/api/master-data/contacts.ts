@@ -38,6 +38,7 @@ export const contactsApi = {
     if (query?.q) params.set('q', query.q);
     if (query?.limit) params.set('limit', String(query.limit));
     if (query?.cursor) params.set('cursor', query.cursor);
+    if (query?.role) params.set('role', query.role);
     if (query?.shipperId) params.set('shipperId', query.shipperId);
     if (query?.operatorId) params.set('operatorId', query.operatorId);
     if (query?.ownerId) params.set('ownerId', query.ownerId);

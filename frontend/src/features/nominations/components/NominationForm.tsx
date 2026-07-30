@@ -32,6 +32,7 @@ import { EntityPicker } from '../../../components/master-data/EntityPicker';
 import { EmailGroupPicker } from '../../../components/master-data/EmailGroupPicker';
 import { ContactNamePicker } from '../../../components/master-data/ContactNamePicker';
 import { ClientNamePicker } from '../../../components/master-data/ClientNamePicker';
+import { clientTypeToContactRole } from '../clientTypeRole';
 import { ClientPickerModal } from '../../../components/master-data/ClientPickerModal';
 import { ParcelsFieldArray } from './ParcelsFieldArray';
 import { NewShipParticularModal } from './NewShipParticularModal';
@@ -138,6 +139,15 @@ export function NominationForm({
   const opPortId = watch('opPortId') ?? null;
   const branchId = watch('branchId');
   const kind = watch('kind') ?? 'SN';
+  const referenceNo = watch('referenceNo');
+
+  // Lay days are a range — each picker bounds the other so the invalid
+  // combination can't be selected. NominationCreateSchema enforces the same
+  // rule on submit for values that arrive via defaultValues.
+  const layDaysFirst = watch('layDaysFirst');
+  const layDaysLast = watch('layDaysLast');
+  const layDaysFirstDate = layDaysFirst instanceof Date ? layDaysFirst : null;
+  const layDaysLastDate = layDaysLast instanceof Date ? layDaysLast : null;
 
   // Fetch vessel details (IMO + name + abbreviation) for vessel data fetch and subject generation
   const shipQuery = useQuery({
@@ -181,7 +191,9 @@ export function NominationForm({
     const yy = String(new Date().getFullYear()).slice(-2);
     const corrStr = correlative != null ? String(correlative) : '';
     const kindPrefix = kind === 'OT' ? 'OT' : 'SN';
-    return `${shipName} - Calling to ${portName} ${kindPrefix}${corrStr}/${yy}/${branchCode}`;
+    // Reference Nº leads the subject when the nomination has one.
+    const refPrefix = referenceNo?.trim() ? `${referenceNo.trim()} - ` : '';
+    return `${refPrefix}${shipName} - Calling to ${portName} ${kindPrefix}${corrStr}/${yy}/${branchCode}`;
   }
 
   // Auto-fill subject in create mode when it's still empty and we have enough data
@@ -191,7 +203,7 @@ export function NominationForm({
     const current = (form.getValues('subject') ?? '').trim();
     if (current !== '') return;
     setValue('subject', buildSubject(), { shouldDirty: true });
-  }, [shipQuery.data, branchQuery.data, portsQuery.data, opPortId]);
+  }, [shipQuery.data, branchQuery.data, portsQuery.data, opPortId, referenceNo]);
 
   const [isFetchingVessel, setIsFetchingVessel] = useState(false);
   const [clientPickerIndex, setClientPickerIndex] = useState<number | null>(null);
@@ -396,6 +408,7 @@ export function NominationForm({
                     label="Lay Days"
                     placeholder="From"
                     disabled={isReadOnly}
+                    maxDate={layDaysLastDate ?? undefined}
                     value={field.value instanceof Date ? field.value : null}
                     onChange={(val) => field.onChange(val)}
                     error={fieldState.error?.message}
@@ -413,6 +426,7 @@ export function NominationForm({
                     label="to"
                     placeholder="To"
                     disabled={isReadOnly}
+                    minDate={layDaysFirstDate ?? undefined}
                     value={field.value instanceof Date ? field.value : null}
                     onChange={(val) => field.onChange(val)}
                     error={fieldState.error?.message}
@@ -840,6 +854,9 @@ export function NominationForm({
                                 placeholder="Name"
                                 value={field.value}
                                 onChange={field.onChange}
+                                role={clientTypeToContactRole(
+                                  watch(`nominationClients.${index}.type`),
+                                )}
                                 size="xs"
                                 rightSection={
                                   <ActionIcon

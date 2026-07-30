@@ -22,6 +22,7 @@ import { MessagesPanel } from '../../../features/nominations/components/Messages
 import { BranchDocumentsPanel } from '../../../features/branch-documents';
 import { EmailActionsPanel } from '../../../features/nominations/components/EmailActionsPanel';
 import { ClientsSection } from '../../../features/nominations/components/ClientsSection';
+import { SalesModal } from '../../../features/nominations/components/SalesModal';
 import { useNomination } from '../../../features/nominations/hooks/useNomination';
 import { useUpdateNomination } from '../../../features/nominations/hooks/useUpdateNomination';
 import { usePedrByNomination } from '../../../features/nominations/api/usePedrByNomination';
@@ -50,6 +51,7 @@ function NominationDetailPage() {
   const [branchDocsOpen, setBranchDocsOpen] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(true);
   const [actionsOpen, setActionsOpen] = useState(true);
+  const [salesOpen, setSalesOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -133,15 +135,23 @@ function NominationDetailPage() {
                 </Group>
               </Stack>
               <Group gap="xs">
-                {/* The Sales button is hidden pending .claude/plans/04-clients-sales-scope.md.
-                    SalesModal and its endpoints are left intact so it can be restored by
-                    re-adding this button. */}
+                {/* Sales stay accessible after departure — billing happens after ops complete */}
+                <Button variant="light" size="xs" onClick={() => setSalesOpen(true)}>
+                  Sales
+                </Button>
                 <CancelNominationButton
                   nominationId={nomination.id}
                   currentStatus={nomination.status}
                 />
               </Group>
             </Group>
+
+            <SalesModal
+              opened={salesOpen}
+              onClose={() => setSalesOpen(false)}
+              nominationId={nomination.id}
+              correlative={nomination.correlative}
+            />
 
             <Divider />
 

@@ -1,4 +1,12 @@
-import { optionalText, optionalUrl, optionalCuid, emailList, parseEmailList } from '../fields';
+import {
+  optionalText,
+  optionalUrl,
+  optionalCuid,
+  clearableCuid,
+  emailList,
+  parseEmailList,
+} from '../fields';
+import { ContactCreateSchema } from '../../master-data/contact';
 import { OwnerCreateSchema } from '../../master-data/owner';
 import { ShipperCreateSchema } from '../../master-data/shipper';
 import { EmailGroupCreateSchema } from '../../master-data/email-group';
@@ -40,6 +48,56 @@ describe('optionalUrl / optionalCuid', () => {
 
   it('lets a cleared picker send an empty string', () => {
     expect(optionalCuid().safeParse('').success).toBe(true);
+  });
+});
+
+describe('clearableCuid', () => {
+  const schema = clearableCuid();
+
+  // optionalCuid() normalises a cleared field to `undefined`, which JSON.stringify
+  // drops — so a PATCH could never unset the FK and the stale link survived the save.
+  it('normalises a cleared picker to null, not undefined', () => {
+    for (const cleared of ['', '   ', undefined]) {
+      const result = schema.safeParse(cleared);
+      expect(result.success).toBe(true);
+      expect(result.success && result.data).toBeNull();
+    }
+  });
+
+  it('passes an explicit null through', () => {
+    const result = schema.safeParse(null);
+    expect(result.success && result.data).toBeNull();
+  });
+
+  it('keeps a real cuid', () => {
+    const id = 'cms2268fg00cspz6hc0dz4yac';
+    expect(schema.safeParse(id).success && schema.safeParse(id).data).toBe(id);
+  });
+
+  it('still rejects a malformed id', () => {
+    expect(schema.safeParse('not-a-cuid').success).toBe(false);
+  });
+});
+
+describe('ContactCreateSchema cross-links', () => {
+  it('accepts null for a link the user cleared', () => {
+    const result = ContactCreateSchema.safeParse({
+      name: 'Jane Doe',
+      shipperId: null,
+      operatorId: null,
+      ownerId: null,
+      charterId: null,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('still rejects two links at once', () => {
+    const result = ContactCreateSchema.safeParse({
+      name: 'Jane Doe',
+      shipperId: 'cms2268fg00cspz6hc0dz4yac',
+      charterId: 'cms2268fv00cxpz6hlmqn2uwy',
+    });
+    expect(result.success).toBe(false);
   });
 });
 

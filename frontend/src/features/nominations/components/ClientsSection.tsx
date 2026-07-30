@@ -9,6 +9,8 @@ import {
   useUpdateClient,
   useRemoveClient,
 } from '../hooks/useNominationClients';
+import { ClientNamePicker } from '../../../components/master-data/ClientNamePicker';
+import { clientTypeToContactRole } from '../clientTypeRole';
 
 type ClientColKey = 'type' | 'name' | 'voyageRef' | 'refNo' | 'actions';
 
@@ -36,16 +38,21 @@ function ClientRow({
 }: ClientRowProps) {
   const clientId = client.id ?? '';
   const isBusy = isUpdating || isRemoving;
+  // Type and Name are controlled locally so the Name suggestions can react to
+  // the Type as it is edited; both still persist on blur.
+  const [type, setType] = useState(client.type);
+  const [name, setName] = useState(client.name);
 
   return (
     <Table.Tr>
       <Table.Td style={{ width: colWidths.type }}>
         <TextInput
           size="xs"
-          defaultValue={client.type}
+          value={type}
           disabled={isBusy}
-          onBlur={(e) => {
-            const val = e.currentTarget.value.trim();
+          onChange={(e) => setType(e.currentTarget.value)}
+          onBlur={() => {
+            const val = type.trim();
             if (val !== client.type) {
               onUpdate(clientId, 'type', val);
             }
@@ -53,12 +60,16 @@ function ClientRow({
         />
       </Table.Td>
       <Table.Td style={{ width: colWidths.name }}>
-        <TextInput
+        <ClientNamePicker
           size="xs"
-          defaultValue={client.name}
+          value={name}
+          onChange={setName}
           disabled={isBusy}
-          onBlur={(e) => {
-            const val = e.currentTarget.value.trim();
+          // Suggestions are scoped to the row's Type; unmapped types fall back
+          // to the generic clients search.
+          role={clientTypeToContactRole(type)}
+          onBlur={() => {
+            const val = name.trim();
             if (val !== client.name) {
               onUpdate(clientId, 'name', val);
             }

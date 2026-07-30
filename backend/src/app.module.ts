@@ -34,6 +34,7 @@ import { DispatchModule } from './dispatch/dispatch.module.js';
 import { BranchesModule } from './master-data/branches/branches.module.js';
 import { ClientsModule } from './master-data/clients/clients.module.js';
 import { ServicesModule } from './master-data/services/services.module.js';
+import { SalesContactsModule } from './master-data/sales-contacts/sales-contacts.module.js';
 import { SHDocumentsModule } from './sh-documents/sh-documents.module.js';
 import { BranchDocumentsModule } from './branch-documents/branch-documents.module.js';
 import { UsersModule } from './users/users.module.js';
@@ -108,6 +109,7 @@ import { AttachmentsModule } from './attachments/attachments.module.js';
     BranchesModule,
     ClientsModule,
     ServicesModule,
+    SalesContactsModule,
     UsersModule,
     AttachmentsModule,
   ],

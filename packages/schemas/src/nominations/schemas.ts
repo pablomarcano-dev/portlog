@@ -11,6 +11,24 @@ import { NominationClientSchema, NominationClientCreateSchema } from './client.j
 /** cuid()-keyed foreign key pointing at an M2 master-data entity */
 const cuidFk = z.string().cuid();
 
+/**
+ * Lay days form a range: the last day can never precede the first.
+ * A single-day laycan (first === last) is legitimate, so the check is inclusive.
+ * The issue is reported on both fields so whichever one the user is looking at
+ * shows the error.
+ */
+function checkLayDaysOrder(
+  data: { layDaysFirst?: Date | null; layDaysLast?: Date | null },
+  ctx: z.RefinementCtx,
+): void {
+  if (data.layDaysFirst == null || data.layDaysLast == null) return;
+  if (data.layDaysFirst <= data.layDaysLast) return;
+
+  const message = 'Lay days "to" must be on or after lay days "from"';
+  ctx.addIssue({ code: z.ZodIssueCode.custom, message, path: ['layDaysFirst'] });
+  ctx.addIssue({ code: z.ZodIssueCode.custom, message, path: ['layDaysLast'] });
+}
+
 // ---------------------------------------------------------------------------
 // NominationCreateSchema
 // Required: shipParticularId, branchId, dateNominated, nominationType
@@ -75,19 +93,7 @@ export const NominationCreateSchema = z
     // Client list rows — created atomically with the nomination
     nominationClients: z.array(NominationClientCreateSchema).default([]),
   })
-  .superRefine((data, ctx) => {
-    if (
-      data.layDaysFirst != null &&
-      data.layDaysLast != null &&
-      data.layDaysFirst > data.layDaysLast
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'layDaysFirst must be on or before layDaysLast',
-        path: ['layDaysFirst'],
-      });
-    }
-  });
+  .superRefine(checkLayDaysOrder);
 
 // ---------------------------------------------------------------------------
 // NominationUpdateSchema
@@ -96,19 +102,7 @@ export const NominationCreateSchema = z
 export const NominationUpdateSchema = NominationCreateSchema.innerType()
   .omit({ nominationClients: true, kind: true })
   .partial()
-  .superRefine((data, ctx) => {
-    if (
-      data.layDaysFirst != null &&
-      data.layDaysLast != null &&
-      data.layDaysFirst > data.layDaysLast
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'layDaysFirst must be on or before layDaysLast',
-        path: ['layDaysFirst'],
-      });
-    }
-  });
+  .superRefine(checkLayDaysOrder);
 
 // ---------------------------------------------------------------------------
 // NominationStatusTransitionSchema

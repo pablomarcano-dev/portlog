@@ -26,6 +26,7 @@ const TABS: TabDef[] = [
   { label: 'Agents', path: '/master-data/agents' },
   { label: 'Operators', path: '/master-data/operators' },
   { label: 'Contacts', path: '/master-data/contacts' },
+  { label: 'Sales Contacts', path: '/master-data/sales-contacts' },
   { label: 'Suppliers', path: '/master-data/suppliers' },
   { label: 'Services', path: '/master-data/services' },
   { label: 'Branches', path: '/master-data/branches' },

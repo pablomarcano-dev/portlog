@@ -116,7 +116,16 @@ export class PortsService {
   // ---------------------------------------------------------------------------
   async remove(id: string) {
     await this.assertExists(id);
-    await this.prisma.port.delete({ where: { id } });
+    try {
+      await this.prisma.port.delete({ where: { id } });
+    } catch (err: unknown) {
+      // Nominations, SOF timesheets and sales all reference ports ON DELETE
+      // RESTRICT — surface as a conflict, not a 500.
+      if (this.isPrismaError(err, 'P2003')) {
+        throw new ConflictException('Port is referenced by one or more records.');
+      }
+      throw err;
+    }
     this.logger.log({ event: 'ports.delete', id });
   }
 
@@ -154,11 +163,15 @@ export class PortsService {
   }
 
   private isPrismaUniqueViolation(err: unknown): boolean {
+    return this.isPrismaError(err, 'P2002');
+  }
+
+  private isPrismaError(err: unknown, code: string): boolean {
     return (
       typeof err === 'object' &&
       err !== null &&
       'code' in err &&
-      (err as { code: string }).code === 'P2002'
+      (err as { code: string }).code === code
     );
   }
 }
