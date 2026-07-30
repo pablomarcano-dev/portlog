@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import { wrapPlainTextEmailBody } from './email-body.util.js';
 
 export interface SendMailOptions {
   to: string[];
@@ -59,7 +60,11 @@ export class EmailService {
   }
 
   async send(opts: SendMailOptions): Promise<void> {
-    const { to, cc, bcc, subject, html, attachments } = opts;
+    const { to, cc, bcc, subject, attachments } = opts;
+    // Callers may hand over either HTML or the plain text an agent typed; a
+    // plain-text body sent as an HTML part loses every line break. See
+    // email-body.util.ts — already-HTML bodies pass through unchanged.
+    const html = wrapPlainTextEmailBody(opts.html);
 
     this.logger.log({
       event: 'email.send',

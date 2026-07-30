@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import Handlebars from 'handlebars';
 import { readdir, readFile } from 'fs/promises';
 import { basename, extname, resolve } from 'path';
+import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
 
 /** Directory under `templates/` holding shared partials rather than whole emails. */
 export const PARTIALS_DIRNAME = '_partials';
@@ -91,8 +92,7 @@ export class EmailTemplateService {
    * templates are written in. Sources that already emit HTML pass through.
    */
   private static wrapPlainText(bodyText: string): string {
-    if (bodyText.trimStart().startsWith('<')) return bodyText;
-    return `<pre style="font-family:'Courier New',Consolas,monospace;font-size:13px;line-height:1.5;white-space:pre-wrap;padding:16px;margin:0;">${bodyText}</pre>`;
+    return wrapPlainTextEmailBody(bodyText);
   }
 
   /**

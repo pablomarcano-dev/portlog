@@ -17,6 +17,7 @@ import { useSendShDocument } from '../api';
 import { EmailGroupPicker } from '../../../components/master-data/EmailGroupPicker';
 import { EmailAttachmentsField } from '../../../components/master-data/EmailAttachmentsField';
 import { formatDateTime } from '../../../lib/format/datetime';
+import { wrapEmailBody } from '../../../lib/format/emailBody';
 import type { SHDocumentDto } from '@portlog/schemas';
 
 // ---------------------------------------------------------------------------
@@ -27,7 +28,8 @@ const sendSchema = z.object({
   toAddresses: z.array(z.string()).min(1, 'Al menos un destinatario es requerido'),
   ccAddresses: z.array(z.string()).default([]),
   subject: z.string().min(1, 'El asunto es requerido'),
-  bodyHtml: z.string().default(''),
+  // Plain text, as authored. Wrapped to HTML on submit — see wrapEmailBody.
+  bodyText: z.string().default(''),
   attachmentIds: z.array(z.string()).default([]),
 });
 type SendForm = z.infer<typeof sendSchema>;
@@ -71,7 +73,7 @@ export function SendShDocumentDrawer({
       toAddresses: [],
       ccAddresses: [],
       subject: defaultSubject,
-      bodyHtml: '',
+      bodyText: '',
       attachmentIds: [],
     },
   });
@@ -96,7 +98,7 @@ export function SendShDocumentDrawer({
           toAddresses,
           ccAddresses,
           subject: values.subject,
-          bodyHtml: values.bodyHtml || undefined,
+          bodyHtml: values.bodyText ? wrapEmailBody(values.bodyText) : undefined,
           attachmentIds: values.attachmentIds,
         },
       },
@@ -194,8 +196,8 @@ export function SendShDocumentDrawer({
               description="Opcional — deje en blanco para usar la plantilla predeterminada"
               minRows={4}
               autosize
-              {...register('bodyHtml')}
-              error={errors.bodyHtml?.message}
+              {...register('bodyText')}
+              error={errors.bodyText?.message}
             />
 
             <Controller
