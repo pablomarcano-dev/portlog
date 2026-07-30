@@ -109,6 +109,41 @@ describe('ContactsService', () => {
       expect(result.items[0]?.name).toBe('Jane Doe');
       expect(result.hasMore).toBe(false);
     });
+
+    it('filters by role using the matching cross-link FK', async () => {
+      mockPrisma.contact.findMany.mockResolvedValue([mockContact]);
+
+      await service.list({ q: undefined, limit: 50, cursor: undefined, role: 'CHARTERER' });
+
+      const where = mockPrisma.contact.findMany.mock.calls[0]?.[0]?.where as Record<
+        string,
+        unknown
+      >;
+      expect(where.charterId).toEqual({ not: null });
+      expect(where.shipperId).toBeUndefined();
+    });
+
+    it('maps each role to its own FK', async () => {
+      const cases = [
+        ['SHIPPER', 'shipperId'],
+        ['OPERATOR', 'operatorId'],
+        ['OWNER', 'ownerId'],
+        ['CHARTERER', 'charterId'],
+      ] as const;
+
+      for (const [role, fk] of cases) {
+        mockPrisma.contact.findMany.mockClear();
+        mockPrisma.contact.findMany.mockResolvedValue([]);
+
+        await service.list({ q: undefined, limit: 50, cursor: undefined, role });
+
+        const where = mockPrisma.contact.findMany.mock.calls[0]?.[0]?.where as Record<
+          string,
+          unknown
+        >;
+        expect(where[fk]).toEqual({ not: null });
+      }
+    });
   });
 
   // -------------------------------------------------------------------------

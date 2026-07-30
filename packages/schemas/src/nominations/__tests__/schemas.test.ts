@@ -112,7 +112,11 @@ describe('NominationUpdateSchema', () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       const paths = result.error.issues.map((i) => i.path.join('.'));
+      // Reported on both fields so either input shows the error in the form
       expect(paths).toContain('layDaysFirst');
+      expect(paths).toContain('layDaysLast');
+      const messages = result.error.issues.map((i) => i.message);
+      expect(messages).toContain('Lay days "to" must be on or after lay days "from"');
     }
   });
 

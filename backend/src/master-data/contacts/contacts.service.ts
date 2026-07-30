@@ -1,6 +1,19 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import type { ContactCreateInput, ContactUpdateInput, ContactListQuery } from '@portlog/schemas';
+import type {
+  ContactCreateInput,
+  ContactUpdateInput,
+  ContactListQuery,
+  ContactRole,
+} from '@portlog/schemas';
+
+/** Role filter → the cross-link FK that must be set for a contact to hold that role. */
+const ROLE_FK: Record<ContactRole, 'shipperId' | 'operatorId' | 'ownerId' | 'charterId'> = {
+  SHIPPER: 'shipperId',
+  OPERATOR: 'operatorId',
+  OWNER: 'ownerId',
+  CHARTERER: 'charterId',
+};
 
 const CONTACT_SELECT = {
   id: true,
@@ -25,7 +38,7 @@ export class ContactsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(query: ContactListQuery) {
-    const { q, limit, cursor, shipperId, operatorId, ownerId, charterId } = query;
+    const { q, limit, cursor, role, shipperId, operatorId, ownerId, charterId } = query;
 
     const items = await this.prisma.contact.findMany({
       take: limit + 1,
@@ -40,6 +53,7 @@ export class ContactsService {
               ],
             }
           : {}),
+        ...(role ? { [ROLE_FK[role]]: { not: null } } : {}),
         ...(shipperId ? { shipperId } : {}),
         ...(operatorId ? { operatorId } : {}),
         ...(ownerId ? { ownerId } : {}),
