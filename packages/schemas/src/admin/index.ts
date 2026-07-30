@@ -4,6 +4,7 @@ export const AdminUserSchema = z.object({
   id: z.string(),
   email: z.string().email(),
   displayName: z.string().nullable(),
+  jobTitle: z.string().nullable(),
   phone: z.string().nullable(),
   mobile: z.string().nullable(),
   fax: z.string().nullable(),
@@ -31,6 +32,8 @@ export type CreateUserInput = z.infer<typeof CreateUserSchema>;
 
 export const UpdateUserSchema = z.object({
   displayName: z.string().optional(),
+  // Renders as the title line of the email signature.
+  jobTitle: z.string().optional(),
   phone: z.string().optional(),
   mobile: z.string().optional(),
   fax: z.string().optional(),

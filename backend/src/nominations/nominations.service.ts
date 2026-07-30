@@ -1,5 +1,3 @@
-import { readFile } from 'fs/promises';
-import { resolve } from 'path';
 import {
   BadRequestException,
   ConflictException,
@@ -9,10 +7,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import Handlebars from 'handlebars';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { AttachmentsService } from '../attachments/attachments.service.js';
+import { EmailTemplateService } from '../email-templates/email-template.service.js';
 import {
   isValidTransition,
   deriveNominationStatus,
@@ -159,6 +157,7 @@ export class NominationsService {
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
     private readonly attachmentsService: AttachmentsService,
+    private readonly emailTemplates: EmailTemplateService,
   ) {}
 
   async create(dto: NominationCreateInput, userId: string) {
@@ -667,6 +666,13 @@ export class NominationsService {
           layDaysFirst: true,
           layDaysLast: true,
           etaDate: true,
+          nominationType: true,
+          // Supplies the body's "TO:" line — see resolveNominatingParty below.
+          nominationClients: {
+            select: { type: true, name: true },
+            orderBy: { sortOrder: 'asc' },
+          },
+          nominatedBy: { select: { displayName: true, email: true } },
           shipParticular: { select: { name: true } },
           opPort: { select: { name: true } },
           lastPort: { select: { name: true } },
@@ -692,7 +698,7 @@ export class NominationsService {
       }),
       this.prisma.user.findUnique({
         where: { email: agentEmail },
-        select: { displayName: true, phone: true, mobile: true, fax: true },
+        select: { displayName: true, jobTitle: true, phone: true, mobile: true, fax: true },
       }),
     ]);
 
@@ -711,7 +717,6 @@ export class NominationsService {
       SOF: '02_statement_of_facts/15_final_sof.hbs',
     };
     const relPath = TEMPLATE_PATHS[actionType.toUpperCase()] ?? `${actionType.toLowerCase()}.hbs`;
-    const templatePath = resolve(process.cwd(), 'templates', relPath);
 
     // ---------------------------------------------------------------------------
     // Template variables
@@ -816,9 +821,26 @@ export class NominationsService {
       etb_date: fmtDate(etaRecord?.etb ?? null),
       etb_time: fmtTime(etaRecord?.etb ?? null),
       agent_name: agent?.displayName ?? agentEmail.split('@')[0] ?? agentEmail,
-      agent_title: '',
+      agent_title: agent?.jobTitle ?? '',
       agent_email: branch?.emails.length ? branch.emails.join('; ') : agentEmail,
       agent_mobile: agent?.mobile ?? branch?.mobile24h ?? '',
+      // Signature phone line — the agent's own numbers when set, else the branch
+      // 24h line (which is free text and may already hold several numbers).
+      agent_phones:
+        [agent?.mobile, agent?.phone].filter((p) => p?.trim()).join(' / ') ||
+        branch?.mobile24h ||
+        '',
+      // "TO:" line — who nominated us.
+      nominating_party: NominationsService.resolveNominatingParty(
+        nomination.nominationClients,
+        nomination.nominatedBy,
+      ),
+      // Header recipient lines. Templates referenced these long before anything
+      // supplied them, so they rendered as bare "To:" / "Cc:" labels.
+      to_recipients: nomination.emailTo.join('; '),
+      cc_recipients: nomination.emailCc.join('; '),
+      company_website: 'www.navieramar.com',
+      current_year: String(new Date().getFullYear()),
       branch_office: branch?.name ?? '',
       branch_coverage: branch?.coverage ?? '',
       branch_address: branch?.address ?? '',
@@ -1027,28 +1049,19 @@ export class NominationsService {
     }
 
     // ---------------------------------------------------------------------------
-    // Render — extract subject from source BEFORE compiling ({{!-- --}} is stripped)
+    // Render — via EmailTemplateService, which registers the {{> signature}}
+    // partial. Compiling the source here instead throws on the missing partial.
     // ---------------------------------------------------------------------------
-    const templateSource = await readFile(templatePath, 'utf8');
+    const rendered = await this.emailTemplates.render(relPath, templateVars);
 
-    const subjectSourceMatch = /\{\{!--\s*Subject:\s*(.+?)\s*--\}\}/.exec(templateSource);
-    const subjectTemplate =
-      subjectSourceMatch?.[1] ?? nomination.subject ?? nomination.shipParticular?.name ?? '';
-    const subject = Handlebars.compile(subjectTemplate)(templateVars);
-
-    const bodyText = Handlebars.compile(templateSource)(templateVars);
-
-    // Wrap plain-text output in <pre> for correct iframe rendering
-    const bodyHtml = bodyText.trimStart().startsWith('<')
-      ? bodyText
-      : `<pre style="font-family:'Courier New',Consolas,monospace;font-size:13px;line-height:1.5;white-space:pre-wrap;padding:16px;margin:0;">${bodyText}</pre>`;
+    const subject = rendered.subject ?? nomination.subject ?? nomination.shipParticular?.name ?? '';
 
     return {
       subject,
       toAddresses: nomination.emailTo,
       ccAddresses: nomination.emailCc,
       bccAddresses: nomination.emailBcc,
-      bodyHtml,
+      bodyHtml: rendered.bodyHtml,
     };
   }
 
@@ -1066,6 +1079,49 @@ export class NominationsService {
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
+
+  /**
+   * Resolves the party the nomination came from, for the "TO:" line of outgoing
+   * emails.
+   *
+   * The nominating company is only recorded in the client list, so it is read from
+   * there in priority order — the charterer nominates in the common case, with the
+   * owner/operator rows covering owner's-agent appointments. Those four rows are
+   * auto-created blank on every nomination and are frequently left empty, so any
+   * blank name is skipped rather than emitted as an empty "TO:".
+   *
+   * Falls back to `nominatedById` ("Nomination Received by") when no company is
+   * recorded. That is an internal user rather than the counterparty, so it is a
+   * last resort, not a preference.
+   */
+  private static resolveNominatingParty(
+    clients: { type: string; name: string }[],
+    nominatedBy: { displayName: string | null; email: string } | null,
+  ): string {
+    const PRIORITY = [
+      'charterer',
+      'disponent owner',
+      'head owner',
+      'commercial operator',
+      'technical operator',
+      'time charter',
+    ];
+
+    for (const wanted of PRIORITY) {
+      const match = clients.find(
+        (c) => c.type.trim().toLowerCase() === wanted && c.name.trim() !== '',
+      );
+      if (match) return match.name.trim();
+    }
+
+    // Any other filled row beats falling back to an internal user.
+    const anyNamed = clients.find((c) => c.name.trim() !== '');
+    if (anyNamed) return anyNamed.name.trim();
+
+    if (nominatedBy) return nominatedBy.displayName?.trim() || nominatedBy.email;
+
+    return '';
+  }
 
   private async assertNominationExists(id: string): Promise<void> {
     const exists = await this.prisma.nomination.findUnique({

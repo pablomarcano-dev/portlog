@@ -1,7 +1,11 @@
 {{!-- Subject: {{ref_line}} - ETA Notices Required --}}
 
+{{#if to_recipients}}
 To: {{to_recipients}}
+{{/if}}
+{{#if cc_recipients}}
 Cc: {{cc_recipients}}
+{{/if}}
 Fm: Servicios Navieramar, C.A. (as Agent Only)
 Ref: {{ref_line}}
 Laycan: {{laycan}}
@@ -11,15 +15,4 @@ Good day, dear Master {{master_name}},
 
 To comply with terminal and charterer requirements, kindly provide contractual ETA notices at 96 / 72 / 48 / 24 hours in advance. This will enable coordination of berthing prospects with the terminal operators.
 
-Best regards,
-
-BEST REGARDS,
-{{agent_name}}
-{{agent_title}}
-SERVICIOS NAVIERAMAR, C.A. (As Agents Only)
-{{branch_office}}
-Covering/Attending: {{branch_coverage}}
-
-Address: {{branch_address}}
-Mobile 24 hrs: {{agent_mobile}}
-Email: {{agent_email}}
+{{> signature}}
