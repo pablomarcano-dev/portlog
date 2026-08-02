@@ -1,8 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useState, useCallback } from 'react';
-import { Stack, Tabs, TextInput, Textarea } from '@mantine/core';
+import { Divider, Stack, Tabs, TextInput, Textarea } from '@mantine/core';
+import { Controller } from 'react-hook-form';
 import { BranchCreateSchema } from '@portlog/schemas';
 import type { BranchCreate } from '@portlog/schemas';
+import { EmailChipsInput } from '../../../components/master-data/EmailChipsInput';
 import { MasterDetailShell } from '../../../components/master-data/MasterDetailShell';
 import type { ListItem } from '../../../components/master-data/MasterDetailShell';
 import {
@@ -41,6 +43,16 @@ function BranchesScreen() {
       name: branch.name,
       code: branch.code,
       comments: branch.comments ?? undefined,
+      emails: branch.emails ?? [],
+      address: branch.address ?? undefined,
+      phone: branch.phone ?? undefined,
+      fax: branch.fax ?? undefined,
+      mobile24h: branch.mobile24h ?? undefined,
+      coverage: branch.coverage ?? undefined,
+      contactName: branch.contactName ?? undefined,
+      contactTitle: branch.contactTitle ?? undefined,
+      contactMobile: branch.contactMobile ?? undefined,
+      contactEmails: branch.contactEmails ?? [],
       centralEmails: branch.centralEmails ?? [],
     };
   }, []);
@@ -124,6 +136,106 @@ function BranchFields({
         minRows={2}
         error={form.formState.errors.comments?.message}
         {...form.register('comments')}
+      />
+
+      {/* These three lists decide who is copied on every notice sent for this
+          branch's nominations, so each says where it lands rather than leaving
+          the agent to discover it by sending. */}
+      <Divider label="Email Distribution" labelPosition="left" mt="xs" />
+      <Controller
+        control={form.control}
+        name="emails"
+        render={({ field, fieldState }) => (
+          <EmailChipsInput
+            label="Branch Emails"
+            description="The branch's operational addresses. Copied (CC) on notices for this branch, and shown as the contact address in the email signature."
+            value={field.value ?? []}
+            onChange={field.onChange}
+            error={fieldState.error?.message}
+          />
+        )}
+      />
+      <Controller
+        control={form.control}
+        name="centralEmails"
+        render={({ field, fieldState }) => (
+          <EmailChipsInput
+            label="Central / Supervisory Emails"
+            description="Head-office oversight. Blind-copied (BCC) on notices for this branch, so counterparties do not see them."
+            value={field.value ?? []}
+            onChange={field.onChange}
+            error={fieldState.error?.message}
+          />
+        )}
+      />
+      <Controller
+        control={form.control}
+        name="contactEmails"
+        render={({ field, fieldState }) => (
+          <EmailChipsInput
+            label="Contact Person Emails"
+            description="The named contact below. Used in documents, not added to outgoing recipients."
+            value={field.value ?? []}
+            onChange={field.onChange}
+            error={fieldState.error?.message}
+          />
+        )}
+      />
+
+      <Divider label="Contact Details" labelPosition="left" mt="xs" />
+      <TextInput
+        label="Contact Name"
+        placeholder="e.g. Ms. Cindy Moreno"
+        error={form.formState.errors.contactName?.message}
+        {...form.register('contactName')}
+      />
+      <TextInput
+        label="Contact Title"
+        placeholder="e.g. Branch Manager"
+        error={form.formState.errors.contactTitle?.message}
+        {...form.register('contactTitle')}
+      />
+      <TextInput
+        label="Contact Mobile"
+        placeholder="e.g. +58 414 7883108"
+        error={form.formState.errors.contactMobile?.message}
+        {...form.register('contactMobile')}
+      />
+
+      <Divider label="Office Details" labelPosition="left" mt="xs" />
+      <TextInput
+        label="Phone"
+        placeholder="e.g. +58 281 2811100"
+        error={form.formState.errors.phone?.message}
+        {...form.register('phone')}
+      />
+      <TextInput
+        label="Fax"
+        placeholder="e.g. +58 281 2811101"
+        error={form.formState.errors.fax?.message}
+        {...form.register('fax')}
+      />
+      <TextInput
+        label="24h Mobile"
+        placeholder="e.g. +58 414 7883108 / +58 424 8221100"
+        error={form.formState.errors.mobile24h?.message}
+        {...form.register('mobile24h')}
+      />
+      <Textarea
+        label="Address"
+        placeholder="Full mailing address"
+        autosize
+        minRows={2}
+        error={form.formState.errors.address?.message}
+        {...form.register('address')}
+      />
+      <Textarea
+        label="Coverage"
+        placeholder="Ports and terminals attended by this branch"
+        autosize
+        minRows={2}
+        error={form.formState.errors.coverage?.message}
+        {...form.register('coverage')}
       />
     </Stack>
   );
