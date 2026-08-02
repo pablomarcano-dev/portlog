@@ -69,6 +69,26 @@ export function formatLaydayRange(first: Date | null, last: Date | null): string
  * so the rendered notice never depends on the server's environment. Anything
  * non-numeric passes through untouched rather than becoming "NaN" or "0".
  */
+/**
+ * Cargo-update ETC stamp for the notice body, e.g. "02/08/2026 02:00".
+ *
+ * The Cargo Update modal stores the picked value split across `etcDate`
+ * (`YYYY-MM-DD`) and `etcTime` (`HH:mm`) — deliberately zone-less, because ETC
+ * is a *port-local wall clock*, not an instant. Reformatting textually rather
+ * than through `Date` keeps the server's timezone from shifting the hour on a
+ * legally binding notice. Values that don't match (legacy free-typed dates)
+ * pass through untouched. 24-hour, never AM/PM.
+ */
+export function formatEtcStamp(date: unknown, time: unknown): string {
+  const rawDate = date === null || date === undefined ? '' : String(date).trim();
+  const rawTime = time === null || time === undefined ? '' : String(time).trim();
+
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(rawDate);
+  const datePart = iso ? `${iso[3]}/${iso[2]}/${iso[1]}` : rawDate;
+
+  return [datePart, rawTime].filter(Boolean).join(' ');
+}
+
 export function formatCargoQuantity(value: unknown): string {
   if (value === null || value === undefined || value === '') return '';
   const n = typeof value === 'number' ? value : Number(value);
@@ -882,15 +902,17 @@ export class NominationsService {
         quantity: formatCargoFigure(p['quantity'] ?? 0),
         unit: String(p['unit'] ?? ''),
         qty_on_board: formatCargoFigure(p['qtyOnBoard'] ?? 0),
-        qty_on_board_unit: String(p['qtyOnBoardUnit'] ?? p['unit'] ?? ''),
+        // `||`, not `??` — a unit cell left on its inherited default is stored
+        // as an empty string, which `??` would print as no unit at all.
+        qty_on_board_unit: String(p['qtyOnBoardUnit'] || p['unit'] || ''),
         qty_to_go: formatCargoFigure(p['qtyToGo'] ?? 0),
-        qty_to_go_unit: String(p['qtyToGoUnit'] ?? p['unit'] ?? ''),
+        qty_to_go_unit: String(p['qtyToGoUnit'] || p['unit'] || ''),
         loading_rate: formatCargoFigure(p['loadingRate'] ?? 0),
         loading_rate_unit: resolveTransferRateUnit(
           p['loadingRateUnit'] as string | null | undefined,
-          (p['qtyOnBoardUnit'] ?? p['unit']) as string | null | undefined,
+          (p['qtyOnBoardUnit'] || p['unit']) as string | null | undefined,
         ),
-        t_etc: String(p['etcDate'] ?? ''),
+        t_etc: formatEtcStamp(p['etcDate'], p['etcTime']),
       })),
       last_port: nomination.lastPort?.name ?? '',
       next_port: nomination.nextPort?.name ?? '',

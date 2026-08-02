@@ -95,9 +95,16 @@ export class CargoesService {
         ...(category ? { category } : {}),
       },
       orderBy: { name: 'asc' },
-      select: { id: true, name: true, category: true },
+      select: { id: true, name: true, bblUnit: true, category: true },
     });
-    return items.map((c) => ({ id: c.id, label: c.name, category: c.category }));
+    // bblUnit rides along so pickers can seed the quantity units from the
+    // product the user just chose instead of making them retype it.
+    return items.map((c) => ({
+      id: c.id,
+      label: c.name,
+      bblUnit: c.bblUnit,
+      category: c.category,
+    }));
   }
 
   private async assertExists(id: string): Promise<void> {

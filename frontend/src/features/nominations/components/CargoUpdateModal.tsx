@@ -12,7 +12,7 @@ import {
   Table,
   ActionIcon,
 } from '@mantine/core';
-import { DateInput } from '@mantine/dates';
+import { DateInput, DateTimePicker } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -26,7 +26,10 @@ import { useNominationCompose } from '../api/useNominationCompose';
 import { useColumnResize } from '../../../components/table/useColumnResize';
 import { ResizableTh } from '../../../components/table/ResizableTh';
 import { parseDateInput } from '../../../lib/format/datetime';
+import { unitSelectData } from '../parcelUnits';
+import { formatEtc, parseEtc, toEtcParts } from '../parcelEtc';
 import { EmailComposeDrawer } from './EmailComposeDrawer';
+import { CargoNamePicker } from './CargoNamePicker';
 
 const OPERATION_OPTIONS = [
   { value: 'Load', label: 'Load' },
@@ -44,6 +47,8 @@ const OPERATION_OPTIONS = [
 type ColKey =
   | 'idx'
   | 'product'
+  | 'quantity'
+  | 'unit'
   | 'etcDate'
   | 'operation'
   | 'qtyOnBoard'
@@ -57,20 +62,24 @@ type ColKey =
 const INITIAL_WIDTHS: Record<ColKey, number> = {
   idx: 32,
   product: 150,
-  etcDate: 110,
+  quantity: 100,
+  unit: 70,
+  etcDate: 165,
   operation: 100,
   qtyOnBoard: 90,
-  qtyOnBoardUnit: 60,
+  qtyOnBoardUnit: 70,
   qtyToGo: 90,
-  qtyToGoUnit: 60,
+  qtyToGoUnit: 70,
   loadingRate: 90,
-  loadingRateUnit: 60,
+  loadingRateUnit: 70,
   actions: 36,
 };
 
 const COL_LABELS: Record<ColKey, string> = {
   idx: '#',
   product: 'Product',
+  quantity: 'Qty Nominated',
+  unit: 'Unit',
   etcDate: 'ETC Date',
   operation: 'Operation',
   qtyOnBoard: 'Qty On Board',
@@ -81,6 +90,8 @@ const COL_LABELS: Record<ColKey, string> = {
   loadingRateUnit: 'Unit',
   actions: '',
 };
+
+const COL_KEYS = Object.keys(INITIAL_WIDTHS) as ColKey[];
 
 // ---------------------------------------------------------------------------
 // Types
@@ -104,6 +115,12 @@ interface ParcelRow extends NominationParcelRead {
 
 function fmtTime(d: Date): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/** Mantine number inputs hand back `''` or a raw string mid-edit; the DB gets a number. */
+function toNumber(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n : 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -142,7 +159,13 @@ export function CargoUpdateModal({
   // -------------------------------------------------------------------------
 
   const saveMutation = useMutation({
-    mutationFn: () => nominationsApi.updateParcels(nominationId, rows),
+    // `_key` is a render key only — the parcels column is raw JSON, so anything
+    // sent here is what the next reader gets back.
+    mutationFn: () =>
+      nominationsApi.updateParcels(
+        nominationId,
+        rows.map(({ _key: _drop, ...parcel }) => parcel),
+      ),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['nominations', nominationId] });
       notifications.show({
@@ -156,8 +179,46 @@ export function CargoUpdateModal({
     },
   });
 
+  function patchRow(key: string, patch: Partial<ParcelRow>) {
+    setRows((prev) => prev.map((r) => (r._key === key ? { ...r, ...patch } : r)));
+  }
+
   function updateRow(key: string, field: keyof ParcelRow, value: unknown) {
-    setRows((prev) => prev.map((r) => (r._key === key ? { ...r, [field]: value } : r)));
+    patchRow(key, { [field]: value } as Partial<ParcelRow>);
+  }
+
+  /**
+   * Nominated and on-board quantities drive Qty To Go: what is still to be
+   * moved is what the terminal nominated minus what is already aboard. The
+   * result stays editable — an operator can override it after a manual gauge —
+   * but touching either input recomputes it.
+   */
+  function updateQuantity(key: string, field: 'quantity' | 'qtyOnBoard', value: unknown) {
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r._key !== key) return r;
+        const next = { ...r, [field]: toNumber(value) };
+        return {
+          ...next,
+          qtyToGo: Math.max(0, toNumber(next.quantity) - toNumber(next.qtyOnBoard)),
+        };
+      }),
+    );
+  }
+
+  /**
+   * A catalog product carries its own unit, so picking one fills every unit
+   * cell on the row instead of making the operator retype it four times.
+   */
+  function applyProductUnit(key: string, bblUnit: string) {
+    const unit = bblUnit.trim();
+    if (!unit) return;
+    patchRow(key, {
+      unit,
+      qtyOnBoardUnit: unit,
+      qtyToGoUnit: unit,
+      loadingRateUnit: unit,
+    });
   }
 
   function addRow() {
@@ -167,12 +228,13 @@ export function CargoUpdateModal({
         _key: String(Date.now()),
         product: '',
         quantity: 0,
-        unit: 'MT',
+        // Units are left blank on purpose — picking the product fills them in.
+        unit: '',
         operation: 'Load',
         qtyOnBoard: 0,
-        qtyOnBoardUnit: 'MT',
+        qtyOnBoardUnit: '',
         qtyToGo: 0,
-        qtyToGoUnit: 'MT',
+        qtyToGoUnit: '',
         loadingRate: 0,
         loadingRateUnit: '',
       },
@@ -203,12 +265,14 @@ export function CargoUpdateModal({
           `------------------------------------------------------\n` +
           `${updateDateStr} ${timeUpdate} Cargo Update - ${p.product}\n` +
           `------------------------------------------------------\n` +
-          `Quantity         : ${formatCargoFigure(p.quantity ?? 0)} ${p.unit ?? ''}\n` +
-          `Quantity On Board: ${formatCargoFigure(p.qtyOnBoard ?? 0)} ${p.qtyOnBoardUnit ?? p.unit ?? ''}\n` +
-          `Quantity To Go   : ${formatCargoFigure(p.qtyToGo ?? 0)} ${p.qtyToGoUnit ?? p.unit ?? ''}\n` +
-          `Loading Rate     : ${formatCargoFigure(p.loadingRate ?? 0)} ${resolveTransferRateUnit(p.loadingRateUnit, p.qtyOnBoardUnit ?? p.unit)}\n` +
+          // `||`, not `??` — a unit cell left on its inherited default is stored
+          // as an empty string, which `??` would happily print as no unit at all.
+          `Quantity         : ${formatCargoFigure(p.quantity ?? 0)} ${p.unit || ''}\n` +
+          `Quantity On Board: ${formatCargoFigure(p.qtyOnBoard ?? 0)} ${p.qtyOnBoardUnit || p.unit || ''}\n` +
+          `Quantity To Go   : ${formatCargoFigure(p.qtyToGo ?? 0)} ${p.qtyToGoUnit || p.unit || ''}\n` +
+          `Loading Rate     : ${formatCargoFigure(p.loadingRate ?? 0)} ${resolveTransferRateUnit(p.loadingRateUnit, p.qtyOnBoardUnit || p.unit)}\n` +
           `------------------------------------------------------\n\n` +
-          `${p.etcDate ?? ''} ETC`,
+          `${formatEtc(p.etcDate, p.etcTime)} ETC`,
       )
       .join('\n\n');
 
@@ -323,7 +387,7 @@ export function CargoUpdateModal({
             >
               <Table.Thead>
                 <Table.Tr>
-                  {(Object.keys(INITIAL_WIDTHS) as ColKey[]).map((col) => (
+                  {COL_KEYS.map((col) => (
                     <ResizableTh
                       key={col}
                       width={colWidths[col]}
@@ -337,7 +401,7 @@ export function CargoUpdateModal({
               <Table.Tbody>
                 {rows.length === 0 && (
                   <Table.Tr>
-                    <Table.Td colSpan={11}>
+                    <Table.Td colSpan={COL_KEYS.length}>
                       <Text size="xs" c="dimmed" ta="center">
                         No parcels — add a row below.
                       </Text>
@@ -348,18 +412,40 @@ export function CargoUpdateModal({
                   <Table.Tr key={row._key}>
                     <Table.Td style={{ width: colWidths.idx }}>{i + 1}</Table.Td>
                     <Table.Td style={{ width: colWidths.product }}>
-                      <TextInput
+                      <CargoNamePicker
                         size="xs"
                         value={row.product}
-                        onChange={(e) => updateRow(row._key, 'product', e.currentTarget.value)}
+                        onChange={(v) => updateRow(row._key, 'product', v)}
+                        onCargoSelect={(cargo) => applyProductUnit(row._key, cargo.bblUnit)}
+                      />
+                    </Table.Td>
+                    <Table.Td style={{ width: colWidths.quantity }}>
+                      <NumberInput
+                        size="xs"
+                        min={0}
+                        value={row.quantity ?? 0}
+                        onChange={(v) => updateQuantity(row._key, 'quantity', v)}
+                      />
+                    </Table.Td>
+                    <Table.Td style={{ width: colWidths.unit }}>
+                      <Select
+                        size="xs"
+                        placeholder="Unit"
+                        data={unitSelectData(row.unit)}
+                        value={row.unit || null}
+                        onChange={(v) => updateRow(row._key, 'unit', v ?? '')}
+                        comboboxProps={{ withinPortal: true }}
                       />
                     </Table.Td>
                     <Table.Td style={{ width: colWidths.etcDate }}>
-                      <TextInput
+                      <DateTimePicker
                         size="xs"
-                        placeholder="MM/DD/YYYY"
-                        value={row.etcDate ?? ''}
-                        onChange={(e) => updateRow(row._key, 'etcDate', e.currentTarget.value)}
+                        valueFormat="DD/MM/YYYY HH:mm"
+                        placeholder="Select date/time"
+                        clearable
+                        styles={{ input: { fontSize: 12 } }}
+                        value={parseEtc(row.etcDate, row.etcTime)}
+                        onChange={(d) => patchRow(row._key, toEtcParts(d))}
                       />
                     </Table.Td>
                     <Table.Td style={{ width: colWidths.operation }}>
@@ -376,16 +462,17 @@ export function CargoUpdateModal({
                         size="xs"
                         min={0}
                         value={row.qtyOnBoard ?? 0}
-                        onChange={(v) => updateRow(row._key, 'qtyOnBoard', v)}
+                        onChange={(v) => updateQuantity(row._key, 'qtyOnBoard', v)}
                       />
                     </Table.Td>
                     <Table.Td style={{ width: colWidths.qtyOnBoardUnit }}>
-                      <TextInput
+                      <Select
                         size="xs"
-                        value={row.qtyOnBoardUnit ?? row.unit ?? ''}
-                        onChange={(e) =>
-                          updateRow(row._key, 'qtyOnBoardUnit', e.currentTarget.value)
-                        }
+                        placeholder="Unit"
+                        data={unitSelectData(row.qtyOnBoardUnit, row.unit)}
+                        value={row.qtyOnBoardUnit || row.unit || null}
+                        onChange={(v) => updateRow(row._key, 'qtyOnBoardUnit', v ?? '')}
+                        comboboxProps={{ withinPortal: true }}
                       />
                     </Table.Td>
                     <Table.Td style={{ width: colWidths.qtyToGo }}>
@@ -393,14 +480,17 @@ export function CargoUpdateModal({
                         size="xs"
                         min={0}
                         value={row.qtyToGo ?? 0}
-                        onChange={(v) => updateRow(row._key, 'qtyToGo', v)}
+                        onChange={(v) => updateRow(row._key, 'qtyToGo', toNumber(v))}
                       />
                     </Table.Td>
                     <Table.Td style={{ width: colWidths.qtyToGoUnit }}>
-                      <TextInput
+                      <Select
                         size="xs"
-                        value={row.qtyToGoUnit ?? row.unit ?? ''}
-                        onChange={(e) => updateRow(row._key, 'qtyToGoUnit', e.currentTarget.value)}
+                        placeholder="Unit"
+                        data={unitSelectData(row.qtyToGoUnit, row.unit)}
+                        value={row.qtyToGoUnit || row.unit || null}
+                        onChange={(v) => updateRow(row._key, 'qtyToGoUnit', v ?? '')}
+                        comboboxProps={{ withinPortal: true }}
                       />
                     </Table.Td>
                     <Table.Td style={{ width: colWidths.loadingRate }}>
@@ -408,16 +498,17 @@ export function CargoUpdateModal({
                         size="xs"
                         min={0}
                         value={row.loadingRate ?? 0}
-                        onChange={(v) => updateRow(row._key, 'loadingRate', v)}
+                        onChange={(v) => updateRow(row._key, 'loadingRate', toNumber(v))}
                       />
                     </Table.Td>
                     <Table.Td style={{ width: colWidths.loadingRateUnit }}>
-                      <TextInput
+                      <Select
                         size="xs"
-                        value={row.loadingRateUnit ?? ''}
-                        onChange={(e) =>
-                          updateRow(row._key, 'loadingRateUnit', e.currentTarget.value)
-                        }
+                        placeholder="Unit"
+                        data={unitSelectData(row.loadingRateUnit, row.unit)}
+                        value={row.loadingRateUnit || row.unit || null}
+                        onChange={(v) => updateRow(row._key, 'loadingRateUnit', v ?? '')}
+                        comboboxProps={{ withinPortal: true }}
                       />
                     </Table.Td>
                     <Table.Td style={{ width: colWidths.actions }}>

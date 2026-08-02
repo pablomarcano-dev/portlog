@@ -74,7 +74,7 @@ describe('CargoesService', () => {
   describe('search', () => {
     it('filters by category and returns it on each result', async () => {
       mockPrisma.cargo.findMany.mockResolvedValue([
-        { id: 'cargo-cuid-1', name: 'Crude Oil', category: 'OT' },
+        { id: 'cargo-cuid-1', name: 'Crude Oil', bblUnit: 'Bbls', category: 'OT' },
       ]);
 
       const result = await service.search('Crude', 'OT');
@@ -82,7 +82,22 @@ describe('CargoesService', () => {
       expect(mockPrisma.cargo.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: expect.objectContaining({ category: 'OT' }) }),
       );
-      expect(result[0]).toEqual({ id: 'cargo-cuid-1', label: 'Crude Oil', category: 'OT' });
+      expect(result[0]).toEqual({
+        id: 'cargo-cuid-1',
+        label: 'Crude Oil',
+        bblUnit: 'Bbls',
+        category: 'OT',
+      });
+    });
+
+    it('returns each product bblUnit so pickers can seed quantity units', async () => {
+      mockPrisma.cargo.findMany.mockResolvedValue([
+        { id: 'cargo-cuid-2', name: 'Soja', bblUnit: 'M/T', category: 'SN' },
+      ]);
+
+      const result = await service.search('Soja');
+
+      expect(result[0]?.bblUnit).toBe('M/T');
     });
 
     it('omits the category filter when none is given', async () => {

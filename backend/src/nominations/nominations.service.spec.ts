@@ -9,6 +9,7 @@ import {
   NominationsService,
   dedupeEmails,
   formatCargoQuantity,
+  formatEtcStamp,
   formatLaydayRange,
 } from './nominations.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -1041,5 +1042,37 @@ describe('formatCargoQuantity', () => {
 
   it('passes non-numeric text through untouched', () => {
     expect(formatCargoQuantity('part cargo')).toBe('part cargo');
+  });
+});
+
+describe('formatEtcStamp', () => {
+  it('renders the picked ETC as DD/MM/YYYY HH:mm', () => {
+    expect(formatEtcStamp('2026-08-02', '02:00')).toBe('02/08/2026 02:00');
+  });
+
+  it('keeps 24-hour times as picked — an ETC is never AM/PM on a notice', () => {
+    expect(formatEtcStamp('2026-08-02', '23:45')).toBe('02/08/2026 23:45');
+  });
+
+  it('keeps midnight on the day it was picked', () => {
+    // The stamp is reordered textually, never parsed through `Date` — a UTC
+    // parse of "2026-08-02T00:30" would render as the 1st on any negative
+    // offset, moving a legally binding ETC by a day.
+    expect(formatEtcStamp('2026-08-02', '00:30')).toBe('02/08/2026 00:30');
+  });
+
+  it('drops the time when only a date was picked', () => {
+    expect(formatEtcStamp('2026-08-02', '')).toBe('02/08/2026');
+    expect(formatEtcStamp('2026-08-02', null)).toBe('02/08/2026');
+  });
+
+  it('returns empty when no ETC is recorded, so the line reads as blank', () => {
+    expect(formatEtcStamp(null, null)).toBe('');
+    expect(formatEtcStamp(undefined, undefined)).toBe('');
+    expect(formatEtcStamp('', '')).toBe('');
+  });
+
+  it('passes legacy free-typed values through untouched', () => {
+    expect(formatEtcStamp('Aug 02nd, 2026 02:00', undefined)).toBe('Aug 02nd, 2026 02:00');
   });
 });
