@@ -43,6 +43,25 @@ function formatSnOt(correlative: number, dateNominated: Date, kind: NominationKi
 }
 
 /**
+ * Sub-document action type → template file under `templates/`.
+ *
+ * Every action the compose drawer can open must appear here. An unmapped type
+ * falls through to `<action>.hbs`, which does not exist — NOR shipped that way
+ * and the drawer opened with no subject, no recipients and no body, since the
+ * whole compose request failed. Covered by a spec that stats each path.
+ */
+export const COMPOSE_TEMPLATE_PATHS: Record<string, string> = {
+  ACKNOWLEDGEMENT: '01_prearrival/00_nomination_acceptance.hbs',
+  PREARRIVAL: '01_prearrival/10_prearrival_notification.hbs',
+  ETA_REQUEST: '01_prearrival/01_eta_request_to_master.hbs',
+  ETA_TERMINAL: '01_prearrival/03_eta_forwarded_to_terminal.hbs',
+  ETA_REPLY: '01_prearrival/02_reply_to_master_eta_notice.hbs',
+  NOR: '01_prearrival/06_nor_tendered_to_terminal.hbs',
+  CARGO_UPDATE: '02_statement_of_facts/07_cargo_update.hbs',
+  SOF: '02_statement_of_facts/15_final_sof.hbs',
+};
+
+/**
  * Laycan-style date range with the month spelled out, e.g.
  * "Jul. 06th-10th, 2026". The month and year collapse when both ends share
  * them, which is the common case — laydays are usually a few days apart.
@@ -795,19 +814,8 @@ export class NominationsService {
 
     if (!nomination) throw new NotFoundException(`Nomination ${nominationId} not found.`);
 
-    // ---------------------------------------------------------------------------
-    // Template path — map action type to file path within templates/
-    // ---------------------------------------------------------------------------
-    const TEMPLATE_PATHS: Record<string, string> = {
-      ACKNOWLEDGEMENT: '01_prearrival/00_nomination_acceptance.hbs',
-      PREARRIVAL: '01_prearrival/10_prearrival_notification.hbs',
-      ETA_REQUEST: '01_prearrival/01_eta_request_to_master.hbs',
-      ETA_TERMINAL: '01_prearrival/03_eta_forwarded_to_terminal.hbs',
-      ETA_REPLY: '01_prearrival/02_reply_to_master_eta_notice.hbs',
-      CARGO_UPDATE: '02_statement_of_facts/07_cargo_update.hbs',
-      SOF: '02_statement_of_facts/15_final_sof.hbs',
-    };
-    const relPath = TEMPLATE_PATHS[actionType.toUpperCase()] ?? `${actionType.toLowerCase()}.hbs`;
+    const relPath =
+      COMPOSE_TEMPLATE_PATHS[actionType.toUpperCase()] ?? `${actionType.toLowerCase()}.hbs`;
 
     // ---------------------------------------------------------------------------
     // Template variables

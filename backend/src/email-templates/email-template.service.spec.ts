@@ -1,4 +1,5 @@
 import { EmailTemplateService } from './email-template.service.js';
+import { COMPOSE_TEMPLATE_PATHS } from '../nominations/nominations.service.js';
 
 // These specs render the real files under backend/templates, so they fail if a
 // template stops including {{> signature}} or grows a second sign-off. The
@@ -157,6 +158,78 @@ describe('EmailTemplateService', () => {
       }
 
       expect(withoutSubject).toEqual([]);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // The compose drawer renders whatever COMPOSE_TEMPLATE_PATHS points at. A
+  // missing entry (or a renamed file) fails the whole compose request, and the
+  // drawer then opens with no subject, no recipients and no body — the way NOR
+  // behaved until 02 Aug 2026. Stat every mapping instead of waiting for a user
+  // to report a blank form.
+  // -------------------------------------------------------------------------
+  describe('compose template mapping', () => {
+    it('points every action type at a template that exists', async () => {
+      const missing: string[] = [];
+
+      for (const [actionType, relPath] of Object.entries(COMPOSE_TEMPLATE_PATHS)) {
+        if (!templates.includes(relPath)) missing.push(`${actionType} → ${relPath}`);
+      }
+
+      expect(missing).toEqual([]);
+    });
+
+    it('maps every action the compose drawer can open', () => {
+      // Mirrors EmailActionsPanel's buttons plus the ETA modal's three sends.
+      const composable = [
+        'ACKNOWLEDGEMENT',
+        'PREARRIVAL',
+        'ETA_REQUEST',
+        'ETA_TERMINAL',
+        'ETA_REPLY',
+        'NOR',
+        'SOF',
+        'CARGO_UPDATE',
+      ];
+
+      expect(composable.filter((type) => !COMPOSE_TEMPLATE_PATHS[type])).toEqual([]);
+    });
+
+    it('renders a subject and a body for the NOR tendered to the terminal', async () => {
+      const { subject, bodyText } = await service.render(COMPOSE_TEMPLATE_PATHS['NOR']!, {
+        ...VARS,
+        ref_line: 'MV Test - Calling to Jose SN1/26/JSE',
+        vessel_name: 'MV Test',
+        oper_port: 'Jose',
+      });
+
+      expect(subject).toBe('MV Test - Calling to Jose SN1/26/JSE - N.O.R Tendered');
+      expect(bodyText).toContain('NOTICE OF READINESS');
+    });
+
+    it('marks the NOR times the agent has to fill in rather than leaving a gap', async () => {
+      const { bodyText } = await service.render(COMPOSE_TEMPLATE_PATHS['NOR']!, {
+        ...VARS,
+        vessel_name: 'MV Test',
+        oper_port: 'Jose',
+      });
+
+      expect(bodyText).toContain('from __/__/____ at __:__ Lt Hrs');
+      expect(bodyText).toContain('Charter Party dated __/__/____.');
+    });
+
+    it('uses the Master’s times when they are supplied', async () => {
+      const { bodyText } = await service.render(COMPOSE_TEMPLATE_PATHS['NOR']!, {
+        ...VARS,
+        vessel_name: 'MV Test',
+        oper_port: 'Jose',
+        nor_date: '02/08/2026',
+        nor_time: '14:30',
+        cp_date: '10/07/2026',
+      });
+
+      expect(bodyText).toContain('from 02/08/2026 at 14:30 Lt Hrs');
+      expect(bodyText).toContain('Charter Party dated 10/07/2026.');
     });
   });
 

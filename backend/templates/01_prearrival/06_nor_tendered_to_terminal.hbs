@@ -20,7 +20,13 @@ QUOTE:
 ---------
 NOTICE OF READINESS
 ========================================
-Please be advised that {{vessel_name}} is waiting at port of {{oper_port}}, and from {{nor_date}} at {{nor_time}} Lt Hrs is in every respect ready to load her cargo as per Charter Party dated {{cp_date}}.
+{{!--
+  The notice quotes the Master's own message, so the times come from that
+  message and are typed in by the agent. Unset, they render as fill-in marks
+  rather than as nothing — a NOR that goes out reading "from  at  Lt Hrs" is a
+  laytime dispute waiting to happen.
+--}}
+Please be advised that {{vessel_name}} is waiting at port of {{oper_port}}, and from {{#if nor_date}}{{nor_date}}{{else}}__/__/____{{/if}} at {{#if nor_time}}{{nor_time}}{{else}}__:__{{/if}} Lt Hrs is in every respect ready to load her cargo as per Charter Party dated {{#if cp_date}}{{cp_date}}{{else}}__/__/____{{/if}}.
 
 This notice is tendered without prejudice to the Original Notice Of Readiness.
 

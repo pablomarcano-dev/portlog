@@ -13,6 +13,12 @@ interface EmailChipsInputProps {
   onChange: (value: string[]) => void;
   error?: string;
   disabled?: boolean;
+  /**
+   * Height of the chip area before it scrolls, in px. Raise it for fields that
+   * routinely hold a whole distribution list (a NOR goes to the terminal *and*
+   * the shipper) so the addresses are visible instead of stacked into a sliver.
+   */
+  minHeight?: number;
 }
 
 /**
@@ -33,6 +39,7 @@ export function EmailChipsInput({
   onChange,
   error,
   disabled,
+  minHeight,
 }: EmailChipsInputProps) {
   const [rejected, setRejected] = useState<string[]>([]);
 
@@ -75,6 +82,18 @@ export function EmailChipsInput({
         disabled={disabled}
         splitChars={[',', ';', ' ', '\n', '\t']}
         clearable
+        styles={
+          minHeight
+            ? {
+                input: {
+                  minHeight,
+                  maxHeight: minHeight * 2,
+                  overflowY: 'auto',
+                  alignItems: 'flex-start',
+                },
+              }
+            : undefined
+        }
       />
       {rejected.length > 0 && (
         <Text size="xs" c="orange.7">
