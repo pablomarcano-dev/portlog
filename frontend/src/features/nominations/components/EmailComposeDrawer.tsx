@@ -7,7 +7,6 @@ import {
   Group,
   Textarea,
   TextInput,
-  TagsInput,
   Alert,
   Loader,
   Box,
@@ -25,6 +24,7 @@ import { useEmailDispatch } from '../api/useEmailDispatch';
 import { useNominationCompose } from '../api/useNominationCompose';
 import { useNominationSendEmail } from '../api/useNominationSendEmail';
 import { EmailGroupPicker } from '../../../components/master-data/EmailGroupPicker';
+import { EmailChipsInput } from '../../../components/master-data/EmailChipsInput';
 import { EmailAttachmentsField } from '../../../components/master-data/EmailAttachmentsField';
 import { formatDateTime } from '../../../lib/format/datetime';
 import { wrapEmailBody } from '../../../lib/format/emailBody';
@@ -70,9 +70,6 @@ const composeSchema = z.object({
   etb: z.date().nullable().optional(),
   berthNumber: z.string().optional(),
   etcDate: z.date().nullable().optional(),
-  norTenderedAt: z.date().nullable().optional(),
-  norAcceptedAt: z.date().nullable().optional(),
-  layTimeCommences: z.date().nullable().optional(),
   blQuantity: z.number().nullable().optional(),
   blDate: z.date().nullable().optional(),
   vesselFigure: z.number().nullable().optional(),
@@ -103,6 +100,10 @@ export function EmailComposeDrawer({
     subDocType === 'ETA_REQUEST' ||
     subDocType === 'ETA_TERMINAL' ||
     subDocType === 'ETA_REPLY' ||
+    // The NOR forwarded to the terminal is a plain-text letter quoting the
+    // master's notice, not a generated form — so it goes out on the
+    // nomination-level route (no auto-generated PDF), like the others here.
+    subDocType === 'NOR' ||
     subDocType === 'CARGO_UPDATE';
   const pedrEventsQuery = usePedrEvents(subDocType === 'SOF' ? pedrId : '');
 
@@ -126,9 +127,6 @@ export function EmailComposeDrawer({
       etb: null,
       berthNumber: '',
       etcDate: null,
-      norTenderedAt: null,
-      norAcceptedAt: null,
-      layTimeCommences: null,
       blQuantity: null,
       blDate: null,
       vesselFigure: null,
@@ -157,7 +155,6 @@ export function EmailComposeDrawer({
   const bccAddresses = watch('bccAddresses');
   const bodyText = watch('bodyText');
   const attachmentIds = watch('attachmentIds');
-  const norTenderedAt = watch('norTenderedAt');
   const blQuantity = watch('blQuantity');
   const blDate = watch('blDate');
 
@@ -183,23 +180,15 @@ export function EmailComposeDrawer({
             berthNumber: values.berthNumber || undefined,
             etcDate: values.etcDate ? values.etcDate.toISOString() : undefined,
           }
-        : subDocType === 'NOR'
+        : subDocType === 'CARGO_UPDATE'
           ? {
-              norTenderedAt: values.norTenderedAt ? values.norTenderedAt.toISOString() : undefined,
-              norAcceptedAt: values.norAcceptedAt ? values.norAcceptedAt.toISOString() : undefined,
-              layTimeCommences: values.layTimeCommences
-                ? values.layTimeCommences.toISOString()
-                : undefined,
+              blQuantity: values.blQuantity ?? undefined,
+              blDate: values.blDate ? values.blDate.toISOString().split('T')[0] : undefined,
+              vesselFigure: values.vesselFigure ?? undefined,
+              shoreFigure: values.shoreFigure ?? undefined,
+              remarks: values.cargoUpdateRemarks || undefined,
             }
-          : subDocType === 'CARGO_UPDATE'
-            ? {
-                blQuantity: values.blQuantity ?? undefined,
-                blDate: values.blDate ? values.blDate.toISOString().split('T')[0] : undefined,
-                vesselFigure: values.vesselFigure ?? undefined,
-                shoreFigure: values.shoreFigure ?? undefined,
-                remarks: values.cargoUpdateRemarks || undefined,
-              }
-            : undefined;
+          : undefined;
 
     if (isNominationLevel) {
       nominationSend.mutate(
@@ -290,25 +279,41 @@ export function EmailComposeDrawer({
               </Box>
             )}
 
-            {/* Recipients */}
-            <TagsInput
+            {/* Compose fetch failure — otherwise the drawer just opens blank and
+                the missing subject / recipients look like a data problem. */}
+            {composeQuery.isError && (
+              <Alert color="orange" title="Could not load the draft">
+                {composeQuery.error instanceof Error
+                  ? composeQuery.error.message
+                  : 'The template for this message could not be rendered.'}{' '}
+                Recipients, subject and body have to be filled in by hand.
+              </Alert>
+            )}
+
+            {/* Recipients — chips, so a whole distribution list can be pasted in
+                one go (comma / semicolon / newline separated). To is sized for
+                two groups' worth of addresses. */}
+            <EmailChipsInput
               label="To"
-              placeholder="Type an email and press Enter"
+              placeholder="Type or paste addresses…"
               value={toAddresses}
               onChange={(val) => setValue('toAddresses', val, { shouldValidate: true })}
               error={errors.toAddresses?.message}
+              minHeight={96}
             />
-            <TagsInput
+            <EmailChipsInput
               label="CC"
-              placeholder="Type an email and press Enter"
+              placeholder="Type or paste addresses…"
               value={ccAddresses}
               onChange={(val) => setValue('ccAddresses', val)}
+              minHeight={64}
             />
-            <TagsInput
+            <EmailChipsInput
               label="BCC"
-              placeholder="Type an email and press Enter"
+              placeholder="Type or paste addresses…"
               value={bccAddresses}
               onChange={(val) => setValue('bccAddresses', val)}
+              minHeight={64}
             />
 
             {/* Add from group */}
@@ -399,58 +404,6 @@ export function EmailComposeDrawer({
                       onChange={field.onChange}
                       clearable
                       error={errors.etcDate?.message}
-                    />
-                  )}
-                />
-              </>
-            )}
-
-            {/* NOR extra fields */}
-            {subDocType === 'NOR' && (
-              <>
-                <Divider label="NOR Details" labelPosition="left" />
-                <Controller
-                  name="norTenderedAt"
-                  control={control}
-                  render={({ field }) => (
-                    <DateTimePicker
-                      label="NOR Tendered At"
-                      placeholder="Select date and time"
-                      valueFormat="DD/MM/YYYY HH:mm"
-                      value={field.value ?? null}
-                      onChange={field.onChange}
-                      required
-                      error={errors.norTenderedAt?.message}
-                    />
-                  )}
-                />
-                <Controller
-                  name="norAcceptedAt"
-                  control={control}
-                  render={({ field }) => (
-                    <DateTimePicker
-                      label="NOR Accepted At"
-                      placeholder="Select date and time"
-                      valueFormat="DD/MM/YYYY HH:mm"
-                      value={field.value ?? null}
-                      onChange={field.onChange}
-                      clearable
-                      error={errors.norAcceptedAt?.message}
-                    />
-                  )}
-                />
-                <Controller
-                  name="layTimeCommences"
-                  control={control}
-                  render={({ field }) => (
-                    <DateTimePicker
-                      label="Lay Time Commences"
-                      placeholder="Select date and time"
-                      valueFormat="DD/MM/YYYY HH:mm"
-                      value={field.value ?? null}
-                      onChange={field.onChange}
-                      clearable
-                      error={errors.layTimeCommences?.message}
                     />
                   )}
                 />
@@ -558,10 +511,9 @@ export function EmailComposeDrawer({
                 type="submit"
                 loading={(isNominationLevel ? nominationSend : dispatch).isPending}
                 disabled={
-                  (subDocType === 'NOR' && !norTenderedAt) ||
-                  (subDocType === 'CARGO_UPDATE' &&
-                    !isNominationLevel &&
-                    (blQuantity == null || !blDate))
+                  subDocType === 'CARGO_UPDATE' &&
+                  !isNominationLevel &&
+                  (blQuantity == null || !blDate)
                 }
               >
                 Send

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import Handlebars from 'handlebars';
 import { readdir, readFile } from 'fs/promises';
 import { basename, extname, resolve } from 'path';
@@ -61,7 +61,18 @@ export class EmailTemplateService {
   private static readonly SUBJECT_RE = /\{\{!--\s*Subject:\s*(.+?)\s*--\}\}/;
 
   async render(relPath: string, vars: Record<string, unknown>): Promise<RenderedTemplate> {
-    const source = await readFile(resolve(templatesRoot(), relPath), 'utf8');
+    // An unmapped action type resolves to a path that does not exist. Left as a
+    // raw ENOENT it surfaces as a 500 and the compose drawer just opens blank —
+    // which is how NOR shipped with no subject and no recipients. Name the file.
+    let source: string;
+    try {
+      source = await readFile(resolve(templatesRoot(), relPath), 'utf8');
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        throw new NotFoundException(`Email template "${relPath}" not found.`);
+      }
+      throw err;
+    }
     await this.registerPartials();
 
     const subjectMatch = EmailTemplateService.SUBJECT_RE.exec(source);
