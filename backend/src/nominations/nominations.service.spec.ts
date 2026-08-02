@@ -127,14 +127,21 @@ const mockPrisma = {
     update: jest.fn(),
     delete: jest.fn(),
   },
+  emailDispatch: {
+    create: jest.fn(),
+    update: jest.fn(),
+  },
   $transaction: jest.fn(),
 };
 
-// No spec exercises email paths — an empty mock satisfies DI.
-const mockEmailService = {};
+const mockEmailService = {
+  send: jest.fn(),
+};
 
-// No spec exercises attachment paths — an empty mock satisfies DI.
-const mockAttachmentsService = {};
+const mockAttachmentsService = {
+  resolveForSend: jest.fn().mockResolvedValue([]),
+  linkToEmailDispatch: jest.fn().mockResolvedValue(undefined),
+};
 
 // Template rendering is covered by email-template.service.spec.ts, which renders
 // the real files; here the stub returns a fixed body so compose specs can assert
@@ -738,6 +745,59 @@ describe('NominationsService', () => {
     it('returns empty when nothing matches, so the line is dropped', () => {
       expect(operator([])).toBe('');
       expect(charterer([{ type: 'Shipper', name: 'Cargill S.A.' }])).toBe('');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // sendEmail — the compose drawer posts plain text; the fixed-width layout of
+  // a notice only survives a mail client if it is wrapped on the way out, and
+  // the dispatch row has to archive the same copy that was mailed.
+  // -------------------------------------------------------------------------
+  describe('sendEmail', () => {
+    const BODY = 'Ref: MT Maran Leo\nLaydays: Jul. 06th-10th, 2026';
+
+    const input = (bodyText: string) => ({
+      subDocType: 'NOR' as const,
+      toAddresses: ['terminal@puerto.com'],
+      ccAddresses: [],
+      bccAddresses: [],
+      subject: 'NOTICE OF READINESS — MT MARAN LEO',
+      bodyText,
+      attachmentIds: [],
+    });
+
+    beforeEach(() => {
+      mockPrisma.pedr.findUnique.mockResolvedValue({ id: 'pedr-1' });
+      mockPrisma.emailDispatch.create.mockResolvedValue({ id: 'disp-1' });
+      mockPrisma.emailDispatch.update.mockResolvedValue({ id: 'disp-1' });
+    });
+
+    it('wraps the plain-text body before it reaches SMTP', async () => {
+      await service.sendEmail('nom-1', input(BODY), 'user-1');
+
+      const { html } = mockEmailService.send.mock.calls[0][0] as { html: string };
+      expect(html.startsWith('<pre style=')).toBe(true);
+      // Line breaks intact — a flattened notice is the failure this guards.
+      expect(html).toContain('Ref: MT Maran Leo\nLaydays: Jul. 06th-10th, 2026');
+    });
+
+    it('archives exactly what was mailed', async () => {
+      await service.sendEmail('nom-1', input(BODY), 'user-1');
+
+      const { html } = mockEmailService.send.mock.calls[0][0] as { html: string };
+      const created = mockPrisma.emailDispatch.create.mock.calls[0][0] as {
+        data: { bodyHtml: string };
+      };
+      expect(created.data.bodyHtml).toBe(html);
+    });
+
+    it('leaves an already-wrapped body alone, so a re-send is not double-wrapped', async () => {
+      const alreadyWrapped = '<pre style="font-family:monospace">Ref: MT Maran Leo</pre>';
+
+      await service.sendEmail('nom-1', input(alreadyWrapped), 'user-1');
+
+      const { html } = mockEmailService.send.mock.calls[0][0] as { html: string };
+      expect(html).toBe(alreadyWrapped);
     });
   });
 

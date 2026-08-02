@@ -27,7 +27,6 @@ import { EmailGroupPicker } from '../../../components/master-data/EmailGroupPick
 import { EmailChipsInput } from '../../../components/master-data/EmailChipsInput';
 import { EmailAttachmentsField } from '../../../components/master-data/EmailAttachmentsField';
 import { formatDateTime } from '../../../lib/format/datetime';
-import { wrapEmailBody } from '../../../lib/format/emailBody';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -64,7 +63,8 @@ const composeSchema = z.object({
   ccAddresses: z.array(z.string()).default([]),
   bccAddresses: z.array(z.string()).default([]),
   subject: z.string().min(1, 'Subject is required'),
-  // Plain text, as authored. Wrapped to HTML on submit — see wrapEmailBody.
+  // Plain text, start to finish. The backend wraps it for mail clients at send
+  // time — nothing here composes HTML.
   bodyText: z.string().default(''),
   attachmentIds: z.array(z.string()).default([]),
   etb: z.date().nullable().optional(),
@@ -169,10 +169,6 @@ export function EmailComposeDrawer({
   }
 
   async function onSubmit(values: ComposeForm) {
-    // The editor holds plain text; mail clients need the fixed-width layout
-    // preserved, so wrap it on the way out.
-    const bodyHtml = values.bodyText ? wrapEmailBody(values.bodyText) : '';
-
     const extraData =
       subDocType === 'ETA_ETB'
         ? {
@@ -198,7 +194,7 @@ export function EmailComposeDrawer({
           ccAddresses: values.ccAddresses,
           bccAddresses: values.bccAddresses,
           subject: values.subject,
-          bodyHtml,
+          bodyText: values.bodyText,
           attachmentIds: values.attachmentIds,
         },
         { onSuccess: () => handleClose() },
@@ -211,7 +207,7 @@ export function EmailComposeDrawer({
           ccAddresses: values.ccAddresses,
           bccAddresses: values.bccAddresses,
           subject: values.subject,
-          bodyHtml: bodyHtml || undefined,
+          bodyText: values.bodyText || undefined,
           extraData,
           attachmentIds: values.attachmentIds,
         },

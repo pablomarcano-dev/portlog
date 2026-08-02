@@ -17,7 +17,6 @@ import { useSendShDocument } from '../api';
 import { EmailGroupPicker } from '../../../components/master-data/EmailGroupPicker';
 import { EmailAttachmentsField } from '../../../components/master-data/EmailAttachmentsField';
 import { formatDateTime } from '../../../lib/format/datetime';
-import { wrapEmailBody } from '../../../lib/format/emailBody';
 import type { SHDocumentDto } from '@portlog/schemas';
 
 // ---------------------------------------------------------------------------
@@ -28,7 +27,8 @@ const sendSchema = z.object({
   toAddresses: z.array(z.string()).min(1, 'Al menos un destinatario es requerido'),
   ccAddresses: z.array(z.string()).default([]),
   subject: z.string().min(1, 'El asunto es requerido'),
-  // Plain text, as authored. Wrapped to HTML on submit — see wrapEmailBody.
+  // Plain text, start to finish. The backend wraps it for mail clients at send
+  // time — nothing here composes HTML.
   bodyText: z.string().default(''),
   attachmentIds: z.array(z.string()).default([]),
 });
@@ -98,7 +98,7 @@ export function SendShDocumentDrawer({
           toAddresses,
           ccAddresses,
           subject: values.subject,
-          bodyHtml: values.bodyText ? wrapEmailBody(values.bodyText) : undefined,
+          bodyText: values.bodyText || undefined,
           attachmentIds: values.attachmentIds,
         },
       },

@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { AttachmentsService } from '../attachments/attachments.service.js';
 import { EmailTemplateService } from '../email-templates/email-template.service.js';
+import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
 import {
   isValidTransition,
   deriveNominationStatus,
@@ -1247,11 +1248,9 @@ export class NominationsService {
       toAddresses,
       ccAddresses,
       bccAddresses,
-      // Both forms: `bodyText` is what the compose editor shows and the agent
-      // edits, `bodyHtml` is the wrapped form actually mailed. Returning only
-      // the latter put raw `<pre …>` markup in the editor.
+      // Plain text only — the compose editor shows and edits the letter itself.
+      // The mail-client wrapper is added at send time.
       bodyText: rendered.bodyText,
-      bodyHtml: rendered.bodyHtml,
     };
   }
 
@@ -1548,6 +1547,11 @@ export class NominationsService {
     // Resolve user-uploaded attachments up front (fails fast on bad id / oversize).
     const userAttachments = await this.attachmentsService.resolveForSend(body.attachmentIds ?? []);
 
+    // The agent composes plain text; this is where it becomes the HTML that
+    // goes on the wire. The dispatch row stores that same HTML, so the message
+    // log shows exactly what the recipient received.
+    const bodyHtml = wrapPlainTextEmailBody(body.bodyText);
+
     const dispatch = await this.prisma.emailDispatch.create({
       data: {
         pedrId: pedr.id,
@@ -1556,7 +1560,7 @@ export class NominationsService {
         ccAddresses: body.ccAddresses,
         bccAddresses: body.bccAddresses,
         subject: body.subject,
-        bodyHtml: body.bodyHtml,
+        bodyHtml,
         sentById: userId,
       },
     });
@@ -1566,7 +1570,7 @@ export class NominationsService {
       cc: body.ccAddresses,
       bcc: body.bccAddresses,
       subject: body.subject,
-      html: body.bodyHtml,
+      html: bodyHtml,
       attachments: userAttachments.length ? userAttachments : undefined,
     });
 

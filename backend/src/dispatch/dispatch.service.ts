@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
+import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
 import { PdfService } from '../pdf/pdf.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { AttachmentsService } from '../attachments/attachments.service.js';
@@ -41,7 +42,7 @@ export class DispatchService {
       ccAddresses,
       bccAddresses,
       subject,
-      bodyHtml,
+      bodyText,
       extraData,
       attachmentIds,
     } = dto;
@@ -179,6 +180,13 @@ export class DispatchService {
     // (so a MinIO outage still doesn't block PDF-only sends).
     const userAttachments = await this.attachmentsService.resolveForSend(attachmentIds ?? []);
 
+    // 4c. The drawer composes plain text; this is where it becomes the HTML that
+    // goes on the wire, and what the dispatch row records as sent. `defaultBody`
+    // already emits HTML, so it passes through the wrapper untouched.
+    const emailBody = wrapPlainTextEmailBody(
+      bodyText || this.defaultBody(subDocType as PedrSubDocumentType, baseData),
+    );
+
     // 5. Create EmailDispatch record (PENDING — sentAt is null until send succeeds)
     const dispatch = await this.prisma.emailDispatch.create({
       data: {
@@ -188,15 +196,13 @@ export class DispatchService {
         ccAddresses: ccAddresses ?? [],
         bccAddresses: bccAddresses ?? [],
         subject,
-        bodyHtml: bodyHtml ?? null,
+        bodyHtml: bodyText ? emailBody : null,
         pdfStorageKey,
         sentById: userId,
       },
     });
 
     // 6. Send email
-    const emailBody = bodyHtml ?? this.defaultBody(subDocType as PedrSubDocumentType, baseData);
-
     try {
       await this.emailService.send({
         to: toAddresses,

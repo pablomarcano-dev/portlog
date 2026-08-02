@@ -1,5 +1,6 @@
 import { EmailTemplateService } from './email-template.service.js';
 import { COMPOSE_TEMPLATE_PATHS } from '../nominations/nominations.service.js';
+import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
 
 // These specs render the real files under backend/templates, so they fail if a
 // template stops including {{> signature}} or grows a second sign-off. The
@@ -233,12 +234,11 @@ describe('EmailTemplateService', () => {
     });
   });
 
-  describe('bodyHtml', () => {
-    it('wraps plain text in <pre> so the fixed-width layout survives', async () => {
-      const { bodyHtml } = await service.render('01_prearrival/00_nomination_acceptance.hbs', VARS);
+  describe('render output', () => {
+    it('returns the letter as plain text, unwrapped — the mail-client <pre> is added at send time', async () => {
+      const { bodyText } = await service.render('01_prearrival/00_nomination_acceptance.hbs', VARS);
 
-      expect(bodyHtml.startsWith('<pre style=')).toBe(true);
-      expect(bodyHtml.endsWith('</pre>')).toBe(true);
+      expect(bodyText).not.toContain('<pre');
     });
   });
 
@@ -268,10 +268,14 @@ describe('EmailTemplateService', () => {
     });
 
     it('escapes exactly once, when wrapping for the mail client', async () => {
-      const { bodyHtml } = await service.render(
+      // Rendering no longer escapes at all — the send path does, once. This
+      // composes the two the way a send does, which is where a second pass
+      // would show up.
+      const { bodyText } = await service.render(
         '02_statement_of_facts/15_final_sof.hbs',
         PUNCTUATED,
       );
+      const bodyHtml = wrapPlainTextEmailBody(bodyText);
 
       // "C&S" must arrive as "C&amp;S", never the double-escaped "C&amp;amp;S".
       expect(bodyHtml).toContain('C&amp;S');
