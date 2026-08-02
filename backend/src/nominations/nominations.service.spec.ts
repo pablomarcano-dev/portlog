@@ -745,13 +745,32 @@ describe('NominationsService', () => {
   // getComposeData — recipients
   //
   // Every notice defaults to the nomination's own list, which is the client's.
-  // "ETA — Send to Terminal" is the exception: it goes to the shipper and the
-  // terminal. It was going to the client until 2 Aug 2026, because compose
-  // returned nomination.emailTo for every type.
+  // "ETA — Send to Terminal" and the NOR are the exceptions: both go to the
+  // shipper and the terminal. They were going to the client until 2 Aug 2026,
+  // because compose returned nomination.emailTo for every type. Addressed
+  // outside the client's list, they carry the agency's own copies explicitly —
+  // branch on Cc, head office on Bcc.
   // -------------------------------------------------------------------------
   describe('getComposeData — recipients', () => {
     const TERMINAL_EMAILS = ['loadingmaster@taecjaa.com', 'ops@taecjaa.com'];
     const SHIPPER_EMAILS = ['docs@cargill.com'];
+
+    /** Branch as the compose select shapes it; email lists set per case. */
+    const BRANCH_FIXTURE = {
+      name: 'José Branch',
+      code: 'JSE',
+      emails: [] as string[],
+      address: null,
+      phone: null,
+      fax: null,
+      mobile24h: null,
+      coverage: null,
+      contactName: null,
+      contactTitle: null,
+      contactMobile: null,
+      contactEmails: [] as string[],
+      centralEmails: [] as string[],
+    };
 
     /** A nomination shaped like the compose select, overridable per case. */
     function composeNomination(overrides: Record<string, unknown> = {}) {
@@ -868,6 +887,64 @@ describe('NominationsService', () => {
       const data = await service.getComposeData(NOM_ID, 'ACKNOWLEDGEMENT', 'agent@navieramar.com');
 
       expect(data.toAddresses).toEqual(['charterer@ril.com']);
+    });
+
+    it('addresses the NOR to the terminal and the shipper too', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(composeNomination());
+
+      const data = await service.getComposeData(NOM_ID, 'NOR', 'agent@navieramar.com');
+
+      expect(data.toAddresses).toEqual([...TERMINAL_EMAILS, ...SHIPPER_EMAILS]);
+      expect(data.toAddresses).not.toContain('charterer@ril.com');
+    });
+
+    it('copies the branch and blind-copies head office on the NOR', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          branch: {
+            ...BRANCH_FIXTURE,
+            emails: ['jse@navieramar.com'],
+            centralEmails: ['supervision@navieramar.com'],
+          },
+        }),
+      );
+
+      const data = await service.getComposeData(NOM_ID, 'NOR', 'agent@navieramar.com');
+
+      // Appended to the nomination's own Cc, not swapped for it.
+      expect(data.ccAddresses).toEqual(['ops@navieramar.com', 'jse@navieramar.com']);
+      // Bcc, so the terminal and the shipper never see the oversight list.
+      expect(data.bccAddresses).toEqual(['supervision@navieramar.com']);
+    });
+
+    it('leaves the client-addressed notices without the branch copies', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          branch: {
+            ...BRANCH_FIXTURE,
+            emails: ['jse@navieramar.com'],
+            centralEmails: ['supervision@navieramar.com'],
+          },
+        }),
+      );
+
+      const data = await service.getComposeData(NOM_ID, 'PREARRIVAL', 'agent@navieramar.com');
+
+      expect(data.ccAddresses).toEqual(['ops@navieramar.com']);
+      expect(data.bccAddresses).toEqual([]);
+    });
+
+    it('adds nothing when the branch has no addresses registered', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          branch: { ...BRANCH_FIXTURE, emails: [], centralEmails: [] },
+        }),
+      );
+
+      const data = await service.getComposeData(NOM_ID, 'NOR', 'agent@navieramar.com');
+
+      expect(data.ccAddresses).toEqual(['ops@navieramar.com']);
+      expect(data.bccAddresses).toEqual([]);
     });
 
     it("hands the template the shipper's name for the body CC line", async () => {

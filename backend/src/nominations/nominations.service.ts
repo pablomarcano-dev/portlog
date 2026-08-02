@@ -62,6 +62,14 @@ export const COMPOSE_TEMPLATE_PATHS: Record<string, string> = {
 };
 
 /**
+ * Actions addressed to the terminal and the shipper rather than to the
+ * nomination's own client list. Both notices concern the vessel's readiness at
+ * the berth, so they go to the people at the berth — see the recipient block in
+ * getComposeData.
+ */
+const TERMINAL_ADDRESSED_ACTIONS = new Set(['ETA_TERMINAL', 'NOR']);
+
+/**
  * Laycan-style date range with the month spelled out, e.g.
  * "Jul. 06th-10th, 2026". The month and year collapse when both ends share
  * them, which is the common case — laydays are usually a few days apart.
@@ -1201,29 +1209,44 @@ export class NominationsService {
     // Recipients
     //
     // Every notice defaults to the nomination's own distribution list, which is
-    // the client's. ETA_TERMINAL is the exception: as its name says, it goes to
-    // the shipper and to the terminal the vessel is scheduled at, so its To line
-    // is built from the operational port's address list plus the shipper's. Cc
-    // is untouched — the agency's internal copies apply to this notice too.
+    // the client's. Two are addressed elsewhere: ETA_TERMINAL and the NOR both
+    // go to the shipper and to the terminal the vessel is scheduled at, so their
+    // To line is built from the operational port's address list plus the
+    // shipper's. Cc is untouched — the agency's internal copies apply to these
+    // notices too.
     //
     // If neither is registered there is nothing to address it to, so it falls
     // back to the nomination's list rather than opening with an empty To that
     // reads as a bug. The agent can still edit the line before sending.
     // ---------------------------------------------------------------------------
     let toAddresses = nomination.emailTo;
-    if (actionType.toUpperCase() === 'ETA_TERMINAL') {
+    let ccAddresses = nomination.emailCc;
+    let bccAddresses = nomination.emailBcc;
+
+    if (TERMINAL_ADDRESSED_ACTIONS.has(actionType.toUpperCase())) {
       const terminalAndShipper = dedupeEmails([
         ...(nomination.opPort?.emails ?? []),
         ...shipper.emails,
       ]);
       if (terminalAndShipper.length > 0) toAddresses = terminalAndShipper;
+
+      // With the notice addressed outside the client's list, the agency's own
+      // copies have to be added deliberately: the branch handling the call is
+      // copied, and head office is blind-copied so the terminal and shipper do
+      // not see the agency's internal oversight list. Both are appended to
+      // whatever the nomination already carries rather than replacing it.
+      const branchEmails = branch?.emails ?? [];
+      const centralEmails = branch?.centralEmails ?? [];
+      if (branchEmails.length > 0) ccAddresses = dedupeEmails([...ccAddresses, ...branchEmails]);
+      if (centralEmails.length > 0)
+        bccAddresses = dedupeEmails([...bccAddresses, ...centralEmails]);
     }
 
     return {
       subject,
       toAddresses,
-      ccAddresses: nomination.emailCc,
-      bccAddresses: nomination.emailBcc,
+      ccAddresses,
+      bccAddresses,
       // Both forms: `bodyText` is what the compose editor shows and the agent
       // edits, `bodyHtml` is the wrapped form actually mailed. Returning only
       // the latter put raw `<pre …>` markup in the editor.

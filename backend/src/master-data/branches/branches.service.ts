@@ -2,11 +2,27 @@ import { ConflictException, Injectable, Logger, NotFoundException } from '@nestj
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { BranchCreate, BranchUpdate, BranchListQuery } from '@portlog/schemas';
 
+// The operational and contact columns are part of the branch record, not extras:
+// they feed the email signature and the Cc/Bcc of every notice sent for the
+// branch's nominations. They were writable through the API but never selected
+// back, so the master-data form loaded them as undefined and had nothing to
+// edit. There are ~10 branches, so returning the whole row costs nothing.
 const BRANCH_SELECT = {
   id: true,
   name: true,
   code: true,
   comments: true,
+  emails: true,
+  address: true,
+  phone: true,
+  fax: true,
+  mobile24h: true,
+  coverage: true,
+  contactName: true,
+  contactTitle: true,
+  contactMobile: true,
+  contactEmails: true,
+  centralEmails: true,
 } as const;
 
 @Injectable()
