@@ -57,3 +57,35 @@ export function fromDateParam(value: string | undefined): Date | null {
   if (!y || !m || !d) return null;
   return new Date(y, m - 1, d);
 }
+
+/**
+ * Parses a typed `DD/MM/YYYY` date into a Date at **local** midnight.
+ *
+ * Pass to a Mantine `DateInput` as `dateParser`. `valueFormat` governs only how
+ * a date is *displayed*: left to itself the component hands the typed text to
+ * dayjs, which reads "02/08/2026" as February 8th. That put a wrong ETD on a
+ * cargo notice while the field still read back correctly, so anywhere a date can
+ * be typed the parse must be pinned to the same order it is displayed in.
+ *
+ * Returns null on anything unparseable, which leaves the picker empty rather
+ * than inventing a date. Day/month overflow is rejected rather than rolled over,
+ * since `new Date(2026, 1, 31)` would otherwise silently become 3 March.
+ */
+export function parseDateInput(input: string): Date | null {
+  const match = /^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*$/.exec(input);
+  if (!match) return null;
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+
+  const parsed = new Date(year, month - 1, day);
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return null;
+  }
+  return parsed;
+}

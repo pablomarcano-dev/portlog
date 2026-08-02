@@ -47,6 +47,10 @@ const BL_ROW_KEYS = [
   'originalOnBoard',
   'destination',
   'date',
+  // Stated per bill on the final statement, alongside the B/L figures.
+  'remark',
+  'api',
+  'temp',
 ] as const;
 
 const BL_ROW_LABELS: Record<(typeof BL_ROW_KEYS)[number], string> = {
@@ -66,6 +70,9 @@ const BL_ROW_LABELS: Record<(typeof BL_ROW_KEYS)[number], string> = {
   originalOnBoard: 'Original on Board',
   destination: 'Destination',
   date: 'Date',
+  remark: 'Remark',
+  api: 'API',
+  temp: 'Temp',
 };
 
 const SHIP_ROW_KEYS = ['bbls', 'mtons', 'ltons', 'api', 'temp', 'rob'] as const;

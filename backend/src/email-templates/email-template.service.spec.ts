@@ -170,6 +170,43 @@ describe('EmailTemplateService', () => {
   });
 
   // -------------------------------------------------------------------------
+  // These templates are plain text. Handlebars escapes for HTML by default,
+  // which mangled ordinary punctuation in company and cargo names — and then
+  // wrapPlainTextEmailBody escaped it a second time on the way out.
+  // -------------------------------------------------------------------------
+  describe('escaping', () => {
+    const PUNCTUATED = {
+      ...VARS,
+      vessel_name: `MARAN APHRODITE 2X16"`,
+      operation: `Ship's cargo — PDVSA PETROLEO, S.A. C&S`,
+    };
+
+    it('leaves punctuation in interpolated values alone', async () => {
+      const { bodyText } = await service.render(
+        '02_statement_of_facts/15_final_sof.hbs',
+        PUNCTUATED,
+      );
+
+      expect(bodyText).toContain(`Ship's cargo — PDVSA PETROLEO, S.A. C&S`);
+      expect(bodyText).toContain(`2X16"`);
+      expect(bodyText).not.toContain('&#x27;');
+      expect(bodyText).not.toContain('&amp;');
+      expect(bodyText).not.toContain('&quot;');
+    });
+
+    it('escapes exactly once, when wrapping for the mail client', async () => {
+      const { bodyHtml } = await service.render(
+        '02_statement_of_facts/15_final_sof.hbs',
+        PUNCTUATED,
+      );
+
+      // "C&S" must arrive as "C&amp;S", never the double-escaped "C&amp;amp;S".
+      expect(bodyHtml).toContain('C&amp;S');
+      expect(bodyHtml).not.toContain('&amp;amp;');
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // The pre-arrival notification is the letter the Master reads on approach, so
   // its header block is pinned line by line.
   // -------------------------------------------------------------------------

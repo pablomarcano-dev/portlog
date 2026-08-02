@@ -1,11 +1,11 @@
-{{!-- Subject: {{ref_line}} - Cargo Update on {{update_date}} at {{update_time}} Hrs Lt --}}
-
-Vessel    : {{vessel_name}}      Flag: {{flag}}
-Last Port : {{last_port}}
-Next Port : {{next_port}}
-Oper Port : {{oper_port}}
-Operation : {{operation}}
-Lay Days  : {{lay_days}}
+{{!-- Subject: {{ref_line}} - Cargo Update {{update_date}} {{update_time}} Hrs --}}
+Servicios Navieramar C.A
+Vessel   : {{vessel_name}}      Flag: {{flag}}
+Last Port: {{last_port}}
+Next Port: {{next_port}}
+Oper Port: {{oper_port}}
+Operation: {{operation}}
+Laydays  : {{lay_days}}
 
 {{#each parcels}}
 ------------------------------------------------------
@@ -19,6 +19,17 @@ Loading Rate     : {{loading_rate}} {{loading_rate_unit}}
 
 {{t_etc}} ETC
 {{/each}}
-{{t_etd}} ETD (Subject to Port Security Inspection / Weather Conditions)
+{{#if t_etd_berth}}
+{{t_etd_berth}} ETD From Berth
+{{/if}}
+{{t_etd}} ETD
+
+{{#if statement_of_facts_log}}
+Log-.
+{{statement_of_facts_log}}
+
+{{/if}}
+Remarks:
+We will keep you duly posted.
 
 {{> signature}}

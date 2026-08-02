@@ -9,6 +9,9 @@ export const NominationClientSchema = z.object({
   id: z.string().uuid().optional(),
   type: z.string().max(100),
   name: z.string().max(200),
+  // Set when the row's name was picked from the shippers directory, so outgoing
+  // notices can resolve that shipper's addresses. Null on hand-typed rows.
+  shipperId: z.string().cuid().optional().nullable(),
   voyageRef: z.string().max(50).optional().nullable(),
   referenceNo: z.string().max(100).optional().nullable(),
   proforma: z.string().max(200).optional().nullable(),
