@@ -1,11 +1,14 @@
 import { z } from 'zod';
-import { optionalText } from '../../common/fields';
+import { emailList, optionalText } from '../../common/fields';
 import { ListQuerySchema } from '../../common/pagination';
 
 export const PortCreateSchema = z.object({
   name: z.string().min(1).max(120),
   abbreviation: z.string().max(20).optional(),
   country: optionalText(120),
+  // Addresses for the terminal itself, written to when a notice is addressed to
+  // the terminal rather than to the nomination's client list.
+  emails: emailList(),
   emailGroup: z.string().max(120).optional(),
   comments: z.string().max(10_000).optional(),
 });

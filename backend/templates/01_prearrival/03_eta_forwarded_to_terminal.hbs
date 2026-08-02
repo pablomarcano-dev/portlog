@@ -10,7 +10,9 @@ Lay Days  : {{lay_days}}
 {{#if terminal_name}}
 TO: {{terminal_name}}   ATTN: LOADING MASTER
 {{/if}}
-CC: PDVSA PETROLEO, S.A. C&S
+{{#if shipper_name}}
+CC: {{shipper_name}}
+{{/if}}
 FM: SERVICIOS NAVIERAMAR, C.A. OPERATIONS
 
 Good day,

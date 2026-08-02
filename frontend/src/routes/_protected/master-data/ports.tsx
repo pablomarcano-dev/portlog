@@ -18,13 +18,14 @@ import {
   Switch,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { useForm, FormProvider } from 'react-hook-form';
+import { useForm, FormProvider, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PortCreateSchema } from '@portlog/schemas';
 import type { PortCreateInput } from '@portlog/schemas';
 import { useCurrentUser } from '../../../lib/auth/queries';
 import { ButtonBar } from '../../../components/master-data/ButtonBar';
 import { CommentarioField } from '../../../components/master-data/CommentarioField';
+import { EmailChipsInput } from '../../../components/master-data/EmailChipsInput';
 import {
   useSavePort,
   useDeletePort,
@@ -276,6 +277,7 @@ function PortsScreen() {
           name: port.name,
           abbreviation: port.abbreviation ?? undefined,
           country: port.country ?? undefined,
+          emails: port.emails ?? [],
           emailGroup: port.emailGroup ?? undefined,
           comments: port.comments ?? undefined,
         });
@@ -367,6 +369,7 @@ function PortsScreen() {
             name: port.name,
             abbreviation: port.abbreviation ?? undefined,
             country: port.country ?? undefined,
+            emails: port.emails ?? [],
             emailGroup: port.emailGroup ?? undefined,
             comments: port.comments ?? undefined,
           }),
@@ -550,6 +553,19 @@ function PortFields({ form }: { form: ReturnType<typeof useForm<PortCreateInput>
           />
         </Grid.Col>
       </Grid>
+      <Controller
+        control={form.control}
+        name="emails"
+        render={({ field, fieldState }) => (
+          <EmailChipsInput
+            label="Terminal Emails"
+            description="Addressed directly when a notice goes to the terminal, such as ETA — Send to Terminal."
+            value={field.value ?? []}
+            onChange={field.onChange}
+            error={fieldState.error?.message}
+          />
+        )}
+      />
     </Stack>
   );
 }

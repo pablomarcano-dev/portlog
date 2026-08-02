@@ -165,6 +165,12 @@ model NominationClient {
   nomination   Nomination @relation(fields: [nominationId], references: [id], onDelete: Cascade)
   type         String // "Time Charter", "Receivers", etc. — free-text; no enum, client varies
   name         String
+  // Set only on Shipper rows, where the name is picked from the shippers
+  // directory. `name` stays the source of truth for display (rows may be typed
+  // free-hand); this FK exists so the shipper's `emails` can be resolved without
+  // matching on a name that may not exist in master data.
+  shipperId    String?
+  shipper      Shipper?   @relation(fields: [shipperId], references: [id], onDelete: SetNull)
   voyageRef    String?
   referenceNo  String?
   proforma     String?
@@ -174,6 +180,7 @@ model NominationClient {
   updatedAt    DateTime   @updatedAt @db.Timestamptz(6)
 
   @@index([nominationId])
+  @@index([shipperId])
   @@map("nomination_clients")
 }
 

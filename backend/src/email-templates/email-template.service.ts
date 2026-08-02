@@ -63,6 +63,15 @@ export class EmailTemplateService {
    */
   private static readonly SUBJECT_RE = /\{\{!--\s*Subject:\s*(.+?)\s*--\}\}/;
 
+  /**
+   * These templates render plain text, not HTML, so Handlebars must not escape
+   * what it interpolates. Left on, it turned "Ship's" into "Ship&#x27;s",
+   * `2X16"` into `2X16&quot;` and "PDVSA PETROLEO, S.A. C&S" into "C&amp;S" —
+   * visible as-is in the compose editor, and escaped a second time on the way
+   * out by `wrapPlainTextEmailBody`, which is the one place escaping belongs.
+   */
+  private static readonly COMPILE_OPTIONS = { noEscape: true } as const;
+
   async render(relPath: string, vars: Record<string, unknown>): Promise<RenderedTemplate> {
     // An unmapped action type resolves to a path that does not exist. Left as a
     // raw ENOENT it surfaces as a 500 and the compose drawer just opens blank —
@@ -80,9 +89,11 @@ export class EmailTemplateService {
 
     const subjectMatch = EmailTemplateService.SUBJECT_RE.exec(source);
     const subject =
-      subjectMatch?.[1] !== undefined ? this.hbs.compile(subjectMatch[1])(vars) : null;
+      subjectMatch?.[1] !== undefined
+        ? this.hbs.compile(subjectMatch[1], EmailTemplateService.COMPILE_OPTIONS)(vars)
+        : null;
 
-    const bodyText = this.hbs.compile(source)(vars);
+    const bodyText = this.hbs.compile(source, EmailTemplateService.COMPILE_OPTIONS)(vars);
 
     return { subject, bodyText };
   }

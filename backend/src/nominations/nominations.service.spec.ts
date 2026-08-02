@@ -7,7 +7,9 @@ import {
 } from '@nestjs/common';
 import {
   NominationsService,
+  dedupeEmails,
   formatCargoQuantity,
+  formatEtcStamp,
   formatLaydayRange,
 } from './nominations.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -115,6 +117,9 @@ const mockPrisma = {
   cargo: {
     findMany: jest.fn(),
   },
+  user: {
+    findUnique: jest.fn(),
+  },
   sale: {
     findMany: jest.fn(),
     findFirst: jest.fn(),
@@ -139,8 +144,11 @@ const mockAttachmentsService = {
 };
 
 // Template rendering is covered by email-template.service.spec.ts, which renders
-// the real files; here an empty mock just satisfies DI.
-const mockEmailTemplateService = {};
+// the real files; here the stub returns a fixed body so compose specs can assert
+// on recipients and on the variables handed to the template.
+const mockEmailTemplateService = {
+  render: jest.fn(),
+};
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -792,6 +800,326 @@ describe('NominationsService', () => {
       expect(html).toBe(alreadyWrapped);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // getComposeData — recipients
+  //
+  // Every notice defaults to the nomination's own list, which is the client's.
+  // "ETA — Send to Terminal" and the NOR are the exceptions: both go to the
+  // shipper and the terminal. They were going to the client until 2 Aug 2026,
+  // because compose returned nomination.emailTo for every type. Addressed
+  // outside the client's list, they carry the agency's own copies explicitly —
+  // branch on Cc, head office on Bcc.
+  // -------------------------------------------------------------------------
+  describe('getComposeData — recipients', () => {
+    const TERMINAL_EMAILS = ['loadingmaster@taecjaa.com', 'ops@taecjaa.com'];
+    const SHIPPER_EMAILS = ['docs@cargill.com'];
+
+    /** Branch as the compose select shapes it; email lists set per case. */
+    const BRANCH_FIXTURE = {
+      name: 'José Branch',
+      code: 'JSE',
+      emails: [] as string[],
+      address: null,
+      phone: null,
+      fax: null,
+      mobile24h: null,
+      coverage: null,
+      contactName: null,
+      contactTitle: null,
+      contactMobile: null,
+      contactEmails: [] as string[],
+      centralEmails: [] as string[],
+    };
+
+    /** A nomination shaped like the compose select, overridable per case. */
+    function composeNomination(overrides: Record<string, unknown> = {}) {
+      return {
+        emailTo: ['charterer@ril.com'],
+        emailCc: ['ops@navieramar.com'],
+        emailBcc: [],
+        subject: null,
+        referenceNo: null,
+        parcels: [],
+        dateNominated: NOW,
+        voyageNumber: '029',
+        correlative: 1522,
+        kind: 'SN' as const,
+        layDaysFirst: null,
+        layDaysLast: null,
+        etaDate: null,
+        nominationType: 'FULL_AGENCY' as const,
+        master: null,
+        nominationClients: [
+          { type: 'Charterer', name: 'Reliance Industries Limited', shipper: null },
+          {
+            type: 'Shipper',
+            name: 'Cargill S.A.',
+            shipper: { name: 'Cargill S.A.', emails: SHIPPER_EMAILS },
+          },
+        ],
+        nominatedBy: null,
+        shipParticular: { name: 'HAKKAISAN' },
+        opPort: { name: 'PDVSA TAECJAA OFF-SHORE PLATFORM, JOSE', emails: TERMINAL_EMAILS },
+        lastPort: null,
+        nextPort: null,
+        branch: null,
+        ...overrides,
+      };
+    }
+
+    beforeEach(() => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.pedr.findUnique.mockResolvedValue({ etaRecord: null });
+      mockEmailTemplateService.render.mockResolvedValue({
+        subject: null,
+        bodyText: 'body',
+        bodyHtml: '<pre>body</pre>',
+      });
+    });
+
+    it('addresses the terminal notice to the terminal and the shipper', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(composeNomination());
+
+      const data = await service.getComposeData(NOM_ID, 'ETA_TERMINAL', 'agent@navieramar.com');
+
+      expect(data.toAddresses).toEqual([...TERMINAL_EMAILS, ...SHIPPER_EMAILS]);
+      // The agency's internal copies apply to this notice too.
+      expect(data.ccAddresses).toEqual(['ops@navieramar.com']);
+    });
+
+    it('does not write the terminal notice to the client', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(composeNomination());
+
+      const data = await service.getComposeData(NOM_ID, 'ETA_TERMINAL', 'agent@navieramar.com');
+
+      expect(data.toAddresses).not.toContain('charterer@ril.com');
+    });
+
+    it('drops an address registered on both the terminal and the shipper', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          nominationClients: [
+            {
+              type: 'Shipper',
+              name: 'Cargill S.A.',
+              // Same address as the terminal's, spelled differently.
+              shipper: { name: 'Cargill S.A.', emails: ['Ops@TAECJAA.com'] },
+            },
+          ],
+        }),
+      );
+
+      const data = await service.getComposeData(NOM_ID, 'ETA_TERMINAL', 'agent@navieramar.com');
+
+      expect(data.toAddresses).toEqual(TERMINAL_EMAILS);
+    });
+
+    it('sends to the terminal alone when the shipper row is hand-typed', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          nominationClients: [{ type: 'Shipper', name: 'Some Trader Ltd', shipper: null }],
+        }),
+      );
+
+      const data = await service.getComposeData(NOM_ID, 'ETA_TERMINAL', 'agent@navieramar.com');
+
+      expect(data.toAddresses).toEqual(TERMINAL_EMAILS);
+    });
+
+    it("falls back to the nomination's list when neither is registered", async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          opPort: { name: 'PDVSA TAECJAA OFF-SHORE PLATFORM, JOSE', emails: [] },
+          nominationClients: [{ type: 'Shipper', name: '', shipper: null }],
+        }),
+      );
+
+      const data = await service.getComposeData(NOM_ID, 'ETA_TERMINAL', 'agent@navieramar.com');
+
+      // Better an editable wrong list than an empty To that reads as a bug.
+      expect(data.toAddresses).toEqual(['charterer@ril.com']);
+    });
+
+    it('leaves every other notice on the client list', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(composeNomination());
+
+      const data = await service.getComposeData(NOM_ID, 'ACKNOWLEDGEMENT', 'agent@navieramar.com');
+
+      expect(data.toAddresses).toEqual(['charterer@ril.com']);
+    });
+
+    it('addresses the NOR to the terminal and the shipper too', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(composeNomination());
+
+      const data = await service.getComposeData(NOM_ID, 'NOR', 'agent@navieramar.com');
+
+      expect(data.toAddresses).toEqual([...TERMINAL_EMAILS, ...SHIPPER_EMAILS]);
+      expect(data.toAddresses).not.toContain('charterer@ril.com');
+    });
+
+    it('copies the branch and blind-copies head office on the NOR', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          branch: {
+            ...BRANCH_FIXTURE,
+            emails: ['jse@navieramar.com'],
+            centralEmails: ['supervision@navieramar.com'],
+          },
+        }),
+      );
+
+      const data = await service.getComposeData(NOM_ID, 'NOR', 'agent@navieramar.com');
+
+      // Appended to the nomination's own Cc, not swapped for it.
+      expect(data.ccAddresses).toEqual(['ops@navieramar.com', 'jse@navieramar.com']);
+      // Bcc, so the terminal and the shipper never see the oversight list.
+      expect(data.bccAddresses).toEqual(['supervision@navieramar.com']);
+    });
+
+    it('leaves the client-addressed notices without the branch copies', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          branch: {
+            ...BRANCH_FIXTURE,
+            emails: ['jse@navieramar.com'],
+            centralEmails: ['supervision@navieramar.com'],
+          },
+        }),
+      );
+
+      const data = await service.getComposeData(NOM_ID, 'PREARRIVAL', 'agent@navieramar.com');
+
+      expect(data.ccAddresses).toEqual(['ops@navieramar.com']);
+      expect(data.bccAddresses).toEqual([]);
+    });
+
+    it('adds nothing when the branch has no addresses registered', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          branch: { ...BRANCH_FIXTURE, emails: [], centralEmails: [] },
+        }),
+      );
+
+      const data = await service.getComposeData(NOM_ID, 'NOR', 'agent@navieramar.com');
+
+      expect(data.ccAddresses).toEqual(['ops@navieramar.com']);
+      expect(data.bccAddresses).toEqual([]);
+    });
+
+    it("hands the template the shipper's name for the body CC line", async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(composeNomination());
+
+      await service.getComposeData(NOM_ID, 'ETA_TERMINAL', 'agent@navieramar.com');
+
+      expect(mockEmailTemplateService.render).toHaveBeenCalledWith(
+        '01_prearrival/03_eta_forwarded_to_terminal.hbs',
+        expect.objectContaining({ shipper_name: 'Cargill S.A.' }),
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // resolveShipper — the shipper named on the terminal notice
+  //
+  // "ETA — Send to Terminal" is addressed to the shipper and the terminal, so
+  // this feeds both the body's "CC:" line and the To line. Addresses come only
+  // from the linked master-data record: a notice must never be mailed to a
+  // company picked by matching a hand-typed name.
+  // -------------------------------------------------------------------------
+  describe('resolveShipper', () => {
+    type Row = {
+      type: string;
+      name: string;
+      shipper?: { name: string; emails: string[] } | null;
+    };
+    const resolve = (clients: Row[]): { name: string; emails: string[] } =>
+      (
+        NominationsService as unknown as {
+          resolveShipper: (c: Row[]) => { name: string; emails: string[] };
+        }
+      ).resolveShipper(clients);
+
+    it('returns the linked shipper name and addresses', () => {
+      expect(
+        resolve([
+          { type: 'Charterer', name: 'Reliance Industries Limited' },
+          {
+            type: 'Shipper',
+            name: 'Cargill S.A.',
+            shipper: { name: 'Cargill S.A.', emails: ['ops@cargill.com', 'docs@cargill.com'] },
+          },
+        ]),
+      ).toEqual({ name: 'Cargill S.A.', emails: ['ops@cargill.com', 'docs@cargill.com'] });
+    });
+
+    it('gives a hand-typed row its name but no addresses', () => {
+      expect(resolve([{ type: 'Shipper', name: 'Some Trader Ltd', shipper: null }])).toEqual({
+        name: 'Some Trader Ltd',
+        emails: [],
+      });
+    });
+
+    it('matches the type case-insensitively and trims the name', () => {
+      expect(resolve([{ type: ' SHIPPER ', name: '  Cargill S.A. ' }])).toEqual({
+        name: 'Cargill S.A.',
+        emails: [],
+      });
+    });
+
+    it('falls back to the linked record name when the row name is blank', () => {
+      expect(
+        resolve([
+          {
+            type: 'Shipper',
+            name: '   ',
+            shipper: { name: 'Cargill S.A.', emails: ['ops@cargill.com'] },
+          },
+        ]),
+      ).toEqual({ name: 'Cargill S.A.', emails: ['ops@cargill.com'] });
+    });
+
+    it('skips the blank rows auto-created on every nomination', () => {
+      expect(
+        resolve([
+          { type: 'Charterer', name: '' },
+          { type: 'Shipper', name: '' },
+        ]),
+      ).toEqual({ name: '', emails: [] });
+    });
+
+    it('returns empty when no shipper row exists, so the CC line is dropped', () => {
+      expect(resolve([{ type: 'Charterer', name: 'Reliance Industries Limited' }])).toEqual({
+        name: '',
+        emails: [],
+      });
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// dedupeEmails — the To line of a terminal notice merges two address lists, and
+// the same terminal address is routinely registered in both.
+// ---------------------------------------------------------------------------
+describe('dedupeEmails', () => {
+  it('keeps distinct addresses in the order given', () => {
+    expect(dedupeEmails(['ops@terminal.com', 'docs@cargill.com'])).toEqual([
+      'ops@terminal.com',
+      'docs@cargill.com',
+    ]);
+  });
+
+  it('drops case-only duplicates, keeping the first spelling', () => {
+    expect(dedupeEmails(['Ops@Terminal.com', 'ops@terminal.com'])).toEqual(['Ops@Terminal.com']);
+  });
+
+  it('trims and drops blanks rather than emitting an empty recipient', () => {
+    expect(dedupeEmails(['  ops@terminal.com  ', '', '   '])).toEqual(['ops@terminal.com']);
+  });
+
+  it('returns empty for an empty list', () => {
+    expect(dedupeEmails([])).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -851,5 +1179,37 @@ describe('formatCargoQuantity', () => {
 
   it('passes non-numeric text through untouched', () => {
     expect(formatCargoQuantity('part cargo')).toBe('part cargo');
+  });
+});
+
+describe('formatEtcStamp', () => {
+  it('renders the picked ETC as DD/MM/YYYY HH:mm', () => {
+    expect(formatEtcStamp('2026-08-02', '02:00')).toBe('02/08/2026 02:00');
+  });
+
+  it('keeps 24-hour times as picked — an ETC is never AM/PM on a notice', () => {
+    expect(formatEtcStamp('2026-08-02', '23:45')).toBe('02/08/2026 23:45');
+  });
+
+  it('keeps midnight on the day it was picked', () => {
+    // The stamp is reordered textually, never parsed through `Date` — a UTC
+    // parse of "2026-08-02T00:30" would render as the 1st on any negative
+    // offset, moving a legally binding ETC by a day.
+    expect(formatEtcStamp('2026-08-02', '00:30')).toBe('02/08/2026 00:30');
+  });
+
+  it('drops the time when only a date was picked', () => {
+    expect(formatEtcStamp('2026-08-02', '')).toBe('02/08/2026');
+    expect(formatEtcStamp('2026-08-02', null)).toBe('02/08/2026');
+  });
+
+  it('returns empty when no ETC is recorded, so the line reads as blank', () => {
+    expect(formatEtcStamp(null, null)).toBe('');
+    expect(formatEtcStamp(undefined, undefined)).toBe('');
+    expect(formatEtcStamp('', '')).toBe('');
+  });
+
+  it('passes legacy free-typed values through untouched', () => {
+    expect(formatEtcStamp('Aug 02nd, 2026 02:00', undefined)).toBe('Aug 02nd, 2026 02:00');
   });
 });

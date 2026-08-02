@@ -1,5 +1,6 @@
 import { EmailTemplateService } from './email-template.service.js';
 import { COMPOSE_TEMPLATE_PATHS } from '../nominations/nominations.service.js';
+import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
 
 // These specs render the real files under backend/templates, so they fail if a
 // template stops including {{> signature}} or grows a second sign-off. The
@@ -238,6 +239,47 @@ describe('EmailTemplateService', () => {
       const { bodyText } = await service.render('01_prearrival/00_nomination_acceptance.hbs', VARS);
 
       expect(bodyText).not.toContain('<pre');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // These templates are plain text. Handlebars escapes for HTML by default,
+  // which mangled ordinary punctuation in company and cargo names — and then
+  // wrapPlainTextEmailBody escaped it a second time on the way out.
+  // -------------------------------------------------------------------------
+  describe('escaping', () => {
+    const PUNCTUATED = {
+      ...VARS,
+      vessel_name: `MARAN APHRODITE 2X16"`,
+      operation: `Ship's cargo — PDVSA PETROLEO, S.A. C&S`,
+    };
+
+    it('leaves punctuation in interpolated values alone', async () => {
+      const { bodyText } = await service.render(
+        '02_statement_of_facts/15_final_sof.hbs',
+        PUNCTUATED,
+      );
+
+      expect(bodyText).toContain(`Ship's cargo — PDVSA PETROLEO, S.A. C&S`);
+      expect(bodyText).toContain(`2X16"`);
+      expect(bodyText).not.toContain('&#x27;');
+      expect(bodyText).not.toContain('&amp;');
+      expect(bodyText).not.toContain('&quot;');
+    });
+
+    it('escapes exactly once, when wrapping for the mail client', async () => {
+      // Rendering no longer escapes at all — the send path does, once. This
+      // composes the two the way a send does, which is where a second pass
+      // would show up.
+      const { bodyText } = await service.render(
+        '02_statement_of_facts/15_final_sof.hbs',
+        PUNCTUATED,
+      );
+      const bodyHtml = wrapPlainTextEmailBody(bodyText);
+
+      // "C&S" must arrive as "C&amp;S", never the double-escaped "C&amp;amp;S".
+      expect(bodyHtml).toContain('C&amp;S');
+      expect(bodyHtml).not.toContain('&amp;amp;');
     });
   });
 

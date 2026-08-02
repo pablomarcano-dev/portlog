@@ -2,7 +2,7 @@ import { Autocomplete } from '@mantine/core';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { CargoCategory } from '@portlog/schemas';
-import { cargoesApi } from '../../../lib/api/master-data/cargoes';
+import { cargoesApi, type CargoSuggestion } from '../../../lib/api/master-data/cargoes';
 
 interface CargoNamePickerProps {
   label?: string;
@@ -12,8 +12,14 @@ interface CargoNamePickerProps {
   error?: string;
   disabled?: boolean;
   style?: React.CSSProperties;
+  size?: string;
   /** When set, only products in this category are suggested (e.g. "OT" for OT nominations). */
   category?: CargoCategory;
+  /**
+   * Fired when the typed name resolves to a catalog product, carrying the full
+   * record. Callers use it to seed dependent fields (units) from the product.
+   */
+  onCargoSelect?: (cargo: CargoSuggestion) => void;
 }
 
 export function CargoNamePicker({
@@ -24,7 +30,9 @@ export function CargoNamePicker({
   error,
   disabled,
   style,
+  size,
   category,
+  onCargoSelect,
 }: CargoNamePickerProps) {
   const [search, setSearch] = useState('');
 
@@ -45,11 +53,16 @@ export function CargoNamePicker({
       onChange={(val) => {
         setSearch(val);
         onChange(val);
+        // Fires both on option click and on a fully typed-out name — either way
+        // the user has landed on a catalog product, so dependent fields can sync.
+        const match = (data ?? []).find((c) => c.label === val);
+        if (match) onCargoSelect?.(match);
       }}
       data={suggestions}
       disabled={disabled}
       error={error}
       style={style}
+      size={size}
       comboboxProps={{ withinPortal: true }}
     />
   );
