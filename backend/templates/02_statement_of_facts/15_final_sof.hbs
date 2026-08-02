@@ -1,33 +1,46 @@
 {{!-- Subject: {{ref_line}} - Final Statement of Facts --}}
-{{branch_office}}
+Servicios Navieramar C.A
 
+Vessel   : {{vessel_name}}      Flag: {{flag}}
+Last Port: {{last_port}}
+Next Port: {{next_port}}
+Oper Port: {{oper_port}}
+Operation: {{operation}}
+Laydays  : {{lay_days}}
 
-Vessel    : {{vessel_name}}      Flag: {{flag}}
-Last Port : {{last_port}}
-Next Port : {{next_port}}
-Oper Port : {{oper_port}}
-Operation : {{operation}}
-Lay Days  : {{lay_days}}
-
-Log:
+Log-.
 {{statement_of_facts_log}}
+
+{{#if arrival_conditions_section}}
+Arrival Conditions
+---------------------
+{{arrival_conditions_section}}
+
+{{/if}}
+{{#if sailed_conditions_section}}
+Sailed Conditions
+--------------------
+{{sailed_conditions_section}}
+
+{{/if}}
 {{bl_figures_section}}
+{{vessel_cargo_figures_section}}
 {{#if slop_bunkers_section}}
------------------------------------------------------------------
+-----------------------------------------------
 {{slop_bunkers_section}}
 
 {{/if}}
 {{#if letters_section}}
------------------------------------------------------------------
-Letters Of Protest From Master To Shore
------------------------------------------------------------------
+-----------------------------------------------
+Letter Of Protest From Master to Shore:
+-----------------------------------------------
 {{letters_section}}
 
 {{/if}}
 {{#if remarks_section}}
------------------------------------------------------------------
+---------------------------------------------
 Remarks:
------------------------------------------------------------------
+---------------------------------------------
 {{remarks_section}}
 
 {{/if}}

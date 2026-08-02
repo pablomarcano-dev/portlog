@@ -72,6 +72,11 @@ model Port {
   name         String
   abbreviation String?
   country      String?
+  // The terminal's own distribution list — who is written to when a notice is
+  // addressed to the terminal itself (ETA forwarded to terminal), as opposed to
+  // the nomination's client list. Distinct from `emailGroup`, which is a
+  // free-text label and names no addresses.
+  emails       String[] @default([])
   emailGroup   String?
   comments     String?  @db.Text
   createdAt    DateTime @default(now()) @db.Timestamptz
@@ -164,6 +169,10 @@ model Shipper {
   updatedAt     DateTime @updatedAt @db.Timestamptz
 
   contacts Contact[]
+
+  // CLIENT LIST rows that name this shipper — the link that lets an outgoing
+  // notice resolve the shipper's addresses instead of matching on name.
+  nominationClients NominationClient[]
 
   @@index([name])
   @@map("shippers")

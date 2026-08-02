@@ -15,11 +15,17 @@ import {
 import { DateInput, DateTimePicker } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { NominationParcelRead } from '@portlog/schemas';
+import {
+  formatNoticeDate,
+  formatCargoFigure,
+  resolveTransferRateUnit,
+  type NominationParcelRead,
+} from '@portlog/schemas';
 import { nominationsApi } from '../api';
 import { useNominationCompose } from '../api/useNominationCompose';
 import { useColumnResize } from '../../../components/table/useColumnResize';
 import { ResizableTh } from '../../../components/table/ResizableTh';
+import { parseDateInput } from '../../../lib/format/datetime';
 import { unitSelectData } from '../parcelUnits';
 import { formatEtc, parseEtc, toEtcParts } from '../parcelEtc';
 import { EmailComposeDrawer } from './EmailComposeDrawer';
@@ -106,10 +112,6 @@ interface ParcelRow extends NominationParcelRead {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function fmtDate(d: Date): string {
-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-}
 
 function fmtTime(d: Date): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -251,8 +253,11 @@ export function CargoUpdateModal({
       return;
     }
 
-    const updateDateStr = dateUpdate ? fmtDate(dateUpdate) : '';
-    const etdStr = dateEtd ? fmtDate(dateEtd) : '';
+    // Dates and figures are written exactly as the backend templates write them
+    // — these blocks are appended to a template-rendered header, so the two
+    // halves must not disagree. See @portlog/schemas' notice formatters.
+    const updateDateStr = formatNoticeDate(dateUpdate);
+    const etdStr = formatNoticeDate(dateEtd);
 
     const parcelLines = rows
       .map(
@@ -262,21 +267,32 @@ export function CargoUpdateModal({
           `------------------------------------------------------\n` +
           // `||`, not `??` — a unit cell left on its inherited default is stored
           // as an empty string, which `??` would happily print as no unit at all.
-          `Quantity         : ${p.quantity ?? 0} ${p.unit ?? ''}\n` +
-          `Quantity On Board: ${p.qtyOnBoard ?? 0} ${p.qtyOnBoardUnit || p.unit || ''}\n` +
-          `Quantity To Go   : ${p.qtyToGo ?? 0} ${p.qtyToGoUnit || p.unit || ''}\n` +
-          `Loading Rate     : ${p.loadingRate ?? 0} ${p.loadingRateUnit || p.unit || ''}\n` +
+          `Quantity         : ${formatCargoFigure(p.quantity ?? 0)} ${p.unit || ''}\n` +
+          `Quantity On Board: ${formatCargoFigure(p.qtyOnBoard ?? 0)} ${p.qtyOnBoardUnit || p.unit || ''}\n` +
+          `Quantity To Go   : ${formatCargoFigure(p.qtyToGo ?? 0)} ${p.qtyToGoUnit || p.unit || ''}\n` +
+          `Loading Rate     : ${formatCargoFigure(p.loadingRate ?? 0)} ${resolveTransferRateUnit(p.loadingRateUnit, p.qtyOnBoardUnit || p.unit)}\n` +
           `------------------------------------------------------\n\n` +
           `${formatEtc(p.etcDate, p.etcTime)} ETC`,
       )
       .join('\n\n');
 
-    // Keep the template's header (everything before its first rule) and append
-    // the parcel blocks built from the figures entered above.
-    const bodyText =
-      composeData.bodyText.split('------')[0] +
-      parcelLines +
-      `\n\n${etdStr} ${timeEtd} ETD (Subject to Port Security Inspection / Weather Conditions)`;
+    // Rebuild the notice around the figures entered above: the template's header
+    // (everything before its first rule), then these parcel blocks in place of
+    // the template's, then everything from "Log-." on — the event log, the
+    // standing remark and the signature.
+    //
+    // Splicing rather than replacing wholesale: the template renders parcels
+    // from what is stored on the nomination, but the ETC/ETD times here are
+    // typed into this dialog and never persisted, so its blocks are the ones
+    // with the figures the agent actually means to send. Dropping the tail is
+    // what used to send this notice with no log and no signature at all.
+    const template = composeData.bodyText;
+    const header = template.split('------')[0];
+    const logStart = template.indexOf('Log-.');
+    const tail = logStart >= 0 ? `\n\n${template.slice(logStart)}` : '';
+
+    const etdLine = `${etdStr} ${timeEtd}`.trim();
+    const bodyText = `${header}${parcelLines}\n\n${etdLine} ETD${tail}`;
 
     // Hand the built body to the compose drawer so the user can review and edit
     // recipients/subject/body before the email is actually sent. Plain text —
@@ -315,9 +331,15 @@ export function CargoUpdateModal({
           {/* Date / ETD — at top, matching other modal patterns */}
           <Group gap="xl">
             <Group gap="xs" align="flex-end">
+              {/* Pinned to DD/MM/YYYY: unpinned, Mantine reads a typed
+                  "02/08/2026" as February 8th, which put the wrong date on the
+                  notice without ever looking wrong in the field. */}
               <DateInput
                 label="Date Update"
                 size="sm"
+                valueFormat="DD/MM/YYYY"
+                placeholder="DD/MM/YYYY"
+                dateParser={parseDateInput}
                 value={dateUpdate}
                 onChange={setDateUpdate}
                 style={{ width: 150 }}
@@ -335,6 +357,9 @@ export function CargoUpdateModal({
               <DateInput
                 label="Date ETD"
                 size="sm"
+                valueFormat="DD/MM/YYYY"
+                placeholder="DD/MM/YYYY"
+                dateParser={parseDateInput}
                 value={dateEtd}
                 onChange={setDateEtd}
                 style={{ width: 150 }}

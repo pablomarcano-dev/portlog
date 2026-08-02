@@ -14,6 +14,12 @@ import { EmailTemplateService } from '../email-templates/email-template.service.
 import {
   isValidTransition,
   deriveNominationStatus,
+  MONTH_ABBR,
+  ordinalDay,
+  formatNoticeDate,
+  formatNoticeDateRange,
+  formatCargoFigure,
+  resolveTransferRateUnit,
   type NominationStatus,
   type NominationKind,
   type NominationCreateInput,
@@ -34,33 +40,6 @@ function formatSnOt(correlative: number, dateNominated: Date, kind: NominationKi
   const yy = String(dateNominated.getFullYear()).slice(-2);
   const prefix = kind === 'OT' ? 'OT' : 'SN';
   return `${prefix}-${yy}/${String(correlative).padStart(4, '0')}`;
-}
-
-const MONTH_ABBR = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-] as const;
-
-/** "1st", "02nd", "13th" — English ordinal suffix, teens included. */
-function ordinalSuffix(day: number): string {
-  const teens = day % 100;
-  if (teens >= 11 && teens <= 13) return 'th';
-  return ['th', 'st', 'nd', 'rd'][day % 10] ?? 'th';
-}
-
-/** Zero-padded ordinal day, e.g. 6 -> "06th". */
-function ordinalDay(day: number): string {
-  return `${String(day).padStart(2, '0')}${ordinalSuffix(day)}`;
 }
 
 /**
@@ -115,6 +94,28 @@ export function formatCargoQuantity(value: unknown): string {
   const n = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(n)) return String(value);
   return new Intl.NumberFormat('en-US').format(n);
+}
+
+/**
+ * Distinct addresses, preserving order and dropping blanks.
+ *
+ * Matching is case-insensitive because the local part is the only case-sensitive
+ * piece of an address in theory and never in practice, and the same terminal
+ * address is routinely registered with different casing in two places. The first
+ * spelling seen is the one kept.
+ */
+export function dedupeEmails(addresses: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of addresses) {
+    const address = raw.trim();
+    if (address === '') continue;
+    const key = address.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(address);
+  }
+  return out;
 }
 
 // Fetches the sent PREARRIVAL / SOF dispatches used to derive the operational
@@ -751,13 +752,20 @@ export class NominationsService {
           // Addressee of the pre-arrival letter ("Dear Master …").
           master: true,
           // Supplies the body's "TO:" line — see resolveNominatingParty below.
+          // `shipper` is joined for ETA_TERMINAL, which is addressed to the
+          // shipper and the terminal rather than to the client list.
           nominationClients: {
-            select: { type: true, name: true },
+            select: {
+              type: true,
+              name: true,
+              shipper: { select: { name: true, emails: true } },
+            },
             orderBy: { sortOrder: 'asc' },
           },
           nominatedBy: { select: { displayName: true, email: true } },
           shipParticular: { select: { name: true } },
-          opPort: { select: { name: true } },
+          // `emails` is the terminal's own distribution list.
+          opPort: { select: { name: true, emails: true } },
           lastPort: { select: { name: true } },
           nextPort: { select: { name: true } },
           branch: {
@@ -804,10 +812,10 @@ export class NominationsService {
     // ---------------------------------------------------------------------------
     // Template variables
     // ---------------------------------------------------------------------------
-    const fmtDate = (d: Date | null) =>
-      d
-        ? `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
-        : '';
+    // Every date on a notice reads "Jul-18th, 2026" — the form the agency's
+    // recipients are used to. It replaced DD/MM/YYYY, which was ambiguous to
+    // read across the agency's US and European counterparties.
+    const fmtDate = (d: Date | null) => formatNoticeDate(d);
 
     const fmtTime = (d: Date | null) =>
       d
@@ -817,6 +825,10 @@ export class NominationsService {
     const parcels = Array.isArray(nomination.parcels) ? nomination.parcels : [];
     const firstParcel = (parcels as Array<Record<string, unknown>>)[0] ?? {};
     const branch = nomination.branch;
+
+    // The shipper named on the CLIENT LIST. Its name heads the "CC:" line of the
+    // terminal notice and its addresses join the terminal's on the To line.
+    const shipper = NominationsService.resolveShipper(nomination.nominationClients);
 
     const snRef = formatSnOt(nomination.correlative, nomination.dateNominated, nomination.kind);
     const vesselName = nomination.shipParticular?.name ?? '';
@@ -869,36 +881,37 @@ export class NominationsService {
       ref_line: refLine,
       // Charter-party reference the agency types into "Reference N°".
       ref_no: refNo,
-      laycan:
-        nomination.layDaysFirst || nomination.layDaysLast
-          ? `${fmtDate(nomination.layDaysFirst)} - ${fmtDate(nomination.layDaysLast)}`
-          : '',
+      // Both ends spelled out — "Jul. 06th, 2026 - Jul. 10th, 2026". A laycan is
+      // what a demurrage claim is argued from, so it is written in full.
+      laycan: formatNoticeDateRange(nomination.layDaysFirst, nomination.layDaysLast),
       cargo_quantity: formatCargoQuantity(firstParcel['quantity']),
       cargo_unit: String(firstParcel['unit'] ?? ''),
       cargo_grade: String(firstParcel['product'] ?? ''),
-      lay_days:
-        nomination.layDaysFirst || nomination.layDaysLast
-          ? `${fmtDate(nomination.layDaysFirst)} - ${fmtDate(nomination.layDaysLast)}`
-          : '',
-      // Month-in-letters laycan, e.g. "Jul. 06th-10th, 2026". Separate from
-      // lay_days so the ~30 templates on the numeric DD/MM/YYYY form keep it
-      // until they are migrated deliberately.
+      lay_days: formatNoticeDateRange(nomination.layDaysFirst, nomination.layDaysLast),
+      // Collapsed laycan, e.g. "Jul. 06th-10th, 2026". Kept distinct from
+      // lay_days, which spells both ends out, because the templates using it
+      // were written around the shorter form.
       lay_days_long: formatLaydayRange(nomination.layDaysFirst, nomination.layDaysLast),
       operation: String(firstParcel['operation'] ?? firstParcel['product'] ?? ''),
-      // Cargo update — multi-parcel loop data
+      // Cargo update — multi-parcel loop data. Figures are grouped and carry two
+      // decimals ("1,950,210.00"); a transfer rate is quoted per hour in the
+      // parcel's own unit, so wheat reads MT/Hr and crude Bbls/Hr.
       parcels: (parcels as Array<Record<string, unknown>>).map((p) => ({
         cargo_grade: String(p['product'] ?? ''),
         operation: String(p['operation'] ?? ''),
-        quantity: String(p['quantity'] ?? '0'),
+        quantity: formatCargoFigure(p['quantity'] ?? 0),
         unit: String(p['unit'] ?? ''),
-        qty_on_board: String(p['qtyOnBoard'] ?? '0'),
+        qty_on_board: formatCargoFigure(p['qtyOnBoard'] ?? 0),
         // `||`, not `??` — a unit cell left on its inherited default is stored
         // as an empty string, which `??` would print as no unit at all.
         qty_on_board_unit: String(p['qtyOnBoardUnit'] || p['unit'] || ''),
-        qty_to_go: String(p['qtyToGo'] ?? '0'),
+        qty_to_go: formatCargoFigure(p['qtyToGo'] ?? 0),
         qty_to_go_unit: String(p['qtyToGoUnit'] || p['unit'] || ''),
-        loading_rate: String(p['loadingRate'] ?? '0'),
-        loading_rate_unit: String(p['loadingRateUnit'] || p['unit'] || ''),
+        loading_rate: formatCargoFigure(p['loadingRate'] ?? 0),
+        loading_rate_unit: resolveTransferRateUnit(
+          p['loadingRateUnit'] as string | null | undefined,
+          (p['qtyOnBoardUnit'] || p['unit']) as string | null | undefined,
+        ),
         t_etc: formatEtcStamp(p['etcDate'], p['etcTime']),
       })),
       last_port: nomination.lastPort?.name ?? '',
@@ -927,6 +940,8 @@ export class NominationsService {
         [agent?.mobile, agent?.phone].filter((p) => p?.trim()).join(' / ') ||
         branch?.mobile24h ||
         '',
+      // "CC:" line of the terminal notice — the shipper the cargo moves for.
+      shipper_name: shipper.name,
       // "TO:" line — who nominated us.
       nominating_party: NominationsService.resolveNominatingParty(
         nomination.nominationClients,
@@ -966,9 +981,14 @@ export class NominationsService {
       update_time: fmtTime(new Date()),
       t_etd: '',
       t_etd_berth: '',
-      // SOF-specific — populated below when actionType === 'SOF'
+      // SOF-specific — populated below when actionType === 'SOF'.
+      // statement_of_facts_log is also filled for CARGO_UPDATE, which carries the
+      // same event log beneath its figures.
       statement_of_facts_log: '',
       bl_figures_section: '',
+      arrival_conditions_section: '',
+      sailed_conditions_section: '',
+      vessel_cargo_figures_section: '',
       slop_bunkers_section: '',
       letters_section: '',
       remarks_section: '',
@@ -981,12 +1001,19 @@ export class NominationsService {
     // cargo update is inherently multi-parcel.
     // ---------------------------------------------------------------------------
     if (actionType.toUpperCase() === 'CARGO_UPDATE') {
+      // A cargo update carries the same event log the SOF does — the recipient
+      // reads the figures against the history that produced them.
+      templateVars.statement_of_facts_log = await this.buildSofEventLog(nominationId);
+
       const parcelDescriptions = (parcels as Array<Record<string, unknown>>)
         .map((p) =>
           [
             p['operation'],
-            p['quantity'] ? `${p['quantity']} ${p['unit'] ?? ''}`.trim() : '',
-            p['product'] ? `of ${p['product']}` : '',
+            // Grouped with two decimals, matching the figures in the update
+            // block below it — the same tonnage in two formats on one notice
+            // invites a reader to think they are two different numbers.
+            p['quantity'] ? `${formatCargoFigure(p['quantity'])} ${p['unit'] ?? ''}`.trim() : '',
+            p['product'] ? String(p['product']) : '',
           ]
             .filter(Boolean)
             .join(' '),
@@ -1011,42 +1038,28 @@ export class NominationsService {
         },
       });
 
-      const SOF_MONTHS = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
-      ];
-      const ordinal = (n: number) => {
-        const v = n % 100;
-        return (
-          n +
-          (['th', 'st', 'nd', 'rd', 'th'][(v - 20) % 10] ??
-            ['th', 'st', 'nd', 'rd', 'th'][v] ??
-            'th')
-        );
-      };
-      const fmtSofDate = (d: Date) =>
-        `${SOF_MONTHS[d.getMonth()]}. ${ordinal(d.getDate())}, ${d.getFullYear()}`;
+      templateVars.statement_of_facts_log = NominationsService.formatSofEventLog(
+        sof?.entries ?? [],
+      );
 
-      // Log entries — a "." activity is a continuation marker, so its comment
-      // stays inline on the same row instead of wrapping to an indented line.
-      const logLines = (sof?.entries ?? []).map((e) => {
-        const d = new Date(e.occurredAt);
-        const activityName = e.activity?.name ?? '';
-        const line = `${fmtSofDate(d)}  ${fmtTime(d)}  ${activityName}`;
-        if (!e.comment) return line;
-        return activityName === '.' ? `${line}  ${e.comment}` : `${line}\n     ${e.comment}`;
-      });
-      templateVars.statement_of_facts_log = logLines.join('\n');
+      // Arrival / Sailed conditions — bunkers remaining on board plus draft, as
+      // recorded in the Bunkers & Draft dialog.
+      templateVars.arrival_conditions_section = NominationsService.formatVesselConditions(
+        sof?.bunkersData,
+        sof?.draftData,
+        'arrival',
+      );
+      templateVars.sailed_conditions_section = NominationsService.formatVesselConditions(
+        sof?.bunkersData,
+        sof?.draftData,
+        'sailing',
+      );
+
+      // Vessel Cargo Figures — the ship's own loaded figures, stated alongside
+      // the bills of lading so the two can be compared.
+      templateVars.vessel_cargo_figures_section = NominationsService.formatVesselCargoFigures(
+        sof?.shipFiguresData,
+      );
 
       // BL Figures section (one block per cargo column)
       type DynRows = Record<string, string[]>;
@@ -1054,26 +1067,31 @@ export class NominationsService {
       const blCols = blData?.columns ?? [];
       const blRows = blData?.rows ?? {};
       const v = (key: string, col: number) => blRows[key]?.[col] ?? '';
+      // One block per cargo column, numbered "Bill #1", "Bill #2" … as the
+      // agency's own statements number them.
+      const RULE = '--------------------------------------------------';
       const blBlocks = blCols.map((colName, ci) => {
         const lines: string[] = [
-          ``,
-          `${colName ? colName + ' ' : ''}Bill of Lading Figures :`,
-          `-----------------------------------------------------------`,
-          `                Gross            Net`,
-          `Bbls at 60 grade F.  : ${v('grossBbls', ci).padStart(12)}  ${v('netBbls', ci).padStart(12)}`,
-          `M/Tons at 60 grade F.: ${v('grossMt', ci).padStart(12)}  ${v('netMt', ci).padStart(12)}`,
-          `L/Tons at 60 grade F.: ${v('grossLt', ci).padStart(12)}  ${v('netLt', ci).padStart(12)}`,
+          RULE,
+          `${colName ? colName + ' - ' : ''}Bill #${ci + 1} Of Lading Figures:`,
+          RULE,
+          `                     Gross           Net`,
+          `Bbls at 60 F ..: ${v('grossBbls', ci).padStart(12)}  ${v('netBbls', ci).padStart(12)}`,
+          `M/Tons at 60 F.: ${v('grossMt', ci).padStart(12)}  ${v('netMt', ci).padStart(12)}`,
+          `L/Tons at 60 F.: ${v('grossLt', ci).padStart(12)}  ${v('netLt', ci).padStart(12)}`,
           ``,
           `Shipper  : ${v('shipper', ci)}`,
           `Consignee: ${v('consignee', ci)}`,
-          `B/L Date : ${v('date', ci)}`,
           `Disport  : ${v('destination', ci)}`,
-          `Scaccode : ${v('scacCode', ci)}`,
-          `(${v('originalOnBoard', ci) === 'true' ? 'X' : ' '}) Original Bill on Board`,
+          `SCACCODE : ${v('scacCode', ci)}`,
+          `B/L Date : ${v('date', ci)}`,
+          `Remark   : ${v('remark', ci)}`,
+          `API      : ${v('api', ci)}`,
+          `Temp     : ${v('temp', ci)}`,
         ];
         return lines.join('\n');
       });
-      templateVars.bl_figures_section = blBlocks.join('\n\n');
+      templateVars.bl_figures_section = blBlocks.join('\n');
 
       // Slop discharged / bunkers received
       type SlopRow = { event?: string; date?: string; time?: string };
@@ -1108,14 +1126,16 @@ export class NominationsService {
       }
       templateVars.slop_bunkers_section = slopBunkersBlocks.join('\n\n');
 
-      // Letters of protest
+      // Letters of protest — a zero-padded numbered list of the protests raised,
+      // which is how they are read off the statement. The from/to pair is not
+      // restated per line: the section heading already says who protested to whom.
       type LetterItem = { from?: string; to?: string; comment?: string };
       const lettersData = sof?.lettersData as { items?: LetterItem[] } | null;
       templateVars.letters_section = (lettersData?.items ?? [])
-        .map(
-          (l, i) =>
-            `${i + 1}. From: ${l.from ?? ''} — To: ${l.to ?? ''}${l.comment ? `\n   ${l.comment}` : ''}`,
-        )
+        .map((l, i) => {
+          const subject = (l.comment ?? '').trim() || (l.to ?? '').trim();
+          return `${String(i + 1).padStart(2, '0')}. ${subject}`;
+        })
         .join('\n');
 
       // Remarks
@@ -1127,15 +1147,21 @@ export class NominationsService {
         endTime?: string;
         comment?: string;
       };
+      // Remarks are the delay periods a demurrage claim is built from, so each
+      // reads as a span: "Fm <start> To <end> <reason>". A remark without both
+      // ends still prints, rather than being dropped for being incomplete.
       const remarksData = sof?.remarksData as { items?: RemarkItem[] } | null;
       templateVars.remarks_section = (remarksData?.items ?? [])
         .map((r) => {
-          const begin = r.beginDate
-            ? ` Begin: ${r.beginDate}${r.beginTime ? ' ' + r.beginTime : ''}`
-            : '';
-          const end = r.endDate ? ` End: ${r.endDate}${r.endTime ? ' ' + r.endTime : ''}` : '';
-          return `${r.remark ?? ''}${begin}${end}${r.comment ? `\n  ${r.comment}` : ''}`;
+          const stamp = (date?: string, time?: string) =>
+            [date?.trim(), time?.trim()].filter(Boolean).join(' ');
+          const from = stamp(r.beginDate, r.beginTime);
+          const to = stamp(r.endDate, r.endTime);
+          const span = [from ? `Fm ${from}` : '', to ? `To ${to}` : ''].filter(Boolean).join(' ');
+          const reason = (r.remark ?? '').trim();
+          return [span, reason, (r.comment ?? '').trim()].filter(Boolean).join(' ');
         })
+        .filter((line) => line !== '')
         .join('\n');
 
       // Operation string
@@ -1143,19 +1169,16 @@ export class NominationsService {
       if (fp['operation'] || fp['product']) {
         templateVars.operation = [
           fp['operation'],
-          fp['quantity'] ? `${fp['quantity']} ${fp['unit'] ?? ''}`.trim() : '',
-          fp['product'] ? `of ${fp['product']}` : '',
+          fp['quantity'] ? `${formatCargoFigure(fp['quantity'])} ${fp['unit'] ?? ''}`.trim() : '',
+          fp['product'] ? String(fp['product']) : '',
         ]
           .filter(Boolean)
           .join(' ');
       }
 
-      // Lay days in SOF format: "28 May, 2026 - 30 May, 2026"
-      const fmtSofLayDay = (d: Date | null) =>
-        d ? `${d.getDate()} ${SOF_MONTHS[d.getMonth()]}, ${d.getFullYear()}` : '';
-      if (nomination.layDaysFirst || nomination.layDaysLast) {
-        templateVars.lay_days = `${fmtSofLayDay(nomination.layDaysFirst)} - ${fmtSofLayDay(nomination.layDaysLast)}`;
-      }
+      // Lay days deliberately keep the shared "Jul. 06th, 2026 - Jul. 10th, 2026"
+      // form. The SOF used to override it with "28 May, 2026", which is why this
+      // block no longer sets lay_days at all.
     }
 
     // ---------------------------------------------------------------------------
@@ -1166,9 +1189,31 @@ export class NominationsService {
 
     const subject = rendered.subject ?? nomination.subject ?? nomination.shipParticular?.name ?? '';
 
+    // ---------------------------------------------------------------------------
+    // Recipients
+    //
+    // Every notice defaults to the nomination's own distribution list, which is
+    // the client's. ETA_TERMINAL is the exception: as its name says, it goes to
+    // the shipper and to the terminal the vessel is scheduled at, so its To line
+    // is built from the operational port's address list plus the shipper's. Cc
+    // is untouched — the agency's internal copies apply to this notice too.
+    //
+    // If neither is registered there is nothing to address it to, so it falls
+    // back to the nomination's list rather than opening with an empty To that
+    // reads as a bug. The agent can still edit the line before sending.
+    // ---------------------------------------------------------------------------
+    let toAddresses = nomination.emailTo;
+    if (actionType.toUpperCase() === 'ETA_TERMINAL') {
+      const terminalAndShipper = dedupeEmails([
+        ...(nomination.opPort?.emails ?? []),
+        ...shipper.emails,
+      ]);
+      if (terminalAndShipper.length > 0) toAddresses = terminalAndShipper;
+    }
+
     return {
       subject,
-      toAddresses: nomination.emailTo,
+      toAddresses,
       ccAddresses: nomination.emailCc,
       bccAddresses: nomination.emailBcc,
       // Both forms: `bodyText` is what the compose editor shows and the agent
@@ -1208,6 +1253,160 @@ export class NominationsService {
 
   /** CLIENT LIST rows whose `type` names the chartering party. */
   private static readonly CHARTERER_TYPES = ['charterer', 'time charter'];
+
+  /**
+   * Bunker grades as the statement groups them. The dialog records eight grades
+   * but a statement names the family, so several grades can land on one label —
+   * each recorded grade still gets its own line rather than being summed, since
+   * inventing a total from two figures the agent entered separately would put a
+   * number on the document that nobody wrote.
+   */
+  private static readonly BUNKER_LABELS: Record<string, string> = {
+    IFO: 'Fuel Oil',
+    HSFO: 'Fuel Oil',
+    LSFO: 'Fuel Oil',
+    VLSFO: 'Fuel Oil',
+    MDO: 'Diesel Oil',
+    MGO: 'Diesel Oil',
+    LSMGO: 'Diesel Oil',
+    FW: 'Fresh Water',
+  };
+
+  /** The SOF event log, one "<date> <time> <activity>" line per entry. */
+  private static formatSofEventLog(
+    entries: { occurredAt: Date; comment: string | null; activity: { name: string } | null }[],
+  ): string {
+    const fmtTime = (d: Date) =>
+      `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+
+    // A "." activity is a continuation marker, so its comment stays inline on
+    // the same row instead of wrapping to an indented line.
+    return entries
+      .map((e) => {
+        const d = new Date(e.occurredAt);
+        const activityName = e.activity?.name ?? '';
+        const line = `${formatNoticeDate(d)} ${fmtTime(d)} ${activityName}`;
+        if (!e.comment) return line;
+        return activityName === '.' ? `${line} ${e.comment}` : `${line}\n     ${e.comment}`;
+      })
+      .join('\n');
+  }
+
+  /** Loads the event log for a nomination, for notices that carry it. */
+  private async buildSofEventLog(nominationId: string): Promise<string> {
+    const sof = await this.prisma.sofTimesheet.findUnique({
+      where: { nominationId },
+      select: {
+        entries: {
+          orderBy: { order: 'asc' },
+          select: {
+            occurredAt: true,
+            comment: true,
+            activity: { select: { name: true } },
+          },
+        },
+      },
+    });
+    return NominationsService.formatSofEventLog(sof?.entries ?? []);
+  }
+
+  /**
+   * Bunkers remaining and draft at one end of the call, e.g.
+   *
+   *     Fuel Oil   :   4,214.70 MT
+   *     Fresh Water:     514.00 MT
+   *     Draft: Fwd. 08.00 Mts / Aft. 11.00 Mts
+   *
+   * Renders empty when nothing was recorded, so the template drops the whole
+   * block rather than printing a heading over blank lines.
+   */
+  private static formatVesselConditions(
+    bunkersData: unknown,
+    draftData: unknown,
+    column: 'arrival' | 'sailing',
+  ): string {
+    const bunkers = (bunkersData ?? {}) as Record<string, Record<string, string> | undefined>;
+    const draft = (draftData ?? {}) as Record<string, Record<string, string> | undefined>;
+
+    const lines = Object.entries(NominationsService.BUNKER_LABELS)
+      .map(([grade, label]) => {
+        const value = bunkers[grade]?.[column]?.trim();
+        return value ? `${label.padEnd(11)}: ${value.padStart(10)} MT` : '';
+      })
+      .filter(Boolean);
+
+    const fwd = draft['FWD']?.[column]?.trim();
+    const aft = draft['AFT']?.[column]?.trim();
+    if (fwd || aft) {
+      lines.push(`Draft: Fwd. ${fwd || '-'} Mts / Aft. ${aft || '-'} Mts`);
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
+   * The ship's own loaded figures, one block per cargo column:
+   *
+   *     Merey 16 Crude Oil - Vessel Cargo Figures:
+   *     Ship's Loaded Figures Bbls: 1,949,562.000
+   *
+   * Stated next to the bills of lading precisely so the two can be compared, so
+   * a column with no figures at all is skipped rather than printed empty.
+   */
+  private static formatVesselCargoFigures(shipFiguresData: unknown): string {
+    const data = (shipFiguresData ?? {}) as {
+      columns?: string[];
+      rows?: Record<string, string[]>;
+    };
+    const columns = data.columns ?? [];
+    const rows = data.rows ?? {};
+    const RULE = '-----------------------------------------------';
+
+    const blocks = columns
+      .map((colName, ci) => {
+        const figure = (key: string) => rows[key]?.[ci]?.trim() ?? '';
+        const measures: [string, string][] = [
+          ["Ship's Loaded Figures Bbls:", figure('bbls')],
+          ["Ship's Loaded Figures M/T:", figure('mtons')],
+          ["Ship's Loaded Figures L/T:", figure('ltons')],
+        ];
+        if (measures.every(([, value]) => value === '')) return '';
+
+        return [
+          RULE,
+          `${colName ? colName + ' - ' : ''}Vessel Cargo Figures:`,
+          RULE,
+          ...measures
+            .filter(([, value]) => value !== '')
+            .map(([label, value]) => `${label.padEnd(27)} ${value.padStart(16)}`),
+        ].join('\n');
+      })
+      .filter(Boolean);
+
+    return blocks.join('\n');
+  }
+
+  /**
+   * The shipper named on the CLIENT LIST, with its registered addresses.
+   *
+   * The name comes from the row as typed, so a hand-written shipper still heads
+   * the notice's "CC:" line. Addresses come only from the linked master-data
+   * record — there is no name matching, because mailing a legally binding notice
+   * to a company picked by fuzzy string match is not a risk worth taking. A row
+   * typed free-hand therefore contributes a name and no addresses.
+   */
+  private static resolveShipper(
+    clients: { type: string; name: string; shipper?: { name: string; emails: string[] } | null }[],
+  ): { name: string; emails: string[] } {
+    const row = clients.find(
+      (c) => c.type.trim().toLowerCase() === 'shipper' && (c.name.trim() !== '' || c.shipper),
+    );
+    if (!row) return { name: '', emails: [] };
+    return {
+      name: row.name.trim() || (row.shipper?.name ?? ''),
+      emails: row.shipper?.emails ?? [],
+    };
+  }
 
   /** First named CLIENT LIST row matching `priority`, or '' when none match. */
   private static resolveClientByType(
