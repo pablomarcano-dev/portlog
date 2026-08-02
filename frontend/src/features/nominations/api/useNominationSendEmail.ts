@@ -8,7 +8,8 @@ interface SendEmailBody {
   ccAddresses: string[];
   bccAddresses: string[];
   subject: string;
-  bodyHtml: string;
+  /** Plain text — the backend wraps it for mail clients at send time. */
+  bodyText: string;
   attachmentIds?: string[];
 }
 

@@ -85,7 +85,10 @@ function EmailViewer({ item, nominationId, onClose }: EmailViewerProps) {
         ccAddresses: item.ccAddresses,
         bccAddresses: [],
         subject: item.subject,
-        bodyHtml: item.bodyHtml ?? '',
+        // A re-send replays what was archived, which is the already-wrapped
+        // HTML. The send-time wrapper leaves HTML alone, so the copy that goes
+        // out is identical to the original.
+        bodyText: item.bodyHtml ?? '',
       },
       { onSuccess: onClose },
     );

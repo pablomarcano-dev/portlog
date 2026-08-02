@@ -7,11 +7,11 @@ export const composeDataSchema = z.object({
   bccAddresses: z.array(z.string()),
   /**
    * The rendered template as plain text — what the compose editor binds to.
-   * `bodyHtml` is the same content wrapped for mail clients; the editor must not
-   * show it, or the agent sees the `<pre …>` wrapper as body copy.
+   * Nothing HTML crosses this boundary: the wrapper that preserves the
+   * fixed-width layout is applied at send time, so the agent only ever sees and
+   * edits the letter itself.
    */
   bodyText: z.string(),
-  bodyHtml: z.string(),
 });
 
 export type ComposeData = z.infer<typeof composeDataSchema>;

@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { PdfService } from '../pdf/pdf.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { EmailService } from '../email/email.service.js';
+import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
 import { AttachmentsService } from '../attachments/attachments.service.js';
 import {
   type CreateSHDocumentInput,
@@ -206,6 +207,10 @@ export class SHDocumentsService {
     // before we flip the document to SENT.
     const userAttachments = await this.attachments.resolveForSend(dto.attachmentIds ?? []);
 
+    // The drawer composes plain text; this is where it becomes the HTML that
+    // goes on the wire, and what the dispatch row records as sent.
+    const bodyHtml = dto.bodyText ? wrapPlainTextEmailBody(dto.bodyText) : null;
+
     // --- Tx 1: record dispatch (pending) + flip doc status to SENT ---
     // IMPORTANT: Status flip to SENT happens BEFORE email send. If SMTP fails,
     // status stays SENT and the dispatch row records the error. Operators must
@@ -218,7 +223,7 @@ export class SHDocumentsService {
           toAddresses: dto.toAddresses,
           ccAddresses: dto.ccAddresses ?? [],
           subject,
-          bodyHtml: dto.bodyHtml ?? null,
+          bodyHtml,
           pdfStorageKey: doc.minioKey!,
           sentById: userId,
           sentAt: null,
@@ -253,7 +258,7 @@ export class SHDocumentsService {
         to: dto.toAddresses,
         cc: dto.ccAddresses ?? [],
         subject,
-        html: dto.bodyHtml ?? '',
+        html: bodyHtml ?? '',
         attachments: [
           {
             filename: `${doc.type}.pdf`,

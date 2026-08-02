@@ -108,7 +108,8 @@ export const SendShDocumentSchema = z.object({
   toAddresses: z.array(z.string().email()).min(1),
   ccAddresses: z.array(z.string().email()).optional().default([]),
   subject: z.string().max(500).optional(),
-  bodyHtml: z.string().optional(),
+  /** Plain text, as authored — wrapped for mail clients at send time. */
+  bodyText: z.string().optional(),
   // IDs of previously uploaded EmailAttachment rows to attach (in addition to
   // the SH document's own generated PDF).
   attachmentIds: attachmentIdsSchema,

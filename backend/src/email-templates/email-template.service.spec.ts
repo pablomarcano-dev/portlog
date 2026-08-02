@@ -233,12 +233,11 @@ describe('EmailTemplateService', () => {
     });
   });
 
-  describe('bodyHtml', () => {
-    it('wraps plain text in <pre> so the fixed-width layout survives', async () => {
-      const { bodyHtml } = await service.render('01_prearrival/00_nomination_acceptance.hbs', VARS);
+  describe('render output', () => {
+    it('returns the letter as plain text, unwrapped — the mail-client <pre> is added at send time', async () => {
+      const { bodyText } = await service.render('01_prearrival/00_nomination_acceptance.hbs', VARS);
 
-      expect(bodyHtml.startsWith('<pre style=')).toBe(true);
-      expect(bodyHtml.endsWith('</pre>')).toBe(true);
+      expect(bodyText).not.toContain('<pre');
     });
   });
 

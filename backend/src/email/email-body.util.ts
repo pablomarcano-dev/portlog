@@ -4,11 +4,11 @@
  * client collapses whitespace in an HTML part, so a body that reaches SMTP
  * unwrapped arrives as one run-on paragraph.
  *
- * Everything that leaves through `EmailService.send` therefore passes through
- * `wrapPlainTextEmailBody`. The frontend wraps too (see
- * `frontend/src/lib/format/emailBody.ts`) so the stored `bodyHtml` matches what
- * was mailed; this is the backstop that makes a flattened body impossible no
- * matter which caller supplied it.
+ * This wrapper is the last step before sending, and the only place the markup
+ * exists: templates render plain text, the API takes `bodyText`, and the
+ * compose UI never sees a tag. Send paths that archive what they mailed call it
+ * themselves and store the result; `EmailService.send` applies it to everything
+ * else, so a flattened body is impossible no matter which caller supplied it.
  */
 
 const PRE_STYLE =

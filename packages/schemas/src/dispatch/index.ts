@@ -44,7 +44,12 @@ export const sendSubDocumentSchema = z.object({
   ccAddresses: z.array(z.string().email()).default([]),
   bccAddresses: z.array(z.string().email()).default([]),
   subject: z.string().min(1).max(500),
-  bodyHtml: z.string().optional(),
+  /**
+   * The body as the agent typed it — plain text. The backend wraps it for mail
+   * clients on the way out (see `email-body.util.ts`); no caller should send
+   * markup of its own.
+   */
+  bodyText: z.string().optional(),
   extraData: subDocExtraDataSchema.optional(),
   // IDs of previously uploaded EmailAttachment rows to attach (in addition to
   // the generated sub-document PDF).
@@ -64,7 +69,8 @@ export const sendNominationEmailSchema = z.object({
   ccAddresses: z.array(z.string().email()).default([]),
   bccAddresses: z.array(z.string().email()).default([]),
   subject: z.string().min(1).max(500),
-  bodyHtml: z.string().default(''),
+  /** Plain text, as authored — wrapped for mail clients at send time. */
+  bodyText: z.string().default(''),
   attachmentIds: attachmentIdsSchema,
 });
 export type SendNominationEmailInput = z.infer<typeof sendNominationEmailSchema>;

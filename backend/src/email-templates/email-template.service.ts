@@ -2,7 +2,6 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import Handlebars from 'handlebars';
 import { readdir, readFile } from 'fs/promises';
 import { basename, extname, resolve } from 'path';
-import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
 
 /** Directory under `templates/` holding shared partials rather than whole emails. */
 export const PARTIALS_DIRNAME = '_partials';
@@ -24,9 +23,13 @@ export interface RenderedTemplate {
    * fallback, since a sensible default is domain-specific.
    */
   subject: string | null;
+  /**
+   * The letter as plain text. Rendering deliberately stops here — the `<pre …>`
+   * wrapper that preserves this layout in a mail client is applied once, at
+   * send time (`EmailService.send`), so a rendered template can be shown in the
+   * compose editor and edited as text.
+   */
   bodyText: string;
-  /** `bodyText` wrapped for HTML display, preserving the plain-text layout. */
-  bodyHtml: string;
 }
 
 /**
@@ -81,7 +84,7 @@ export class EmailTemplateService {
 
     const bodyText = this.hbs.compile(source)(vars);
 
-    return { subject, bodyText, bodyHtml: EmailTemplateService.wrapPlainText(bodyText) };
+    return { subject, bodyText };
   }
 
   /** Lists every renderable template, i.e. excluding the partials directory. */
@@ -96,14 +99,6 @@ export class EmailTemplateService {
       .filter((p) => !p.includes(`/${PARTIALS_DIRNAME}/`))
       .map((p) => p.slice(templatesRoot().length + 1))
       .sort();
-  }
-
-  /**
-   * Wraps plain-text output so a mail client renders the fixed-width layout the
-   * templates are written in. Sources that already emit HTML pass through.
-   */
-  private static wrapPlainText(bodyText: string): string {
-    return wrapPlainTextEmailBody(bodyText);
   }
 
   /**
