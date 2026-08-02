@@ -284,14 +284,17 @@ For in-progress cargo figures (completion times, quantities remaining, loading r
 
 Fill in for each parcel:
 
-| Field              | Description                                  |
-| ------------------ | -------------------------------------------- |
-| Date Update / Time | When this update was recorded                |
-| Date ETD / Time    | Estimated time of departure                  |
-| ETC Date           | Estimated Time of Completion for this parcel |
-| Qty On Board       | Remaining quantity on board                  |
-| Qty To Go          | Quantity yet to discharge                    |
-| Loading Rate       | Operational loading/discharge rate           |
+| Field              | Description                                                                                           |
+| ------------------ | ----------------------------------------------------------------------------------------------------- |
+| Date Update / Time | When this update was recorded                                                                         |
+| Date ETD / Time    | Estimated time of departure                                                                           |
+| Product            | Picked from the cargo catalog — choosing a product fills every **Unit** cell on the row with its unit |
+| Qty Nominated      | Quantity nominated or offered by the terminal; pre-filled from the nomination and editable            |
+| Unit               | Unit for the figure to its left; inherited from the product, overridable per column                   |
+| ETC Date           | Estimated Time of Completion for this parcel — date **and** time, picked from the calendar (24-hour)  |
+| Qty On Board       | Remaining quantity on board                                                                           |
+| Qty To Go          | Qty Nominated minus Qty On Board — recalculated as you type, and still editable for a manual override |
+| Loading Rate       | Operational loading/discharge rate                                                                    |
 
 Click **Save as Draft** to save without sending, or **Send Message** to save and open the Cargo Update email compose modal.
 

@@ -20,6 +20,15 @@ export interface CargoRecord {
   label: string;
 }
 
+/** Trimmed cargo row returned by the search endpoint that backs the product pickers. */
+export interface CargoSuggestion {
+  id: string;
+  label: string;
+  /** Catalog unit for the product — seeds the quantity units on parcel rows. */
+  bblUnit: string;
+  category: CargoCategory;
+}
+
 export interface CargoListResponse {
   items: CargoRecord[];
   nextCursor: string | null;
@@ -46,9 +55,7 @@ export const cargoesApi = {
   search: (q: string, category?: CargoCategory) => {
     const params = new URLSearchParams({ q });
     if (category) params.set('category', category);
-    return apiRequest<Array<{ id: string; label: string; category: CargoCategory }>>(
-      `/master-data/cargoes/search?${params.toString()}`,
-    );
+    return apiRequest<CargoSuggestion[]>(`/master-data/cargoes/search?${params.toString()}`);
   },
 
   create: (data: CargoCreateInput) =>

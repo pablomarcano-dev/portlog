@@ -284,14 +284,17 @@ Para las cifras de carga en curso (tiempos de finalización, cantidades restante
 
 Complete los siguientes campos para cada parcela:
 
-| Campo              | Descripción                                      |
-| ------------------ | ------------------------------------------------ |
-| Date Update / Time | Momento en que se registró esta actualización    |
-| Date ETD / Time    | Fecha y hora estimadas de partida                |
-| ETC Date           | Fecha estimada de finalización para esta parcela |
-| Qty On Board       | Cantidad restante a bordo                        |
-| Qty To Go          | Cantidad pendiente de descargar                  |
-| Loading Rate       | Tasa operativa de carga/descarga                 |
+| Campo              | Descripción                                                                                                |
+| ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Date Update / Time | Momento en que se registró esta actualización                                                              |
+| Date ETD / Time    | Fecha y hora estimadas de partida                                                                          |
+| Product            | Se elige del catálogo de productos — al seleccionarlo se completan todas las celdas **Unit** con su unidad |
+| Qty Nominated      | Cantidad nominada u ofrecida por el terminal; se precarga desde la nominación y es editable                |
+| Unit               | Unidad de la cifra que tiene a su izquierda; se hereda del producto y puede cambiarse por columna          |
+| ETC Date           | Fecha **y hora** estimadas de finalización de la parcela, elegidas en el calendario desplegable (24 h)     |
+| Qty On Board       | Cantidad restante a bordo                                                                                  |
+| Qty To Go          | Qty Nominated menos Qty On Board — se recalcula al escribir y admite corrección manual                     |
+| Loading Rate       | Tasa operativa de carga/descarga                                                                           |
 
 Haga clic en **Save as Draft** para guardar sin enviar, o en **Send Message** para guardar y abrir el modal de redacción del correo de actualización de carga.
 

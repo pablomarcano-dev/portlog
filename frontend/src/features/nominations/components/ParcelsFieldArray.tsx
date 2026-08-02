@@ -3,16 +3,7 @@ import type { Control } from 'react-hook-form';
 import { Button, Group, NumberInput, Select, Stack, Text } from '@mantine/core';
 import type { NominationCreateInput, NominationKind } from '@portlog/schemas';
 import { CargoNamePicker } from './CargoNamePicker';
-
-const UNIT_OPTIONS = [
-  { value: 'Bbls', label: 'Bbls' },
-  { value: 'Kg', label: 'Kg' },
-  { value: 'Us/G', label: 'Us/G' },
-  { value: 'C/M', label: 'C/M' },
-  { value: 'L/T', label: 'L/T' },
-  { value: 'M/T', label: 'M/T' },
-  { value: 'Unit', label: 'Unit' },
-];
+import { unitSelectData } from '../parcelUnits';
 
 const OPERATION_OPTIONS = [
   { value: 'Disch', label: 'Disch' },
@@ -90,7 +81,7 @@ export function ParcelsFieldArray({ control, disabled, kind = 'SN' }: ParcelsFie
               <Select
                 label={index === 0 ? 'Unit' : undefined}
                 placeholder="Select..."
-                data={UNIT_OPTIONS}
+                data={unitSelectData(f.value)}
                 style={{ flex: 1 }}
                 disabled={disabled}
                 error={fieldState.error?.message}
