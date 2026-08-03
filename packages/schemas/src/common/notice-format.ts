@@ -101,6 +101,35 @@ export function formatCargoFigure(value: unknown): string {
   }).format(n);
 }
 
+/** A plain, unpunctuated number: the only shape `formatQuantity` will regroup. */
+const PLAIN_NUMBER = /^-?\d+(\.\d+)?$/;
+
+/**
+ * A SOF quantity as the statement writes it, e.g. "1896870" -> "1,896,870" and
+ * "287912.375" -> "287,912.375".
+ *
+ * Unlike {@link formatCargoFigure} the decimals are kept exactly as entered —
+ * a bill of lading states its own precision (three decimals on M/T, none on
+ * barrels) and rounding it to two would misstate the figure.
+ *
+ * Only an unpunctuated number is regrouped. Anything already carrying
+ * separators passes through verbatim, because their meaning is not knowable
+ * here: SOF figures recorded before this formatter existed use a *decimal*
+ * comma ("286433,463" is 286433.463), so reading commas as thousands
+ * separators would silently multiply a legally binding figure by a thousand.
+ * Such values keep their stored form until someone re-enters them.
+ */
+export function formatQuantity(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const raw = String(value).trim();
+  if (raw === '' || !PLAIN_NUMBER.test(raw)) return raw;
+
+  const negative = raw.startsWith('-');
+  const [int = '', dec] = (negative ? raw.slice(1) : raw).split('.');
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${negative ? '-' : ''}${grouped}${dec === undefined ? '' : `.${dec}`}`;
+}
+
 /**
  * The unit a transfer rate is quoted in, e.g. "Bbls/Hr".
  *

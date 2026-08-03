@@ -10,7 +10,7 @@ import {
   Box,
   ActionIcon,
 } from '@mantine/core';
-import { DatePickerInput, TimeInput } from '@mantine/dates';
+import { DatePickerInput } from '@mantine/dates';
 import type {
   SofTimesheetResponse,
   SofSlopDischargedData,
@@ -18,6 +18,7 @@ import type {
 } from '@portlog/schemas';
 import { useColumnResize } from '../../../components/table/useColumnResize';
 import { ResizableTh } from '../../../components/table/ResizableTh';
+import { TimeInput24 } from '../../../components/inputs/TimeInput24';
 
 type SlopColKey = 'date' | 'time' | 'event';
 const SLOP_WIDTHS: Record<SlopColKey, number> = { date: 130, time: 80, event: 300 };
@@ -239,11 +240,11 @@ export function SofSlopBunkersReceivedModal({
                     />
                   </Table.Td>
                   <Table.Td style={{ width: slopWidths.time }}>
-                    <TimeInput
+                    <TimeInput24
                       size="xs"
                       styles={inputStyles}
                       value={row.time}
-                      onChange={(e) => updateSlopRow(i, 'time', e.currentTarget.value)}
+                      onChange={(val) => updateSlopRow(i, 'time', val)}
                     />
                   </Table.Td>
                   <Table.Td style={{ width: slopWidths.event }}>

@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Select, Loader } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useDebouncedValue } from '@mantine/hooks';
@@ -26,6 +27,16 @@ interface EntityPickerProps {
   placeholder?: string;
   extraParams?: Record<string, string>;
   disabled?: boolean;
+  /**
+   * The option `value` refers to, when the caller already knows its label
+   * (e.g. from a `{ id, name }` object on the record being edited).
+   *
+   * The list endpoint returns one page, so a stored id is frequently *not*
+   * among the fetched options — and Mantine's Select renders an empty box for
+   * a value it cannot look up, which reads as "the field was never saved".
+   * Supplying the option here makes the saved value visible without a lookup.
+   */
+  selectedOption?: { value: string; label: string } | null;
 }
 
 /**
@@ -46,6 +57,7 @@ export function EntityPicker({
   placeholder,
   extraParams,
   disabled: disabledProp,
+  selectedOption,
 }: EntityPickerProps) {
   const [debouncedSearch] = useDebouncedValue(searchValue, 300);
 
@@ -62,10 +74,40 @@ export function EntityPicker({
     staleTime: 30_000,
   });
 
-  const selectData = (data?.items ?? []).map((item) => ({
-    value: item.id,
-    label: item.label ?? item.name ?? item.id,
-  }));
+  const fetchedOptions = useMemo(
+    () =>
+      (data?.items ?? []).map((item) => ({
+        value: item.id,
+        label: item.label ?? item.name ?? item.id,
+      })),
+    [data],
+  );
+
+  // Labels seen in any page fetched so far. Narrowing the search refetches a
+  // page that need not contain the current selection, so without this the
+  // field would blank out as soon as the user typed a different search.
+  const [labelCache, setLabelCache] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (fetchedOptions.length === 0) return;
+    setLabelCache((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const option of fetchedOptions) {
+        if (next[option.value] !== option.label) {
+          next[option.value] = option.label;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [fetchedOptions]);
+
+  const selectData = useMemo(() => {
+    if (!value || fetchedOptions.some((option) => option.value === value)) return fetchedOptions;
+    const known =
+      selectedOption?.value === value ? selectedOption.label : (labelCache[value] ?? null);
+    return known ? [{ value, label: known }, ...fetchedOptions] : fetchedOptions;
+  }, [fetchedOptions, value, selectedOption, labelCache]);
 
   return (
     <Select

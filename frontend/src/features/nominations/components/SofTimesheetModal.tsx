@@ -13,12 +13,13 @@ import {
   Box,
   Divider,
 } from '@mantine/core';
-import { DatePickerInput, TimeInput } from '@mantine/dates';
+import { DatePickerInput } from '@mantine/dates';
 import { useDisclosure, useDebouncedValue } from '@mantine/hooks';
-import { useForm, Controller, useFieldArray } from 'react-hook-form';
+import { useForm, Controller, useController, useFieldArray, type Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { EntityPicker } from '../../../components/master-data/EntityPicker';
+import { TimeInput24 } from '../../../components/inputs/TimeInput24';
 import { useColumnResize } from '../../../components/table/useColumnResize';
 import { ResizableTh } from '../../../components/table/ResizableTh';
 import { useNominationSof, useNominationSofSave } from '../hooks/useNominationSof';
@@ -40,6 +41,11 @@ const sofEntryFormSchema = z.object({
   date: z.date().nullable(),
   time: z.string().default(''),
   activityId: z.string().nullable(),
+  // Display-only companion to activityId, never sent to the API. The activity
+  // catalog is ~350 entries and the picker only ever holds a page of search
+  // results, so the row has to carry its own label for the saved activity to
+  // stay visible — and carrying it *in the row* means it survives re-sorting.
+  activityLabel: z.string().default(''),
   comment: z.string().default(''),
 });
 
@@ -68,6 +74,17 @@ function combineDateTime(date: Date | null, time: string): string | null {
   const d = new Date(date);
   d.setHours(parseInt(hh, 10), parseInt(mm, 10), 0, 0);
   return d.toISOString();
+}
+
+/**
+ * The `{ id, name }` summaries the SOF response carries alongside each stored
+ * id, as options the pickers can display. Without them a saved port shows as
+ * an empty box whenever it falls outside the picker's fetched page.
+ */
+function toOption(
+  entity: { id: string; name: string } | null | undefined,
+): { value: string; label: string } | null {
+  return entity ? { value: entity.id, label: entity.name } : null;
 }
 
 /**
@@ -102,6 +119,7 @@ function buildDefaultValues(data: SofTimesheetResponse | undefined): SofFormValu
         date,
         time,
         activityId: e.activityId ?? null,
+        activityLabel: e.activity?.name ?? '',
         comment: e.comment ?? '',
       };
     }),
@@ -113,22 +131,35 @@ function buildDefaultValues(data: SofTimesheetResponse | undefined): SofFormValu
 // instead of loading the full activity catalog into the dropdown.
 // ---------------------------------------------------------------------------
 
-function ActivityCell({
-  value,
-  onChange,
-}: {
-  value: string | null;
-  onChange: (val: string | null) => void;
-}) {
+function ActivityCell({ control, index }: { control: Control<SofFormValues>; index: number }) {
+  // The id and its label are two fields on the same row, kept in step here so
+  // the row carries its own label through re-sorting.
+  const { field: idField } = useController({ control, name: `entries.${index}.activityId` });
+  const { field: labelField } = useController({ control, name: `entries.${index}.activityLabel` });
+
   const [search, setSearch] = useState('');
   const [debouncedSearch] = useDebouncedValue(search, 300);
   const { data, isLoading } = useActivitySearch(debouncedSearch);
-  const options = (data ?? []).map((a) => ({ value: a.id, label: a.label }));
+  const results = (data ?? []).map((a) => ({ value: a.id, label: a.label }));
+
+  const value = idField.value;
+  const label = labelField.value;
+
+  // The search returns 20 of ~350 activities, so the saved one is usually
+  // absent from the results — and Mantine renders an empty box for a value it
+  // cannot look up, which reads as "the activity was never saved".
+  const options =
+    value && label && !results.some((o) => o.value === value)
+      ? [{ value, label }, ...results]
+      : results;
 
   return (
     <Select
       value={value}
-      onChange={onChange}
+      onChange={(val) => {
+        idField.onChange(val);
+        labelField.onChange(options.find((o) => o.value === val)?.label ?? '');
+      }}
       data={options}
       searchable
       searchValue={search}
@@ -193,17 +224,29 @@ export function SofTimesheetModal({
   };
   const { colWidths, startResize } = useColumnResize<ColKey>(INITIAL_WIDTHS);
 
+  /**
+   * Reorders the timesheet chronologically, as a statement of facts reads.
+   *
+   * `replace` remounts every row, so this bails out when the order is already
+   * correct — otherwise each keystroke would tear down the row being typed in
+   * and take the caret with it.
+   */
   function sortEntries() {
     const current = form.getValues('entries');
-    const sorted = [...current].sort((a, b) => {
-      const aIso = combineDateTime(a.date, a.time);
-      const bIso = combineDateTime(b.date, b.time);
-      if (!aIso && !bIso) return 0;
-      if (!aIso) return 1;
-      if (!bIso) return -1;
-      return aIso < bIso ? -1 : aIso > bIso ? 1 : 0;
-    });
-    replace(sorted);
+    const sorted = current
+      .map((entry, index) => ({ entry, index }))
+      .sort((a, b) => {
+        const aIso = combineDateTime(a.entry.date, a.entry.time);
+        const bIso = combineDateTime(b.entry.date, b.entry.time);
+        if (!aIso && !bIso) return a.index - b.index;
+        if (!aIso) return 1;
+        if (!bIso) return -1;
+        if (aIso !== bIso) return aIso < bIso ? -1 : 1;
+        return a.index - b.index;
+      });
+
+    if (sorted.every((row, i) => row.index === i)) return;
+    replace(sorted.map((row) => row.entry));
   }
 
   // SOF email compose
@@ -270,7 +313,7 @@ export function SofTimesheetModal({
   }
 
   function handleInsert() {
-    append({ date: null, time: '', activityId: null, comment: '' });
+    append({ date: null, time: '', activityId: null, activityLabel: '', comment: '' });
   }
 
   function handleDelete() {
@@ -352,6 +395,7 @@ export function SofTimesheetModal({
                         onChange={field.onChange}
                         searchValue={lastPortSearch}
                         onSearchChange={setLastPortSearch}
+                        selectedOption={toOption(sofData?.lastPort)}
                       />
                     )}
                   />
@@ -368,6 +412,7 @@ export function SofTimesheetModal({
                         onChange={field.onChange}
                         searchValue={nextPortSearch}
                         onSearchChange={setNextPortSearch}
+                        selectedOption={toOption(sofData?.nextPort)}
                       />
                     )}
                   />
@@ -388,6 +433,7 @@ export function SofTimesheetModal({
                         onSearchChange={setPierSearch}
                         placeholder={opPortId ? 'Search piers...' : 'No op. port set'}
                         disabled={!opPortId}
+                        selectedOption={toOption(sofData?.pier)}
                       />
                     )}
                   />
@@ -484,28 +530,39 @@ export function SofTimesheetModal({
                           />
                         </Table.Td>
                         <Table.Td style={{ width: colWidths.time }}>
-                          <TimeInput
-                            {...register(`entries.${index}.time`)}
-                            onBlur={sortEntries}
-                            size="xs"
-                            styles={{ input: { fontSize: 12 } }}
-                          />
-                        </Table.Td>
-                        <Table.Td style={{ width: colWidths.activity }}>
                           <Controller
-                            name={`entries.${index}.activityId`}
+                            name={`entries.${index}.time`}
                             control={control}
                             render={({ field: f }) => (
-                              <ActivityCell value={f.value} onChange={f.onChange} />
+                              <TimeInput24
+                                value={f.value}
+                                onChange={(val) => {
+                                  f.onChange(val);
+                                  sortEntries();
+                                }}
+                                size="xs"
+                                styles={{ input: { fontSize: 12 } }}
+                              />
                             )}
                           />
                         </Table.Td>
+                        <Table.Td style={{ width: colWidths.activity }}>
+                          <ActivityCell control={control} index={index} />
+                        </Table.Td>
                         <Table.Td style={{ width: colWidths.comment }}>
-                          <TextInput
-                            {...register(`entries.${index}.comment`)}
-                            size="xs"
-                            placeholder="Comment..."
-                            styles={{ input: { fontSize: 12 } }}
+                          <Controller
+                            name={`entries.${index}.comment`}
+                            control={control}
+                            render={({ field: f }) => (
+                              <TextInput
+                                value={f.value}
+                                onChange={(e) => f.onChange(e.currentTarget.value)}
+                                onBlur={f.onBlur}
+                                size="xs"
+                                placeholder="Comment..."
+                                styles={{ input: { fontSize: 12 } }}
+                              />
+                            )}
                           />
                         </Table.Td>
                         <Table.Td style={{ width: colWidths.actions }}>

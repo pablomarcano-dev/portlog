@@ -15,6 +15,7 @@ import type { SofTimesheetResponse } from '@portlog/schemas';
 import type { z } from 'zod';
 import { useColumnResize } from '../../../components/table/useColumnResize';
 import { ResizableTh } from '../../../components/table/ResizableTh';
+import { QuantityInput } from '../../../components/inputs/QuantityInput';
 
 const INITIAL_FIGURES_WIDTHS: Record<string, number> = { info: 140, 'col-0': 120 };
 
@@ -30,6 +31,8 @@ interface SofBillShipFiguresModalProps {
   isSaving: boolean;
 }
 
+// Gallons and cubic metres were dropped: the agency states its bills in
+// barrels, metric tons and long tons, so those four rows were never filled in.
 const BL_ROW_KEYS = [
   'grossBbls',
   'netBbls',
@@ -37,10 +40,6 @@ const BL_ROW_KEYS = [
   'netMt',
   'grossLt',
   'netLt',
-  'grossGallons',
-  'netGallons',
-  'grossCubicM',
-  'netCubicM',
   'shipper',
   'consignee',
   'scacCode',
@@ -48,6 +47,7 @@ const BL_ROW_KEYS = [
   'destination',
   'date',
   // Stated per bill on the final statement, alongside the B/L figures.
+  'blNumber',
   'remark',
   'api',
   'temp',
@@ -60,20 +60,29 @@ const BL_ROW_LABELS: Record<(typeof BL_ROW_KEYS)[number], string> = {
   netMt: 'Net M/T',
   grossLt: 'Gross L/T',
   netLt: 'Net L/T',
-  grossGallons: 'Gross Gallons',
-  netGallons: 'Net Gallons',
-  grossCubicM: 'Gross Cubic M.',
-  netCubicM: 'Net Cubic M.',
   shipper: 'Shipper',
   consignee: 'Consignee',
   scacCode: 'Scac code',
   originalOnBoard: 'Original on Board',
   destination: 'Destination',
   date: 'Date',
+  blNumber: 'B/L N°',
   remark: 'Remark',
   api: 'API',
   temp: 'Temp',
 };
+
+/** Rows holding figures rather than free text — typed and shown as numbers. */
+const BL_NUMERIC_ROWS = new Set<(typeof BL_ROW_KEYS)[number]>([
+  'grossBbls',
+  'netBbls',
+  'grossMt',
+  'netMt',
+  'grossLt',
+  'netLt',
+  'api',
+  'temp',
+]);
 
 const SHIP_ROW_KEYS = ['bbls', 'mtons', 'ltons', 'api', 'temp', 'rob'] as const;
 
@@ -335,11 +344,19 @@ export function SofBillShipFiguresModal({
                   </Table.Td>
                   {columns.map((_, ci) => (
                     <Table.Td key={ci} style={{ width: figuresWidths[`col-${ci}`] ?? 120 }}>
-                      <TextInput
-                        size="xs"
-                        value={blRows[rowKey][ci] ?? ''}
-                        onChange={(e) => updateBlCell(rowKey, ci, e.currentTarget.value)}
-                      />
+                      {BL_NUMERIC_ROWS.has(rowKey) ? (
+                        <QuantityInput
+                          size="xs"
+                          value={blRows[rowKey][ci] ?? ''}
+                          onChange={(val) => updateBlCell(rowKey, ci, val)}
+                        />
+                      ) : (
+                        <TextInput
+                          size="xs"
+                          value={blRows[rowKey][ci] ?? ''}
+                          onChange={(e) => updateBlCell(rowKey, ci, e.currentTarget.value)}
+                        />
+                      )}
                     </Table.Td>
                   ))}
                 </Table.Tr>
@@ -388,12 +405,13 @@ export function SofBillShipFiguresModal({
                   <Table.Td style={{ width: figuresWidths['info'] ?? 140 }}>
                     <Text size="sm">{SHIP_ROW_LABELS[rowKey]}</Text>
                   </Table.Td>
+                  {/* Every ship figure is a measurement, so all of them are numeric. */}
                   {columns.map((_, ci) => (
                     <Table.Td key={ci} style={{ width: figuresWidths[`col-${ci}`] ?? 120 }}>
-                      <TextInput
+                      <QuantityInput
                         size="xs"
                         value={shipRows[rowKey][ci] ?? ''}
-                        onChange={(e) => updateShipCell(rowKey, ci, e.currentTarget.value)}
+                        onChange={(val) => updateShipCell(rowKey, ci, val)}
                       />
                     </Table.Td>
                   ))}

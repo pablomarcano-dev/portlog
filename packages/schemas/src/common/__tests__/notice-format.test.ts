@@ -2,6 +2,7 @@ import {
   formatNoticeDate,
   formatNoticeDateRange,
   formatCargoFigure,
+  formatQuantity,
   resolveTransferRateUnit,
   ordinalDay,
 } from '../notice-format';
@@ -101,6 +102,42 @@ describe('formatCargoFigure', () => {
 
   it('passes non-numeric text through rather than printing NaN', () => {
     expect(formatCargoFigure('about 2000')).toBe('about 2000');
+  });
+});
+
+describe('formatQuantity', () => {
+  it('groups a whole figure', () => {
+    expect(formatQuantity('1896870')).toBe('1,896,870');
+    expect(formatQuantity('100')).toBe('100');
+  });
+
+  it('keeps the decimals exactly as entered, rather than rounding to two', () => {
+    // A bill of lading states its own precision — 287,912.375 M/T must not
+    // become 287,912.38 the way formatCargoFigure would render it.
+    expect(formatQuantity('287912.375')).toBe('287,912.375');
+    expect(formatQuantity('286433.4')).toBe('286,433.4');
+  });
+
+  it('leaves a figure that already carries separators untouched', () => {
+    // SOF figures recorded before this formatter used a decimal comma, so
+    // "286433,463" means 286433.463. Reading that comma as a thousands
+    // separator would print 286,433,463 — a legally binding figure off by 1000x.
+    expect(formatQuantity('286433,463')).toBe('286433,463');
+    expect(formatQuantity('1,896,870')).toBe('1,896,870');
+  });
+
+  it('renders empty for a missing figure', () => {
+    expect(formatQuantity(null)).toBe('');
+    expect(formatQuantity(undefined)).toBe('');
+    expect(formatQuantity('   ')).toBe('');
+  });
+
+  it('passes non-numeric text through rather than printing NaN', () => {
+    expect(formatQuantity('NONE')).toBe('NONE');
+  });
+
+  it('handles a negative figure', () => {
+    expect(formatQuantity('-1234.5')).toBe('-1,234.5');
   });
 });
 

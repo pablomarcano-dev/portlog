@@ -20,6 +20,7 @@ import {
   formatNoticeDate,
   formatNoticeDateRange,
   formatCargoFigure,
+  formatQuantity,
   resolveTransferRateUnit,
   type NominationStatus,
   type NominationKind,
@@ -1084,6 +1085,8 @@ export class NominationsService {
       const blCols = blData?.columns ?? [];
       const blRows = blData?.rows ?? {};
       const v = (key: string, col: number) => blRows[key]?.[col] ?? '';
+      /** Same, for the figures — grouped as the bill states them. */
+      const n = (key: string, col: number) => formatQuantity(blRows[key]?.[col] ?? '');
       // One block per cargo column, numbered "Bill #1", "Bill #2" … as the
       // agency's own statements number them.
       const RULE = '--------------------------------------------------';
@@ -1093,18 +1096,19 @@ export class NominationsService {
           `${colName ? colName + ' - ' : ''}Bill #${ci + 1} Of Lading Figures:`,
           RULE,
           `                     Gross           Net`,
-          `Bbls at 60 F ..: ${v('grossBbls', ci).padStart(12)}  ${v('netBbls', ci).padStart(12)}`,
-          `M/Tons at 60 F.: ${v('grossMt', ci).padStart(12)}  ${v('netMt', ci).padStart(12)}`,
-          `L/Tons at 60 F.: ${v('grossLt', ci).padStart(12)}  ${v('netLt', ci).padStart(12)}`,
+          `Bbls at 60 F ..: ${n('grossBbls', ci).padStart(12)}  ${n('netBbls', ci).padStart(12)}`,
+          `M/Tons at 60 F.: ${n('grossMt', ci).padStart(12)}  ${n('netMt', ci).padStart(12)}`,
+          `L/Tons at 60 F.: ${n('grossLt', ci).padStart(12)}  ${n('netLt', ci).padStart(12)}`,
           ``,
           `Shipper  : ${v('shipper', ci)}`,
           `Consignee: ${v('consignee', ci)}`,
           `Disport  : ${v('destination', ci)}`,
           `SCACCODE : ${v('scacCode', ci)}`,
           `B/L Date : ${v('date', ci)}`,
+          `B/L No   : ${v('blNumber', ci)}`,
           `Remark   : ${v('remark', ci)}`,
-          `API      : ${v('api', ci)}`,
-          `Temp     : ${v('temp', ci)}`,
+          `API      : ${n('api', ci)}`,
+          `Temp     : ${n('temp', ci)}`,
         ];
         return lines.join('\n');
       });
@@ -1291,14 +1295,17 @@ export class NominationsService {
    * inventing a total from two figures the agent entered separately would put a
    * number on the document that nobody wrote.
    */
+  /**
+   * The bunker grades a statement reports, in print order.
+   *
+   * Only the three grades the Bunkers dialog records — the other five the
+   * schema tolerates (HSFO, LSFO, VLSFO, MDO, LSMGO) all collapsed onto the
+   * same two labels, so a timesheet carrying more than one of them would print
+   * "Fuel Oil" twice with no way to tell the lines apart.
+   */
   private static readonly BUNKER_LABELS: Record<string, string> = {
     IFO: 'Fuel Oil',
-    HSFO: 'Fuel Oil',
-    LSFO: 'Fuel Oil',
-    VLSFO: 'Fuel Oil',
-    MDO: 'Diesel Oil',
     MGO: 'Diesel Oil',
-    LSMGO: 'Diesel Oil',
     FW: 'Fresh Water',
   };
 
@@ -1360,7 +1367,7 @@ export class NominationsService {
 
     const lines = Object.entries(NominationsService.BUNKER_LABELS)
       .map(([grade, label]) => {
-        const value = bunkers[grade]?.[column]?.trim();
+        const value = formatQuantity(bunkers[grade]?.[column]);
         return value ? `${label.padEnd(11)}: ${value.padStart(10)} MT` : '';
       })
       .filter(Boolean);
@@ -1394,7 +1401,7 @@ export class NominationsService {
 
     const blocks = columns
       .map((colName, ci) => {
-        const figure = (key: string) => rows[key]?.[ci]?.trim() ?? '';
+        const figure = (key: string) => formatQuantity(rows[key]?.[ci]);
         const measures: [string, string][] = [
           ["Ship's Loaded Figures Bbls:", figure('bbls')],
           ["Ship's Loaded Figures M/T:", figure('mtons')],

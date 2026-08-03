@@ -10,31 +10,20 @@ import {
   Text,
   ActionIcon,
 } from '@mantine/core';
-import { DateTimePicker } from '@mantine/dates';
 import { useForm } from 'react-hook-form';
 import { SofBunkersDataSchema, SofDraftDataSchema, SofParcelsDataSchema } from '@portlog/schemas';
 import type { SofTimesheetResponse } from '@portlog/schemas';
 import type { z } from 'zod';
 import { useColumnResize } from '../../../components/table/useColumnResize';
 import { ResizableTh } from '../../../components/table/ResizableTh';
-
-function strToDateTime(s: string): Date | null {
-  if (!s) return null;
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? null : d;
-}
-
-function dateTimeToStr(d: Date | null): string {
-  if (!d) return '';
-  return d.toISOString().slice(0, 16);
-}
+import { QuantityInput } from '../../../components/inputs/QuantityInput';
 
 type BunkersColKey = 'type' | 'arrival' | 'sailing' | 'lifted';
 const BUNKERS_WIDTHS: Record<BunkersColKey, number> = {
   type: 120,
-  arrival: 165,
-  sailing: 165,
-  lifted: 165,
+  arrival: 120,
+  sailing: 120,
+  lifted: 120,
 };
 
 type DraftColKey = 'type' | 'arrival' | 'sailing';
@@ -64,13 +53,8 @@ interface DraftRow {
 interface FormValues {
   bunkers: {
     IFO: BunkerRow;
-    HSFO: BunkerRow;
-    LSFO: BunkerRow;
-    MDO: BunkerRow;
     MGO: BunkerRow;
-    LSMGO: BunkerRow;
     FW: BunkerRow;
-    VLSFO: BunkerRow;
   };
   draft: {
     FWD: DraftRow;
@@ -84,16 +68,17 @@ interface FormValues {
 // Constants
 // ---------------------------------------------------------------------------
 
-const BUNKER_KEYS = ['IFO', 'HSFO', 'LSFO', 'MDO', 'MGO', 'LSMGO', 'FW', 'VLSFO'] as const;
+/**
+ * The bunker grades the agency actually records. The dialog used to offer all
+ * eight grades the schema allows (HSFO, LSFO, MDO, LSMGO, VLSFO as well), but
+ * the fleet only ever carries fuel oil, diesel oil and fresh water, so the rest
+ * were dead rows on a form that is filled in under time pressure.
+ */
+const BUNKER_KEYS = ['IFO', 'MGO', 'FW'] as const;
 const BUNKER_LABELS: Record<(typeof BUNKER_KEYS)[number], string> = {
   IFO: 'IFO (M/T)',
-  HSFO: 'HSFO (M/T)',
-  LSFO: 'LSFO (M/T)',
-  MDO: 'MDO (M/T)',
   MGO: 'MGO (M/T)',
-  LSMGO: 'LSMGO (M/T)',
   FW: 'FW (M/T)',
-  VLSFO: 'VLSFO (M/T)',
 };
 
 const DRAFT_KEYS = ['FWD', 'AFT'] as const;
@@ -153,40 +138,15 @@ function buildDefaultValues(sofData: SofTimesheetResponse | undefined): FormValu
         sailing: b?.IFO?.sailing ?? '',
         lifted: b?.IFO?.lifted ?? '',
       },
-      HSFO: {
-        arrival: b?.HSFO?.arrival ?? '',
-        sailing: b?.HSFO?.sailing ?? '',
-        lifted: b?.HSFO?.lifted ?? '',
-      },
-      LSFO: {
-        arrival: b?.LSFO?.arrival ?? '',
-        sailing: b?.LSFO?.sailing ?? '',
-        lifted: b?.LSFO?.lifted ?? '',
-      },
-      MDO: {
-        arrival: b?.MDO?.arrival ?? '',
-        sailing: b?.MDO?.sailing ?? '',
-        lifted: b?.MDO?.lifted ?? '',
-      },
       MGO: {
         arrival: b?.MGO?.arrival ?? '',
         sailing: b?.MGO?.sailing ?? '',
         lifted: b?.MGO?.lifted ?? '',
       },
-      LSMGO: {
-        arrival: b?.LSMGO?.arrival ?? '',
-        sailing: b?.LSMGO?.sailing ?? '',
-        lifted: b?.LSMGO?.lifted ?? '',
-      },
       FW: {
         arrival: b?.FW?.arrival ?? '',
         sailing: b?.FW?.sailing ?? '',
         lifted: b?.FW?.lifted ?? '',
-      },
-      VLSFO: {
-        arrival: b?.VLSFO?.arrival ?? '',
-        sailing: b?.VLSFO?.sailing ?? '',
-        lifted: b?.VLSFO?.lifted ?? '',
       },
     },
     draft: {
@@ -204,12 +164,9 @@ function assemblePayload(vals: FormValues): {
   sofParcelsData: SofParcelsData;
 } {
   return {
-    bunkersData: {
-      IFO: vals.bunkers.IFO,
-      HSFO: vals.bunkers.HSFO,
-      LSFO: vals.bunkers.LSFO,
-      MDO: vals.bunkers.MDO,
-    },
+    // Spread, not a hand-listed subset: the previous version enumerated four
+    // grades and silently dropped whatever the user had typed into the others.
+    bunkersData: { ...vals.bunkers },
     draftData: {
       FWD: vals.draft.FWD,
       AFT: vals.draft.AFT,
@@ -297,6 +254,7 @@ export function SofBunkersDraftParcelModal({
   const parcelsColumns = watch('parcelsColumns');
   const parcelsRows = watch('parcelsRows');
   const bunkersValues = watch('bunkers');
+  const draftValues = watch('draft');
 
   function clearBunkers() {
     for (const key of BUNKER_KEYS) {
@@ -411,34 +369,30 @@ export function SofBunkersDraftParcelModal({
                     <Table.Td style={{ width: bunkersWidths.type }}>
                       <Text size="sm">{BUNKER_LABELS[key]}</Text>
                     </Table.Td>
+                    {/* Quantities of fuel in M/T, not timestamps — these cells
+                        used to open a calendar. */}
                     <Table.Td style={{ width: bunkersWidths.arrival }}>
-                      <DateTimePicker
+                      <QuantityInput
                         size="xs"
-                        valueFormat="DD/MM/YYYY HH:mm"
-                        clearable
                         styles={{ input: { fontSize: 12 } }}
-                        value={strToDateTime(bunkersValues[key].arrival ?? '')}
-                        onChange={(d) => setValue(`bunkers.${key}.arrival`, dateTimeToStr(d))}
+                        value={bunkersValues[key].arrival ?? ''}
+                        onChange={(val) => setValue(`bunkers.${key}.arrival`, val)}
                       />
                     </Table.Td>
                     <Table.Td style={{ width: bunkersWidths.sailing }}>
-                      <DateTimePicker
+                      <QuantityInput
                         size="xs"
-                        valueFormat="DD/MM/YYYY HH:mm"
-                        clearable
                         styles={{ input: { fontSize: 12 } }}
-                        value={strToDateTime(bunkersValues[key].sailing ?? '')}
-                        onChange={(d) => setValue(`bunkers.${key}.sailing`, dateTimeToStr(d))}
+                        value={bunkersValues[key].sailing ?? ''}
+                        onChange={(val) => setValue(`bunkers.${key}.sailing`, val)}
                       />
                     </Table.Td>
                     <Table.Td style={{ width: bunkersWidths.lifted }}>
-                      <DateTimePicker
+                      <QuantityInput
                         size="xs"
-                        valueFormat="DD/MM/YYYY HH:mm"
-                        clearable
                         styles={{ input: { fontSize: 12 } }}
-                        value={strToDateTime(bunkersValues[key].lifted ?? '')}
-                        onChange={(d) => setValue(`bunkers.${key}.lifted`, dateTimeToStr(d))}
+                        value={bunkersValues[key].lifted ?? ''}
+                        onChange={(val) => setValue(`bunkers.${key}.lifted`, val)}
                       />
                     </Table.Td>
                   </Table.Tr>
@@ -480,17 +434,19 @@ export function SofBunkersDraftParcelModal({
                       <Text size="sm">{DRAFT_LABELS[key]}</Text>
                     </Table.Td>
                     <Table.Td style={{ width: draftWidths.arrival }}>
-                      <TextInput
-                        {...register(`draft.${key}.arrival`)}
+                      <QuantityInput
                         size="xs"
                         styles={{ input: { fontSize: 12 } }}
+                        value={draftValues[key].arrival ?? ''}
+                        onChange={(val) => setValue(`draft.${key}.arrival`, val)}
                       />
                     </Table.Td>
                     <Table.Td style={{ width: draftWidths.sailing }}>
-                      <TextInput
-                        {...register(`draft.${key}.sailing`)}
+                      <QuantityInput
                         size="xs"
                         styles={{ input: { fontSize: 12 } }}
+                        value={draftValues[key].sailing ?? ''}
+                        onChange={(val) => setValue(`draft.${key}.sailing`, val)}
                       />
                     </Table.Td>
                   </Table.Tr>
@@ -584,12 +540,12 @@ export function SofBunkersDraftParcelModal({
                         key={colIndex}
                         style={{ width: parcelsWidths[`col-${colIndex}`] ?? 120 }}
                       >
-                        <TextInput
+                        <QuantityInput
                           value={parcelsRows[rowKey]?.[colIndex] ?? ''}
-                          onChange={(e) => {
+                          onChange={(val) => {
                             const rows = getValues('parcelsRows');
                             const updated = [...(rows[rowKey] ?? [])];
-                            updated[colIndex] = e.currentTarget.value;
+                            updated[colIndex] = val;
                             setValue(`parcelsRows.${rowKey}`, updated);
                           }}
                           size="xs"
