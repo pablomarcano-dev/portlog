@@ -9,6 +9,12 @@ on:
 # One deploy at a time, and never cancel one midway: a run killed between
 # `docker compose build` and `up -d` leaves the box on a half-applied release.
 # This is why cancel-in-progress is false here but true in ci.yml.
+# Least privilege, and it matters most here: this job holds DEPLOY_SSH_KEY. It
+# does not check out the repo or call the GitHub API at all, so the token needs
+# nothing. Denying by default means a compromised step cannot use GITHUB_TOKEN
+# to alter the repo it is about to deploy.
+permissions: {}
+
 concurrency:
   group: deploy-production
   cancel-in-progress: false
