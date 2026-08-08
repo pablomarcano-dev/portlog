@@ -39,6 +39,7 @@ import { SHDocumentsModule } from './sh-documents/sh-documents.module.js';
 import { BranchDocumentsModule } from './branch-documents/branch-documents.module.js';
 import { UsersModule } from './users/users.module.js';
 import { AttachmentsModule } from './attachments/attachments.module.js';
+import { validateEnv } from './config/env.schema.js';
 
 @Module({
   imports: [
@@ -50,6 +51,9 @@ import { AttachmentsModule } from './attachments/attachments.module.js';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: join(__dirname, '..', '.env'),
+      // Refuse to boot on a bad environment rather than run with a security
+      // control silently defaulted off. See config/env.schema.ts.
+      validate: validateEnv,
     }),
 
     // Golden Rule 8: Structured logging with pino.

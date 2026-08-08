@@ -39,6 +39,11 @@ async function bootstrap() {
   // CORS: allow the frontend origin with credentials (required for httpOnly cookie exchange).
   // SameSite=Lax on the cookie is sufficient for CSRF protection; credentials: true
   // allows the browser to include cookies on cross-origin requests to the API.
+  // The localhost regex is a development convenience only. In production an
+  // unset CORS_ORIGIN used to fall back to it silently — the app kept serving
+  // with an origin allowlist that matched nothing it actually talks to. That
+  // case is now rejected at startup by validateEnv, so reaching the fallback
+  // here means we are genuinely in development.
   const corsOrigin = process.env['CORS_ORIGIN'] ?? /^http:\/\/localhost(:\d+)?$/;
   app.enableCors({
     origin: corsOrigin,
