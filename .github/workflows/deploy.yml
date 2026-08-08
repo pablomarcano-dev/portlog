@@ -1,0 +1,44 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  # So a deploy can be re-run from the Actions tab without an empty commit.
+  workflow_dispatch:
+
+# One deploy at a time, and never cancel one midway: a run killed between
+# `docker compose build` and `up -d` leaves the box on a half-applied release.
+# This is why cancel-in-progress is false here but true in ci.yml.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # No checkout: the box pulls origin/main itself. This job only opens the
+      # door. Deliberately does NOT depend on CI — deploying is not gated on
+      # tests, per the repo owner working solo.
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      # The key is pinned in authorized_keys to a forced command, so the string
+      # sent here is ignored and /opt/portlog/deploy.sh runs regardless. It is
+      # written out only to make the intent legible in the Actions log. That
+      # forced command is what makes this key safe to hold as a secret on a
+      # public repo: leaking it buys an attacker a redeploy of main, not a shell.
+      - name: Build and deploy on the box
+        run: |
+          ssh -i ~/.ssh/id_ed25519 \
+              -o IdentitiesOnly=yes \
+              -o StrictHostKeyChecking=yes \
+              -o ConnectTimeout=30 \
+              root@${{ secrets.DEPLOY_HOST }} deploy
