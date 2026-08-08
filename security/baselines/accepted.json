@@ -1,0 +1,14 @@
+{
+  "$comment": [
+    "Findings we have consciously accepted, so they stop appearing as new every week.",
+    "This is not a suppression list — it is a decision log. Every entry carries a reason",
+    "and an expiry date, and once the expiry passes the finding resurfaces at full",
+    "severity. That is deliberate: an accepted risk that nobody re-examines for a year",
+    "is indistinguishable from a forgotten one.",
+    "",
+    "id       — from security/finding-id.sh, stable across runs",
+    "reason   — why this is acceptable, in enough detail to re-judge it later",
+    "accepted_by / accepted_on / expires — ISO dates"
+  ],
+  "accepted": []
+}
