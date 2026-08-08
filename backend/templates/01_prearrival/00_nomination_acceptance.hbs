@@ -3,7 +3,10 @@
 TO: {{nominating_party}}
 {{/if}}
 FM: Servicios Navieramar C.A. Operations.
-Ref: {{vessel_name}} Voy. {{voyage_no}} calling to: {{terminal_name}} S/N: {{sn_ref}} to Load {{cargo_quantity}} {{cargo_unit}} of {{cargo_grade}}
+Ref: {{vessel_name}} Voy. {{voyage_no}} calling to: {{terminal_name}} {{sn_ot_ref}}
+{{#if cargo_quantity}}
+To Load {{cargo_quantity}} {{cargo_unit}} of {{cargo_grade}}
+{{/if}}
 {{#if lay_days}}
 Laydays: {{lay_days}}
 {{/if}}

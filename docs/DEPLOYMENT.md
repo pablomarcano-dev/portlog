@@ -228,6 +228,13 @@ RUN npm run build -w @portlog/backend
 FROM node:26-alpine AS runtime
 WORKDIR /app
 
+# Chromium for headless PDF rendering; tzdata because node:alpine ships no zoneinfo
+RUN apk add --no-cache chromium tzdata
+ENV CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+# Agency operating timezone — load-bearing, see "Timezone (TZ)" under Environment Variables
+ENV TZ=America/Caracas
+
 # Copy only what runtime needs
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/backend/dist ./backend/dist
@@ -244,6 +251,10 @@ CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
 ```
 
 The migration runs on container start. Safe because Prisma migrations are idempotent and `migrate deploy` only applies pending migrations.
+
+> The snippet above is abridged — `backend/Dockerfile` is the source of truth and also copies
+> the Handlebars templates, the PDF templates, and the `tsconfig*.json` files needed by the
+> Prisma seed. Read the file rather than this excerpt before changing the build.
 
 ---
 
@@ -324,6 +335,7 @@ server {
 NODE_ENV=production
 PORT=3000
 APP_URL=https://portlog.example.com
+TZ=America/Caracas            # Agency operating timezone — see "Timezone (TZ)" below
 
 # === Database (Neon) ===
 DATABASE_URL=postgresql://user:pass@ep-xxxx-pooler.us-east-2.aws.neon.tech/portlog?sslmode=require
@@ -362,6 +374,50 @@ TWILIO_WHATSAPP_NUMBER=
 
 # === Logging ===
 LOG_LEVEL=info                # debug | info | warn | error
+```
+
+### Timezone (`TZ`) — load-bearing
+
+`TZ=America/Caracas` is not cosmetic. **Leaving it unset silently corrupts every date and
+time on every generated document.**
+
+The notice, SOF and NOR formatters build their output from the process-local calendar
+methods — `getHours()`, `getDate()`, `getMonth()` — rather than from an explicit zone.
+Containers default to UTC, and the agency operates in Venezuela at UTC-4, so an unset
+`TZ` shifts everything by four hours: an ETA keyed as `05/07/2026 16:00` prints as
+`Jul-05th, 2026 at 20:00 hrs LT`. Any local time from 20:00 onward also rolls the **date**
+forward a day. NOR and SOF timestamps drive demurrage claims, so a four-hour drift is a
+financial and legal exposure, not a display nit.
+
+Where it is set:
+
+| Surface              | Mechanism                                                                       |
+| -------------------- | ------------------------------------------------------------------------------- |
+| Production container | `TZ` in the `backend` service `environment:` block of `docker-compose.yml`      |
+| The image itself     | `ENV TZ=America/Caracas` in `backend/Dockerfile` (correct even without compose) |
+| Local development    | `TZ=America/Caracas` in `backend/.env`, or exported before `npm run dev`        |
+
+Dev matters as much as prod. The dev backend is a host process, so it inherits the
+developer's own timezone — it renders documents _differently wrong_ from production, which
+is exactly how a formatting bug reaches a client unnoticed.
+
+`backend/Dockerfile` also installs the `tzdata` package (~433 KiB). Node and Chromium
+resolve named zones from their own bundled ICU data and would honour `TZ` without it, but
+`node:alpine` ships no `/usr/share/zoneinfo`, so without `tzdata` the shell disagrees with
+the runtime and `docker compose exec backend date` reports UTC even when the application is
+correctly on Caracas time — actively misleading during exactly the kind of incident this
+setting prevents.
+
+Postgres deliberately stays on UTC. The database stores absolute instants
+(`timestamptz`); only the rendering layer is localised. Moving the database clock would fix
+nothing and would put stored data at risk.
+
+Verify after any deploy:
+
+```bash
+docker compose exec backend date                 # must show -04
+docker compose exec backend node -e \
+  'console.log(new Date("2026-07-05T20:00:00Z").getHours())'   # must print 16, not 20
 ```
 
 ---

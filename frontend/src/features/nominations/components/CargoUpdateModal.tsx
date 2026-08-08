@@ -17,7 +17,6 @@ import { notifications } from '@mantine/notifications';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   formatNoticeDate,
-  formatCargoFigure,
   resolveTransferRateUnit,
   type NominationParcelRead,
 } from '@portlog/schemas';
@@ -28,6 +27,7 @@ import { ResizableTh } from '../../../components/table/ResizableTh';
 import { parseDateInput } from '../../../lib/format/datetime';
 import { unitSelectData } from '../parcelUnits';
 import { formatEtc, parseEtc, toEtcParts } from '../parcelEtc';
+import { cargoFigureLine, cargoUpdateSubject } from '../noticeText';
 import { EmailComposeDrawer } from './EmailComposeDrawer';
 import { CargoNamePicker } from './CargoNamePicker';
 
@@ -149,6 +149,9 @@ export function CargoUpdateModal({
   // and the email body is built, so the user can review/edit before sending.
   const [composeOpen, setComposeOpen] = useState(false);
   const [emailBody, setEmailBody] = useState('');
+  // Subject and body are stamped together from the fields below, so the title
+  // of the notice states the same moment the notice itself reports on.
+  const [emailSubject, setEmailSubject] = useState('');
 
   const { colWidths, startResize } = useColumnResize<ColKey>(INITIAL_WIDTHS);
 
@@ -259,18 +262,21 @@ export function CargoUpdateModal({
     const updateDateStr = formatNoticeDate(dateUpdate);
     const etdStr = formatNoticeDate(dateEtd);
 
+    // Figures are right-aligned into a fixed column so the decimal points and
+    // thousands commas stack — see `cargoFigureLine`, which pins that column to
+    // the same width as the backend template this block is spliced into.
+    // `||`, not `??` — a unit cell left on its inherited default is stored as an
+    // empty string, which `??` would happily print as no unit at all.
     const parcelLines = rows
       .map(
         (p) =>
           `------------------------------------------------------\n` +
           `${updateDateStr} ${timeUpdate} Cargo Update - ${p.product}\n` +
           `------------------------------------------------------\n` +
-          // `||`, not `??` — a unit cell left on its inherited default is stored
-          // as an empty string, which `??` would happily print as no unit at all.
-          `Quantity         : ${formatCargoFigure(p.quantity ?? 0)} ${p.unit || ''}\n` +
-          `Quantity On Board: ${formatCargoFigure(p.qtyOnBoard ?? 0)} ${p.qtyOnBoardUnit || p.unit || ''}\n` +
-          `Quantity To Go   : ${formatCargoFigure(p.qtyToGo ?? 0)} ${p.qtyToGoUnit || p.unit || ''}\n` +
-          `Loading Rate     : ${formatCargoFigure(p.loadingRate ?? 0)} ${resolveTransferRateUnit(p.loadingRateUnit, p.qtyOnBoardUnit || p.unit)}\n` +
+          `${cargoFigureLine('Quantity', p.quantity ?? 0, p.unit || '')}\n` +
+          `${cargoFigureLine('Quantity On Board', p.qtyOnBoard ?? 0, p.qtyOnBoardUnit || p.unit || '')}\n` +
+          `${cargoFigureLine('Quantity To Go', p.qtyToGo ?? 0, p.qtyToGoUnit || p.unit || '')}\n` +
+          `${cargoFigureLine('Loading Rate', p.loadingRate ?? 0, resolveTransferRateUnit(p.loadingRateUnit, p.qtyOnBoardUnit || p.unit))}\n` +
           `------------------------------------------------------\n\n` +
           `${formatEtc(p.etcDate, p.etcTime)} ETC`,
       )
@@ -294,9 +300,15 @@ export function CargoUpdateModal({
     const etdLine = `${etdStr} ${timeEtd}`.trim();
     const bodyText = `${header}${parcelLines}\n\n${etdLine} ETD${tail}`;
 
-    // Hand the built body to the compose drawer so the user can review and edit
-    // recipients/subject/body before the email is actually sent. Plain text —
-    // the drawer wraps it for display when sending.
+    // Hand the built subject and body to the compose drawer so the user can
+    // review and edit recipients/subject/body before the email is actually
+    // sent. Plain text — the drawer wraps it for display when sending.
+    //
+    // The subject is re-stamped rather than left as composed: the server stamps
+    // it with the clock at compose time, which is a different moment from the
+    // Date Update / Time the block above is written from. A notice whose title
+    // and body quote different timestamps is a notice nobody can file.
+    setEmailSubject(cargoUpdateSubject(composeData.subject, dateUpdate, timeUpdate));
     setEmailBody(bodyText);
     setComposeOpen(true);
   }
@@ -566,6 +578,7 @@ export function CargoUpdateModal({
         nominationId={nominationId}
         subDocType="CARGO_UPDATE"
         defaultSubject={composeData?.subject ?? ''}
+        subjectOverride={emailSubject}
         defaultBody={emailBody}
       />
     </>

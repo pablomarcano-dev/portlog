@@ -14,6 +14,9 @@ import {
 import { DateTimePicker } from '@mantine/dates';
 import { useNominationEta } from '../api/useNominationEta';
 import { useNominationEtaSave } from '../api/useNominationEtaSave';
+import { useNominationCompose } from '../api/useNominationCompose';
+import { useNomination } from '../hooks/useNomination';
+import { etaCountdownLabel, withEtaNoticeLabel } from '../noticeText';
 import { EmailComposeDrawer } from './EmailComposeDrawer';
 import type { SubDocType } from '@portlog/schemas';
 
@@ -44,6 +47,9 @@ export function EtaAnswerModal({
 }: EtaAnswerModalProps) {
   const etaQuery = useNominationEta(nominationId, opened);
   const etaSave = useNominationEtaSave(nominationId);
+  // The nomination itself, for its ETA — already in cache from the detail page
+  // this dialog opens over, so this reads it rather than re-fetching it.
+  const nominationQuery = useNomination(nominationId);
 
   const [msgEta, setMsgEta] = useState<Date | null>(null);
   const [etaNotify, setEtaNotify] = useState<Date | null>(null);
@@ -55,6 +61,15 @@ export function EtaAnswerModal({
   const [refMessage, setRefMessage] = useState('');
 
   const [activeSend, setActiveSend] = useState<EtaSendType | null>(null);
+  // Countdown the outgoing notice is titled with, frozen when the send button
+  // is pressed: the title states how far out the vessel was when the notice was
+  // served, so it must not creep across a bucket while the drawer sits open.
+  const [noticeLabel, setNoticeLabel] = useState<string | null>(null);
+
+  // Same query key the compose drawer uses, so this shares its draft rather
+  // than issuing a second request — read here only for the subject's reference
+  // line, which the countdown is spliced into.
+  const composeQuery = useNominationCompose(nominationId, activeSend ?? undefined, !!activeSend);
 
   // Sync remote data into local state on load
   useEffect(() => {
@@ -89,21 +104,48 @@ export function EtaAnswerModal({
 
   function handleSendClick(type: EtaSendType) {
     // Save first, then open compose
+    const label = etaCountdownLabel(nominationQuery.data?.etaDate, new Date());
     etaSave.mutate(buildPayload(), {
-      onSuccess: () => setActiveSend(type),
+      onSuccess: () => {
+        setNoticeLabel(label);
+        setActiveSend(type);
+      },
     });
   }
 
-  function handleClose() {
+  function handleCloseCompose() {
     setActiveSend(null);
+    setNoticeLabel(null);
+  }
+
+  function handleClose() {
+    handleCloseCompose();
     onClose();
   }
 
+  /**
+   * The two notices that *announce* an ETA are titled by the countdown the
+   * vessel has reached — "6 DAYS ETA Notice", "72 Hours ETA Notice" — rather
+   * than by the fixed phrase the templates spell out. The request to the master
+   * asks for an ETA and so has no countdown to be titled by.
+   *
+   * With no ETA on the nomination there is nothing to count down: the fixed
+   * wording stands rather than the notice going out titled "NaN Hours".
+   */
+  const isCountdownNotice = activeSend === 'ETA_TERMINAL' || activeSend === 'ETA_REPLY';
+
   const subjectFor: Record<EtaSendType, string> = {
     ETA_REQUEST: `${vesselName} - ETA Request`,
-    ETA_TERMINAL: `${vesselName} - ETA Forwarded to Terminal`,
-    ETA_REPLY: `${vesselName} - 96 Hours ETA Notice`,
+    ETA_TERMINAL: `${vesselName} - ${noticeLabel ?? 'ETA Forwarded to Terminal'}`,
+    ETA_REPLY: `${vesselName} - ${noticeLabel ?? 'ETA Notice'}`,
   };
+
+  // Wins over the server-composed subject, keeping that subject's reference
+  // line and replacing only the notice phrase at its end.
+  const subjectOverride =
+    noticeLabel && isCountdownNotice
+      ? withEtaNoticeLabel(composeQuery.data?.subject ?? '', noticeLabel, vesselName)
+      : undefined;
 
   return (
     <>
@@ -261,11 +303,12 @@ export function EtaAnswerModal({
       {activeSend && (
         <EmailComposeDrawer
           opened={!!activeSend}
-          onClose={() => setActiveSend(null)}
+          onClose={handleCloseCompose}
           pedrId={pedrId}
           nominationId={nominationId}
           subDocType={activeSend as SubDocType}
           defaultSubject={subjectFor[activeSend]}
+          subjectOverride={subjectOverride}
         />
       )}
     </>

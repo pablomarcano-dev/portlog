@@ -1,0 +1,29 @@
+{{~!--
+  Right-aligns an already-formatted figure in a fixed 14-character column, so
+  that a stack of them lines its decimal points up in the monospace <pre> the
+  notices are read in:
+
+      Quantity         :   1,900,000.00 Bbls
+      Quantity On Board:     950,000.00 Bbls
+      Loading Rate     :      25,000.00 Bbls/Hr
+
+  Called as {{> figure_col value=quantity}}. The figures reach the template
+  already grouped to two decimals by formatCargoFigure ("1,900,000.00"), so
+  only the leading padding is left to do.
+
+  How it pads without a helper: EmailTemplateService compiles these templates
+  in an isolated Handlebars environment that registers partials and nothing
+  else — there is no padStart to call. But `lookup` on a string returns the
+  character at an index, or undefined past the end, so
+  {{#unless (lookup value N)}} is true exactly when the value is 14 - N
+  characters or shorter. One space per out-of-range index therefore emits
+  exactly (14 - length) spaces.
+
+  A figure wider than the column is printed in full and simply pushes the line
+  out — never truncated. Cargo quantities are what a bill of lading is drawn
+  from; losing a digit to a column width is not a failure mode we accept.
+
+  WIDTH = 14. Keep in sync with the frontend, which rebuilds this same block —
+  see the note above the parcel block in 02_statement_of_facts/07_cargo_update.hbs.
+--~}}
+{{~#unless (lookup value 0)}} {{/unless}}{{#unless (lookup value 1)}} {{/unless}}{{#unless (lookup value 2)}} {{/unless}}{{#unless (lookup value 3)}} {{/unless}}{{#unless (lookup value 4)}} {{/unless}}{{#unless (lookup value 5)}} {{/unless}}{{#unless (lookup value 6)}} {{/unless}}{{#unless (lookup value 7)}} {{/unless}}{{#unless (lookup value 8)}} {{/unless}}{{#unless (lookup value 9)}} {{/unless}}{{#unless (lookup value 10)}} {{/unless}}{{#unless (lookup value 11)}} {{/unless}}{{#unless (lookup value 12)}} {{/unless}}{{#unless (lookup value 13)}} {{/unless}}{{~value~}}

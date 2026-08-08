@@ -37,6 +37,14 @@ services:
     env_file:
       - .env
     environment:
+      # Operating timezone of the agency (Venezuela, UTC-4). LOAD-BEARING — do not remove.
+      # Notice/SOF/NOR formatters print dates via the process-local getHours()/getDate(),
+      # so an unset TZ makes the container run in UTC and shifts every generated document
+      # by +4h (16:00 renders as "20:00 hrs LT"), sometimes across midnight. Also baked
+      # into backend/Dockerfile; repeated here so it is visible at the deploy surface.
+      # Note: postgres deliberately stays on UTC — the DB stores absolute instants and
+      # only the rendering layer is localised.
+      TZ: America/Caracas
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/portlog
       MINIO_ENDPOINT: minio
       MINIO_PORT: '9000'

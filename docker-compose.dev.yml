@@ -1,3 +1,24 @@
+# Local infrastructure only — the backend and frontend run on the host via `npm run dev`.
+#
+# TIMEZONE (load-bearing): the backend must run with TZ=America/Caracas, matching the
+# `TZ` set on the backend service in docker-compose.yml. Notice/SOF/NOR formatters print
+# dates with the process-local getHours()/getDate(), so a backend running on the
+# developer's own timezone renders every document at the wrong hour — and renders it
+# *differently wrong* from production, which is how this class of bug survives review.
+#
+# Because the dev backend is a host process, this file cannot set it for you. Put
+#
+#     TZ=America/Caracas
+#
+# in `backend/.env` (NestJS ConfigModule loads it and Node applies TZ changes retroactively),
+# or export it in your shell before `npm run dev`. Verify with:
+#
+#     node -e 'console.log(new Date("2026-07-05T20:00:00Z").getHours())'   # must print 16
+#
+# The containers below deliberately stay on UTC: Postgres stores absolute instants and
+# only the rendering layer is localised, so shifting the DB clock would help nothing and
+# would make dev disagree with production.
+
 services:
   postgres:
     image: postgres:16-alpine

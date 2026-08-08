@@ -21,6 +21,9 @@ import {
   formatNoticeDateRange,
   formatCargoFigure,
   formatQuantity,
+  formatBarrels,
+  formatTons,
+  etaNoticeLabel,
   resolveTransferRateUnit,
   type NominationStatus,
   type NominationKind,
@@ -70,6 +73,28 @@ export const COMPOSE_TEMPLATE_PATHS: Record<string, string> = {
  * getComposeData.
  */
 const TERMINAL_ADDRESSED_ACTIONS = new Set(['ETA_TERMINAL', 'NOR']);
+
+/**
+ * Actions addressed to the ship rather than to the nomination's client list.
+ *
+ * Both are the master's own correspondence — we ask the master for ETA notices
+ * and we answer the master's reply — so they are mailed to the vessel and copied
+ * to the companies that operate her. The charterer's addresses, which are what
+ * the nomination's own list holds, are deliberately not used: the charterer is
+ * not party to a message between the agent and the bridge.
+ *
+ * See the recipient block in getComposeData for the roster → address mapping.
+ */
+const MASTER_ADDRESSED_ACTIONS = new Set(['ETA_REQUEST', 'ETA_REPLY']);
+
+/**
+ * Column width the "Attn:" of a notice's To line starts at.
+ *
+ * The header is read in a monospace mail client, so the vessel name is padded
+ * out to a fixed column rather than separated by a couple of spaces — a long
+ * name simply pushes "Attn:" right instead of the column jumping per vessel.
+ */
+const ATTN_COLUMN = 24;
 
 /**
  * Laycan-style date range with the month spelled out, e.g.
@@ -123,6 +148,36 @@ export function formatCargoQuantity(value: unknown): string {
   const n = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(n)) return String(value);
   return new Intl.NumberFormat('en-US').format(n);
+}
+
+/**
+ * One column of figures padded so the thousands commas sit above each other.
+ *
+ *     ['1,949,562', '287,912.375']
+ *       -> ['1,949,562    ',
+ *           '  287,912.375']
+ *
+ * A bill of lading states barrels with no decimals and tonnages with three, so
+ * a column right-aligned on its last character puts the comma of a barrel
+ * figure four places off the comma of the tonnage under it — which is exactly
+ * what the agency flagged. Padding the *integer* part to a common width instead
+ * lines the commas up vertically and lets the decimals run off to the right;
+ * the fractional part is then padded on its own so the column still ends flush
+ * and whatever follows it stays aligned too.
+ *
+ * Values that are not figures at all (an empty cell, "NONE") are left alone
+ * apart from the padding, since they have no comma to align.
+ */
+export function alignFigureColumn(values: string[]): string[] {
+  const split = values.map((value) => {
+    const dot = value.indexOf('.');
+    return dot === -1
+      ? { int: value, frac: '' }
+      : { int: value.slice(0, dot), frac: value.slice(dot) };
+  });
+  const intWidth = Math.max(0, ...split.map((p) => p.int.length));
+  const fracWidth = Math.max(0, ...split.map((p) => p.frac.length));
+  return split.map((p) => `${p.int.padStart(intWidth)}${p.frac.padEnd(fracWidth)}`);
 }
 
 /**
@@ -792,7 +847,21 @@ export class NominationsService {
             orderBy: { sortOrder: 'asc' },
           },
           nominatedBy: { select: { displayName: true, email: true } },
-          shipParticular: { select: { name: true } },
+          // `emails` is the vessel's own inbox — the master's address, and the
+          // To line of the two notices exchanged with the bridge. The owner and
+          // operator hanging off the vessel carry the addresses those notices
+          // are copied to; an Owner has no address column of its own, so its
+          // contacts are the only way to reach it.
+          shipParticular: {
+            select: {
+              name: true,
+              emails: true,
+              owner: { select: { name: true, contacts: { select: { emails: true } } } },
+              operator: {
+                select: { name: true, emails: true, contacts: { select: { emails: true } } },
+              },
+            },
+          },
           // `emails` is the terminal's own distribution list.
           opPort: { select: { name: true, emails: true } },
           lastPort: { select: { name: true } },
@@ -889,6 +958,53 @@ export class NominationsService {
       etaRecord = pedr?.etaRecord ?? null;
     }
 
+    // ---------------------------------------------------------------------------
+    // Header parties — the companies a notice is addressed to
+    //
+    // The header of a notice names COMPANIES, not mailboxes. `to_recipients` /
+    // `cc_recipients` print the raw address lists and are kept for the templates
+    // still on them; `to_parties` / `cc_parties` are what the agency asked for:
+    //
+    //     To: HAKKAISAN               Attn: Master Anjan Saini
+    //     Cc: MOL India Private Limited
+    //     Cc: Mitsui O.S.K. Lines, Ltd., Tokyo/CRAMO
+    //     Cc: MOL Global Ship Management Pte Ltd
+    //
+    // CLIENT LIST `type` → line (matched case-insensitively, trimmed):
+    //
+    //   To  ← the vessel herself. No roster row is involved: a notice to the
+    //         bridge is addressed to the ship, so this is shipParticular.name
+    //         plus "Attn: Master <master>" when the nomination records a master.
+    //   Cc  ← every named row typed "Head Owner", "Disponent Owner",
+    //         "Technical Operator" or "Commercial Operator" — OPERATOR_TYPES —
+    //         in the order the roster lists them (sortOrder), deduped.
+    //         "Charterer", "Time Charter", "Shipper" and "Receivers" rows are
+    //         deliberately excluded: the cargo side is not party to the master's
+    //         correspondence, and the charterer already has its own notices.
+    //
+    // The roster rows carry a hand-typed name and nothing else — only Shipper
+    // rows link to master data — so these are names for the face of the letter,
+    // never a source of addresses. The envelope is built from the vessel's own
+    // owner/operator links further down.
+    // ---------------------------------------------------------------------------
+    const masterName = nomination.master?.trim() ?? '';
+    const masterAttn = masterName ? `Attn: Master ${masterName}` : '';
+    const ownerOperatorNames = NominationsService.resolveClientNamesByTypes(
+      nomination.nominationClients,
+      NominationsService.OPERATOR_TYPES,
+    );
+
+    // The countdown the notice is titled with ("96 Hours ETA Notice"), anchored
+    // to the NOMINATION's ETA — deliberately, and deliberately not to the ETA the
+    // notice body prints. `eta_date` shows the notified ETA once the master has
+    // answered; the countdown does not follow it, so the two can disagree on a
+    // notice whose master has revised their ETA. That is the agency's call: the
+    // notice series is numbered off the arrival the call was booked against, so a
+    // vessel does not jump from "48 Hours" back to "72 Hours" because the master
+    // slipped. The frontend anchors identically (see `noticeText.ts`); the two
+    // must not drift, or the drawer's subject would contradict the sent one.
+    const etaAnchor = nomination.etaDate ?? null;
+
     const templateVars = {
       vessel_name: vesselName,
       voyage_no: voyageNo,
@@ -982,6 +1098,21 @@ export class NominationsService {
       // supplied them, so they rendered as bare "To:" / "Cc:" labels.
       to_recipients: nomination.emailTo.join('; '),
       cc_recipients: nomination.emailCc.join('; '),
+      // Named header parties — see the block above for the roster mapping.
+      // `to_parties` is the value of the To line, the vessel padded out so the
+      // "Attn:" of every notice starts in the same column.
+      to_parties: masterAttn ? `${vesselName.padEnd(ATTN_COLUMN)}${masterAttn}` : vesselName,
+      // The Attn on its own, for a template that lays the two out itself.
+      master_attn: masterAttn,
+      // Whole lines, "Cc:" included: there is one per owner/operator company and
+      // a template cannot prefix each line of a multi-line value.
+      cc_parties: ownerOperatorNames.map((name) => `Cc: ${name}`).join('\n'),
+      // Subject-line countdown, e.g. "96 Hours ETA Notice". With no ETA on the
+      // nomination there is no countdown to state, but the subject is built as
+      // "<ref> - <label>", so an empty string left a dangling " - " on the face
+      // of the mail. The unqualified phrase says the same thing without claiming
+      // a countdown nobody computed.
+      eta_notice_label: etaAnchor ? etaNoticeLabel(new Date(), etaAnchor) : 'ETA Notice',
       company_website: 'www.navieramar.com',
       current_year: String(new Date().getFullYear()),
       branch_office: branch?.name ?? '',
@@ -1013,15 +1144,25 @@ export class NominationsService {
     };
 
     // ---------------------------------------------------------------------------
-    // Cargo Update — enrich the Operation line with every parcel's
-    // "<operation> <quantity> <unit> of <product>" description. Mirrors the SOF
-    // operation format below, but lists all parcels (joined with "; ") since a
-    // cargo update is inherently multi-parcel.
+    // Cargo Update and ETA to Terminal — enrich the Operation line with every
+    // parcel's "<operation> <quantity> <unit> of <product>" description. Mirrors
+    // the SOF operation format below, but lists all parcels (joined with "; ")
+    // since both notices are inherently multi-parcel.
+    //
+    // The terminal notice used to print a bare "Operation : Load", leaving the
+    // terminal to guess how much of what is coming; the agency asked for the
+    // quantities on that line, which is the same enrichment the cargo update
+    // already carried.
     // ---------------------------------------------------------------------------
-    if (actionType.toUpperCase() === 'CARGO_UPDATE') {
-      // A cargo update carries the same event log the SOF does — the recipient
-      // reads the figures against the history that produced them.
-      templateVars.statement_of_facts_log = await this.buildSofEventLog(nominationId);
+    const enrichesOperationWithParcels = ['CARGO_UPDATE', 'ETA_TERMINAL'].includes(
+      actionType.toUpperCase(),
+    );
+    if (enrichesOperationWithParcels) {
+      if (actionType.toUpperCase() === 'CARGO_UPDATE') {
+        // A cargo update carries the same event log the SOF does — the recipient
+        // reads the figures against the history that produced them.
+        templateVars.statement_of_facts_log = await this.buildSofEventLog(nominationId);
+      }
 
       const parcelDescriptions = (parcels as Array<Record<string, unknown>>)
         .map((p) =>
@@ -1090,15 +1231,41 @@ export class NominationsService {
       // One block per cargo column, numbered "Bill #1", "Bill #2" … as the
       // agency's own statements number them.
       const RULE = '--------------------------------------------------';
+      /**
+       * The three figure rows of a bill, each with the formatter its unit is
+       * stated in: barrels carry no decimals and are truncated, tonnages are
+       * always quoted to three. Labels are equal width, so the figures start in
+       * the same column on every row.
+       */
+      const BL_FIGURE_ROWS: [string, string, string, (value: unknown) => string][] = [
+        ['Bbls at 60 F ..:', 'grossBbls', 'netBbls', formatBarrels],
+        ['M/Tons at 60 F.:', 'grossMt', 'netMt', formatTons],
+        ['L/Tons at 60 F.:', 'grossLt', 'netLt', formatTons],
+      ];
       const blBlocks = blCols.map((colName, ci) => {
+        // Each column is padded on its integer part so the thousands commas of a
+        // barrel figure sit above those of the tonnage under it — the agency's
+        // "the commas line up with the commas". Right-aligning the whole cell,
+        // which is what this did before, put them four places apart.
+        const gross = alignFigureColumn(
+          BL_FIGURE_ROWS.map(([, key, , format]) => format(blRows[key]?.[ci])),
+        );
+        const net = alignFigureColumn(
+          BL_FIGURE_ROWS.map(([, , key, format]) => format(blRows[key]?.[ci])),
+        );
+        const labelWidth = Math.max(...BL_FIGURE_ROWS.map(([label]) => label.length));
+        const grossWidth = gross[0]?.length ?? 0;
+        const netWidth = net[0]?.length ?? 0;
         const lines: string[] = [
           RULE,
           `${colName ? colName + ' - ' : ''}Bill #${ci + 1} Of Lading Figures:`,
           RULE,
-          `                     Gross           Net`,
-          `Bbls at 60 F ..: ${n('grossBbls', ci).padStart(12)}  ${n('netBbls', ci).padStart(12)}`,
-          `M/Tons at 60 F.: ${n('grossMt', ci).padStart(12)}  ${n('netMt', ci).padStart(12)}`,
-          `L/Tons at 60 F.: ${n('grossLt', ci).padStart(12)}  ${n('netLt', ci).padStart(12)}`,
+          // Headings sit over the right edge of their own column, which the
+          // padding above has made the same on every row.
+          `${' '.repeat(labelWidth + 1)}${'Gross'.padStart(grossWidth)}  ${'Net'.padStart(netWidth)}`,
+          ...BL_FIGURE_ROWS.map(([label], i) =>
+            `${label} ${gross[i] ?? ''}  ${net[i] ?? ''}`.trimEnd(),
+          ),
           ``,
           `Shipper  : ${v('shipper', ci)}`,
           `Consignee: ${v('consignee', ci)}`,
@@ -1214,13 +1381,35 @@ export class NominationsService {
     // Recipients
     //
     // Every notice defaults to the nomination's own distribution list, which is
-    // the client's. Two are addressed elsewhere: ETA_TERMINAL and the NOR both
-    // go to the shipper and to the terminal the vessel is scheduled at, so their
-    // To line is built from the operational port's address list plus the
-    // shipper's. Cc is untouched — the agency's internal copies apply to these
-    // notices too.
+    // the client's. Two families are addressed elsewhere:
     //
-    // If neither is registered there is nothing to address it to, so it falls
+    //   ETA_TERMINAL / NOR — both concern the vessel's readiness at the berth,
+    //     so they go to the shipper and to the terminal the vessel is scheduled
+    //     at: To is the operational port's address list plus the shipper's.
+    //
+    //   ETA_REQUEST / ETA_REPLY — the master's own correspondence, so they go to
+    //     the ship and are copied to the companies that operate her. The header
+    //     of these two prints the same parties by name (see to_parties /
+    //     cc_parties above); this is the envelope that matches it:
+    //
+    //       To  ← shipParticular.emails            (the vessel's own inbox)
+    //       Cc  ← shipParticular.operator.emails    (Commercial/Technical Operator)
+    //           + shipParticular.operator.contacts[].emails
+    //           + shipParticular.owner.contacts[].emails  (Head/Disponent Owner)
+    //
+    //     The CLIENT LIST rows those companies are *named* from carry a
+    //     hand-typed name and no address — only Shipper rows link to master data
+    //     — so the addresses are read from the vessel's own owner/operator
+    //     links, which are real foreign keys. A notice is never mailed to a
+    //     company picked by matching a typed name, for the same reason
+    //     resolveShipper refuses to. Owner has no address column at all, so its
+    //     registered contacts are the only way to reach it.
+    //
+    // In both cases the agency's internal copies are added deliberately, since
+    // the notice has left the client's list: the branch handling the call is
+    // copied and head office is blind-copied.
+    //
+    // If nothing is registered there is nothing to address it to, so it falls
     // back to the nomination's list rather than opening with an empty To that
     // reads as a bug. The agent can still edit the line before sending.
     // ---------------------------------------------------------------------------
@@ -1228,18 +1417,40 @@ export class NominationsService {
     let ccAddresses = nomination.emailCc;
     let bccAddresses = nomination.emailBcc;
 
-    if (TERMINAL_ADDRESSED_ACTIONS.has(actionType.toUpperCase())) {
+    const action = actionType.toUpperCase();
+    const isTerminalAddressed = TERMINAL_ADDRESSED_ACTIONS.has(action);
+    const isMasterAddressed = MASTER_ADDRESSED_ACTIONS.has(action);
+
+    if (isTerminalAddressed) {
       const terminalAndShipper = dedupeEmails([
         ...(nomination.opPort?.emails ?? []),
         ...shipper.emails,
       ]);
       if (terminalAndShipper.length > 0) toAddresses = terminalAndShipper;
+    }
 
+    if (isMasterAddressed) {
+      const vessel = nomination.shipParticular;
+      const vesselEmails = dedupeEmails(vessel?.emails ?? []);
+      if (vesselEmails.length > 0) toAddresses = vesselEmails;
+
+      const ownerOperatorEmails = dedupeEmails([
+        ...(vessel?.operator?.emails ?? []),
+        ...(vessel?.operator?.contacts ?? []).flatMap((c) => c.emails),
+        ...(vessel?.owner?.contacts ?? []).flatMap((c) => c.emails),
+      ]);
+      // Replaces the client's Cc rather than joining it: the charterer is not
+      // copied on what the agent writes to the bridge. With nothing registered
+      // the nomination's own list stands, so the agent has something to edit.
+      if (ownerOperatorEmails.length > 0) ccAddresses = ownerOperatorEmails;
+    }
+
+    if (isTerminalAddressed || isMasterAddressed) {
       // With the notice addressed outside the client's list, the agency's own
       // copies have to be added deliberately: the branch handling the call is
-      // copied, and head office is blind-copied so the terminal and shipper do
-      // not see the agency's internal oversight list. Both are appended to
-      // whatever the nomination already carries rather than replacing it.
+      // copied, and head office is blind-copied so the recipients do not see the
+      // agency's internal oversight list. Both are appended to whatever the
+      // notice already carries rather than replacing it.
       const branchEmails = branch?.emails ?? [];
       const centralEmails = branch?.centralEmails ?? [];
       if (branchEmails.length > 0) ccAddresses = dedupeEmails([...ccAddresses, ...branchEmails]);
@@ -1401,21 +1612,37 @@ export class NominationsService {
 
     const blocks = columns
       .map((colName, ci) => {
-        const figure = (key: string) => formatQuantity(rows[key]?.[ci]);
+        // The three cargo rows are one column of figures, comma-aligned: barrels
+        // are stated whole and tonnages to three decimals, so right-aligning
+        // them would put their thousands separators out of line.
+        const cargo = alignFigureColumn([
+          formatBarrels(rows['bbls']?.[ci]),
+          formatTons(rows['mtons']?.[ci]),
+          formatTons(rows['ltons']?.[ci]),
+        ]);
+        // API and Temp are readings, not quantities — a gravity of 16.4 and a
+        // loading temperature of 120.5 print as recorded rather than padded out
+        // to a tonnage's three decimals, and stay outside the alignment above,
+        // which exists for figures in the hundreds of thousands.
+        const reading = (key: string) => formatQuantity(rows[key]?.[ci]);
         const measures: [string, string][] = [
-          ["Ship's Loaded Figures Bbls:", figure('bbls')],
-          ["Ship's Loaded Figures M/T:", figure('mtons')],
-          ["Ship's Loaded Figures L/T:", figure('ltons')],
+          ["Ship's Loaded Figures Bbls:", cargo[0] ?? ''],
+          ["Ship's Loaded Figures M/T:", cargo[1] ?? ''],
+          ["Ship's Loaded Figures L/T:", cargo[2] ?? ''],
+          ['API:', reading('api')],
+          ['Temp:', reading('temp')],
         ];
-        if (measures.every(([, value]) => value === '')) return '';
+        if (measures.every(([, value]) => value.trim() === '')) return '';
 
         return [
           RULE,
           `${colName ? colName + ' - ' : ''}Vessel Cargo Figures:`,
           RULE,
           ...measures
-            .filter(([, value]) => value !== '')
-            .map(([label, value]) => `${label.padEnd(27)} ${value.padStart(16)}`),
+            .filter(([, value]) => value.trim() !== '')
+            // trimEnd: a barrel figure is padded where a tonnage's decimals sit,
+            // and that padding has nothing after it at the end of the line.
+            .map(([label, value]) => `${label.padEnd(27)} ${value.padStart(16)}`.trimEnd()),
         ].join('\n');
       })
       .filter(Boolean);
@@ -1443,6 +1670,37 @@ export class NominationsService {
       name: row.name.trim() || (row.shipper?.name ?? ''),
       emails: row.shipper?.emails ?? [],
     };
+  }
+
+  /**
+   * Every named CLIENT LIST row whose type is one of `types`, in the order the
+   * roster lists them.
+   *
+   * Unlike {@link resolveClientByType}, which answers "who is the operator?"
+   * with one name, this answers "who owns and operates her?" with all of them —
+   * the notice header carries a Cc line per company. Rows are returned in the
+   * agent's own display order rather than in the order of `types`, because that
+   * is the order the client list is read in on screen. Blank rows (auto-created
+   * on every nomination) are skipped, and a company named twice under two types
+   * is listed once.
+   */
+  private static resolveClientNamesByTypes(
+    clients: { type: string; name: string }[],
+    types: readonly string[],
+  ): string[] {
+    const wanted = new Set(types.map((t) => t.toLowerCase()));
+    const seen = new Set<string>();
+    const names: string[] = [];
+    for (const client of clients) {
+      if (!wanted.has(client.type.trim().toLowerCase())) continue;
+      const name = client.name.trim();
+      if (name === '') continue;
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      names.push(name);
+    }
+    return names;
   }
 
   /** First named CLIENT LIST row matching `priority`, or '' when none match. */

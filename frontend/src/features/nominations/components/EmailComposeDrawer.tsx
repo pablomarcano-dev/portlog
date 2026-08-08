@@ -40,6 +40,16 @@ interface EmailComposeDrawerProps {
   subDocType: SubDocType;
   defaultSubject: string;
   defaultBody?: string;
+  /**
+   * Subject that wins over the one the server composed.
+   *
+   * `defaultSubject` is only a placeholder for the moment before the draft
+   * loads — the server-composed subject replaces it, since that is the one
+   * carrying the nomination's reference line. This is the opposite: a subject
+   * the caller has already reconciled with the body it is sending (the Cargo
+   * Update stamp, the ETA countdown), which the composed one must not undo.
+   */
+  subjectOverride?: string;
 }
 
 const SUB_DOC_LABELS: Record<SubDocType, string> = {
@@ -90,6 +100,7 @@ export function EmailComposeDrawer({
   subDocType,
   defaultSubject,
   defaultBody = '',
+  subjectOverride = '',
 }: EmailComposeDrawerProps) {
   const composeQuery = useNominationCompose(nominationId, subDocType, opened);
   const dispatch = useEmailDispatch(pedrId, nominationId);
@@ -121,7 +132,7 @@ export function EmailComposeDrawer({
       toAddresses: [],
       ccAddresses: [],
       bccAddresses: [],
-      subject: defaultSubject,
+      subject: subjectOverride || defaultSubject,
       bodyText: defaultBody,
       attachmentIds: [],
       etb: null,
@@ -142,13 +153,14 @@ export function EmailComposeDrawer({
       setValue('toAddresses', d.toAddresses);
       setValue('ccAddresses', d.ccAddresses);
       setValue('bccAddresses', d.bccAddresses);
-      setValue('subject', d.subject);
-      // Prefer a caller-supplied body (e.g. the Cargo Update modal builds its
-      // own parcel-based body with user-entered date/time/ETD) over the
-      // server-composed default.
+      // Prefer a caller-supplied subject and body (the Cargo Update modal
+      // builds both from the date/time/ETD typed into it; the ETA dialog
+      // re-titles the subject with the countdown the vessel has reached) over
+      // the server-composed draft, which is stamped at compose time.
+      setValue('subject', subjectOverride || d.subject);
       setValue('bodyText', defaultBody || d.bodyText);
     }
-  }, [opened, composeQuery.data, defaultBody, setValue]);
+  }, [opened, composeQuery.data, defaultBody, subjectOverride, setValue]);
 
   const toAddresses = watch('toAddresses');
   const ccAddresses = watch('ccAddresses');
