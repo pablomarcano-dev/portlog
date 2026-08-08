@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Logger } from 'nestjs-pino';
 import fastifyCookie from '@fastify/cookie';
+import fastifyHelmet from '@fastify/helmet';
 import fastifyMultipart from '@fastify/multipart';
 import { MAX_ATTACHMENT_SIZE_BYTES, MAX_ATTACHMENTS_PER_EMAIL } from '@portlog/schemas';
 import { AppModule } from './app.module.js';
@@ -23,6 +24,27 @@ async function bootstrap() {
   // because fastifyCookie is a valid Fastify plugin at runtime.
 
   await app.register(fastifyCookie as unknown as Parameters<typeof app.register>[0]);
+
+  // Security headers. The API serves JSON and streams attachments — it renders
+  // no HTML — so the useful headers here are the sniffing and framing ones
+  // rather than a script CSP.
+  //
+  // contentSecurityPolicy is off deliberately: helmet's default policy is written
+  // for HTML documents and applying it to JSON responses buys nothing while
+  // risking breakage on the attachment download path. The frontend is served by
+  // nginx, which is where a document CSP belongs.
+  //
+  // HSTS is set by nginx on the TLS vhost, not here: a browser ignores the header
+  // over plain HTTP, and nginx is the only place that knows whether the request
+  // actually arrived over TLS.
+  await app.register(fastifyHelmet, {
+    contentSecurityPolicy: false,
+    hsts: false,
+    // Attachments are streamed cross-origin to the frontend; the default
+    // require-corp policy would block them.
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  });
 
   // Register @fastify/multipart for email attachment uploads (POST /api/attachments).
   // One file per request; the frontend uploads each selected file separately.
