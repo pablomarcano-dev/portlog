@@ -11,10 +11,20 @@ Laydays  : {{lay_days}}
 ------------------------------------------------------
 {{../update_date}} {{../update_time}} Cargo Update - {{cargo_grade}}
 ------------------------------------------------------
-Quantity         : {{quantity}} {{unit}}
-Quantity On Board: {{qty_on_board}} {{qty_on_board_unit}}
-Quantity To Go   : {{qty_to_go}} {{qty_to_go_unit}}
-Loading Rate     : {{loading_rate}} {{loading_rate_unit}}
+{{!--
+  Figures right-aligned in a 14-character column (see _partials/figure_col.hbs)
+  so the decimal points stack in the monospace <pre> the notice is read in.
+
+  MUST STAY IN SYNC with the frontend: CargoUpdateModal builds this identical
+  block from the figures typed into its dialog and splices it in over the one
+  rendered here, so the two layouts have to be character-for-character the
+  same or the preview and the sent mail disagree. If you change the label
+  padding, the column width, or the rules, change both.
+--}}
+Quantity         : {{> figure_col value=quantity}} {{unit}}
+Quantity On Board: {{> figure_col value=qty_on_board}} {{qty_on_board_unit}}
+Quantity To Go   : {{> figure_col value=qty_to_go}} {{qty_to_go_unit}}
+Loading Rate     : {{> figure_col value=loading_rate}} {{loading_rate_unit}}
 ------------------------------------------------------
 
 {{t_etc}} ETC

@@ -1,8 +1,11 @@
 import {
+  etaNoticeLabel,
+  formatBarrels,
   formatNoticeDate,
   formatNoticeDateRange,
   formatCargoFigure,
   formatQuantity,
+  formatTons,
   resolveTransferRateUnit,
   ordinalDay,
 } from '../notice-format';
@@ -118,12 +121,24 @@ describe('formatQuantity', () => {
     expect(formatQuantity('286433.4')).toBe('286,433.4');
   });
 
-  it('leaves a figure that already carries separators untouched', () => {
-    // SOF figures recorded before this formatter used a decimal comma, so
-    // "286433,463" means 286433.463. Reading that comma as a thousands
-    // separator would print 286,433,463 — a legally binding figure off by 1000x.
-    expect(formatQuantity('286433,463')).toBe('286433,463');
+  it('regroups a figure that already carries commas', () => {
+    // Commas are read as thousands separators and the figure is regrouped,
+    // rather than passed through the way the old legacy guard did.
     expect(formatQuantity('1,896,870')).toBe('1,896,870');
+    expect(formatQuantity('1896,870')).toBe('1,896,870');
+    expect(formatQuantity('286433,463')).toBe('286,433,463');
+  });
+
+  it('reads "." as the decimal point even alongside thousands commas', () => {
+    expect(formatQuantity('287,912.375')).toBe('287,912.375');
+    expect(formatQuantity('1,896,870.5')).toBe('1,896,870.5');
+    expect(formatQuantity('-1,234.5')).toBe('-1,234.5');
+  });
+
+  it('never rounds or re-precisions the digits it regroups', () => {
+    // Trailing zeros are part of a stated precision, so they survive.
+    expect(formatQuantity('286433.400')).toBe('286,433.400');
+    expect(formatQuantity('755553.9')).toBe('755,553.9');
   });
 
   it('renders empty for a missing figure', () => {
@@ -138,6 +153,154 @@ describe('formatQuantity', () => {
 
   it('handles a negative figure', () => {
     expect(formatQuantity('-1234.5')).toBe('-1,234.5');
+  });
+});
+
+describe('formatBarrels', () => {
+  it('carries no decimals and groups with commas', () => {
+    expect(formatBarrels(755553)).toBe('755,553');
+    expect(formatBarrels(1950210)).toBe('1,950,210');
+    expect(formatBarrels(100)).toBe('100');
+  });
+
+  it('truncates the tail rather than rounding it', () => {
+    // 755,553.9 must not become 755,554 — that would claim a barrel that was
+    // never loaded.
+    expect(formatBarrels(755553.9)).toBe('755,553');
+    expect(formatBarrels(755553.999)).toBe('755,553');
+    expect(formatBarrels(999.5)).toBe('999');
+    expect(formatBarrels(0.99)).toBe('0');
+  });
+
+  it('accepts a numeric string, as parcels JSON often holds', () => {
+    expect(formatBarrels('755553.9')).toBe('755,553');
+    expect(formatBarrels('1950210')).toBe('1,950,210');
+  });
+
+  it('reads a stored figure that already carries thousands commas', () => {
+    expect(formatBarrels('755,553.9')).toBe('755,553');
+  });
+
+  it('renders zero plainly', () => {
+    expect(formatBarrels(0)).toBe('0');
+  });
+
+  it('truncates a negative figure toward zero', () => {
+    expect(formatBarrels(-755553.9)).toBe('-755,553');
+  });
+
+  it('renders empty for a missing figure, so a blank field prints nothing', () => {
+    expect(formatBarrels(null)).toBe('');
+    expect(formatBarrels(undefined)).toBe('');
+    expect(formatBarrels('')).toBe('');
+  });
+
+  it('passes non-numeric text through rather than printing NaN', () => {
+    expect(formatBarrels('NONE')).toBe('NONE');
+  });
+});
+
+describe('formatTons', () => {
+  it('carries exactly three decimals and groups with commas', () => {
+    expect(formatTons(114375.613)).toBe('114,375.613');
+    expect(formatTons(287912.375)).toBe('287,912.375');
+  });
+
+  it('pads a whole figure out to three decimals', () => {
+    // The trailing zeros are part of the stated precision on an M/T figure.
+    expect(formatTons(113460)).toBe('113,460.000');
+    expect(formatTons(0)).toBe('0.000');
+    expect(formatTons(114375.6)).toBe('114,375.600');
+  });
+
+  it('accepts a numeric string, as parcels JSON often holds', () => {
+    expect(formatTons('114375.613')).toBe('114,375.613');
+    expect(formatTons('113460')).toBe('113,460.000');
+  });
+
+  it('reads a stored figure that already carries thousands commas', () => {
+    expect(formatTons('114,375.613')).toBe('114,375.613');
+  });
+
+  it('writes the decimal point as "." regardless of the environment locale', () => {
+    expect(formatTons(1234.5)).toBe('1,234.500');
+  });
+
+  it('handles a negative figure', () => {
+    expect(formatTons(-1234.5)).toBe('-1,234.500');
+  });
+
+  it('renders empty for a missing figure, so a blank field prints nothing', () => {
+    expect(formatTons(null)).toBe('');
+    expect(formatTons(undefined)).toBe('');
+    expect(formatTons('')).toBe('');
+  });
+
+  it('passes non-numeric text through rather than printing NaN', () => {
+    expect(formatTons('NONE')).toBe('NONE');
+  });
+});
+
+describe('etaNoticeLabel', () => {
+  const NOW = new Date('2026-07-01T00:00:00Z');
+  /** An ETA the given number of hours ahead of `NOW`. */
+  const etaIn = (hours: number) => new Date(NOW.getTime() + hours * 3_600_000);
+  const label = (hours: number) => etaNoticeLabel(NOW, etaIn(hours));
+
+  it('counts in whole days beyond four days out', () => {
+    expect(label(6 * 24)).toBe('6 DAYS ETA Notice');
+    expect(label(5 * 24)).toBe('5 DAYS ETA Notice');
+    expect(label(10 * 24)).toBe('10 DAYS ETA Notice');
+  });
+
+  it('floors the day count rather than rounding it', () => {
+    expect(label(7 * 24 + 5)).toBe('7 DAYS ETA Notice');
+    expect(label(7 * 24 + 23.9)).toBe('7 DAYS ETA Notice');
+  });
+
+  it('switches from days to hours exactly at 96 hours out', () => {
+    // The agency's explicit requirement: four days out is the last notice
+    // written in hours, not the first written in days.
+    expect(label(96)).toBe('96 Hours ETA Notice');
+    expect(label(96 + 1 / 60)).toBe('4 DAYS ETA Notice');
+  });
+
+  it('rounds the hours down to the mark already reached', () => {
+    expect(label(80)).toBe('72 Hours ETA Notice');
+    expect(label(50)).toBe('48 Hours ETA Notice');
+    expect(label(30)).toBe('24 Hours ETA Notice');
+    expect(label(18)).toBe('12 Hours ETA Notice');
+  });
+
+  it('renders each hour mark exactly on its boundary', () => {
+    expect(label(96)).toBe('96 Hours ETA Notice');
+    expect(label(72)).toBe('72 Hours ETA Notice');
+    expect(label(48)).toBe('48 Hours ETA Notice');
+    expect(label(24)).toBe('24 Hours ETA Notice');
+    expect(label(12)).toBe('12 Hours ETA Notice');
+  });
+
+  it('drops to the mark below just under each boundary', () => {
+    expect(label(95.99)).toBe('72 Hours ETA Notice');
+    expect(label(71.99)).toBe('48 Hours ETA Notice');
+    expect(label(47.99)).toBe('24 Hours ETA Notice');
+    expect(label(23.99)).toBe('12 Hours ETA Notice');
+  });
+
+  it('clamps to the twelve-hour notice below twelve hours out', () => {
+    expect(label(11.99)).toBe('12 Hours ETA Notice');
+    expect(label(6)).toBe('12 Hours ETA Notice');
+    expect(label(0)).toBe('12 Hours ETA Notice');
+  });
+
+  it('still titles a notice sent after the ETA has passed', () => {
+    expect(label(-1)).toBe('12 Hours ETA Notice');
+    expect(label(-240)).toBe('12 Hours ETA Notice');
+  });
+
+  it('falls back to the twelve-hour notice on an unusable date', () => {
+    expect(etaNoticeLabel(NOW, new Date(NaN))).toBe('12 Hours ETA Notice');
+    expect(etaNoticeLabel(new Date(NaN), etaIn(48))).toBe('12 Hours ETA Notice');
   });
 });
 

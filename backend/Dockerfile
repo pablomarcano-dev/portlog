@@ -28,9 +28,27 @@ RUN npm run build -w @portlog/backend
 FROM node:26-alpine AS runtime
 WORKDIR /app
 
-# Chromium for headless PDF rendering (puppeteer-core — no bundled browser)
-RUN apk add --no-cache chromium
+# Chromium for headless PDF rendering (puppeteer-core — no bundled browser).
+# tzdata ships /usr/share/zoneinfo, which node:alpine omits — see the TZ note below.
+RUN apk add --no-cache chromium tzdata
 ENV CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+# Operating timezone. LOAD-BEARING — do not remove.
+#
+# Notice/SOF/NOR formatters render dates with the process-local getHours()/getDate()/
+# getMonth(). With no TZ the process runs in UTC and every generated document is shifted
+# +4h against the agency's actual local time (an ETA keyed as 16:00 printed as "20:00 hrs
+# LT"), which can also roll the date across midnight. These are legally binding port
+# documents, so the container must run on the agency's clock.
+#
+# Baked here so the image is correct even if the compose `environment:` block is dropped;
+# docker-compose.yml sets it explicitly too. Overridable at runtime if the agency moves.
+#
+# Node and Chromium would resolve "America/Caracas" from their bundled ICU data even
+# without tzdata, but the tzdata package is still installed above so that `date`, the
+# shell, and any child process agree with Node — otherwise `docker compose exec backend
+# date` reports UTC and misleads whoever is debugging a timestamp complaint.
+ENV TZ=America/Caracas
 
 # Copy only what runtime needs
 COPY --from=build /app/node_modules ./node_modules

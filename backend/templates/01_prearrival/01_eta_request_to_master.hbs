@@ -1,10 +1,24 @@
 {{!-- Subject: {{ref_line}} - ETA Notices Required --}}
 
-{{#if to_recipients}}
-To: {{to_recipients}}
+{{!--
+  Party names, never mailbox addresses. The client returned this notice marked
+  up because the header printed the recipients' raw e-mail addresses
+  (prakhar.galgale@ril.com; …) — those belong in the envelope, not in the
+  letter. to_recipients / cc_recipients are the address lists and must not be
+  printed here.
+
+  The two are asymmetric, deliberately (see nominations.service.ts):
+    to_parties — the VALUE of the To line, one line, "Attn:" already padded
+                 into a fixed column. The label is written here.
+    cc_parties — WHOLE lines, one "Cc: <company>" per owner/operator, already
+                 carrying their own label, because a template cannot prefix
+                 each line of a multi-line value. Do not add a second "Cc:".
+--}}
+{{#if to_parties}}
+To: {{to_parties}}
 {{/if}}
-{{#if cc_recipients}}
-Cc: {{cc_recipients}}
+{{#if cc_parties}}
+{{cc_parties}}
 {{/if}}
 Fm: Servicios Navieramar, C.A. (as Agent Only)
 Ref: {{ref_line}}
@@ -17,6 +31,8 @@ Load: {{cargo_quantity}} {{cargo_unit}} {{cargo_grade}} +/- 10%
 
 Good day, dear Master {{master_name}},
 
-To comply with terminal and charterer requirements, kindly provide contractual ETA notices at 96 / 72 / 48 / 24 hours in advance. This will enable coordination of berthing prospects with the terminal operators.
+To ensure compliance with terminal and charterer requirements and to avoid customs penalties, we kindly request that the contractual ETA notices be issued in a timely manner, specifically the 96, 72, 48, and 24-hour notices. Please note that failure to submit the 48-hour notice will result in a fine for the agency.
+
+We appreciate your cooperation in ensuring that the Master sends the official ETA to the terminal.
 
 {{> signature}}

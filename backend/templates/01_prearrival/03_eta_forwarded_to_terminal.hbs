@@ -1,4 +1,4 @@
-{{!-- Subject: {{ref_line}} - ETA Forwarded to Terminal --}}
+{{!-- Subject: {{ref_line}} - {{eta_notice_label}} --}}
 
 Vessel    : {{vessel_name}}      Flag: {{flag}}
 Last Port : {{last_port}}
@@ -19,16 +19,18 @@ Good day,
 
 Following received from Master, FYI:
 
+{{!--
+  Deliberately blank between the rules. What goes here is the Master's own
+  message, pasted verbatim by the agent in the compose editor before sending —
+  this notice forwards it, it does not author it. The template used to
+  pre-fill an invented noon report (distance to go, ETA, "MASTER OF …"), which
+  the client struck out: a quoted message the Master never wrote is a
+  misstatement in a document that demurrage is argued from. Keep the
+  QUOTE:/------/UNQUOTE scaffolding so the paste lands in the right place.
+--}}
 QUOTE:
 ------
-Good day,
-Kindly find below ETA - NOON REPORT at {{oper_port}}:
 
-Distance to go and ETA next port: {{distance_to_go}} NM / At {{oper_port}} is o/a {{eta_date}} {{eta_time}} LT Hrs (AGW - WSNP).
-
-Best regards,
-{{master_rank}} {{master_name}}
-MASTER OF {{vessel_name}}
 ------
 UNQUOTE
 

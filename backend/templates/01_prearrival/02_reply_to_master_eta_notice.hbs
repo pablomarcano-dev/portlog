@@ -1,10 +1,14 @@
-{{!-- Subject: {{ref_line}} - 96 Hours ETA Notice --}}
+{{!-- Subject: {{ref_line}} - {{eta_notice_label}} --}}
 
-{{#if to_recipients}}
-To: {{to_recipients}}
+{{!--
+  Party names, never mailbox addresses — see the note in 01_eta_request for why
+  to_parties takes a label here and cc_parties does not.
+--}}
+{{#if to_parties}}
+To: {{to_parties}}
 {{/if}}
-{{#if cc_recipients}}
-Cc: {{cc_recipients}}
+{{#if cc_parties}}
+{{cc_parties}}
 {{/if}}
 Fm: Servicios Navieramar, C.A. (as Agent Only)
 Ref: {{ref_line}}

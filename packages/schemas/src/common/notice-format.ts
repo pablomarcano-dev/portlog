@@ -101,8 +101,27 @@ export function formatCargoFigure(value: unknown): string {
   }).format(n);
 }
 
-/** A plain, unpunctuated number: the only shape `formatQuantity` will regroup. */
+/** A number once its thousands separators are stripped: the shape we can regroup. */
 const PLAIN_NUMBER = /^-?\d+(\.\d+)?$/;
+
+/** Commas every three digits, left of the decimal point. */
+function groupThousands(digits: string): string {
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+/**
+ * A figure read off a stored field, with thousands commas dropped.
+ *
+ * Returns null when the text is not a number at all, so callers can pass such a
+ * value through verbatim instead of printing "NaN".
+ */
+function parseFigure(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const raw = typeof value === 'number' ? String(value) : String(value).trim();
+  if (raw === '') return null;
+  const n = Number(raw.replace(/,/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
 
 /**
  * A SOF quantity as the statement writes it, e.g. "1896870" -> "1,896,870" and
@@ -110,24 +129,108 @@ const PLAIN_NUMBER = /^-?\d+(\.\d+)?$/;
  *
  * Unlike {@link formatCargoFigure} the decimals are kept exactly as entered —
  * a bill of lading states its own precision (three decimals on M/T, none on
- * barrels) and rounding it to two would misstate the figure.
+ * barrels) and rounding it to two would misstate the figure. The digits are
+ * never touched, only regrouped, so a trailing "0" the operator typed survives.
  *
- * Only an unpunctuated number is regrouped. Anything already carrying
- * separators passes through verbatim, because their meaning is not knowable
- * here: SOF figures recorded before this formatter existed use a *decimal*
- * comma ("286433,463" is 286433.463), so reading commas as thousands
- * separators would silently multiply a legally binding figure by a thousand.
- * Such values keep their stored form until someone re-enters them.
+ * Punctuation is read in the en-US convention this document family is written
+ * in: "," is a thousands separator and "." is the decimal point. Anything
+ * already carrying commas is therefore re-grouped rather than passed through.
+ * An earlier revision refused to touch such values, guarding against SOF rows
+ * captured with a *decimal* comma ("286433,463" meaning 286433.463); that guard
+ * is gone because the app has no production data to protect and the passthrough
+ * was leaving figures ungrouped on the face of the notice. Text that is not a
+ * number ("NONE") still passes through untouched.
  */
 export function formatQuantity(value: unknown): string {
   if (value === null || value === undefined) return '';
   const raw = String(value).trim();
-  if (raw === '' || !PLAIN_NUMBER.test(raw)) return raw;
+  if (raw === '') return '';
 
-  const negative = raw.startsWith('-');
-  const [int = '', dec] = (negative ? raw.slice(1) : raw).split('.');
-  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return `${negative ? '-' : ''}${grouped}${dec === undefined ? '' : `.${dec}`}`;
+  const normalized = raw.replace(/,/g, '');
+  if (!PLAIN_NUMBER.test(normalized)) return raw;
+
+  const negative = normalized.startsWith('-');
+  const [int = '', dec] = (negative ? normalized.slice(1) : normalized).split('.');
+  return `${negative ? '-' : ''}${groupThousands(int)}${dec === undefined ? '' : `.${dec}`}`;
+}
+
+/**
+ * A barrel figure as a bill of lading writes it, e.g. 755553.9 -> "755,553".
+ *
+ * Barrels carry no decimals and the tail is *truncated*, never rounded: the
+ * figure states what was measured, and rounding 755,553.9 up to 755,554 would
+ * claim a barrel that was never loaded. Grouped with commas. Empty renders
+ * empty so a blank field prints nothing; text that is not a number passes
+ * through untouched rather than becoming "NaN".
+ */
+export function formatBarrels(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '';
+  const n = parseFigure(value);
+  if (n === null) return String(value).trim();
+
+  const truncated = Math.trunc(n);
+  const negative = truncated < 0 || Object.is(truncated, -0);
+  return `${negative ? '-' : ''}${groupThousands(String(Math.abs(truncated)))}`;
+}
+
+/**
+ * A tonnage as a bill of lading writes it, e.g. 114375.613 -> "114,375.613".
+ *
+ * M/T and L/T are always quoted to three decimals, so a whole figure is padded
+ * (113460 -> "113,460.000") rather than printed bare — the trailing zeros are
+ * part of the stated precision. Grouped with commas, decimal point pinned to
+ * "." regardless of the server's locale. Empty renders empty; text that is not
+ * a number passes through untouched.
+ */
+export function formatTons(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '';
+  const n = parseFigure(value);
+  if (n === null) return String(value).trim();
+
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  }).format(n);
+}
+
+const MS_PER_HOUR = 3_600_000;
+
+/**
+ * The hour marks the agency serves ETA notices on, largest first.
+ *
+ * A notice is always titled with the mark it has *reached*, so the remaining
+ * hours round down to one of these — 80 hours out is still the "72 Hours"
+ * notice, because the 96-hour one went out earlier.
+ */
+const ETA_NOTICE_HOUR_BUCKETS = [96, 72, 48, 24, 12] as const;
+
+/**
+ * The countdown label an ETA notice is titled with, e.g. "72 Hours ETA Notice"
+ * or "6 DAYS ETA Notice".
+ *
+ * Anchored to the nomination's ETA, not to the sending date: the recipient reads
+ * the title as a statement of how far out the vessel is.
+ *
+ * Beyond four days the countdown is written in whole days, floored. At and
+ * within four days it switches to the hour marks the agency actually serves on,
+ * rounded *down* to the mark already reached. The changeover sits exactly at 96
+ * hours, which reads as "96 Hours ETA Notice" — four days out is the last
+ * notice written in hours, not the first written in days.
+ *
+ * Under twelve hours, or once the ETA has passed, the label clamps to
+ * "12 Hours ETA Notice"; there is no shorter notice, and a late send must still
+ * carry a title rather than count backwards.
+ */
+export function etaNoticeLabel(now: Date, eta: Date): string {
+  const hoursRemaining = (eta.getTime() - now.getTime()) / MS_PER_HOUR;
+  if (!Number.isFinite(hoursRemaining)) return '12 Hours ETA Notice';
+
+  if (hoursRemaining > 96) {
+    return `${Math.floor(hoursRemaining / 24)} DAYS ETA Notice`;
+  }
+
+  const bucket = ETA_NOTICE_HOUR_BUCKETS.find((mark) => mark <= hoursRemaining) ?? 12;
+  return `${bucket} Hours ETA Notice`;
 }
 
 /**
