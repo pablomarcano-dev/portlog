@@ -15,6 +15,7 @@ import { useCurrentUser, useLogout } from '../lib/auth/queries';
 const NAV_LINKS = [
   { label: 'Nominations', to: '/nominations' },
   { label: 'Vessels', to: '/vessels' },
+  { label: 'Service Requests', to: '/service-requests' },
   { label: 'Master Data', to: '/master-data/flags' },
 ] as const;
 

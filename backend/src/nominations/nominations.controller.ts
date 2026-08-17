@@ -37,7 +37,6 @@ import {
   CreateNominationClientDto,
   UpdateNominationClientDto,
 } from './dto/nomination-client.dto.js';
-import { CreateSaleDto, UpdateSaleDto } from './dto/sale.dto.js';
 
 @Controller('nominations')
 @Roles('OPS', 'ADM')
@@ -158,38 +157,6 @@ export class NominationsController {
     @Param('clientId', ParseUUIDPipe) clientId: string,
   ) {
     return this.svc.removeClient(id, clientId);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Sale sub-resource — services sold against a nomination (Sales modal)
-  // ---------------------------------------------------------------------------
-
-  @Get(':id/sales')
-  listSales(@Param('id', ParseUUIDPipe) id: string) {
-    return this.svc.listSales(id);
-  }
-
-  @Post(':id/sales')
-  addSale(@Param('id', ParseUUIDPipe) id: string, @Body() dto: CreateSaleDto) {
-    return this.svc.addSale(id, dto);
-  }
-
-  @Patch(':id/sales/:saleId')
-  updateSale(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Param('saleId', ParseUUIDPipe) saleId: string,
-    @Body() dto: UpdateSaleDto,
-  ) {
-    return this.svc.updateSale(id, saleId, dto);
-  }
-
-  @Delete(':id/sales/:saleId')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  removeSale(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Param('saleId', ParseUUIDPipe) saleId: string,
-  ) {
-    return this.svc.removeSale(id, saleId);
   }
 
   // ---------------------------------------------------------------------------

@@ -41,6 +41,7 @@ import {
   useSendCredentials,
 } from '../../../lib/api/admin/users';
 import { useCurrentUser } from '../../../lib/auth/queries';
+import { EntityPicker } from '../../../components/master-data/EntityPicker';
 
 export const Route = createFileRoute('/_protected/admin/users')({
   component: UsersAdminScreen,
@@ -332,6 +333,7 @@ function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void
 
 function EditUserModal({ user, onClose }: { user: AdminUser; onClose: () => void }) {
   const updateUser = useUpdateUser(user.id);
+  const [branchSearch, setBranchSearch] = useState('');
   const form = useForm<UpdateUserInput>({
     resolver: zodResolver(UpdateUserSchema),
     defaultValues: {
@@ -342,6 +344,7 @@ function EditUserModal({ user, onClose }: { user: AdminUser; onClose: () => void
       fax: user.fax ?? '',
       role: user.role,
       isActive: user.isActive,
+      branchId: user.branchId,
     },
   });
 
@@ -397,6 +400,24 @@ function EditUserModal({ user, onClose }: { user: AdminUser; onClose: () => void
                 value={field.value}
                 onChange={(v) => field.onChange(v ?? user.role)}
                 error={form.formState.errors.role?.message}
+              />
+            )}
+          />
+          <Controller
+            name="branchId"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <EntityPicker
+                endpoint="/master-data/branches"
+                label="Default Branch (Sucursal)"
+                placeholder="No default branch"
+                // Pre-fills the Sucursal field on every service request this
+                // user creates; they can still override it per request.
+                value={field.value ?? null}
+                onChange={field.onChange}
+                searchValue={branchSearch}
+                onSearchChange={setBranchSearch}
+                error={fieldState.error?.message}
               />
             )}
           />

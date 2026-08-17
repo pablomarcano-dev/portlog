@@ -30,6 +30,12 @@ model User {
   mobile        String? // personal / 24h mobile
   fax           String? // office fax
   role          Role           @default(OPS)
+  // Default Sucursal. The service-request forms pre-fill from this ("Sucursal:
+  // carga según el usuario") but leave the field editable, so an agent covering
+  // another branch is not blocked. Nullable: existing accounts predate it and
+  // SetNull keeps a branch deletion from cascading into user rows.
+  branchId      String?
+  branch        Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
   isActive      Boolean        @default(true)
   // permissions is a flexible array of permission strings.
   // Reserved values for M2: "owner.financial" (gates Owner Acuerdos + financial history fields).
@@ -60,6 +66,11 @@ model User {
   branchDocInstancesCreated BranchDocumentInstance[] @relation("BranchDocInstanceCreatedBy")
   emailAttachmentsUploaded  EmailAttachment[]        @relation("EmailAttachmentUploadedBy")
 
+  // Service Requests (M6)
+  serviceRequestsCreated   ServiceRequest[]         @relation("ServiceRequestCreatedBy")
+  serviceRequestDispatches ServiceRequestDispatch[] @relation("ServiceRequestDispatchSentBy")
+
+  @@index([branchId])
   @@map("users")
 }
 

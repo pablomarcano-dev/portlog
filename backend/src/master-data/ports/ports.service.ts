@@ -121,8 +121,8 @@ export class PortsService {
     try {
       await this.prisma.port.delete({ where: { id } });
     } catch (err: unknown) {
-      // Nominations, SOF timesheets and sales all reference ports ON DELETE
-      // RESTRICT — surface as a conflict, not a 500.
+      // Nominations, SOF timesheets and service requests all reference ports
+      // ON DELETE RESTRICT — surface as a conflict, not a 500.
       if (this.isPrismaError(err, 'P2003')) {
         throw new ConflictException('Port is referenced by one or more records.');
       }

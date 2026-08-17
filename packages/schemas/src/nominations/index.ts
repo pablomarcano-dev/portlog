@@ -1,7 +1,6 @@
 export * from './enums.js';
 export * from './parcel.js';
 export * from './client.js';
-export * from './sale.js';
 export * from './transitions.js';
 export * from './status.js';
 export * from './schemas.js';

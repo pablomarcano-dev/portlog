@@ -94,8 +94,8 @@ model Port {
   sofTimesheetsAsLastPort SofTimesheet[] @relation("SofTimesheetLastPort")
   sofTimesheetsAsNextPort SofTimesheet[] @relation("SofTimesheetNextPort")
 
-  // Sales back-relation — the PUERTO field on the service voucher
-  sales Sale[]
+  // Service Requests back-relation — the `Ubicación` port picker
+  serviceRequests ServiceRequest[]
 
   @@index([name])
   @@map("ports")
@@ -114,6 +114,7 @@ model Pier {
 
   nominations   Nomination[]
   sofTimesheets SofTimesheet[] @relation("SofTimesheetPier")
+  serviceRequests ServiceRequest[]
 
   @@index([portId])
   @@map("piers")
@@ -286,6 +287,9 @@ model Supplier {
   createdAt       DateTime @default(now()) @db.Timestamptz
   updatedAt       DateTime @updatedAt @db.Timestamptz
 
+  // Service Requests back-relation — the Proveedor an OC is emailed to
+  serviceRequests ServiceRequest[]
+
   @@index([name])
   @@map("suppliers")
 }
@@ -312,7 +316,8 @@ model Client {
   createdAt       DateTime @default(now()) @db.Timestamptz
   updatedAt       DateTime @updatedAt @db.Timestamptz
 
-  sales Sale[]
+  // Service Requests back-relation — the optional `bill to` client
+  serviceRequests ServiceRequest[]
 
   @@index([name])
   @@map("clients")
@@ -329,8 +334,6 @@ model Service {
   comments  String?  @db.Text
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz
-
-  sales Sale[]
 
   @@index([name])
   @@map("services")
@@ -359,10 +362,6 @@ model SalesContact {
   comments       String?  @db.Text
   createdAt      DateTime @default(now()) @db.Timestamptz
   updatedAt      DateTime @updatedAt @db.Timestamptz
-
-  // Back-relations — the same row may serve as either line on a voucher.
-  salesAsDriver Sale[] @relation("SaleDriver")
-  salesAsUser   Sale[] @relation("SaleUser")
 
   @@index([name])
   @@map("sales_contacts")
@@ -429,6 +428,9 @@ model Branch {
 
   nominations       Nomination[]
   documentTemplates BranchDocumentTemplate[]
+  serviceRequests   ServiceRequest[]
+  // Users whose default Sucursal this is (pre-fills service request forms)
+  users             User[]
 
   @@index([code])
   @@map("branches")
@@ -471,6 +473,8 @@ model ShipParticular {
   updatedAt    DateTime  @updatedAt @db.Timestamptz
 
   nominations Nomination[]
+  // Service Requests back-relation — the vessel is the module's anchor
+  serviceRequests ServiceRequest[]
 
   @@index([name])
   @@index([imoNumber])

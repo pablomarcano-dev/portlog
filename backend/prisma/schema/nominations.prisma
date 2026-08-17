@@ -127,8 +127,9 @@ model Nomination {
   // SOF Timesheet back-relation
   sofTimesheet SofTimesheet?
 
-  // Sales back-relation (Sales modal on nomination detail)
-  sales Sale[]
+  // Service Requests back-relation — the optional soft link from the
+  // horizontal service-request module (SetNull, never Cascade).
+  serviceRequests ServiceRequest[]
 
   @@index([status])
   @@index([shipParticularId])
@@ -182,63 +183,6 @@ model NominationClient {
   @@index([nominationId])
   @@index([shipperId])
   @@map("nomination_clients")
-}
-
-// ---------------------------------------------------------------------------
-// Sale — services sold against a nomination (SALES modal on nomination detail)
-//
-// Mirrors the paper service voucher the agency writes by hand: N° DE SERVICIO,
-// A CUENTA DE, PUERTO, SERVICIO RECORRIDO, FECHA + HORA INICIO/FINAL,
-// DESCRIPCION, CONDUCTOR, USUARIO. The voucher's two signature lines are
-// deliberately not modelled.
-//
-// price is a plain amount — currency deliberately out of scope for now
-// (see .claude/docs/open-questions.md; SCOPE.md UYU/USD question stays open).
-// clientId/serviceId/portId are cuid FKs to master-data; Restrict so referenced
-// catalog rows cannot be deleted while sales point at them.
-// ---------------------------------------------------------------------------
-model Sale {
-  id           String     @id @default(uuid()) @db.Uuid
-  nominationId String     @db.Uuid
-  nomination   Nomination @relation(fields: [nominationId], references: [id], onDelete: Cascade)
-  // N° DE SERVICIO — transcribed from the paper voucher, not generated here.
-  serviceNo    String?
-  // A CUENTA DE — who the service is billed to.
-  clientId     String
-  client       Client     @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  serviceId    String
-  service      Service    @relation(fields: [serviceId], references: [id], onDelete: Restrict)
-  // SERVICIO RECORRIDO — the route covered, free text.
-  route        String?
-  // PUERTO
-  portId       String?
-  port         Port?      @relation(fields: [portId], references: [id], onDelete: Restrict)
-  // COSTO DEL SERVICIO Bs.
-  price        Decimal    @db.Decimal(12, 2)
-  // FECHA + HORA INICIO / HORA FINAL. Full timestamps rather than a date plus
-  // two clock times so a service running past midnight is unambiguous.
-  // endAt is null while the service is still running.
-  startAt      DateTime   @db.Timestamptz(6)
-  endAt        DateTime?  @db.Timestamptz(6)
-  // DESCRIPCION
-  description  String?    @db.Text
-  // CONDUCTOR / USUARIO — both FKs into the shared SalesContact directory, so
-  // everyone named on a voucher is registered master data rather than free text.
-  // Restrict: a contact cannot be deleted while vouchers still name them.
-  driverId     String?
-  driver       SalesContact? @relation("SaleDriver", fields: [driverId], references: [id], onDelete: Restrict)
-  userId       String?
-  user         SalesContact? @relation("SaleUser", fields: [userId], references: [id], onDelete: Restrict)
-  createdAt    DateTime   @default(now()) @db.Timestamptz(6)
-  updatedAt    DateTime   @updatedAt @db.Timestamptz(6)
-
-  @@index([nominationId])
-  @@index([clientId])
-  @@index([serviceId])
-  @@index([portId])
-  @@index([driverId])
-  @@index([userId])
-  @@map("sales")
 }
 
 // ---------------------------------------------------------------------------

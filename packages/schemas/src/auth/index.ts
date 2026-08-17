@@ -15,6 +15,13 @@ export const CurrentUserSchema = z.object({
   role: RoleSchema,
   isActive: z.boolean(),
   permissions: z.array(z.string()).default([]),
+  /**
+   * The user's default Sucursal. Service-request forms pre-fill from this
+   * ("Sucursal: carga según el usuario") but leave the field editable.
+   * Null for accounts that predate the column or have not been assigned one.
+   */
+  branchId: z.string().nullable().default(null),
+  branchCode: z.string().nullable().default(null),
 });
 export type CurrentUser = z.infer<typeof CurrentUserSchema>;
 

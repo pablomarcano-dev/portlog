@@ -39,6 +39,7 @@ import { SHDocumentsModule } from './sh-documents/sh-documents.module.js';
 import { BranchDocumentsModule } from './branch-documents/branch-documents.module.js';
 import { UsersModule } from './users/users.module.js';
 import { AttachmentsModule } from './attachments/attachments.module.js';
+import { ServiceRequestsModule } from './service-requests/service-requests.module.js';
 
 @Module({
   imports: [
@@ -112,6 +113,7 @@ import { AttachmentsModule } from './attachments/attachments.module.js';
     SalesContactsModule,
     UsersModule,
     AttachmentsModule,
+    ServiceRequestsModule,
   ],
   providers: [
     // Golden Rule 2 — every inbound body is validated by its canonical Zod schema.
