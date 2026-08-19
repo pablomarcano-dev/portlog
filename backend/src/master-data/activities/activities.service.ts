@@ -87,11 +87,16 @@ export class ActivitiesService {
   }
 
   async search(q: string) {
+    const term = q.trim();
     const items = await this.prisma.activity.findMany({
-      take: 20,
-      where: {
-        name: { contains: q, mode: 'insensitive' },
-      },
+      // The SOF activity picker uses an empty search to populate its dropdown.
+      // Return the complete master-data catalog so every configured activity is
+      // available; the catalog is small enough to load as picker options.
+      where: term
+        ? {
+            name: { contains: term, mode: 'insensitive' },
+          }
+        : undefined,
       orderBy: { name: 'asc' },
       select: { id: true, name: true },
     });

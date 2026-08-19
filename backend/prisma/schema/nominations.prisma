@@ -191,29 +191,35 @@ model NominationClient {
 // All timestamps are Timestamptz(6) — UTC-only, Golden Rule applies.
 // ---------------------------------------------------------------------------
 model SofTimesheet {
-  id                  String     @id @default(cuid())
-  nominationId        String     @unique @db.Uuid
-  nomination          Nomination @relation(fields: [nominationId], references: [id], onDelete: Cascade)
-  lastPortId          String?
-  lastPort            Port?      @relation("SofTimesheetLastPort", fields: [lastPortId], references: [id], onDelete: Restrict)
-  nextPortId          String?
-  nextPort            Port?      @relation("SofTimesheetNextPort", fields: [nextPortId], references: [id], onDelete: Restrict)
-  pierId              String?
-  pier                Pier?      @relation("SofTimesheetPier", fields: [pierId], references: [id], onDelete: Restrict)
-  captain             String?
-  mobileOnBoard       String?
+  id                        String     @id @default(cuid())
+  nominationId              String     @unique @db.Uuid
+  nomination                Nomination @relation(fields: [nominationId], references: [id], onDelete: Cascade)
+  lastPortId                String?
+  lastPort                  Port?      @relation("SofTimesheetLastPort", fields: [lastPortId], references: [id], onDelete: Restrict)
+  nextPortId                String?
+  nextPort                  Port?      @relation("SofTimesheetNextPort", fields: [nextPortId], references: [id], onDelete: Restrict)
+  pierId                    String?
+  pier                      Pier?      @relation("SofTimesheetPier", fields: [pierId], references: [id], onDelete: Restrict)
+  captain                   String?
+  mobileOnBoard             String?
   // Sub-modal JSON blobs — one per support dialog
-  bunkersData         Json?
-  draftData           Json?
-  sofParcelsData      Json?
-  blFiguresData       Json?
-  shipFiguresData     Json?
-  lettersData         Json?
-  remarksData         Json?
-  slopDischargedData  Json?
-  bunkersReceivedData Json?
-  createdAt           DateTime   @default(now()) @db.Timestamptz(6)
-  updatedAt           DateTime   @updatedAt @db.Timestamptz(6)
+  bunkersData               Json?
+  draftData                 Json?
+  sofParcelsData            Json?
+  blFiguresData             Json?
+  shipFiguresData           Json?
+  lettersData               Json?
+  remarksData               Json?
+  slopDischargedData        Json?
+  bunkersReceivedData       Json?
+  // Controls whether each support-dialog block is rendered in the final SOF.
+  // Data is retained when a block is hidden so operators can re-enable it.
+  includeBunkersDraftParcel Boolean    @default(true)
+  includeBillShipFigures    Boolean    @default(true)
+  includeLettersRemarks     Boolean    @default(true)
+  includeSlopBunkers        Boolean    @default(true)
+  createdAt                 DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt                 DateTime   @updatedAt @db.Timestamptz(6)
 
   entries SofEntry[]
 

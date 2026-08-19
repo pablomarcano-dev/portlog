@@ -12,6 +12,7 @@ import {
   ActionIcon,
   Box,
   Divider,
+  Switch,
 } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useDisclosure, useDebouncedValue } from '@mantine/hooks';
@@ -55,6 +56,10 @@ const sofFormSchema = z.object({
   pierId: z.string().nullable(),
   captain: z.string().default(''),
   mobileOnBoard: z.string().default(''),
+  includeBunkersDraftParcel: z.boolean().default(true),
+  includeBillShipFigures: z.boolean().default(true),
+  includeLettersRemarks: z.boolean().default(true),
+  includeSlopBunkers: z.boolean().default(true),
   entries: z.array(sofEntryFormSchema).default([]),
 });
 
@@ -104,6 +109,10 @@ function buildDefaultValues(data: SofTimesheetResponse | undefined): SofFormValu
       pierId: null,
       captain: '',
       mobileOnBoard: '',
+      includeBunkersDraftParcel: true,
+      includeBillShipFigures: true,
+      includeLettersRemarks: true,
+      includeSlopBunkers: true,
       entries: [],
     };
   }
@@ -113,6 +122,10 @@ function buildDefaultValues(data: SofTimesheetResponse | undefined): SofFormValu
     pierId: data.pierId ?? null,
     captain: data.captain ?? '',
     mobileOnBoard: data.mobileOnBoard ?? '',
+    includeBunkersDraftParcel: data.includeBunkersDraftParcel ?? true,
+    includeBillShipFigures: data.includeBillShipFigures ?? true,
+    includeLettersRemarks: data.includeLettersRemarks ?? true,
+    includeSlopBunkers: data.includeSlopBunkers ?? true,
     entries: data.entries.map((e) => {
       const { date, time } = splitDateTime(e.occurredAt);
       return {
@@ -127,8 +140,8 @@ function buildDefaultValues(data: SofTimesheetResponse | undefined): SofFormValu
 }
 
 // ---------------------------------------------------------------------------
-// Activity cell — typeahead search against /master-data/activities/search
-// instead of loading the full activity catalog into the dropdown.
+// Activity cell — the empty search loads the complete Master Data activity
+// catalog; typing narrows it through /master-data/activities/search.
 // ---------------------------------------------------------------------------
 
 function ActivityCell({ control, index }: { control: Control<SofFormValues>; index: number }) {
@@ -145,9 +158,8 @@ function ActivityCell({ control, index }: { control: Control<SofFormValues>; ind
   const value = idField.value;
   const label = labelField.value;
 
-  // The search returns 20 of ~350 activities, so the saved one is usually
-  // absent from the results — and Mantine renders an empty box for a value it
-  // cannot look up, which reads as "the activity was never saved".
+  // Keep a saved option visible defensively if it no longer exists in Master
+  // Data or is excluded by the current search.
   const options =
     value && label && !results.some((o) => o.value === value)
       ? [{ value, label }, ...results]
@@ -296,6 +308,10 @@ export function SofTimesheetModal({
       remarksData: sofData?.remarksData ?? undefined,
       slopDischargedData: sofData?.slopDischargedData ?? undefined,
       bunkersReceivedData: sofData?.bunkersReceivedData ?? undefined,
+      includeBunkersDraftParcel: vals.includeBunkersDraftParcel,
+      includeBillShipFigures: vals.includeBillShipFigures,
+      includeLettersRemarks: vals.includeLettersRemarks,
+      includeSlopBunkers: vals.includeSlopBunkers,
     };
   }
 
@@ -313,7 +329,18 @@ export function SofTimesheetModal({
   }
 
   function handleInsert() {
-    append({ date: null, time: '', activityId: null, activityLabel: '', comment: '' });
+    const entries = form.getValues('entries');
+    const previousDate = entries[entries.length - 1]?.date ?? null;
+
+    append({
+      // Consecutive SOF events normally occur on the same day. Copy the date
+      // into the new row while keeping every other field ready for new input.
+      date: previousDate ? new Date(previousDate) : null,
+      time: '',
+      activityId: null,
+      activityLabel: '',
+      comment: '',
+    });
   }
 
   function handleDelete() {
@@ -343,6 +370,10 @@ export function SofTimesheetModal({
         pierId: vals.pierId ?? null,
         captain: vals.captain || null,
         mobileOnBoard: vals.mobileOnBoard || null,
+        includeBunkersDraftParcel: vals.includeBunkersDraftParcel,
+        includeBillShipFigures: vals.includeBillShipFigures,
+        includeLettersRemarks: vals.includeLettersRemarks,
+        includeSlopBunkers: vals.includeSlopBunkers,
         entries,
       },
       {
@@ -597,38 +628,94 @@ export function SofTimesheetModal({
                       Send SOF Email
                     </Button>
                   )}
-                  <Button
-                    size="xs"
-                    variant="default"
-                    onClick={openBunkersDraftParcel}
-                    disabled={saveMutation.isPending}
-                  >
-                    Bunkers/Draft/Parcel
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="default"
-                    onClick={openBillShipFigures}
-                    disabled={saveMutation.isPending}
-                  >
-                    Bill Fig./Ship Fig.
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="default"
-                    onClick={openLettersRemarks}
-                    disabled={saveMutation.isPending}
-                  >
-                    Letters/Remarks
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="default"
-                    onClick={openSlopBunkers}
-                    disabled={saveMutation.isPending}
-                  >
-                    Slop/B. Received
-                  </Button>
+                  <Stack gap={2} align="center">
+                    <Button
+                      size="xs"
+                      variant="default"
+                      onClick={openBunkersDraftParcel}
+                      disabled={saveMutation.isPending}
+                    >
+                      Bunkers/Draft/Parcel
+                    </Button>
+                    <Controller
+                      name="includeBunkersDraftParcel"
+                      control={control}
+                      render={({ field }) => (
+                        <Switch
+                          size="xs"
+                          label="Show in final SOF"
+                          checked={field.value}
+                          onChange={(event) => field.onChange(event.currentTarget.checked)}
+                        />
+                      )}
+                    />
+                  </Stack>
+                  <Stack gap={2} align="center">
+                    <Button
+                      size="xs"
+                      variant="default"
+                      onClick={openBillShipFigures}
+                      disabled={saveMutation.isPending}
+                    >
+                      Bill Fig./Ship Fig.
+                    </Button>
+                    <Controller
+                      name="includeBillShipFigures"
+                      control={control}
+                      render={({ field }) => (
+                        <Switch
+                          size="xs"
+                          label="Show in final SOF"
+                          checked={field.value}
+                          onChange={(event) => field.onChange(event.currentTarget.checked)}
+                        />
+                      )}
+                    />
+                  </Stack>
+                  <Stack gap={2} align="center">
+                    <Button
+                      size="xs"
+                      variant="default"
+                      onClick={openLettersRemarks}
+                      disabled={saveMutation.isPending}
+                    >
+                      Letters/Remarks
+                    </Button>
+                    <Controller
+                      name="includeLettersRemarks"
+                      control={control}
+                      render={({ field }) => (
+                        <Switch
+                          size="xs"
+                          label="Show in final SOF"
+                          checked={field.value}
+                          onChange={(event) => field.onChange(event.currentTarget.checked)}
+                        />
+                      )}
+                    />
+                  </Stack>
+                  <Stack gap={2} align="center">
+                    <Button
+                      size="xs"
+                      variant="default"
+                      onClick={openSlopBunkers}
+                      disabled={saveMutation.isPending}
+                    >
+                      Slop/B. Received
+                    </Button>
+                    <Controller
+                      name="includeSlopBunkers"
+                      control={control}
+                      render={({ field }) => (
+                        <Switch
+                          size="xs"
+                          label="Show in final SOF"
+                          checked={field.value}
+                          onChange={(event) => field.onChange(event.currentTarget.checked)}
+                        />
+                      )}
+                    />
+                  </Stack>
                 </Group>
                 <Group gap="xs">
                   <Button variant="default" onClick={handleClose} disabled={saveMutation.isPending}>

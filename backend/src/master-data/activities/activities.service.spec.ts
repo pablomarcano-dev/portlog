@@ -57,6 +57,42 @@ describe('ActivitiesService', () => {
   });
 
   // -------------------------------------------------------------------------
+  // search (SOF activity dropdown)
+  // -------------------------------------------------------------------------
+  describe('search', () => {
+    it('returns the complete activity catalog for an empty dropdown search', async () => {
+      mockPrisma.activity.findMany.mockResolvedValue([
+        mockActivity,
+        { ...mockActivity, id: 'activity-cuid-2', name: 'Notice of Readiness Tendered' },
+      ]);
+
+      const result = await service.search('');
+
+      expect(mockPrisma.activity.findMany).toHaveBeenCalledWith({
+        where: undefined,
+        orderBy: { name: 'asc' },
+        select: { id: true, name: true },
+      });
+      expect(result).toEqual([
+        { id: 'activity-cuid-1', label: 'Loading' },
+        { id: 'activity-cuid-2', label: 'Notice of Readiness Tendered' },
+      ]);
+    });
+
+    it('trims and applies a case-insensitive name filter', async () => {
+      mockPrisma.activity.findMany.mockResolvedValue([mockActivity]);
+
+      await service.search('  load  ');
+
+      expect(mockPrisma.activity.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { name: { contains: 'load', mode: 'insensitive' } },
+        }),
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // getById
   // -------------------------------------------------------------------------
   describe('getById', () => {

@@ -1136,22 +1136,23 @@ export class NominationsService {
 
       // Arrival / Sailed conditions — bunkers remaining on board plus draft, as
       // recorded in the Bunkers & Draft dialog.
-      templateVars.arrival_conditions_section = NominationsService.formatVesselConditions(
-        sof?.bunkersData,
-        sof?.draftData,
-        'arrival',
-      );
-      templateVars.sailed_conditions_section = NominationsService.formatVesselConditions(
-        sof?.bunkersData,
-        sof?.draftData,
-        'sailing',
-      );
+      const includeBunkersDraftParcel = sof?.includeBunkersDraftParcel ?? true;
+      const includeBillShipFigures = sof?.includeBillShipFigures ?? true;
+      const includeLettersRemarks = sof?.includeLettersRemarks ?? true;
+      const includeSlopBunkers = sof?.includeSlopBunkers ?? true;
+
+      templateVars.arrival_conditions_section = includeBunkersDraftParcel
+        ? NominationsService.formatVesselConditions(sof?.bunkersData, sof?.draftData, 'arrival')
+        : '';
+      templateVars.sailed_conditions_section = includeBunkersDraftParcel
+        ? NominationsService.formatVesselConditions(sof?.bunkersData, sof?.draftData, 'sailing')
+        : '';
 
       // Vessel Cargo Figures — the ship's own loaded figures, stated alongside
       // the bills of lading so the two can be compared.
-      templateVars.vessel_cargo_figures_section = NominationsService.formatVesselCargoFigures(
-        sof?.shipFiguresData,
-      );
+      templateVars.vessel_cargo_figures_section = includeBillShipFigures
+        ? NominationsService.formatVesselCargoFigures(sof?.shipFiguresData)
+        : '';
 
       // BL Figures section (one block per cargo column)
       type DynRows = Record<string, string[]>;
@@ -1212,7 +1213,7 @@ export class NominationsService {
         ];
         return lines.join('\n');
       });
-      templateVars.bl_figures_section = blBlocks.join('\n');
+      templateVars.bl_figures_section = includeBillShipFigures ? blBlocks.join('\n') : '';
 
       // Slop discharged / bunkers received
       type SlopRow = { event?: string; date?: string; time?: string };
@@ -1245,19 +1246,21 @@ export class NominationsService {
       if (bunkerLines.length > 0) {
         slopBunkersBlocks.push(['Bunkers Received:', ...bunkerLines].join('\n'));
       }
-      templateVars.slop_bunkers_section = slopBunkersBlocks.join('\n\n');
+      templateVars.slop_bunkers_section = includeSlopBunkers ? slopBunkersBlocks.join('\n\n') : '';
 
       // Letters of protest — a zero-padded numbered list of the protests raised,
       // which is how they are read off the statement. The from/to pair is not
       // restated per line: the section heading already says who protested to whom.
       type LetterItem = { from?: string; to?: string; comment?: string };
       const lettersData = sof?.lettersData as { items?: LetterItem[] } | null;
-      templateVars.letters_section = (lettersData?.items ?? [])
-        .map((l, i) => {
-          const subject = (l.comment ?? '').trim() || (l.to ?? '').trim();
-          return `${String(i + 1).padStart(2, '0')}. ${subject}`;
-        })
-        .join('\n');
+      templateVars.letters_section = includeLettersRemarks
+        ? (lettersData?.items ?? [])
+            .map((l, i) => {
+              const subject = (l.comment ?? '').trim() || (l.to ?? '').trim();
+              return `${String(i + 1).padStart(2, '0')}. ${subject}`;
+            })
+            .join('\n')
+        : '';
 
       // Remarks
       type RemarkItem = {
@@ -1272,18 +1275,22 @@ export class NominationsService {
       // reads as a span: "Fm <start> To <end> <reason>". A remark without both
       // ends still prints, rather than being dropped for being incomplete.
       const remarksData = sof?.remarksData as { items?: RemarkItem[] } | null;
-      templateVars.remarks_section = (remarksData?.items ?? [])
-        .map((r) => {
-          const stamp = (date?: string, time?: string) =>
-            [date?.trim(), time?.trim()].filter(Boolean).join(' ');
-          const from = stamp(r.beginDate, r.beginTime);
-          const to = stamp(r.endDate, r.endTime);
-          const span = [from ? `Fm ${from}` : '', to ? `To ${to}` : ''].filter(Boolean).join(' ');
-          const reason = (r.remark ?? '').trim();
-          return [span, reason, (r.comment ?? '').trim()].filter(Boolean).join(' ');
-        })
-        .filter((line) => line !== '')
-        .join('\n');
+      templateVars.remarks_section = includeLettersRemarks
+        ? (remarksData?.items ?? [])
+            .map((r) => {
+              const stamp = (date?: string, time?: string) =>
+                [date?.trim(), time?.trim()].filter(Boolean).join(' ');
+              const from = stamp(r.beginDate, r.beginTime);
+              const to = stamp(r.endDate, r.endTime);
+              const span = [from ? `Fm ${from}` : '', to ? `To ${to}` : '']
+                .filter(Boolean)
+                .join(' ');
+              const reason = (r.remark ?? '').trim();
+              return [span, reason, (r.comment ?? '').trim()].filter(Boolean).join(' ');
+            })
+            .filter((line) => line !== '')
+            .join('\n')
+        : '';
 
       // Operation string
       const fp = (nomination.parcels as Array<Record<string, unknown>>)[0] ?? {};
@@ -1887,6 +1894,10 @@ export class NominationsService {
       pier: null,
       captain: nomination.master ?? null,
       mobileOnBoard: null,
+      includeBunkersDraftParcel: true,
+      includeBillShipFigures: true,
+      includeLettersRemarks: true,
+      includeSlopBunkers: true,
       entries: [],
     };
   }
@@ -1904,6 +1915,10 @@ export class NominationsService {
           pierId: dto.pierId ?? null,
           captain: dto.captain ?? null,
           mobileOnBoard: dto.mobileOnBoard ?? null,
+          includeBunkersDraftParcel: dto.includeBunkersDraftParcel ?? true,
+          includeBillShipFigures: dto.includeBillShipFigures ?? true,
+          includeLettersRemarks: dto.includeLettersRemarks ?? true,
+          includeSlopBunkers: dto.includeSlopBunkers ?? true,
           ...(dto.bunkersData != null && { bunkersData: dto.bunkersData }),
           ...(dto.draftData != null && { draftData: dto.draftData }),
           ...(dto.sofParcelsData != null && { sofParcelsData: dto.sofParcelsData }),
@@ -1924,6 +1939,18 @@ export class NominationsService {
           pierId: dto.pierId ?? null,
           captain: dto.captain ?? null,
           mobileOnBoard: dto.mobileOnBoard ?? null,
+          ...(dto.includeBunkersDraftParcel != null && {
+            includeBunkersDraftParcel: dto.includeBunkersDraftParcel,
+          }),
+          ...(dto.includeBillShipFigures != null && {
+            includeBillShipFigures: dto.includeBillShipFigures,
+          }),
+          ...(dto.includeLettersRemarks != null && {
+            includeLettersRemarks: dto.includeLettersRemarks,
+          }),
+          ...(dto.includeSlopBunkers != null && {
+            includeSlopBunkers: dto.includeSlopBunkers,
+          }),
           ...(dto.bunkersData != null && { bunkersData: dto.bunkersData }),
           ...(dto.draftData != null && { draftData: dto.draftData }),
           ...(dto.sofParcelsData != null && { sofParcelsData: dto.sofParcelsData }),

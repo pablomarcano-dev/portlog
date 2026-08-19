@@ -134,6 +134,10 @@ export const SofTimesheetInputSchema = z.object({
   remarksData: SofRemarksDataSchema.nullable().optional(),
   slopDischargedData: SofSlopDischargedDataSchema.nullable().optional(),
   bunkersReceivedData: SofBunkersReceivedDataSchema.nullable().optional(),
+  includeBunkersDraftParcel: z.boolean().optional(),
+  includeBillShipFigures: z.boolean().optional(),
+  includeLettersRemarks: z.boolean().optional(),
+  includeSlopBunkers: z.boolean().optional(),
 });
 export type SofTimesheetInput = z.infer<typeof SofTimesheetInputSchema>;
 
@@ -179,6 +183,10 @@ export const SofTimesheetResponseSchema = z.object({
   remarksData: SofRemarksDataSchema.nullable().optional(),
   slopDischargedData: SofSlopDischargedDataSchema.nullable().optional(),
   bunkersReceivedData: SofBunkersReceivedDataSchema.nullable().optional(),
+  includeBunkersDraftParcel: z.boolean().default(true),
+  includeBillShipFigures: z.boolean().default(true),
+  includeLettersRemarks: z.boolean().default(true),
+  includeSlopBunkers: z.boolean().default(true),
   createdAt: z.coerce.date().optional(),
   updatedAt: z.coerce.date().optional(),
 });

@@ -123,6 +123,13 @@ export function useSaveActivity(selectedId: string | null) {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['activities'] });
+      // SOF rows carry the current activity name beside the stored activityId.
+      // Refresh cached timesheets after a rename so they cannot keep displaying
+      // the old master-data label.
+      void qc.invalidateQueries({
+        predicate: ({ queryKey }) =>
+          queryKey[0] === 'nominations' && queryKey[queryKey.length - 1] === 'sof',
+      });
     },
   });
 }
@@ -133,6 +140,10 @@ export function useDeleteActivity() {
     mutationFn: (id: string) => activitiesApi.delete(id),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['activities'] });
+      void qc.invalidateQueries({
+        predicate: ({ queryKey }) =>
+          queryKey[0] === 'nominations' && queryKey[queryKey.length - 1] === 'sof',
+      });
     },
   });
 }

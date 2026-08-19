@@ -1323,6 +1323,48 @@ describe('NominationsService', () => {
 
       expect(lastTemplateVars()['vessel_cargo_figures_section']).toBe('');
     });
+
+    it('suppresses each optional support block when excluded from the final SOF', async () => {
+      mockPrisma.sofTimesheet.findUnique.mockResolvedValue({
+        ...SOF_FIXTURE,
+        includeBunkersDraftParcel: false,
+        includeBillShipFigures: false,
+        includeLettersRemarks: false,
+        includeSlopBunkers: false,
+        bunkersData: { IFO: { arrival: '100', sailing: '80' } },
+        draftData: { FWD: { arrival: '8', sailing: '7' } },
+        lettersData: { items: [{ from: 'Master', to: 'Shore', comment: 'Protest' }] },
+        remarksData: {
+          items: [
+            {
+              remark: 'Rain',
+              beginDate: '01/08/2026',
+              beginTime: '10:00',
+              endDate: '01/08/2026',
+              endTime: '11:00',
+              comment: '',
+            },
+          ],
+        },
+        slopDischargedData: {
+          rows: [{ event: 'Slop', date: '01/08/2026', time: '12:00' }],
+        },
+      });
+
+      await service.getComposeData(NOM_ID, 'SOF', 'agent@navieramar.com');
+
+      expect(lastTemplateVars()).toEqual(
+        expect.objectContaining({
+          arrival_conditions_section: '',
+          sailed_conditions_section: '',
+          bl_figures_section: '',
+          vessel_cargo_figures_section: '',
+          letters_section: '',
+          remarks_section: '',
+          slop_bunkers_section: '',
+        }),
+      );
+    });
   });
 
   // -------------------------------------------------------------------------
