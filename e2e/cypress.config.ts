@@ -1,6 +1,6 @@
 import { defineConfig } from 'cypress';
 import * as dotenv from 'dotenv';
-import { resetDb } from './cypress/tasks/db';
+import { resetDb, seedEtaRecipientFixture, cleanupEtaRecipientFixture } from './cypress/tasks/db';
 
 dotenv.config({ path: '.env.local' });
 
@@ -21,7 +21,7 @@ export default defineConfig({
       ADM_PASSWORD: 'portlog_admin_dev',
     },
     setupNodeEvents(on) {
-      on('task', { resetDb });
+      on('task', { resetDb, seedEtaRecipientFixture, cleanupEtaRecipientFixture });
     },
   },
 });
