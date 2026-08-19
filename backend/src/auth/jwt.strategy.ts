@@ -32,6 +32,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: secret,
+      // Pin the accepted algorithm rather than trusting the token's own header.
+      // Not exploitable today — the secret is symmetric, so jsonwebtoken already
+      // restricts verification to the HS family and rejects alg: none — but that
+      // protection is incidental. The day this moves to an asymmetric key it
+      // disappears silently, and RS256-to-HS256 confusion becomes live.
+      algorithms: ['HS256'],
     });
   }
 

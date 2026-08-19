@@ -50,3 +50,8 @@ e2e/cypress/videos
 backend/scripts/*.js
 backend/scripts/*.js.map
 backend/scripts/*.d.ts
+
+# Security audit
+# Raw scanner artifacts are bulky and regenerable; the triaged SUMMARY.md is not.
+security/reports/*/
+security/targets.env

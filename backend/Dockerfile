@@ -64,6 +64,20 @@ COPY --from=build /app/packages/schemas/dist ./packages/schemas/dist
 COPY --from=build /app/packages/schemas/package.json ./packages/schemas/package.json
 
 WORKDIR /app/backend
+
+# Run as an unprivileged user. Any RCE in the Node process — a bad dependency, a
+# Chromium escape while rendering a PDF — otherwise starts as root.
+#
+# The alpine base already ships a `node` user (uid 1000). Ownership is handed to
+# it because both startup paths write: `prisma migrate deploy` needs a writable
+# prisma directory for its engine, and Puppeteer writes scratch files while
+# rendering. `npx` also wants a writable HOME, hence the explicit setting —
+# without it npm falls back to / and the migration step fails at boot rather
+# than at build.
+RUN chown -R node:node /app
+ENV HOME=/home/node
+USER node
+
 EXPOSE 3000
 
 # In production, run migrations then start the server.

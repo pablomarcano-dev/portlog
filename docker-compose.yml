@@ -75,11 +75,20 @@ services:
       retries: 5
 
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     command: server /data --console-address ":9001"
-    ports:
-      - '9000:9000'
-      - '9001:9001'
+    # expose, not ports: both the S3 API (9000) and the admin console (9001) stay
+    # on the compose network. Publishing them put a login page for the bucket
+    # holding every issued PEDR/SOF/NOR on the public internet, guarded only by
+    # MINIO_ROOT_PASSWORD — and write access there means a document can be
+    # silently replaced after issue.
+    # The backend reaches this at minio:9000 via MINIO_ENDPOINT; downloads are
+    # streamed through GET /api/attachments/:id/download, so nothing outside this
+    # network ever needs either port.
+    # To reach the console for admin work: ssh -L 9001:minio:9001 portlog-prod
+    expose:
+      - '9000'
+      - '9001'
     volumes:
       - minio-data:/data
     environment:

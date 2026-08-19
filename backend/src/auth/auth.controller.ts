@@ -94,6 +94,10 @@ export class AuthController {
    * Returns 401 if cookie is missing, token is invalid, expired, or revoked.
    */
   @Public()
+  // Unauthenticated and token-guessing surface, so it does not belong on the
+  // global 60/min default. More generous than login because a legitimate client
+  // refreshes on a timer and several tabs can refresh at once.
+  @Throttle({ default: { limit: 20, ttl: 15 * 60 * 1000 } })
   @Post('refresh')
   async refresh(
     @Req() req: FastifyRequestWithCookies,

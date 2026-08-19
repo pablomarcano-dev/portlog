@@ -40,6 +40,7 @@ import { BranchDocumentsModule } from './branch-documents/branch-documents.modul
 import { UsersModule } from './users/users.module.js';
 import { AttachmentsModule } from './attachments/attachments.module.js';
 import { ServiceRequestsModule } from './service-requests/service-requests.module.js';
+import { validateEnv } from './config/env.schema.js';
 
 @Module({
   imports: [
@@ -51,6 +52,9 @@ import { ServiceRequestsModule } from './service-requests/service-requests.modul
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: join(__dirname, '..', '.env'),
+      // Refuse to boot on a bad environment rather than run with a security
+      // control silently defaulted off. See config/env.schema.ts.
+      validate: validateEnv,
     }),
 
     // Golden Rule 8: Structured logging with pino.
@@ -61,6 +65,18 @@ import { ServiceRequestsModule } from './service-requests/service-requests.modul
         redact: [
           'req.body.password',
           'req.headers.authorization',
+          // pino-http's default serializers emit req.headers and res.headers
+          // wholesale, so these two carry the refresh token into the logs: the
+          // cookie has path '/' and rides every request, and Set-Cookie carries
+          // the freshly issued one on login and refresh. A 30-day bearer
+          // credential in plaintext logs is a worse leak than the DB.
+          // Bracket syntax for set-cookie: it is the form pino documents for
+          // keys containing a hyphen, and it is unambiguous. (Verified both
+          // forms redact on the pino version we ship — but the dot form relies
+          // on fast-redact's lenient parsing rather than on documented
+          // behaviour, so it is not worth depending on.)
+          'req.headers.cookie',
+          'res.headers["set-cookie"]',
           '*.passwordHash',
           '*.tokenHash',
           '*.token',

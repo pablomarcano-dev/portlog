@@ -18,6 +18,7 @@ Read the relevant doc before acting in its area; do not re-derive what's already
 - [docs/FRONTEND.md](docs/FRONTEND.md) — SPA rationale, project structure, routing/query/form patterns, end-to-end type chain, bundle targets.
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — Dockerfiles, `docker-compose.yml`, Nginx config, env vars, prod checklist, backup/DR.
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — daily commands (backend, frontend, Prisma, Neon, Docker, testing), debugging, common gotchas.
+- [docs/SECURITY.md](docs/SECURITY.md) — threat model, the seven audit layers, chosen free toolchain (and rejected alternatives), the weekly Orca automation, and open findings.
 
 ## Domain Stakes
 
