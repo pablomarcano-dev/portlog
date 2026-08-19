@@ -217,22 +217,37 @@ Guard/decorator implementation is deferred to M2-S12 (Owner CRUD story).
 
 ## 08. Service Requests
 
-- **Purpose**: Manage operational service requests (launch boats, taxis, supplies, crew transport) tied to a nomination.
-- **Milestone**: M6
-- **Roles**: OPS, ADM
-- **Key Entities**: `service_requests`, `service_request_status_history`, links to `providers`, `activities`
+- **Purpose**: Horizontal sales/procurement module — request an operational service against a
+  **vessel**, generate the Orden de Compra, and email it to the provider. Replaces the
+  nomination-scoped `Sale` (dropped 2026-08-08).
+- **Milestone**: M6 — **delivered 2026-08-08**
+- **Roles**: OPS, ADM (both; matches the Sales flow it replaces)
+- **Key Entities**: `service_requests`, `service_request_dispatches`; FKs to `ship_particulars`
+  (the anchor), `branches`, `suppliers` (Proveedor), `ports`/`piers`, `clients` (bill-to) and an
+  optional soft link to `nominations`. Authorisation uploads reuse `email_attachments`.
+- **Types**: `LAUNCH` (Lanchaje), `UNDERWATER_INSPECTION` (Subacuáticas), `BALLAST_WATER`
+  (Agua de Lastre), `TUG` (Remolcadores), `STS` (Ship-to-Ship), `GENERAL` (ad-hoc paper voucher).
+  One table; the per-type payload lives in `details Json`, validated by a Zod discriminated union.
 - **Core Workflows**:
-  - Create request linked to a nomination
-  - Dispatch to a provider via WhatsApp/email
-  - Track status (Requested → Confirmed → Completed / Cancelled)
-  - Cost recording (feeds into Financial module)
-- **External Dependencies**: WhatsApp Dispatch, Email Dispatch, Master Data (providers)
-- **Outputs**: Provider notifications, cost line items
+  - Pick a type → 5-step stepper (Identificación → Servicio → Documentación → Facturación → Revisión)
+  - Auto-generate the control number `SN1234/26/PLC` from an own correlative sequence
+  - Upload the `Carta de Autorización`; mandatory for the diving, ballast and STS forms and for
+    the _(Asignada)_ / basura / tripulación launch types — enforced on send, not on draft save
+  - `Generar Orden y Enviar` → render the OC PDF → email it to the provider with the
+    authorisation documents attached → append a dispatch row
+  - Reconcile afterwards: physical voucher number, actual cost, mark completed
+- **External Dependencies**: Email Dispatch, MinIO storage, PDF (Puppeteer), Master Data
+  (suppliers, branches, ship particulars, ports/piers, clients)
+- **Outputs**: Orden de Compra PDF, provider email, dispatch audit log, cost line items for the
+  future Financial module
 - **Open Questions**:
-  - [ ] Full taxonomy of service types?
-  - [ ] Provider auto-assignment vs manual selection?
-  - [ ] Status confirmation — automated via WhatsApp reply parsing, or manual entry?
-  - [ ] SLA tracking required?
+  - [ ] Control numbers can collide with nomination references (both render `SN1234/26/PLC` from
+        separate sequences) — confirm the format or switch the prefix
+  - [ ] Currency is a bare `currency` column defaulting to `VES`; no FX handling
+  - [ ] Should a provider be restricted to the service types it actually offers?
+  - [ ] `details.serviceId` on a `GENERAL` request references the `Service` catalogue with no FK
+  - [ ] WhatsApp dispatch (module 11) not wired in — email only
+  - [ ] No Cypress coverage yet
 
 ---
 

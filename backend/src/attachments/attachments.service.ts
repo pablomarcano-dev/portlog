@@ -91,8 +91,16 @@ export class AttachmentsService {
   async delete(id: string, userId: string): Promise<void> {
     const row = await this.prisma.emailAttachment.findUnique({ where: { id } });
     if (!row) throw new NotFoundException('Attachment not found');
-    if (row.emailDispatchId || row.shDocumentDispatchId) {
+    if (row.emailDispatchId || row.shDocumentDispatchId || row.serviceRequestDispatchId) {
       throw new ConflictException('Attachment has already been sent and cannot be deleted');
+    }
+    // A file filed against a service request is that request's document, not a
+    // staged upload — it is removed through the request's own endpoint so the
+    // ownership check runs.
+    if (row.serviceRequestId) {
+      throw new ConflictException(
+        'Attachment belongs to a service request — delete it from that request',
+      );
     }
 
     // Best-effort object removal; the row delete is authoritative.
@@ -162,6 +170,96 @@ export class AttachmentsService {
       where: { id: { in: [...new Set(ids)] } },
       data: { shDocumentDispatchId },
     });
+  }
+
+  /** Link staged attachments to a service-request dispatch after send. */
+  async linkToServiceRequestDispatch(
+    ids: string[],
+    serviceRequestDispatchId: string,
+  ): Promise<void> {
+    if (!ids.length) return;
+    await this.prisma.emailAttachment.updateMany({
+      where: { id: { in: [...new Set(ids)] } },
+      data: { serviceRequestDispatchId },
+    });
+  }
+
+  /**
+   * Attach a staged upload to a service request as one of its own documents —
+   * the `Carga de Autorización` (Capitanía letter) and any supporting scans.
+   *
+   * Unlike the dispatch links above this is not a send-time consumption: the
+   * file belongs to the request for its whole life and is re-attached to every
+   * Orden de Compra resend. Rejects a file that has already gone out on an
+   * email, since that row is part of an append-only audit record.
+   */
+  async attachToServiceRequest(ids: string[], serviceRequestId: string): Promise<void> {
+    if (!ids.length) return;
+    const uniqueIds = [...new Set(ids)];
+
+    const rows = await this.prisma.emailAttachment.findMany({
+      where: { id: { in: uniqueIds } },
+      select: {
+        id: true,
+        emailDispatchId: true,
+        shDocumentDispatchId: true,
+        serviceRequestDispatchId: true,
+        serviceRequestId: true,
+      },
+    });
+    if (rows.length !== uniqueIds.length) {
+      throw new BadRequestException('One or more attachments no longer exist');
+    }
+    for (const row of rows) {
+      const alreadySent =
+        row.emailDispatchId || row.shDocumentDispatchId || row.serviceRequestDispatchId;
+      if (alreadySent) {
+        throw new ConflictException('Attachment has already been sent and cannot be re-filed');
+      }
+      if (row.serviceRequestId && row.serviceRequestId !== serviceRequestId) {
+        throw new ConflictException('Attachment already belongs to another service request');
+      }
+    }
+
+    await this.prisma.emailAttachment.updateMany({
+      where: { id: { in: uniqueIds } },
+      data: { serviceRequestId },
+    });
+  }
+
+  /**
+   * Detach and delete one of a service request's own documents. Guarded the
+   * same way as `delete`: once the file has ridden out on an OC it is audit
+   * evidence and stays put.
+   */
+  async removeFromServiceRequest(id: string, serviceRequestId: string): Promise<void> {
+    const row = await this.prisma.emailAttachment.findUnique({ where: { id } });
+    if (!row || row.serviceRequestId !== serviceRequestId) {
+      throw new NotFoundException('Attachment not found on this service request');
+    }
+    if (row.emailDispatchId || row.shDocumentDispatchId || row.serviceRequestDispatchId) {
+      throw new ConflictException('Attachment has already been sent and cannot be deleted');
+    }
+    try {
+      await this.storage.deleteFile(row.minioKey);
+    } catch (err) {
+      this.logger.warn({ event: 'attachment.delete.storage.warn', id, err });
+    }
+    await this.prisma.emailAttachment.delete({ where: { id } });
+  }
+
+  /** The request's own documents, oldest first, as email-ready buffers. */
+  async resolveServiceRequestDocuments(serviceRequestId: string): Promise<ResolvedAttachment[]> {
+    const rows = await this.prisma.emailAttachment.findMany({
+      where: { serviceRequestId },
+      orderBy: { createdAt: 'asc' },
+    });
+    const resolved: ResolvedAttachment[] = [];
+    for (const row of rows) {
+      const content = await this.storage.getFileBuffer(row.minioKey);
+      resolved.push({ filename: row.filename, content, contentType: row.mimeType });
+    }
+    return resolved;
   }
 }
 

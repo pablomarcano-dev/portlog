@@ -158,6 +158,8 @@ export class AuthService {
         role: user.role,
         isActive: user.isActive,
         permissions: user.permissions ?? [],
+        branchId: user.branchId ?? null,
+        branchCode: user.branch?.code ?? null,
       },
     };
 
@@ -265,6 +267,8 @@ export class AuthService {
       role: user.role,
       isActive: user.isActive,
       permissions: user.permissions ?? [],
+      branchId: user.branchId ?? null,
+      branchCode: user.branch?.code ?? null,
     };
   }
 }

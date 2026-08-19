@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; margin: 36px 44px; color: #111; }
+  .masthead { display: flex; justify-content: space-between; align-items: flex-start;
+              border-bottom: 2px solid #111; padding-bottom: 12px; margin-bottom: 18px; }
+  .company { font-size: 16px; font-weight: bold; letter-spacing: .5px; }
+  .company small { display: block; font-size: 10px; font-weight: normal; color: #555; letter-spacing: 0; }
+  .control { text-align: right; }
+  .control .label { font-size: 10px; text-transform: uppercase; color: #555; letter-spacing: .5px; }
+  .control .value { font-size: 18px; font-weight: bold; border: 2px solid #111; padding: 4px 10px;
+                    display: inline-block; margin-top: 2px; }
+  h1 { font-size: 15px; text-align: center; text-transform: uppercase; letter-spacing: 1px;
+       margin: 0 0 4px; }
+  .subtitle { text-align: center; font-size: 12px; color: #444; margin-bottom: 20px; }
+  section { margin-bottom: 18px; }
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: #333;
+       border-bottom: 1px solid #bbb; padding-bottom: 3px; margin: 0 0 8px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; vertical-align: top; padding: 5px 8px; border: 1px solid #999; }
+  th { background: #f0f0f0; width: 34%; font-weight: bold; }
+  .notes { white-space: pre-wrap; border: 1px solid #999; padding: 8px; min-height: 40px; }
+  ul { margin: 0; padding-left: 18px; }
+  .signatures { display: flex; justify-content: space-between; margin-top: 48px; }
+  .sig { width: 44%; }
+  .sig-line { border-top: 1px solid #111; margin-top: 44px; padding-top: 4px;
+              font-size: 10px; text-align: center; color: #444; }
+  .footer { margin-top: 22px; border-top: 1px solid #ddd; padding-top: 6px;
+            font-size: 9px; color: #888; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+  <div class="masthead">
+    <div class="company">
+      Servicios Navieramar, C.A.
+      <small>Sucursal {{branch.name}} ({{branch.code}})</small>
+    </div>
+    <div class="control">
+      <div class="label">Nro. de Control</div>
+      <div class="value">{{control}}</div>
+    </div>
+  </div>
+
+  <h1>Orden de Compra — Solicitud de Servicio</h1>
+  <div class="subtitle">{{typeLabel}}</div>
+
+  <section>
+    <h2>1. Datos de Identificación</h2>
+    <table>
+      <tr><th>Buque / Tanquero</th><td>{{vessel.name}}{{#if vessel.imo}} — IMO {{vessel.imo}}{{/if}}</td></tr>
+      <tr><th>Sucursal</th><td>{{branch.name}} ({{branch.code}})</td></tr>
+      {{#if supplier}}
+      <tr><th>Proveedor</th><td>{{supplier.name}}{{#if supplier.emails}}<br><span style="color:#555">{{supplier.emails}}</span>{{/if}}</td></tr>
+      {{/if}}
+    </table>
+  </section>
+
+  <section>
+    <h2>2. Detalle del Servicio</h2>
+    <table>
+      {{#each breakdown}}
+      <tr><th>{{this.label}}</th><td>{{this.value}}</td></tr>
+      {{/each}}
+      {{#if location}}<tr><th>Ubicación del Buque</th><td>{{location}}{{#if place}} — {{place}}{{/if}}</td></tr>{{/if}}
+      {{#unless location}}{{#if place}}<tr><th>Muelle / Terminal</th><td>{{place}}</td></tr>{{/if}}{{/unless}}
+      <tr><th>Fecha y Hora Programada</th><td>{{scheduledAt}}</td></tr>
+    </table>
+  </section>
+
+  {{#if documents.length}}
+  <section>
+    <h2>3. Documentación Adjunta</h2>
+    <ul>
+      {{#each documents}}<li>{{this}}</li>{{/each}}
+    </ul>
+  </section>
+  {{/if}}
+
+  {{#if physicalVoucherNo}}
+  <section>
+    <h2>Nro. de Boleta Física</h2>
+    <table><tr><th>Boleta / Ticket del Proveedor</th><td>{{physicalVoucherNo}}</td></tr></table>
+  </section>
+  {{/if}}
+
+  {{#if billing}}
+  <section>
+    <h2>Referencia Administrativa</h2>
+    <table>
+      {{#if billing.client}}<tr><th>A Cuenta de</th><td>{{billing.client}}</td></tr>{{/if}}
+      {{#if billing.estimated}}<tr><th>Costo Estimado</th><td>{{billing.estimated}} {{billing.currency}}</td></tr>{{/if}}
+    </table>
+  </section>
+  {{/if}}
+
+  <section>
+    <h2>Observaciones</h2>
+    <div class="notes">{{#if notes}}{{notes}}{{else}}—{{/if}}</div>
+  </section>
+
+  <div class="signatures">
+    <div class="sig"><div class="sig-line">Solicitado por — Servicios Navieramar, C.A.</div></div>
+    <div class="sig"><div class="sig-line">Recibido / Conforme — Proveedor</div></div>
+  </div>
+
+  <div class="footer">
+    <span>{{control}}</span>
+    <span>Generado: {{generatedAt}}</span>
+  </div>
+</body>
+</html>

@@ -70,9 +70,14 @@ export class ServicesService {
     try {
       await this.prisma.service.delete({ where: { id } });
     } catch (err: unknown) {
-      // sales.serviceId is ON DELETE RESTRICT — surface as a conflict, not a 500
+      // No table holds a Service FK any more — the `sales` table was dropped
+      // with the service-requests migration, and a GENERAL service request
+      // references the catalogue through `details.serviceId` inside its JSON
+      // payload, which Postgres cannot enforce. The guard is kept because a
+      // future FK would otherwise surface as a 500; see open question 5 in
+      // .claude/plans/05-service-requests-module.md.
       if (this.isPrismaError(err, 'P2003'))
-        throw new ConflictException('Service is referenced by one or more sales.');
+        throw new ConflictException('Service is referenced by one or more records.');
       throw err;
     }
     this.logger.log({ event: 'service.delete', id });

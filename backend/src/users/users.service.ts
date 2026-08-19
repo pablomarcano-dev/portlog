@@ -22,6 +22,9 @@ export type SafeUser = {
   role: 'OPS' | 'ADM';
   isActive: boolean;
   permissions: string[];
+  branchId: string | null;
+  /** Joined for the control-number prefix; null when no branch is assigned. */
+  branch: { code: string } | null;
   createdAt: Date;
   updatedAt: Date;
   lastLoginAt: Date | null;
@@ -38,6 +41,10 @@ const SAFE_USER_SELECT = {
   role: true,
   isActive: true,
   permissions: true,
+  // Default Sucursal — pre-fills the service-request forms and is returned by
+  // /auth/me alongside the branch code the control number is built from.
+  branchId: true,
+  branch: { select: { code: true } },
   createdAt: true,
   updatedAt: true,
   lastLoginAt: true,
@@ -48,6 +55,7 @@ export type CreateUserDto = {
   displayName?: string;
   password: string;
   role: 'OPS' | 'ADM';
+  branchId?: string | null;
 };
 
 export type UpdateUserDto = {
@@ -58,6 +66,7 @@ export type UpdateUserDto = {
   fax?: string;
   role?: 'OPS' | 'ADM';
   isActive?: boolean;
+  branchId?: string | null;
 };
 
 @Injectable()
@@ -117,6 +126,7 @@ export class UsersService {
         displayName: dto.displayName ?? null,
         passwordHash,
         role: dto.role,
+        branchId: dto.branchId ?? null,
       },
       select: SAFE_USER_SELECT,
     });
@@ -135,6 +145,7 @@ export class UsersService {
         ...(dto.fax !== undefined ? { fax: dto.fax } : {}),
         ...(dto.role !== undefined ? { role: dto.role } : {}),
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+        ...(dto.branchId !== undefined ? { branchId: dto.branchId } : {}),
       },
       select: SAFE_USER_SELECT,
     });

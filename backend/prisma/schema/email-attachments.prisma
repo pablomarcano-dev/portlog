@@ -29,8 +29,21 @@ model EmailAttachment {
   shDocumentDispatchId String?
   shDocumentDispatch   ShDocumentDispatch? @relation(fields: [shDocumentDispatchId], references: [id], onDelete: SetNull)
 
+  serviceRequestDispatchId String?
+  serviceRequestDispatch   ServiceRequestDispatch? @relation("ServiceRequestDispatchAttachments", fields: [serviceRequestDispatchId], references: [id], onDelete: SetNull)
+
+  // Documents owned by a service request rather than by one outgoing email —
+  // the `Carga de Autorización` (Capitanía letter) and any supporting scans.
+  // Unlike the dispatch links above these are NOT staged-then-consumed: the
+  // file stays attached to the request for its whole life and is re-attached to
+  // every OC resend. Cascade, because a deleted draft's uploads are orphans.
+  serviceRequestId String?         @db.Uuid
+  serviceRequest   ServiceRequest? @relation("ServiceRequestDocuments", fields: [serviceRequestId], references: [id], onDelete: Cascade)
+
   @@index([emailDispatchId])
   @@index([shDocumentDispatchId])
+  @@index([serviceRequestDispatchId])
+  @@index([serviceRequestId])
   @@index([uploadedById])
   @@map("email_attachments")
 }

@@ -1,0 +1,166 @@
+// ---------------------------------------------------------------------------
+// Service Requests — the horizontal sales / procurement module
+// ---------------------------------------------------------------------------
+// Supersedes the nomination-scoped `Sale` table (dropped in the same
+// migration). Where a Sale hung off a nomination, a ServiceRequest hangs off a
+// *vessel* — a request is valid with no port call at all, which is what makes
+// the module platform-wide.
+//
+// One table for all six request types. Everything the agency's five specs share
+// lives in real columns here; only the genuinely type-specific fields go in
+// `details Json`, validated by ServiceRequestDetailsSchema (a Zod discriminated
+// union on `type`) in @portlog/schemas. This is the same shape SHDocument
+// already uses, and it is what keeps the list screen sortable across types.
+//
+// All timestamps are Timestamptz(6) — UTC-only, Golden Rule 6.
+// ---------------------------------------------------------------------------
+
+enum ServiceRequestType {
+  LAUNCH // Solicitud de Servicios de Lanchaje
+  UNDERWATER_INSPECTION // Inspecciones Técnicas Subacuáticas
+  BALLAST_WATER // Inspección de Agua de Lastre
+  TUG // Solicitud de Servicio de Remolcadores
+  STS // Operación Ship-to-Ship
+  GENERAL // Ad-hoc paper service voucher (the former Sale flow)
+}
+
+enum ServiceRequestStatus {
+  DRAFT
+  SENT
+  COMPLETED
+  CANCELLED
+}
+
+// Union of the `Ubicación del Buque` option lists across the five forms.
+enum ServiceLocation {
+  ANCHORAGE // Fondeo
+  BERTH // Muelle
+  BUOY // Boya
+  PILOT_STATION // Zona de Prácticos
+  OIL_TERMINAL // Terminal Petrolera
+  OTHER
+}
+
+model ServiceRequest {
+  id String @id @default(uuid()) @db.Uuid
+
+  // `Nro. de Control (SN/OT)` — rendered "SN1234/26/PLC" by formatControlNumber()
+  // in @portlog/schemas. This is its OWN sequence, independent of the
+  // nomination correlative; see that function's note on collisions.
+  correlative Int @unique @default(autoincrement())
+
+  type   ServiceRequestType
+  status ServiceRequestStatus @default(DRAFT)
+
+  // `Buque / Tanquero` — required. Restrict, because a vessel with service
+  // history must not disappear from under it.
+  shipParticularId String
+  shipParticular   ShipParticular @relation(fields: [shipParticularId], references: [id], onDelete: Restrict)
+
+  // `Sucursal` — pre-filled from the signed-in user's branch, still editable.
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  // Optional soft link to a port call. SetNull, not Cascade: cancelling a
+  // nomination must never erase the record of services already ordered.
+  nominationId String?     @db.Uuid
+  nomination   Nomination? @relation(fields: [nominationId], references: [id], onDelete: SetNull)
+
+  // `Proveedor` — nullable while drafting, required before the OC is sent.
+  // providerEmails snapshots the addresses the order actually went to, so the
+  // audit trail survives a later edit of the supplier's contact list.
+  supplierId     String?
+  supplier       Supplier? @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  providerEmails String[]  @default([])
+
+  // `Ubicación` + the port/berth it resolves to. The tug form's
+  // "Muelle / Terminal" picker writes portId + pierId.
+  location ServiceLocation?
+  portId   String?
+  port     Port?            @relation(fields: [portId], references: [id], onDelete: Restrict)
+  pierId   String?
+  pier     Pier?            @relation(fields: [pierId], references: [id], onDelete: Restrict)
+
+  // The single scheduled datetime. The specs name it four ways — "Hora de
+  // Zarpe", "Fecha y Hora Estimada de Inicio", "Fecha y Hora Programada",
+  // "Hora de Maniobra (Pilot on Board)" — but it is one field, relabelled per
+  // type in the UI. Keeping it a column is what lets the list screen sort and
+  // filter across all six types.
+  scheduledAt DateTime  @db.Timestamptz(6)
+  completedAt DateTime? @db.Timestamptz(6)
+
+  // `Nro. de Boleta Física` / `Boleta del Remolcador` / `Ticket de ATM` — the
+  // number on the slip the provider hands over, for accounting reconciliation.
+  // Stays editable after SENT, because it only exists once the job is done.
+  physicalVoucherNo String?
+
+  // `Observaciones`
+  notes String? @db.Text
+
+  // Per-type payload — ServiceRequestDetailsSchema.
+  details Json @default("{}")
+
+  // Commercial fields. Absent from all five specs (they describe procurement,
+  // not billing) but carried forward from the dropped `Sale` so the module
+  // still answers "what did we sell against this vessel" and can feed the
+  // future PDA/FDA module.
+  billToClientId String?
+  billToClient   Client?  @relation(fields: [billToClientId], references: [id], onDelete: Restrict)
+  estimatedCost  Decimal? @db.Decimal(12, 2)
+  actualCost     Decimal? @db.Decimal(12, 2)
+  // The paper voucher says "Bs." — Venezuelan bolívar.
+  currency       String   @default("VES")
+
+  // Generated Orden de Compra (PDF in MinIO — Golden Rule 7).
+  minioKey       String?   @unique
+  pdfGeneratedAt DateTime? @db.Timestamptz(6)
+  sentAt         DateTime? @db.Timestamptz(6)
+
+  cancelledAt  DateTime? @db.Timestamptz(6)
+  cancelReason String?   @db.Text
+
+  createdById String
+  createdBy   User     @relation("ServiceRequestCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+
+  dispatches ServiceRequestDispatch[]
+  // `Carga de Autorización` — the Capitanía letter and any other supporting
+  // scans, reusing the existing MinIO-backed EmailAttachment plumbing.
+  documents  EmailAttachment[]        @relation("ServiceRequestDocuments")
+
+  @@index([shipParticularId, scheduledAt])
+  @@index([branchId, status])
+  @@index([nominationId])
+  @@index([supplierId])
+  @@index([status, scheduledAt])
+  @@index([type, status])
+  @@map("service_requests")
+}
+
+// ---------------------------------------------------------------------------
+// ServiceRequestDispatch — append-only log of every "Generar Orden y Enviar".
+// Same shape as ShDocumentDispatch; sentAt and error are filled in once the
+// async send result is known. Resends append a new row rather than mutating.
+// ---------------------------------------------------------------------------
+model ServiceRequestDispatch {
+  id               String         @id @default(cuid())
+  serviceRequestId String         @db.Uuid
+  serviceRequest   ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  toAddresses      String[]
+  ccAddresses      String[]       @default([])
+  bccAddresses     String[]       @default([])
+  subject          String
+  bodyHtml         String?        @db.Text
+  pdfStorageKey    String
+  sentAt           DateTime?      @db.Timestamptz(6)
+  sentById         String
+  sentBy           User           @relation("ServiceRequestDispatchSentBy", fields: [sentById], references: [id], onDelete: Restrict)
+  error            String?
+  createdAt        DateTime       @default(now()) @db.Timestamptz(6)
+
+  attachments EmailAttachment[] @relation("ServiceRequestDispatchAttachments")
+
+  @@index([serviceRequestId, createdAt])
+  @@map("service_request_dispatches")
+}
