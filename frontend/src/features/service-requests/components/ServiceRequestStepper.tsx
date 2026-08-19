@@ -16,6 +16,8 @@ import {
   Title,
 } from '@mantine/core';
 import { DateTimePicker } from '@mantine/dates';
+import { useDebouncedValue } from '@mantine/hooks';
+import { useQuery } from '@tanstack/react-query';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -34,6 +36,7 @@ import { formatDateTime } from '../../../lib/format/datetime';
 import { blankServiceRequest, toFormValues, type ServiceRequestFormValues } from '../formDefaults';
 import { ServiceDetailsFields } from './ServiceDetailsFields';
 import { AuthorizationDocumentsField } from './AuthorizationDocumentsField';
+import { listServiceRequestNominationOptions } from '../api';
 
 const LOCATION_OPTIONS = toSelectOptions(SERVICE_LOCATION_LABELS);
 
@@ -91,8 +94,8 @@ export function ServiceRequestStepper({
   const [active, setActive] = useState(0);
 
   // Picker search boxes are local UI state, not form state.
-  const [vesselSearch, setVesselSearch] = useState('');
-  const [branchSearch, setBranchSearch] = useState('');
+  const [nominationSearch, setNominationSearch] = useState('');
+  const [debouncedNominationSearch] = useDebouncedValue(nominationSearch, 300);
   const [supplierSearch, setSupplierSearch] = useState('');
   const [portSearch, setPortSearch] = useState('');
   const [pierSearch, setPierSearch] = useState('');
@@ -103,11 +106,18 @@ export function ServiceRequestStepper({
     defaultValues: request ? toFormValues(request) : blankServiceRequest(type, defaultBranchId),
     mode: 'onBlur',
   });
-  const { control, register, handleSubmit, formState, watch } = form;
+  const { control, register, handleSubmit, formState, watch, setValue } = form;
 
   const details = watch('details');
   const portId = watch('portId');
   const supplierId = watch('supplierId');
+  const nominationId = watch('nominationId');
+  const nominationOptions = useQuery({
+    queryKey: ['service-requests', 'nomination-options', debouncedNominationSearch],
+    queryFn: () => listServiceRequestNominationOptions(debouncedNominationSearch),
+    staleTime: 30_000,
+  });
+  const selectedNomination = nominationOptions.data?.find((item) => item.id === nominationId);
   const authorizationRequired = requiresAuthorizationDocument(details);
   const documentCount = request?.documents.length ?? 0;
 
@@ -161,49 +171,50 @@ export function ServiceRequestStepper({
             {/* ------------------------------------------------------------- */}
             <Stepper.Step label="Identification" description="Vessel and branch">
               <Stack gap="sm" mt="md">
-                <Group grow align="flex-start">
-                  <Controller
-                    name="shipParticularId"
-                    control={control}
-                    render={({ field, fieldState }) => (
-                      <EntityPicker
-                        endpoint="/master-data/ship-particulars"
-                        label="Vessel / Tanker"
-                        required
-                        value={field.value ?? null}
-                        onChange={field.onChange}
-                        searchValue={vesselSearch}
-                        onSearchChange={setVesselSearch}
-                        selectedOption={
-                          request
-                            ? {
-                                value: request.shipParticularId,
-                                label: request.shipParticular.name,
-                              }
-                            : null
-                        }
-                        error={fieldState.error?.message}
-                      />
-                    )}
+                <Controller
+                  name="nominationId"
+                  control={control}
+                  render={({ field, fieldState }) => (
+                    <Select
+                      label="SN / OT and vessel"
+                      description="Only active nominations from your assigned branch are shown"
+                      placeholder="Search or select an SN, OT or vessel"
+                      required
+                      searchable
+                      clearable
+                      searchValue={nominationSearch}
+                      onSearchChange={setNominationSearch}
+                      value={field.value ?? null}
+                      data={(nominationOptions.data ?? []).map((item) => ({
+                        value: item.id,
+                        label: item.label,
+                      }))}
+                      onChange={(value) => {
+                        field.onChange(value);
+                        const selected = nominationOptions.data?.find((item) => item.id === value);
+                        setValue('shipParticularId', selected?.shipParticularId ?? '', {
+                          shouldValidate: true,
+                        });
+                        setValue('branchId', selected?.branchId ?? '', { shouldValidate: true });
+                      }}
+                      error={fieldState.error?.message}
+                      nothingFoundMessage={
+                        nominationOptions.isLoading ? 'Loading...' : 'No branch nominations found'
+                      }
+                    />
+                  )}
+                />
+
+                <Group grow>
+                  <TextInput
+                    label="Vessel / Tanker"
+                    value={selectedNomination?.vesselName ?? request?.shipParticular.name ?? ''}
+                    readOnly
                   />
-                  <Controller
-                    name="branchId"
-                    control={control}
-                    render={({ field, fieldState }) => (
-                      <EntityPicker
-                        endpoint="/master-data/branches"
-                        label="Branch"
-                        required
-                        value={field.value ?? null}
-                        onChange={field.onChange}
-                        searchValue={branchSearch}
-                        onSearchChange={setBranchSearch}
-                        selectedOption={
-                          request ? { value: request.branchId, label: request.branch.name } : null
-                        }
-                        error={fieldState.error?.message}
-                      />
-                    )}
+                  <TextInput
+                    label="Branch"
+                    value={selectedNomination?.branchName ?? request?.branch.name ?? ''}
+                    readOnly
                   />
                 </Group>
 

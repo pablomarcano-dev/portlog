@@ -63,6 +63,8 @@ describe('ServiceRequestsService', () => {
   let prisma: {
     serviceRequest: Record<string, jest.Mock>;
     serviceRequestDispatch: Record<string, jest.Mock>;
+    user: Record<string, jest.Mock>;
+    nomination: Record<string, jest.Mock>;
     $transaction: jest.Mock;
   };
   let pdf: { renderTemplate: jest.Mock };
@@ -85,6 +87,8 @@ describe('ServiceRequestsService', () => {
         update: jest.fn(),
         findMany: jest.fn(),
       },
+      user: { findUnique: jest.fn() },
+      nomination: { findFirst: jest.fn(), findMany: jest.fn() },
       $transaction: jest.fn(),
     };
     // The send path runs inside an interactive transaction; hand the callback
@@ -165,6 +169,75 @@ describe('ServiceRequestsService', () => {
         ),
       ).rejects.toThrow(BadRequestException);
       expect(prisma.serviceRequest.create).not.toHaveBeenCalled();
+    });
+
+    it('derives vessel and branch from the selected nomination and records the requester', async () => {
+      prisma.user.findUnique.mockResolvedValue({ branchId: 'branch-1' });
+      prisma.nomination.findFirst.mockResolvedValue({
+        id: '3f2504e0-4f89-11d3-9a0c-0305e82c3302',
+        shipParticularId: 'ship-1',
+        branchId: 'branch-1',
+      });
+      prisma.serviceRequest.create.mockResolvedValue(makeRequest());
+
+      await service.create(
+        {
+          type: 'TUG',
+          nominationId: '3f2504e0-4f89-11d3-9a0c-0305e82c3302',
+          shipParticularId: 'spoofed-ship',
+          branchId: 'spoofed-branch',
+          scheduledAt: SCHEDULED,
+          currency: 'VES',
+          details: TUG_DETAILS,
+        } as never,
+        'user-1',
+      );
+
+      expect(prisma.serviceRequest.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            nominationId: '3f2504e0-4f89-11d3-9a0c-0305e82c3302',
+            shipParticularId: 'ship-1',
+            branchId: 'branch-1',
+            createdById: 'user-1',
+          }),
+        }),
+      );
+    });
+
+    it('rejects a nomination outside the requester branch', async () => {
+      prisma.user.findUnique.mockResolvedValue({ branchId: 'branch-1' });
+      prisma.nomination.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(
+          {
+            type: 'TUG',
+            nominationId: '3f2504e0-4f89-11d3-9a0c-0305e82c3302',
+            shipParticularId: 'ship-1',
+            branchId: 'branch-2',
+            scheduledAt: SCHEDULED,
+            currency: 'VES',
+            details: TUG_DETAILS,
+          } as never,
+          'user-1',
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('nominationOptions', () => {
+    it('limits selectable SN/OT records to the signed-in user branch', async () => {
+      prisma.user.findUnique.mockResolvedValue({ branchId: 'branch-1' });
+      prisma.nomination.findMany.mockResolvedValue([]);
+
+      await service.nominationOptions('user-1', 'Nordic');
+
+      expect(prisma.nomination.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ branchId: 'branch-1', status: { not: 'CANCELLED' } }),
+        }),
+      );
     });
   });
 

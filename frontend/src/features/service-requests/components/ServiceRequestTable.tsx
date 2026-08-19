@@ -53,6 +53,7 @@ export function ServiceRequestTable({ items, isLoading, onRowClick }: Props) {
             <Table.Th>Voucher</Table.Th>
             <Table.Th ta="right">Cost</Table.Th>
             <Table.Th>Status</Table.Th>
+            <Table.Th>Requested by</Table.Th>
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -88,6 +89,7 @@ export function ServiceRequestTable({ items, isLoading, onRowClick }: Props) {
                   {SERVICE_REQUEST_STATUS_LABELS[item.status].en}
                 </Badge>
               </Table.Td>
+              <Table.Td>{item.requestedBy}</Table.Td>
             </Table.Tr>
           ))}
         </Table.Tbody>

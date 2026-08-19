@@ -83,6 +83,10 @@ function ServiceRequestDetailPage() {
               ? ` — IMO ${request.shipParticular.imoNumber}`
               : ''} · {request.branch.name}
           </Text>
+          <Text size="sm" c="dimmed">
+            Requested by {request.createdBy.displayName?.trim() || request.createdBy.email} on{' '}
+            {formatDateTime(request.createdAt)}
+          </Text>
         </div>
 
         <Group>

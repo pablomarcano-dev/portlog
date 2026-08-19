@@ -64,6 +64,11 @@ export class ServiceRequestsController {
     return this.service.create(dto, req.user.sub);
   }
 
+  @Get('nomination-options')
+  nominationOptions(@Query('q') q: string, @Req() req: { user: RequestUser }) {
+    return this.service.nominationOptions(req.user.sub, q ?? '');
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.findOne(id);

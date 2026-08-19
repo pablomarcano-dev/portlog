@@ -51,10 +51,7 @@ export const ServiceRequestCreateSchema = z.object({
    * request is valid with no nomination at all, and deleting the nomination
    * must not delete the request (SetNull at the DB level).
    */
-  nominationId: z.preprocess(
-    (v) => (v === undefined || v === '' ? null : v),
-    z.string().uuid('That nomination reference is not valid').nullish(),
-  ),
+  nominationId: z.string().uuid('Select an SN/OT nomination from your branch'),
 
   /** The provider. Required before sending, optional while drafting. */
   supplierId: clearableRef('provider'),
@@ -274,6 +271,7 @@ export const ServiceRequestListItemSchema = z.object({
   actualCost: z.coerce.number().nullable(),
   currency: z.string(),
   sentAt: z.coerce.date().nullable(),
+  requestedBy: z.string(),
 });
 export type ServiceRequestListItem = z.infer<typeof ServiceRequestListItemSchema>;
 
@@ -284,6 +282,17 @@ export const ServiceRequestListResponseSchema = z.object({
   pageSize: z.number().int().positive(),
 });
 export type ServiceRequestListResponse = z.infer<typeof ServiceRequestListResponseSchema>;
+
+export const ServiceRequestNominationOptionSchema = z.object({
+  id: z.string().uuid(),
+  label: z.string(),
+  reference: z.string(),
+  shipParticularId: z.string(),
+  vesselName: z.string(),
+  branchId: z.string(),
+  branchName: z.string(),
+});
+export type ServiceRequestNominationOption = z.infer<typeof ServiceRequestNominationOptionSchema>;
 
 export const ServiceRequestReadSchema = z.object({
   id: z.string().uuid(),
@@ -329,7 +338,7 @@ export const ServiceRequestReadSchema = z.object({
   cancelledAt: z.coerce.date().nullable(),
   cancelReason: z.string().nullable(),
 
-  createdBy: z.object({ id: z.string(), email: z.string() }),
+  createdBy: z.object({ id: z.string(), email: z.string(), displayName: z.string().nullable() }),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });

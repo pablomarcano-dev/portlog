@@ -42,7 +42,7 @@ const DETAIL_INCLUDE = {
   port: { select: { id: true, name: true } },
   pier: { select: { id: true, name: true } },
   billToClient: { select: { id: true, name: true } },
-  createdBy: { select: { id: true, email: true } },
+  createdBy: { select: { id: true, email: true, displayName: true } },
   documents: {
     select: { id: true, filename: true, mimeType: true, sizeBytes: true, createdAt: true },
     orderBy: { createdAt: 'asc' },
@@ -90,13 +90,14 @@ export class ServiceRequestsService {
 
   async create(dto: ServiceRequestCreate, userId: string): Promise<ServiceRequestRead> {
     this.assertDetailsMatchType(dto.type, dto.details);
+    const nomination = await this.resolveNominationForUser(dto.nominationId, userId);
 
     const created = await this.prisma.serviceRequest.create({
       data: {
         type: dto.type,
-        shipParticularId: dto.shipParticularId,
-        branchId: dto.branchId,
-        nominationId: dto.nominationId ?? null,
+        shipParticularId: nomination.shipParticularId,
+        branchId: nomination.branchId,
+        nominationId: nomination.id,
         supplierId: dto.supplierId ?? null,
         location: dto.location ?? null,
         portId: dto.portId ?? null,
@@ -126,6 +127,57 @@ export class ServiceRequestsService {
 
   async findOne(id: string): Promise<ServiceRequestRead> {
     return this.toDto(await this.getOrThrow(id));
+  }
+
+  async nominationOptions(userId: string, q = '') {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { branchId: true },
+    });
+    if (!user?.branchId) return [];
+
+    const search = q.trim();
+    const digits = search.match(/\d+/)?.[0];
+    const correlative = digits ? Number.parseInt(digits, 10) : null;
+    const rows = await this.prisma.nomination.findMany({
+      where: {
+        branchId: user.branchId,
+        status: { not: 'CANCELLED' },
+        ...(search && {
+          OR: [
+            { shipParticular: { name: { contains: search, mode: 'insensitive' } } },
+            { voyageNumber: { contains: search, mode: 'insensitive' } },
+            ...(correlative != null && Number.isSafeInteger(correlative) ? [{ correlative }] : []),
+          ],
+        }),
+      },
+      select: {
+        id: true,
+        kind: true,
+        correlative: true,
+        dateNominated: true,
+        shipParticularId: true,
+        shipParticular: { select: { name: true } },
+        branchId: true,
+        branch: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    return rows.map((row) => {
+      const yy = String(row.dateNominated.getFullYear()).slice(-2);
+      const reference = `${row.kind}-${yy}/${String(row.correlative).padStart(4, '0')}`;
+      return {
+        id: row.id,
+        label: `${reference} · ${row.shipParticular.name}`,
+        reference,
+        shipParticularId: row.shipParticularId,
+        vesselName: row.shipParticular.name,
+        branchId: row.branchId ?? user.branchId,
+        branchName: row.branch?.name ?? '',
+      };
+    });
   }
 
   async update(id: string, dto: ServiceRequestUpdate): Promise<ServiceRequestRead> {
@@ -267,6 +319,7 @@ export class ServiceRequestsService {
           shipParticular: { select: { name: true } },
           branch: { select: { code: true } },
           supplier: { select: { name: true } },
+          createdBy: { select: { email: true, displayName: true } },
         },
         orderBy: { scheduledAt: 'desc' },
         skip: (query.page - 1) * query.pageSize,
@@ -291,6 +344,7 @@ export class ServiceRequestsService {
       actualCost: row.actualCost == null ? null : row.actualCost.toNumber(),
       currency: row.currency,
       sentAt: row.sentAt,
+      requestedBy: row.createdBy.displayName?.trim() || row.createdBy.email,
     }));
 
     return { items, total, page: query.page, pageSize: query.pageSize };
@@ -606,6 +660,31 @@ export class ServiceRequestsService {
       createdBy: row.createdBy,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+    };
+  }
+
+  private async resolveNominationForUser(
+    nominationId: string,
+    userId: string,
+  ): Promise<{ id: string; shipParticularId: string; branchId: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { branchId: true },
+    });
+    if (!user?.branchId) {
+      throw new BadRequestException('Your user is not assigned to a branch');
+    }
+    const nomination = await this.prisma.nomination.findFirst({
+      where: { id: nominationId, branchId: user.branchId, status: { not: 'CANCELLED' } },
+      select: { id: true, shipParticularId: true, branchId: true },
+    });
+    if (!nomination?.branchId) {
+      throw new BadRequestException('Select an active SN/OT nomination from your branch');
+    }
+    return {
+      id: nomination.id,
+      shipParticularId: nomination.shipParticularId,
+      branchId: nomination.branchId,
     };
   }
 }

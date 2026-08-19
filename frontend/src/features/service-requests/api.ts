@@ -2,6 +2,7 @@ import {
   ServiceRequestListResponseSchema,
   ServiceRequestReadSchema,
   ServiceRequestDispatchSchema,
+  ServiceRequestNominationOptionSchema,
   type ServiceRequestCreate,
   type ServiceRequestDispatch,
   type ServiceRequestListQuery,
@@ -10,6 +11,7 @@ import {
   type ServiceRequestSend,
   type ServiceRequestTransition,
   type ServiceRequestUpdate,
+  type ServiceRequestNominationOption,
 } from '@portlog/schemas';
 import { z } from 'zod';
 import { apiRequest } from '../../lib/api/client';
@@ -54,6 +56,13 @@ export async function listServiceRequests(
 
 export async function getServiceRequest(id: string): Promise<ServiceRequestRead> {
   return ServiceRequestReadSchema.parse(await apiRequest<unknown>(`${BASE}/${id}`));
+}
+
+export async function listServiceRequestNominationOptions(
+  q: string,
+): Promise<ServiceRequestNominationOption[]> {
+  const raw = await apiRequest<unknown>(`${BASE}/nomination-options?q=${encodeURIComponent(q)}`);
+  return z.array(ServiceRequestNominationOptionSchema).parse(raw);
 }
 
 export async function createServiceRequest(
