@@ -71,7 +71,7 @@ export function ServiceRequestTable({ items, isLoading, onRowClick }: Props) {
               <Table.Td>
                 <Text size="sm">{SERVICE_REQUEST_TYPE_LABELS[item.type].en}</Text>
               </Table.Td>
-              <Table.Td>{item.vesselName}</Table.Td>
+              <Table.Td>{item.vesselName ?? 'Administration'}</Table.Td>
               <Table.Td>
                 <Text size="sm" lineClamp={2}>
                   {item.serviceLabel}

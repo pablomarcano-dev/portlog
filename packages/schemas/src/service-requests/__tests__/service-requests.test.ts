@@ -21,6 +21,7 @@ function baseCreate(details: unknown) {
     type: 'LAUNCH',
     shipParticularId: CUID,
     branchId: CUID,
+    nominationId: UUID,
     scheduledAt: '2026-08-10T14:00:00.000Z',
     details,
   };
@@ -145,11 +146,14 @@ describe('ServiceRequestCreateSchema', () => {
     expect(parsed.billToClientId).toBeNull();
   });
 
-  it('treats a blank nominationId as no port-call link', () => {
+  it('normalises an empty administrative assignment to null', () => {
     const parsed = ServiceRequestCreateSchema.parse({
-      ...baseCreate(LAUNCH_DETAILS),
+      ...baseCreate({ type: 'GENERAL', route: 'Documents to bank' }),
+      type: 'GENERAL',
+      shipParticularId: '',
       nominationId: '',
     });
+    expect(parsed.shipParticularId).toBeNull();
     expect(parsed.nominationId).toBeNull();
   });
 
@@ -161,9 +165,9 @@ describe('ServiceRequestCreateSchema', () => {
     expect(parsed.nominationId).toBe(UUID);
   });
 
-  it.each(['shipParticularId', 'branchId'])('requires %s', (required) => {
+  it('requires branchId', () => {
     const payload: Record<string, unknown> = baseCreate(LAUNCH_DETAILS);
-    delete payload[required];
+    delete payload['branchId'];
     expect(ServiceRequestCreateSchema.safeParse(payload).success).toBe(false);
   });
 
@@ -293,13 +297,6 @@ describe('error messages', () => {
   ) {
     return result.error?.issues.find((i) => i.path.join('.') === path)?.message;
   }
-
-  it('names the field on a missing vessel rather than saying "Required"', () => {
-    const payload: Record<string, unknown> = baseCreate(LAUNCH_DETAILS);
-    delete payload['shipParticularId'];
-    const result = ServiceRequestCreateSchema.safeParse(payload);
-    expect(messageFor(result, 'shipParticularId')).toBe('Select a vessel');
-  });
 
   it('names the field on a missing branch', () => {
     const payload: Record<string, unknown> = baseCreate(LAUNCH_DETAILS);

@@ -8,3 +8,4 @@ export * from './messages.js';
 export * from './compose.js';
 export * from './eta.js';
 export * from './sof.js';
+export * from './sof-calculations.js';

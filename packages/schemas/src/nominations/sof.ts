@@ -68,6 +68,8 @@ export const SofLettersDataSchema = z.object({
 });
 
 export const SofRemarksDataSchema = z.object({
+  cargoQuantity: z.string().default(''),
+  obq: z.string().default(''),
   items: z
     .array(
       z.object({
@@ -77,6 +79,7 @@ export const SofRemarksDataSchema = z.object({
         endDate: z.string().default(''),
         endTime: z.string().default(''),
         comment: z.string().default(''),
+        delayCategory: z.enum(['BEFORE', 'DURING', 'AFTER']).nullable().default(null),
       }),
     )
     .default([]),

@@ -52,10 +52,9 @@ model ServiceRequest {
   type   ServiceRequestType
   status ServiceRequestStatus @default(DRAFT)
 
-  // `Buque / Tanquero` — required. Restrict, because a vessel with service
-  // history must not disappear from under it.
-  shipParticularId String
-  shipParticular   ShipParticular @relation(fields: [shipParticularId], references: [id], onDelete: Restrict)
+  // Null only for GENERAL administrative services.
+  shipParticularId String?
+  shipParticular   ShipParticular? @relation(fields: [shipParticularId], references: [id], onDelete: Restrict)
 
   // `Sucursal` — pre-filled from the signed-in user's branch, still editable.
   branchId String

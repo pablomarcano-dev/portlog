@@ -80,7 +80,7 @@ export const SERVICE_REQUEST_TYPE_LABELS: Record<ServiceRequestType, BilingualLa
   BALLAST_WATER: { en: 'Ballast Water Inspection', es: 'Inspección de Agua de Lastre' },
   TUG: { en: 'Tug Services', es: 'Servicio de Remolcadores' },
   STS: { en: 'STS Operation (Ship-to-Ship)', es: 'Operación STS (Ship-to-Ship)' },
-  GENERAL: { en: 'General Service', es: 'Servicio General' },
+  GENERAL: { en: 'Administrative Service', es: 'Servicio Administrativo' },
 };
 
 /**

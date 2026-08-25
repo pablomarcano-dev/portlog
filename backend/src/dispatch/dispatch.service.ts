@@ -10,7 +10,12 @@ import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
 import { PdfService } from '../pdf/pdf.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { AttachmentsService } from '../attachments/attachments.service.js';
-import type { SendSubDocumentInput, SubDocExtraData } from '@portlog/schemas';
+import {
+  calculateSofOperations,
+  formatSofDuration,
+  type SendSubDocumentInput,
+  type SubDocExtraData,
+} from '@portlog/schemas';
 import type { PedrSubDocumentType } from '@portlog/schemas';
 
 // Full nomination include needed to build PDF template data
@@ -127,6 +132,74 @@ export class DispatchService {
           note: true,
           recordedBy: { select: { email: true } },
         },
+      });
+
+      const [sof, priorSofDispatches] = await Promise.all([
+        this.prisma.sofTimesheet.findUnique({
+          where: { nominationId: nomination.id },
+          include: {
+            entries: {
+              orderBy: { order: 'asc' },
+              include: { activity: { select: { name: true } } },
+            },
+          },
+        }),
+        this.prisma.emailDispatch.count({
+          where: { pedrId, subDocType: 'SOF', sentAt: { not: null } },
+        }),
+      ]);
+      const remarksData = sof?.remarksData as {
+        cargoQuantity?: string;
+        obq?: string;
+        items?: Array<{
+          remark?: string;
+          beginDate?: string;
+          beginTime?: string;
+          endDate?: string;
+          endTime?: string;
+          comment?: string;
+          delayCategory?: 'BEFORE' | 'DURING' | 'AFTER' | null;
+        }>;
+      } | null;
+      const calculation = calculateSofOperations(
+        sof?.entries ?? [],
+        remarksData?.items ?? [],
+        remarksData?.cargoQuantity,
+        remarksData?.obq,
+      );
+      Object.assign(baseData, {
+        revisionNumber: priorSofDispatches + 1,
+        revisionLabel: priorSofDispatches === 0 ? 'Original' : `Amendment ${priorSofDispatches}`,
+        remarks: (remarksData?.items ?? []).map((remark) => ({
+          category: remark.delayCategory
+            ? remark.delayCategory[0] + remark.delayCategory.slice(1).toLowerCase()
+            : '',
+          from: [remark.beginDate, remark.beginTime].filter(Boolean).join(' '),
+          to: [remark.endDate, remark.endTime].filter(Boolean).join(' '),
+          description: [remark.remark, remark.comment].filter(Boolean).join(' — '),
+        })),
+        operationalSummary: [
+          { label: 'Total Time Turnaround', value: formatSofDuration(calculation.turnaroundMs) },
+          { label: 'Total Laytime', value: formatSofDuration(calculation.laytimeMs) },
+          { label: 'Gross Operation Time', value: formatSofDuration(calculation.grossOperationMs) },
+          {
+            label: 'Delays Before Operations',
+            value: formatSofDuration(calculation.delaysBeforeMs),
+          },
+          {
+            label: 'Delays During Operations',
+            value: formatSofDuration(calculation.delaysDuringMs),
+          },
+          { label: 'Delays After Operations', value: formatSofDuration(calculation.delaysAfterMs) },
+          { label: 'Net Operation Time', value: formatSofDuration(calculation.netOperationMs) },
+          {
+            label: 'Average Rate',
+            value:
+              calculation.averageRate == null
+                ? 'Pending data'
+                : `${calculation.averageRate.toFixed(2)} / Hr`,
+          },
+        ],
       });
     }
 

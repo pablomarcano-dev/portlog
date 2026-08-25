@@ -1429,12 +1429,12 @@ describe('NominationsService', () => {
       expect(entries?.['where']).toBeUndefined();
     });
 
-    it('keeps a continuation marker inline and indents a real comment', async () => {
+    it('keeps every comment on the same line as its activity', async () => {
       mockPrisma.sofTimesheet.findUnique.mockResolvedValue({
         entries: [
           {
             occurredAt: new Date('2026-07-17T10:12:00'),
-            comment: 'Hose connected',
+            comment: 'Hose connected\nwithout delay',
             activity: { name: 'Commenced Loading' },
           },
           {
@@ -1448,8 +1448,9 @@ describe('NominationsService', () => {
       await service.getComposeData(NOM_ID, 'CARGO_UPDATE', 'agent@navieramar.com');
 
       const log = String(lastTemplateVars()['statement_of_facts_log']);
-      expect(log).toContain('Jul-17th, 2026 10:12 Commenced Loading\n     Hose connected');
+      expect(log).toContain('Jul-17th, 2026 10:12 Commenced Loading Hose connected without delay');
       expect(log).toContain('Jul-17th, 2026 11:00 . Rate 29,051 Bbls/Hr');
+      expect(log).not.toContain('\n     ');
     });
   });
 

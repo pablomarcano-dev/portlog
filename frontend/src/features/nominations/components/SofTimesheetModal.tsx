@@ -485,9 +485,6 @@ export function SofTimesheetModal({
                       Times Sheet
                     </Text>
                     <Group gap="xs">
-                      <Button size="xs" variant="white" onClick={handleInsert}>
-                        Insert
-                      </Button>
                       <Button
                         size="xs"
                         variant="white"
@@ -533,7 +530,7 @@ export function SofTimesheetModal({
                       <Table.Tr>
                         <Table.Td colSpan={5}>
                           <Text c="dimmed" size="xs" ta="center" py="xs">
-                            No entries. Click Insert to add a row.
+                            No entries. Use the Insert button below to add a row.
                           </Text>
                         </Table.Td>
                       </Table.Tr>
@@ -611,6 +608,11 @@ export function SofTimesheetModal({
                     ))}
                   </Table.Tbody>
                 </Table>
+                <Group justify="flex-end" mt="xs">
+                  <Button size="xs" variant="light" onClick={handleInsert}>
+                    Insert
+                  </Button>
+                </Group>
               </Box>
 
               {/* Footer actions */}

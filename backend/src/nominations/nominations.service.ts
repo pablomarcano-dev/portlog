@@ -25,6 +25,8 @@ import {
   formatTons,
   etaNoticeLabel,
   resolveTransferRateUnit,
+  calculateSofOperations,
+  formatSofDuration,
   type NominationStatus,
   type NominationKind,
   type NominationCreateInput,
@@ -1270,26 +1272,49 @@ export class NominationsService {
         endDate?: string;
         endTime?: string;
         comment?: string;
+        delayCategory?: 'BEFORE' | 'DURING' | 'AFTER' | null;
       };
       // Remarks are the delay periods a demurrage claim is built from, so each
       // reads as a span: "Fm <start> To <end> <reason>". A remark without both
       // ends still prints, rather than being dropped for being incomplete.
-      const remarksData = sof?.remarksData as { items?: RemarkItem[] } | null;
+      const remarksData = sof?.remarksData as {
+        items?: RemarkItem[];
+        cargoQuantity?: string;
+        obq?: string;
+      } | null;
+      const remarkLines = (remarksData?.items ?? [])
+        .map((r) => {
+          const stamp = (date?: string, time?: string) =>
+            [date?.trim(), time?.trim()].filter(Boolean).join(' ');
+          const from = stamp(r.beginDate, r.beginTime);
+          const to = stamp(r.endDate, r.endTime);
+          const span = [from ? `Fm ${from}` : '', to ? `To ${to}` : ''].filter(Boolean).join(' ');
+          const reason = (r.remark ?? '').trim();
+          const category = r.delayCategory
+            ? `[Delay ${r.delayCategory === 'BEFORE' ? 'Before' : r.delayCategory === 'DURING' ? 'During' : 'After'} Operations]`
+            : '';
+          return [category, span, reason, (r.comment ?? '').trim()].filter(Boolean).join(' ');
+        })
+        .filter((line) => line !== '')
+        .join('\n');
+      const calculation = calculateSofOperations(
+        sof?.entries ?? [],
+        remarksData?.items ?? [],
+        remarksData?.cargoQuantity,
+        remarksData?.obq,
+      );
+      const operationalLines = [
+        `Total Time Turnaround: ${formatSofDuration(calculation.turnaroundMs)}`,
+        `Total Laytime: ${formatSofDuration(calculation.laytimeMs)}`,
+        `Gross Operation Time: ${formatSofDuration(calculation.grossOperationMs)}`,
+        `Delays Before Operations: ${formatSofDuration(calculation.delaysBeforeMs)}`,
+        `Delays During Operations: ${formatSofDuration(calculation.delaysDuringMs)}`,
+        `Delays After Operations: ${formatSofDuration(calculation.delaysAfterMs)}`,
+        `Net Operation Time: ${formatSofDuration(calculation.netOperationMs)}`,
+        `Average Rate: ${calculation.averageRate == null ? 'Pending data' : `${calculation.averageRate.toFixed(2)} / Hr`}`,
+      ].join('\n');
       templateVars.remarks_section = includeLettersRemarks
-        ? (remarksData?.items ?? [])
-            .map((r) => {
-              const stamp = (date?: string, time?: string) =>
-                [date?.trim(), time?.trim()].filter(Boolean).join(' ');
-              const from = stamp(r.beginDate, r.beginTime);
-              const to = stamp(r.endDate, r.endTime);
-              const span = [from ? `Fm ${from}` : '', to ? `To ${to}` : '']
-                .filter(Boolean)
-                .join(' ');
-              const reason = (r.remark ?? '').trim();
-              return [span, reason, (r.comment ?? '').trim()].filter(Boolean).join(' ');
-            })
-            .filter((line) => line !== '')
-            .join('\n')
+        ? [remarkLines, operationalLines].filter(Boolean).join('\n\n')
         : '';
 
       // Operation string
@@ -1467,15 +1492,13 @@ export class NominationsService {
     const fmtTime = (d: Date) =>
       `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
-    // A "." activity is a continuation marker, so its comment stays inline on
-    // the same row instead of wrapping to an indented line.
     return entries
       .map((e) => {
         const d = new Date(e.occurredAt);
         const activityName = e.activity?.name ?? '';
         const line = `${formatNoticeDate(d)} ${fmtTime(d)} ${activityName}`;
-        if (!e.comment) return line;
-        return activityName === '.' ? `${line} ${e.comment}` : `${line}\n     ${e.comment}`;
+        const comment = e.comment?.replace(/\s+/g, ' ').trim();
+        return comment ? `${line} ${comment}` : line;
       })
       .join('\n');
   }

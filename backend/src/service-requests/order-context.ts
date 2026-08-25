@@ -62,7 +62,7 @@ interface OrderSource {
   notes: string | null;
   currency: string;
   estimatedCost: { toNumber(): number } | null;
-  shipParticular: { name: string; imoNumber: string | null };
+  shipParticular: { name: string; imoNumber: string | null } | null;
   branch: { name: string; code: string };
   supplier: { name: string; emails: string[] } | null;
   port: { name: string } | null;
@@ -189,7 +189,10 @@ export function buildOrderContext(row: OrderSource): OrderContext {
     typeLabel:
       SERVICE_REQUEST_TYPE_LABELS[row.type as keyof typeof SERVICE_REQUEST_TYPE_LABELS]?.es ??
       row.type,
-    vessel: { name: row.shipParticular.name, imo: row.shipParticular.imoNumber },
+    vessel: {
+      name: row.shipParticular?.name ?? 'Administración',
+      imo: row.shipParticular?.imoNumber ?? null,
+    },
     branch: { name: row.branch.name, code: row.branch.code },
     supplier: row.supplier
       ? { name: row.supplier.name, emails: row.supplier.emails.join(', ') }

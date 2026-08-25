@@ -78,10 +78,11 @@ function ServiceRequestDetailPage() {
             </Badge>
           </Group>
           <Text size="sm" c="dimmed">
-            {request.shipParticular.name}
-            {request.shipParticular.imoNumber
+            {request.shipParticular?.name ?? 'Administration'}
+            {request.shipParticular?.imoNumber
               ? ` — IMO ${request.shipParticular.imoNumber}`
-              : ''} · {request.branch.name}
+              : ''}{' '}
+            · {request.branch.name}
           </Text>
           <Text size="sm" c="dimmed">
             Requested by {request.createdBy.displayName?.trim() || request.createdBy.email} on{' '}

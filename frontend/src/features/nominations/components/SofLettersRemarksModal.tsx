@@ -1,19 +1,40 @@
-import { useEffect, useState } from 'react';
-import { Modal, Table, TextInput, Select, Button, Group, Stack, Box, Text } from '@mantine/core';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Modal,
+  Table,
+  TextInput,
+  Select,
+  Button,
+  Group,
+  Stack,
+  Box,
+  Text,
+  SimpleGrid,
+  Paper,
+} from '@mantine/core';
 import { DateTimePicker } from '@mantine/dates';
-import type { SofTimesheetResponse, SofLettersData, SofRemarksData } from '@portlog/schemas';
+import {
+  calculateSofOperations,
+  formatSofDuration,
+  type SofTimesheetResponse,
+  type SofLettersData,
+  type SofRemarksData,
+  type SofDelayCategory,
+} from '@portlog/schemas';
 import { useColumnResize } from '../../../components/table/useColumnResize';
 import { ResizableTh } from '../../../components/table/ResizableTh';
 
 type LettersColKey = 'num' | 'from' | 'to' | 'comment';
 const LETTERS_WIDTHS: Record<LettersColKey, number> = { num: 40, from: 120, to: 120, comment: 200 };
 
-type RemarksColKey = 'num' | 'remark' | 'begin' | 'end' | 'comment';
+type RemarksColKey = 'num' | 'category' | 'remark' | 'begin' | 'end' | 'duration' | 'comment';
 const REMARKS_WIDTHS: Record<RemarksColKey, number> = {
   num: 40,
+  category: 135,
   remark: 140,
   begin: 165,
   end: 165,
+  duration: 90,
   comment: 180,
 };
 
@@ -45,6 +66,7 @@ interface SofLettersRemarksModalProps {
 
 type LetterRow = { from: string; to: string; comment: string };
 type RemarkRow = {
+  delayCategory: SofDelayCategory | null;
   remark: string;
   beginDate: string;
   beginTime: string;
@@ -59,6 +81,7 @@ const LETTER_PARTY_OPTIONS = ['Master', 'Shore', 'Surveyor', 'Bunker Supplier', 
 
 const EMPTY_LETTER = (): LetterRow => ({ from: '', to: '', comment: '' });
 const EMPTY_REMARK = (): RemarkRow => ({
+  delayCategory: null,
   remark: '',
   beginDate: '',
   beginTime: '',
@@ -66,6 +89,12 @@ const EMPTY_REMARK = (): RemarkRow => ({
   endTime: '',
   comment: '',
 });
+
+const DELAY_OPTIONS = [
+  { value: 'BEFORE', label: 'Before Operations' },
+  { value: 'DURING', label: 'During Operations' },
+  { value: 'AFTER', label: 'After Operations' },
+];
 
 export function SofLettersRemarksModal({
   opened,
@@ -76,6 +105,8 @@ export function SofLettersRemarksModal({
 }: SofLettersRemarksModalProps) {
   const [letters, setLetters] = useState<LetterRow[]>([]);
   const [remarks, setRemarks] = useState<RemarkRow[]>([]);
+  const [cargoQuantity, setCargoQuantity] = useState('');
+  const [obq, setObq] = useState('');
   const { colWidths: lettersWidths, startResize: startLettersResize } =
     useColumnResize<LettersColKey>(LETTERS_WIDTHS);
   const { colWidths: remarksWidths, startResize: startRemarksResize } =
@@ -85,6 +116,8 @@ export function SofLettersRemarksModal({
     if (opened) {
       setLetters(sofData?.lettersData?.items?.map((i) => ({ ...i })) ?? []);
       setRemarks(sofData?.remarksData?.items?.map((i) => ({ ...i })) ?? []);
+      setCargoQuantity(sofData?.remarksData?.cargoQuantity ?? '');
+      setObq(sofData?.remarksData?.obq ?? '');
     }
   }, [opened]);
 
@@ -92,14 +125,28 @@ export function SofLettersRemarksModal({
     setLetters((prev) => prev.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
   }
 
-  function updateRemark(idx: number, field: keyof RemarkRow, value: string) {
+  function updateRemark<K extends keyof RemarkRow>(idx: number, field: K, value: RemarkRow[K]) {
     setRemarks((prev) => prev.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
   }
 
   function handleSave() {
-    onSave({ lettersData: { items: letters }, remarksData: { items: remarks } });
+    onSave({
+      lettersData: { items: letters },
+      remarksData: { items: remarks, cargoQuantity, obq },
+    });
     onClose();
   }
+
+  const summary = useMemo(
+    () => calculateSofOperations(sofData?.entries ?? [], remarks, cargoQuantity, obq),
+    [sofData?.entries, remarks, cargoQuantity, obq],
+  );
+
+  const remarkDuration = (row: RemarkRow) => {
+    const begin = strToDateTime(row.beginDate, row.beginTime)?.getTime();
+    const end = strToDateTime(row.endDate, row.endTime)?.getTime();
+    return begin != null && end != null && end >= begin ? formatSofDuration(end - begin) : '—';
+  };
 
   return (
     <Modal
@@ -249,6 +296,12 @@ export function SofLettersRemarksModal({
                   #
                 </ResizableTh>
                 <ResizableTh
+                  width={remarksWidths.category}
+                  onResize={(e) => startRemarksResize('category', e)}
+                >
+                  Delay Type
+                </ResizableTh>
+                <ResizableTh
                   width={remarksWidths.remark}
                   onResize={(e) => startRemarksResize('remark', e)}
                 >
@@ -267,6 +320,12 @@ export function SofLettersRemarksModal({
                   End
                 </ResizableTh>
                 <ResizableTh
+                  width={remarksWidths.duration}
+                  onResize={(e) => startRemarksResize('duration', e)}
+                >
+                  Duration
+                </ResizableTh>
+                <ResizableTh
                   width={remarksWidths.comment}
                   onResize={(e) => startRemarksResize('comment', e)}
                 >
@@ -277,7 +336,7 @@ export function SofLettersRemarksModal({
             <Table.Tbody>
               {remarks.length === 0 && (
                 <Table.Tr>
-                  <Table.Td colSpan={5}>
+                  <Table.Td colSpan={7}>
                     <Text size="xs" c="dimmed" ta="center">
                       No remarks. Click Insert to add a row.
                     </Text>
@@ -290,6 +349,18 @@ export function SofLettersRemarksModal({
                     <Text size="xs" ta="center">
                       {idx + 1}
                     </Text>
+                  </Table.Td>
+                  <Table.Td style={{ width: remarksWidths.category }}>
+                    <Select
+                      size="xs"
+                      data={DELAY_OPTIONS}
+                      value={row.delayCategory}
+                      onChange={(value) =>
+                        updateRemark(idx, 'delayCategory', (value as SofDelayCategory) ?? null)
+                      }
+                      placeholder="Classify"
+                      clearable
+                    />
                   </Table.Td>
                   <Table.Td style={{ width: remarksWidths.remark }}>
                     <TextInput
@@ -343,6 +414,11 @@ export function SofLettersRemarksModal({
                       }
                     />
                   </Table.Td>
+                  <Table.Td style={{ width: remarksWidths.duration }}>
+                    <Text size="xs" fw={600} ta="center">
+                      {remarkDuration(row)}
+                    </Text>
+                  </Table.Td>
                   <Table.Td style={{ width: remarksWidths.comment }}>
                     <TextInput
                       size="xs"
@@ -355,6 +431,62 @@ export function SofLettersRemarksModal({
               ))}
             </Table.Tbody>
           </Table>
+
+          <Paper withBorder p="md" mt="md" bg="gray.0">
+            <Group justify="space-between" align="flex-end" mb="md">
+              <div>
+                <Text fw={700}>Operational Time Calculation</Text>
+                <Text size="xs" c="dimmed">
+                  Calculated from Times Sheet activities and classified remarks.
+                </Text>
+              </div>
+              <Group grow w={360}>
+                <TextInput
+                  label="Cargo quantity"
+                  value={cargoQuantity}
+                  onChange={(e) => setCargoQuantity(e.currentTarget.value)}
+                  placeholder="e.g. 100,000"
+                />
+                <TextInput
+                  label="OBQ"
+                  value={obq}
+                  onChange={(e) => setObq(e.currentTarget.value)}
+                  placeholder="e.g. 1,000"
+                />
+              </Group>
+            </Group>
+            <SimpleGrid cols={{ base: 2, md: 4 }} spacing="xs">
+              {[
+                ['Turnaround', formatSofDuration(summary.turnaroundMs)],
+                ['Laytime', formatSofDuration(summary.laytimeMs)],
+                ['Gross operation', formatSofDuration(summary.grossOperationMs)],
+                ['Delay before', formatSofDuration(summary.delaysBeforeMs)],
+                ['Delay during', formatSofDuration(summary.delaysDuringMs)],
+                ['Delay after', formatSofDuration(summary.delaysAfterMs)],
+                ['Net operation', formatSofDuration(summary.netOperationMs)],
+                [
+                  'Average rate',
+                  summary.averageRate == null
+                    ? 'Pending data'
+                    : `${summary.averageRate.toLocaleString(undefined, { maximumFractionDigits: 2 })} / hr`,
+                ],
+              ].map(([label, value]) => (
+                <Box
+                  key={label}
+                  bg="white"
+                  p="sm"
+                  style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 4 }}
+                >
+                  <Text size="xs" c="dimmed">
+                    {label}
+                  </Text>
+                  <Text fw={700} size="sm">
+                    {value}
+                  </Text>
+                </Box>
+              ))}
+            </SimpleGrid>
+          </Paper>
         </Box>
 
         <Group justify="flex-end">

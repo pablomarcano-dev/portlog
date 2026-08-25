@@ -15,6 +15,7 @@
 </head>
 <body>
 <h1>STATEMENT OF FACTS (SOF)</h1>
+<p><strong>Revision:</strong> {{revisionNumber}} — {{revisionLabel}}</p>
 <table>
   <tr><th>Vessel</th><td>{{vesselName}}</td></tr>
   <tr><th>Port / Berth</th><td>{{portName}} / {{berth}}</td></tr>
@@ -41,6 +42,25 @@
     {{else}}
     <tr><td colspan="3" style="text-align:center; color:#666;">No events recorded.</td></tr>
     {{/if}}
+  </tbody>
+</table>
+{{#if remarks.length}}
+<h2 style="font-size:13px; margin-top:20px;">Remarks / Delays</h2>
+<table>
+  <thead><tr><th>Category</th><th>From</th><th>To</th><th>Description</th></tr></thead>
+  <tbody>
+    {{#each remarks}}
+    <tr><td>{{this.category}}</td><td>{{this.from}}</td><td>{{this.to}}</td><td>{{this.description}}</td></tr>
+    {{/each}}
+  </tbody>
+</table>
+{{/if}}
+<h2 style="font-size:13px; margin-top:20px;">Operational Time Calculation</h2>
+<table>
+  <tbody>
+    {{#each operationalSummary}}
+    <tr><th>{{this.label}}</th><td>{{this.value}}</td></tr>
+    {{/each}}
   </tbody>
 </table>
 <div class="signature">

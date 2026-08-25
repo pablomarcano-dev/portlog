@@ -224,6 +224,36 @@ describe('ServiceRequestsService', () => {
         ),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('assigns an administrative service to the user branch without a vessel', async () => {
+      prisma.user.findUnique.mockResolvedValue({ branchId: 'branch-1' });
+      prisma.serviceRequest.create.mockResolvedValue(makeRequest());
+
+      await service.create(
+        {
+          type: 'GENERAL',
+          nominationId: null,
+          shipParticularId: null,
+          branchId: 'branch-1',
+          scheduledAt: SCHEDULED,
+          currency: 'VES',
+          details: { type: 'GENERAL', route: 'Documents to bank' },
+        } as never,
+        'user-1',
+      );
+
+      expect(prisma.nomination.findFirst).not.toHaveBeenCalled();
+      expect(prisma.serviceRequest.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            nominationId: null,
+            shipParticularId: null,
+            branchId: 'branch-1',
+            createdById: 'user-1',
+          }),
+        }),
+      );
+    });
   });
 
   describe('nominationOptions', () => {

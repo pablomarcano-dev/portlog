@@ -131,13 +131,13 @@ export function ServiceRequestStepper({
   const stepFields = useMemo(
     () =>
       [
-        ['shipParticularId', 'branchId', 'nominationId'],
+        type === 'GENERAL' ? ['branchId'] : ['shipParticularId', 'branchId', 'nominationId'],
         ['details', 'location', 'portId', 'pierId', 'scheduledAt'],
         [],
         [],
         [],
       ] as Array<Array<keyof ServiceRequestFormValues>>,
-    [],
+    [type],
   );
 
   async function next() {
@@ -171,52 +171,69 @@ export function ServiceRequestStepper({
             {/* ------------------------------------------------------------- */}
             <Stepper.Step label="Identification" description="Vessel and branch">
               <Stack gap="sm" mt="md">
-                <Controller
-                  name="nominationId"
-                  control={control}
-                  render={({ field, fieldState }) => (
-                    <Select
-                      label="SN / OT and vessel"
-                      description="Only active nominations from your assigned branch are shown"
-                      placeholder="Search or select an SN, OT or vessel"
-                      required
-                      searchable
-                      clearable
-                      searchValue={nominationSearch}
-                      onSearchChange={setNominationSearch}
-                      value={field.value ?? null}
-                      data={(nominationOptions.data ?? []).map((item) => ({
-                        value: item.id,
-                        label: item.label,
-                      }))}
-                      onChange={(value) => {
-                        field.onChange(value);
-                        const selected = nominationOptions.data?.find((item) => item.id === value);
-                        setValue('shipParticularId', selected?.shipParticularId ?? '', {
-                          shouldValidate: true,
-                        });
-                        setValue('branchId', selected?.branchId ?? '', { shouldValidate: true });
-                      }}
-                      error={fieldState.error?.message}
-                      nothingFoundMessage={
-                        nominationOptions.isLoading ? 'Loading...' : 'No branch nominations found'
-                      }
+                {type === 'GENERAL' ? (
+                  <Alert variant="light" color="blue" title="Administrative service">
+                    This request is assigned to Administration in your branch. It does not require a
+                    vessel, SN or OT.
+                  </Alert>
+                ) : (
+                  <>
+                    <Controller
+                      name="nominationId"
+                      control={control}
+                      render={({ field, fieldState }) => (
+                        <Select
+                          label="SN / OT and vessel"
+                          description="Only active nominations from your assigned branch are shown"
+                          placeholder="Search or select an SN, OT or vessel"
+                          required
+                          searchable
+                          clearable
+                          searchValue={nominationSearch}
+                          onSearchChange={setNominationSearch}
+                          value={asId(field.value)}
+                          data={(nominationOptions.data ?? []).map((item) => ({
+                            value: item.id,
+                            label: item.label,
+                          }))}
+                          onChange={(value) => {
+                            field.onChange(value);
+                            const selected = nominationOptions.data?.find(
+                              (item) => item.id === value,
+                            );
+                            setValue('shipParticularId', selected?.shipParticularId ?? '', {
+                              shouldValidate: true,
+                            });
+                            setValue('branchId', selected?.branchId ?? '', {
+                              shouldValidate: true,
+                            });
+                          }}
+                          error={fieldState.error?.message}
+                          nothingFoundMessage={
+                            nominationOptions.isLoading
+                              ? 'Loading...'
+                              : 'No branch nominations found'
+                          }
+                        />
+                      )}
                     />
-                  )}
-                />
 
-                <Group grow>
-                  <TextInput
-                    label="Vessel / Tanker"
-                    value={selectedNomination?.vesselName ?? request?.shipParticular.name ?? ''}
-                    readOnly
-                  />
-                  <TextInput
-                    label="Branch"
-                    value={selectedNomination?.branchName ?? request?.branch.name ?? ''}
-                    readOnly
-                  />
-                </Group>
+                    <Group grow>
+                      <TextInput
+                        label="Vessel / Tanker"
+                        value={
+                          selectedNomination?.vesselName ?? request?.shipParticular?.name ?? ''
+                        }
+                        readOnly
+                      />
+                      <TextInput
+                        label="Branch"
+                        value={selectedNomination?.branchName ?? request?.branch.name ?? ''}
+                        readOnly
+                      />
+                    </Group>
+                  </>
+                )}
 
                 <Controller
                   name="supplierId"

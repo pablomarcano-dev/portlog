@@ -42,16 +42,15 @@ const emailList = (field: string) =>
 export const ServiceRequestCreateSchema = z.object({
   type: choice(ServiceRequestTypeSchema, 'Select a service request type'),
 
-  /** The anchor. Required: a request always concerns a vessel. */
-  shipParticularId: requiredRef('vessel'),
+  /** Null for an administrative service; vessel services are checked server-side. */
+  shipParticularId: clearableRef('vessel'),
   /** Pre-filled from the signed-in user's branch, still editable. */
   branchId: requiredRef('branch'),
-  /**
-   * Optional soft link to a port call. The module is horizontal by design: a
-   * request is valid with no nomination at all, and deleting the nomination
-   * must not delete the request (SetNull at the DB level).
-   */
-  nominationId: z.string().uuid('Select an SN/OT nomination from your branch'),
+  /** Null for an administrative service. */
+  nominationId: z.preprocess(
+    (value) => (value === '' || value === undefined ? null : value),
+    z.string().uuid('Select an SN/OT nomination from your branch').nullable(),
+  ),
 
   /** The provider. Required before sending, optional while drafting. */
   supplierId: clearableRef('provider'),
@@ -260,7 +259,7 @@ export const ServiceRequestListItemSchema = z.object({
   controlNumber: z.string(),
   type: ServiceRequestTypeSchema,
   status: ServiceRequestStatusSchema,
-  vesselName: z.string(),
+  vesselName: z.string().nullable(),
   branchCode: z.string(),
   supplierName: z.string().nullable(),
   /** Human label for the type-specific service, resolved from `details`. */
@@ -301,8 +300,8 @@ export const ServiceRequestReadSchema = z.object({
   type: ServiceRequestTypeSchema,
   status: ServiceRequestStatusSchema,
 
-  shipParticularId: z.string(),
-  shipParticular: NamedRefSchema.extend({ imoNumber: z.string().nullable() }),
+  shipParticularId: z.string().nullable(),
+  shipParticular: NamedRefSchema.extend({ imoNumber: z.string().nullable() }).nullable(),
   branchId: z.string(),
   branch: NamedRefSchema.extend({ code: z.string() }),
   nominationId: z.string().nullable(),

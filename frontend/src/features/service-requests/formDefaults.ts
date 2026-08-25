@@ -96,7 +96,7 @@ export function blankServiceRequest(
 export function toFormValues(request: ServiceRequestRead): ServiceRequestFormValues {
   return {
     type: request.type,
-    shipParticularId: request.shipParticularId,
+    shipParticularId: request.shipParticularId ?? '',
     branchId: request.branchId,
     nominationId: request.nominationId ?? '',
     supplierId: request.supplierId,

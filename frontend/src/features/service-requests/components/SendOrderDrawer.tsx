@@ -46,7 +46,7 @@ function defaultBody(request: ServiceRequestRead): string {
     '',
     `Por medio de la presente enviamos la Orden de Compra ${request.controlNumber} correspondiente al servicio detallado a continuación:`,
     '',
-    `  Buque:      ${request.shipParticular.name}`,
+    `  Asignado a: ${request.shipParticular?.name ?? 'Administración'}`,
     `  Servicio:   ${resolveServiceLabel(request.details)}`,
     `  Programado: ${formatDateTime(request.scheduledAt)}`,
     '',
@@ -75,7 +75,7 @@ export function SendOrderDrawer({ opened, onClose, request }: Props) {
     // Subject and body are Spanish to match the attached purchase order; the
     // recipient is the provider, not a Portlog user. Both stay editable.
     setSubject(
-      `Orden de Compra ${request.controlNumber} — ${request.shipParticular.name} — ${resolveServiceLabel(request.details)}`,
+      `Orden de Compra ${request.controlNumber} — ${request.shipParticular?.name ?? 'Administración'} — ${resolveServiceLabel(request.details)}`,
     );
     setBody(defaultBody(request));
     setAttachmentIds([]);

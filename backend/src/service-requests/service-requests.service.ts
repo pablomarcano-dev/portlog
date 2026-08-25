@@ -90,14 +90,17 @@ export class ServiceRequestsService {
 
   async create(dto: ServiceRequestCreate, userId: string): Promise<ServiceRequestRead> {
     this.assertDetailsMatchType(dto.type, dto.details);
-    const nomination = await this.resolveNominationForUser(dto.nominationId, userId);
+    const assignment =
+      dto.type === 'GENERAL'
+        ? await this.resolveAdministrationForUser(userId)
+        : await this.resolveNominationForUser(dto.nominationId, userId);
 
     const created = await this.prisma.serviceRequest.create({
       data: {
         type: dto.type,
-        shipParticularId: nomination.shipParticularId,
-        branchId: nomination.branchId,
-        nominationId: nomination.id,
+        shipParticularId: assignment.shipParticularId,
+        branchId: assignment.branchId,
+        nominationId: assignment.nominationId,
         supplierId: dto.supplierId ?? null,
         location: dto.location ?? null,
         portId: dto.portId ?? null,
@@ -334,7 +337,7 @@ export class ServiceRequestsService {
       controlNumber: formatControlNumber(row.correlative, row.createdAt, row.branch.code),
       type: row.type,
       status: row.status,
-      vesselName: row.shipParticular.name,
+      vesselName: row.shipParticular?.name ?? null,
       branchCode: row.branch.code,
       supplierName: row.supplier?.name ?? null,
       serviceLabel: resolveServiceLabel(row.details),
@@ -469,7 +472,7 @@ export class ServiceRequestsService {
     );
     const subject =
       dto.subject ??
-      `Purchase Order ${control} — ${request.shipParticular.name} — ${resolveServiceLabel(request.details)}`;
+      `Purchase Order ${control} — ${request.shipParticular?.name ?? 'Administration'} — ${resolveServiceLabel(request.details)}`;
 
     // Resolve every attachment up front so a bad id or an oversize payload
     // aborts before the request is flipped to SENT.
@@ -664,15 +667,18 @@ export class ServiceRequestsService {
   }
 
   private async resolveNominationForUser(
-    nominationId: string,
+    nominationId: string | null,
     userId: string,
-  ): Promise<{ id: string; shipParticularId: string; branchId: string }> {
+  ): Promise<{ nominationId: string; shipParticularId: string; branchId: string }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { branchId: true },
     });
     if (!user?.branchId) {
       throw new BadRequestException('Your user is not assigned to a branch');
+    }
+    if (!nominationId) {
+      throw new BadRequestException('Select an active SN/OT nomination from your branch');
     }
     const nomination = await this.prisma.nomination.findFirst({
       where: { id: nominationId, branchId: user.branchId, status: { not: 'CANCELLED' } },
@@ -682,9 +688,22 @@ export class ServiceRequestsService {
       throw new BadRequestException('Select an active SN/OT nomination from your branch');
     }
     return {
-      id: nomination.id,
+      nominationId: nomination.id,
       shipParticularId: nomination.shipParticularId,
       branchId: nomination.branchId,
     };
+  }
+
+  private async resolveAdministrationForUser(userId: string): Promise<{
+    shipParticularId: null;
+    branchId: string;
+    nominationId: null;
+  }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { branchId: true },
+    });
+    if (!user?.branchId) throw new BadRequestException('Your user is not assigned to a branch');
+    return { shipParticularId: null, branchId: user.branchId, nominationId: null };
   }
 }
