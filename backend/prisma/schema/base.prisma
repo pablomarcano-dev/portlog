@@ -20,32 +20,41 @@ enum Role {
   ADM
 }
 
+// Operational responsibility inside a branch. This is deliberately separate
+// from Role, which controls application access (OPS/ADM).
+enum UserOperationalRole {
+  BRANCH_MANAGER
+  SUPERVISOR
+  SHIPPING_AGENT
+}
+
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  passwordHash  String
-  displayName   String? // full name for email signatures e.g. "Carlos Ferrer"
-  jobTitle      String? // title line in email signatures e.g. "Fleet Manager"
-  phone         String? // office direct line
-  mobile        String? // personal / 24h mobile
-  fax           String? // office fax
-  role          Role           @default(OPS)
+  id              String               @id @default(cuid())
+  email           String               @unique
+  passwordHash    String
+  displayName     String? // full name for email signatures e.g. "Carlos Ferrer"
+  jobTitle        String? // title line in email signatures e.g. "Fleet Manager"
+  phone           String? // office direct line
+  mobile          String? // personal / 24h mobile
+  fax             String? // office fax
+  role            Role                 @default(OPS)
+  operationalRole UserOperationalRole?
   // Default Sucursal. The service-request forms pre-fill from this ("Sucursal:
   // carga según el usuario") but leave the field editable, so an agent covering
   // another branch is not blocked. Nullable: existing accounts predate it and
   // SetNull keeps a branch deletion from cascading into user rows.
-  branchId      String?
-  branch        Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  isActive      Boolean        @default(true)
+  branchId        String?
+  branch          Branch?              @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  isActive        Boolean              @default(true)
   // permissions is a flexible array of permission strings.
   // Reserved values for M2: "owner.financial" (gates Owner Acuerdos + financial history fields).
   // This approach is more flexible than a third role and avoids exploding the Role enum.
-  permissions   String[]       @default([])
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  lastLoginAt   DateTime?
-  refreshTokens RefreshToken[]
-  auditLogs     AuditLog[]
+  permissions     String[]             @default([])
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  lastLoginAt     DateTime?
+  refreshTokens   RefreshToken[]
+  auditLogs       AuditLog[]
 
   // Nomination back-relations
   nominationsCreated      Nomination[]              @relation("NominationCreatedBy")
@@ -65,6 +74,7 @@ model User {
   emailDispatchesSent       EmailDispatch[]          @relation("DispatchSentBy")
   branchDocInstancesCreated BranchDocumentInstance[] @relation("BranchDocInstanceCreatedBy")
   emailAttachmentsUploaded  EmailAttachment[]        @relation("EmailAttachmentUploadedBy")
+  terminalContacts          TerminalContact[]
 
   // Service Requests (M6)
   serviceRequestsCreated   ServiceRequest[]         @relation("ServiceRequestCreatedBy")

@@ -12,7 +12,9 @@ import { StorageService } from '../storage/storage.service.js';
 import { AttachmentsService } from '../attachments/attachments.service.js';
 import {
   calculateSofOperations,
+  resolveSofCargoInputs,
   formatSofDuration,
+  formatSofCalculationStamp,
   type SendSubDocumentInput,
   type SubDocExtraData,
 } from '@portlog/schemas';
@@ -161,11 +163,17 @@ export class DispatchService {
           delayCategory?: 'BEFORE' | 'DURING' | 'AFTER' | null;
         }>;
       } | null;
+      const cargoInputs = resolveSofCargoInputs(
+        sof?.shipFiguresData as { rows?: Record<string, string[]> } | null,
+        sof?.blFiguresData as { rows?: Record<string, string[]> } | null,
+        remarksData?.cargoQuantity,
+        remarksData?.obq,
+      );
       const calculation = calculateSofOperations(
         sof?.entries ?? [],
         remarksData?.items ?? [],
-        remarksData?.cargoQuantity,
-        remarksData?.obq,
+        cargoInputs.cargoQuantity,
+        cargoInputs.obq,
       );
       Object.assign(baseData, {
         revisionNumber: priorSofDispatches + 1,
@@ -179,9 +187,24 @@ export class DispatchService {
           description: [remark.remark, remark.comment].filter(Boolean).join(' — '),
         })),
         operationalSummary: [
-          { label: 'Total Time Turnaround', value: formatSofDuration(calculation.turnaroundMs) },
-          { label: 'Total Laytime', value: formatSofDuration(calculation.laytimeMs) },
-          { label: 'Gross Operation Time', value: formatSofDuration(calculation.grossOperationMs) },
+          {
+            label: 'Total Time Turnaround',
+            from: formatSofCalculationStamp(calculation.turnaroundFrom),
+            to: formatSofCalculationStamp(calculation.turnaroundTo),
+            value: formatSofDuration(calculation.turnaroundMs),
+          },
+          {
+            label: 'Total Laytime',
+            from: formatSofCalculationStamp(calculation.laytimeFrom),
+            to: formatSofCalculationStamp(calculation.laytimeTo),
+            value: formatSofDuration(calculation.laytimeMs),
+          },
+          {
+            label: 'Gross Operation Time',
+            from: formatSofCalculationStamp(calculation.operationFrom),
+            to: formatSofCalculationStamp(calculation.operationTo),
+            value: formatSofDuration(calculation.grossOperationMs),
+          },
           {
             label: 'Delays Before Operations',
             value: formatSofDuration(calculation.delaysBeforeMs),
@@ -191,13 +214,18 @@ export class DispatchService {
             value: formatSofDuration(calculation.delaysDuringMs),
           },
           { label: 'Delays After Operations', value: formatSofDuration(calculation.delaysAfterMs) },
-          { label: 'Net Operation Time', value: formatSofDuration(calculation.netOperationMs) },
+          {
+            label: 'Net Operation Time',
+            from: formatSofCalculationStamp(calculation.operationFrom),
+            to: formatSofCalculationStamp(calculation.operationTo),
+            value: `${formatSofDuration(calculation.netOperationMs)} (less delays during operations)`,
+          },
           {
             label: 'Average Rate',
             value:
               calculation.averageRate == null
                 ? 'Pending data'
-                : `${calculation.averageRate.toFixed(2)} / Hr`,
+                : `${calculation.averageRate.toFixed(2)} Barrels/hour`,
           },
         ],
       });

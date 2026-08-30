@@ -26,7 +26,9 @@ import {
   etaNoticeLabel,
   resolveTransferRateUnit,
   calculateSofOperations,
+  resolveSofCargoInputs,
   formatSofDuration,
+  formatSofCalculationStamp,
   type NominationStatus,
   type NominationKind,
   type NominationCreateInput,
@@ -323,9 +325,33 @@ export class NominationsService {
     return this.prisma.$transaction(async (tx) => {
       // OT nominations may only carry OT-category products (no-op for SN).
       await this.assertParcelsMatchKind(tx, nominationData.kind, nominationData.parcels);
+      if (nominationData.opPortId) {
+        const port = await tx.port.findFirst({
+          where: { id: nominationData.opPortId, branchId: nominationData.branchId },
+          select: { id: true },
+        });
+        if (!port) throw new BadRequestException('Operating port is not assigned to this branch.');
+      }
+      const branchStaff = await tx.user.findMany({
+        where: {
+          branchId: nominationData.branchId,
+          isActive: true,
+          operationalRole: { not: null },
+        },
+        orderBy: { displayName: 'asc' },
+        select: { displayName: true, email: true, operationalRole: true },
+      });
+      const staffNames = (roles: Array<'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT'>) =>
+        branchStaff
+          .filter((user) => user.operationalRole && roles.includes(user.operationalRole))
+          .map((user) => user.displayName?.trim() || user.email)
+          .join('; ');
       const nomination = await tx.nomination.create({
         data: {
           ...(nominationData as unknown as Prisma.NominationUncheckedCreateInput),
+          mic: nominationData.mic?.trim() || staffNames(['BRANCH_MANAGER', 'SUPERVISOR']) || null,
+          boardingClerk:
+            nominationData.boardingClerk?.trim() || staffNames(['SHIPPING_AGENT']) || null,
           voyageNumber: nominationData.voyageNumber ?? '',
           createdById: userId,
         },
@@ -531,7 +557,7 @@ export class NominationsService {
   async update(id: string, dto: NominationUpdateInput, userId: string) {
     const existing = await this.prisma.nomination.findUnique({
       where: { id },
-      select: { id: true, status: true, kind: true },
+      select: { id: true, status: true, kind: true, branchId: true },
     });
     if (!existing) {
       throw new NotFoundException(`Nomination ${id} not found.`);
@@ -544,11 +570,37 @@ export class NominationsService {
     if (dto.parcels) {
       await this.assertParcelsMatchKind(this.prisma, existing.kind, dto.parcels);
     }
+    const effectiveBranchId = dto.branchId ?? existing.branchId;
+    if (dto.opPortId && effectiveBranchId) {
+      const port = await this.prisma.port.findFirst({
+        where: { id: dto.opPortId, branchId: effectiveBranchId },
+        select: { id: true },
+      });
+      if (!port) throw new BadRequestException('Operating port is not assigned to this branch.');
+    }
+    let staffDefaults: { mic?: string; boardingClerk?: string } = {};
+    if (dto.branchId && dto.branchId !== existing.branchId) {
+      const branchStaff = await this.prisma.user.findMany({
+        where: { branchId: dto.branchId, isActive: true, operationalRole: { not: null } },
+        orderBy: { displayName: 'asc' },
+        select: { displayName: true, email: true, operationalRole: true },
+      });
+      const names = (roles: Array<'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT'>) =>
+        branchStaff
+          .filter((user) => user.operationalRole && roles.includes(user.operationalRole))
+          .map((user) => user.displayName?.trim() || user.email)
+          .join('; ');
+      staffDefaults = {
+        mic: names(['BRANCH_MANAGER', 'SUPERVISOR']),
+        boardingClerk: names(['SHIPPING_AGENT']),
+      };
+    }
     try {
       const updated = await this.prisma.nomination.update({
         where: { id },
         data: {
           ...(dto as unknown as Prisma.NominationUncheckedUpdateInput),
+          ...staffDefaults,
           updatedAt: new Date(),
         },
         include: DETAIL_INCLUDE,
@@ -791,6 +843,7 @@ export class NominationsService {
             select: {
               name: true,
               emails: true,
+              flag: { select: { name: true } },
               owner: { select: { name: true, contacts: { select: { emails: true } } } },
               operator: {
                 select: { name: true, emails: true, contacts: { select: { emails: true } } },
@@ -798,7 +851,16 @@ export class NominationsService {
             },
           },
           // `emails` is the terminal's own distribution list.
-          opPort: { select: { name: true, emails: true } },
+          opPort: {
+            select: {
+              name: true,
+              emails: true,
+              terminalContacts: {
+                where: { user: { isActive: true } },
+                select: { recipientType: true, user: { select: { email: true } } },
+              },
+            },
+          },
           lastPort: { select: { name: true } },
           nextPort: { select: { name: true } },
           branch: {
@@ -883,6 +945,7 @@ export class NominationsService {
       etb: Date | null;
       etbOn: boolean;
       refMessage: string | null;
+      captainMessage: string | null;
     } | null = null;
 
     if (isEtaType) {
@@ -929,16 +992,10 @@ export class NominationsService {
       NominationsService.OPERATOR_TYPES,
     );
 
-    // The countdown the notice is titled with ("96 Hours ETA Notice"), anchored
-    // to the NOMINATION's ETA — deliberately, and deliberately not to the ETA the
-    // notice body prints. `eta_date` shows the notified ETA once the master has
-    // answered; the countdown does not follow it, so the two can disagree on a
-    // notice whose master has revised their ETA. That is the agency's call: the
-    // notice series is numbered off the arrival the call was booked against, so a
-    // vessel does not jump from "48 Hours" back to "72 Hours" because the master
-    // slipped. The frontend anchors identically (see `noticeText.ts`); the two
-    // must not drift, or the drawer's subject would contradict the sent one.
-    const etaAnchor = nomination.etaDate ?? null;
+    // The countdown follows the latest ETA reported by the captain; the original
+    // nomination ETA is the fallback until a report exists. The browser uses the
+    // same precedence so the compose drawer and the server-rendered subject agree.
+    const etaAnchor = etaRecord?.etaNotify ?? nomination.etaDate ?? null;
 
     const templateVars = {
       vessel_name: vesselName,
@@ -985,7 +1042,7 @@ export class NominationsService {
       })),
       last_port: nomination.lastPort?.name ?? '',
       next_port: nomination.nextPort?.name ?? '',
-      flag: '',
+      flag: nomination.shipParticular?.flag?.name ?? '',
       master_name: nomination.master?.trim() ?? '',
       master_rank: 'MASTER',
       master_msg_date: fmtDate(etaRecord?.msgEta ?? null),
@@ -1048,6 +1105,7 @@ export class NominationsService {
       // of the mail. The unqualified phrase says the same thing without claiming
       // a countdown nobody computed.
       eta_notice_label: etaAnchor ? etaNoticeLabel(new Date(), etaAnchor) : 'ETA Notice',
+      captain_message: etaRecord?.captainMessage ?? '',
       company_website: 'www.navieramar.com',
       current_year: String(new Date().getFullYear()),
       branch_office: branch?.name ?? '',
@@ -1297,21 +1355,27 @@ export class NominationsService {
         })
         .filter((line) => line !== '')
         .join('\n');
-      const calculation = calculateSofOperations(
-        sof?.entries ?? [],
-        remarksData?.items ?? [],
+      const cargoInputs = resolveSofCargoInputs(
+        sof?.shipFiguresData as { rows?: Record<string, string[]> } | null,
+        sof?.blFiguresData as { rows?: Record<string, string[]> } | null,
         remarksData?.cargoQuantity,
         remarksData?.obq,
       );
+      const calculation = calculateSofOperations(
+        sof?.entries ?? [],
+        remarksData?.items ?? [],
+        cargoInputs.cargoQuantity,
+        cargoInputs.obq,
+      );
       const operationalLines = [
-        `Total Time Turnaround: ${formatSofDuration(calculation.turnaroundMs)}`,
-        `Total Laytime: ${formatSofDuration(calculation.laytimeMs)}`,
-        `Gross Operation Time: ${formatSofDuration(calculation.grossOperationMs)}`,
+        `Total Time Turnaround: ${formatSofDuration(calculation.turnaroundMs)} (From: ${formatSofCalculationStamp(calculation.turnaroundFrom)} To: ${formatSofCalculationStamp(calculation.turnaroundTo)})`,
+        `Total Laytime: ${formatSofDuration(calculation.laytimeMs)} (From: ${formatSofCalculationStamp(calculation.laytimeFrom)} To: ${formatSofCalculationStamp(calculation.laytimeTo)})`,
+        `Gross Operation Time: ${formatSofDuration(calculation.grossOperationMs)} (From: ${formatSofCalculationStamp(calculation.operationFrom)} To: ${formatSofCalculationStamp(calculation.operationTo)})`,
         `Delays Before Operations: ${formatSofDuration(calculation.delaysBeforeMs)}`,
         `Delays During Operations: ${formatSofDuration(calculation.delaysDuringMs)}`,
         `Delays After Operations: ${formatSofDuration(calculation.delaysAfterMs)}`,
-        `Net Operation Time: ${formatSofDuration(calculation.netOperationMs)}`,
-        `Average Rate: ${calculation.averageRate == null ? 'Pending data' : `${calculation.averageRate.toFixed(2)} / Hr`}`,
+        `Net Operation Time: ${formatSofDuration(calculation.netOperationMs)} (From: ${formatSofCalculationStamp(calculation.operationFrom)} To: ${formatSofCalculationStamp(calculation.operationTo)} less Delays During Operations)`,
+        `Average Rate: ${calculation.averageRate == null ? 'Pending data' : `${calculation.averageRate.toFixed(2)} Barrels/hour`}`,
       ].join('\n');
       templateVars.remarks_section = includeLettersRemarks
         ? [remarkLines, operationalLines].filter(Boolean).join('\n\n')
@@ -1387,11 +1451,23 @@ export class NominationsService {
     const isMasterAddressed = MASTER_ADDRESSED_ACTIONS.has(action);
 
     if (isTerminalAddressed) {
+      const contacts = nomination.opPort?.terminalContacts ?? [];
       const terminalAndShipper = dedupeEmails([
         ...(nomination.opPort?.emails ?? []),
+        ...contacts
+          .filter((contact) => contact.recipientType === 'TO')
+          .map((contact) => contact.user.email),
         ...shipper.emails,
       ]);
       if (terminalAndShipper.length > 0) toAddresses = terminalAndShipper;
+      const terminalCc = contacts
+        .filter((contact) => contact.recipientType === 'CC')
+        .map((contact) => contact.user.email);
+      const terminalBcc = contacts
+        .filter((contact) => contact.recipientType === 'BCC')
+        .map((contact) => contact.user.email);
+      if (terminalCc.length > 0) ccAddresses = dedupeEmails(terminalCc);
+      if (terminalBcc.length > 0) bccAddresses = dedupeEmails(terminalBcc);
     }
 
     if (isMasterAddressed) {
@@ -1811,6 +1887,7 @@ export class NominationsService {
         etb: null,
         etbOn: false,
         refMessage: null,
+        captainMessage: null,
         updatedAt: null,
       };
     }
@@ -1827,6 +1904,7 @@ export class NominationsService {
       etb: r.etb?.toISOString() ?? null,
       etbOn: r.etbOn,
       refMessage: r.refMessage,
+      captainMessage: r.captainMessage,
       updatedAt: r.updatedAt.toISOString(),
     };
   }
@@ -1847,6 +1925,7 @@ export class NominationsService {
       etb: body.etb ? new Date(body.etb) : null,
       etbOn: body.etbOn ?? false,
       refMessage: body.refMessage ?? null,
+      captainMessage: body.captainMessage ?? null,
     };
 
     const record = await this.prisma.pedrEtaRecord.upsert({
@@ -1866,6 +1945,7 @@ export class NominationsService {
       etb: record.etb?.toISOString() ?? null,
       etbOn: record.etbOn,
       refMessage: record.refMessage,
+      captainMessage: record.captainMessage,
       updatedAt: record.updatedAt.toISOString(),
     };
   }

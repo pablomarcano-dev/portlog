@@ -1,4 +1,8 @@
-import { calculateSofOperations, formatSofDuration } from '../sof-calculations.js';
+import {
+  calculateSofOperations,
+  formatSofDuration,
+  resolveSofCargoInputs,
+} from '../sof-calculations.js';
 
 describe('SOF operational calculations', () => {
   const entry = (occurredAt: string, name: string) => ({ occurredAt, activity: { name } });
@@ -29,8 +33,35 @@ describe('SOF operational calculations', () => {
       '1,000',
     );
     expect(formatSofDuration(result.grossOperationMs)).toBe('10h 00m');
+    expect(result.operationFrom).toBe(new Date('2026-06-18T13:00:00').getTime());
+    expect(result.operationTo).toBe(new Date('2026-06-18T23:00:00').getTime());
     expect(formatSofDuration(result.delaysDuringMs)).toBe('3h 00m');
     expect(formatSofDuration(result.netOperationMs)).toBe('7h 00m');
     expect(result.averageRate).toBeCloseTo(1285.714, 3);
+  });
+
+  it('sources cargo and OBQ from all saved SOF figure columns', () => {
+    expect(
+      resolveSofCargoInputs(
+        { rows: { bbls: ['755,553', '1,141,317'] } },
+        { rows: { originalOnBoard: ['1,000', '476'] } },
+        '999',
+        '888',
+      ),
+    ).toEqual({
+      cargoQuantity: '1896870',
+      obq: '1476',
+      cargoSource: 'SHIP_FIGURES',
+      obqSource: 'BL_FIGURES',
+    });
+  });
+
+  it('keeps manual values for legacy SOFs without linked figures', () => {
+    expect(resolveSofCargoInputs(null, null, '1,896,870', '1,476')).toEqual({
+      cargoQuantity: '1,896,870',
+      obq: '1,476',
+      cargoSource: 'MANUAL',
+      obqSource: 'MANUAL',
+    });
   });
 });

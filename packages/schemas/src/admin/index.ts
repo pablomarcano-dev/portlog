@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export const UserOperationalRoleSchema = z.enum(['BRANCH_MANAGER', 'SUPERVISOR', 'SHIPPING_AGENT']);
+
 export const AdminUserSchema = z.object({
   id: z.string(),
   email: z.string().email(),
@@ -9,10 +11,12 @@ export const AdminUserSchema = z.object({
   mobile: z.string().nullable(),
   fax: z.string().nullable(),
   role: z.enum(['OPS', 'ADM']),
+  operationalRole: UserOperationalRoleSchema.nullable(),
   isActive: z.boolean(),
   permissions: z.array(z.string()),
   // Default Sucursal — pre-fills the service-request forms.
   branchId: z.string().nullable(),
+  branch: z.object({ id: z.string(), name: z.string(), code: z.string() }).nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
   lastLoginAt: z.string().nullable(),
@@ -29,6 +33,7 @@ export const CreateUserSchema = z.object({
   displayName: z.string().optional(),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   role: z.enum(['OPS', 'ADM']),
+  operationalRole: UserOperationalRoleSchema.nullable().optional(),
   branchId: z.preprocess(
     (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
     z.string().cuid().nullish(),
@@ -44,6 +49,7 @@ export const UpdateUserSchema = z.object({
   mobile: z.string().optional(),
   fax: z.string().optional(),
   role: z.enum(['OPS', 'ADM']).optional(),
+  operationalRole: UserOperationalRoleSchema.nullable().optional(),
   isActive: z.boolean().optional(),
   // Blank clears the assignment; Prisma writes NULL.
   branchId: z.preprocess(

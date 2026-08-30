@@ -79,6 +79,8 @@ model Port {
   emails       String[] @default([])
   emailGroup   String?
   comments     String?  @db.Text
+  branchId     String?
+  branch       Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
   createdAt    DateTime @default(now()) @db.Timestamptz
   updatedAt    DateTime @updatedAt @db.Timestamptz
 
@@ -95,10 +97,34 @@ model Port {
   sofTimesheetsAsNextPort SofTimesheet[] @relation("SofTimesheetNextPort")
 
   // Service Requests back-relation — the `Ubicación` port picker
-  serviceRequests ServiceRequest[]
+  serviceRequests  ServiceRequest[]
+  terminalContacts TerminalContact[]
 
   @@index([name])
+  @@index([branchId])
   @@map("ports")
+}
+
+enum TerminalRecipientType {
+  TO
+  CC
+  BCC
+}
+
+// Users who receive notices addressed to a terminal. The assignment owns the
+// envelope placement so To/Cc/Bcc is configured once in master data.
+model TerminalContact {
+  id            String                @id @default(cuid())
+  portId        String
+  port          Port                  @relation(fields: [portId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipientType TerminalRecipientType @default(TO)
+  createdAt     DateTime              @default(now()) @db.Timestamptz
+
+  @@unique([portId, userId])
+  @@index([userId])
+  @@map("terminal_contacts")
 }
 
 // ---------------------------------------------------------------------------
@@ -112,8 +138,8 @@ model Pier {
   createdAt DateTime @default(now()) @db.Timestamptz
   updatedAt DateTime @updatedAt @db.Timestamptz
 
-  nominations   Nomination[]
-  sofTimesheets SofTimesheet[] @relation("SofTimesheetPier")
+  nominations     Nomination[]
+  sofTimesheets   SofTimesheet[]   @relation("SofTimesheetPier")
   serviceRequests ServiceRequest[]
 
   @@index([portId])
@@ -377,7 +403,7 @@ model SalesContact {
 model Contact {
   id            String     @id @default(cuid())
   name          String
-  emails        String[] @default([])
+  emails        String[]   @default([])
   homePhone     String?
   mobile        String?
   businessPhone String?
@@ -431,6 +457,7 @@ model Branch {
   serviceRequests   ServiceRequest[]
   // Users whose default Sucursal this is (pre-fills service request forms)
   users             User[]
+  ports             Port[]
 
   @@index([code])
   @@map("branches")
@@ -455,7 +482,7 @@ model ShipParticular {
   dwt          Decimal?  @db.Decimal(12, 3) // Deadweight Tonnage
   grt          Decimal?  @db.Decimal(12, 3) // Gross Register Tonnage
   nrt          Decimal?  @db.Decimal(12, 3) // Net Register Tonnage
-  emails       String[] @default([])
+  emails       String[]  @default([])
   // imoNumber is unique among non-null values (Postgres unique index allows multiple NULLs).
   // Partial-uniqueness concern: Prisma @unique maps to a standard unique index, which is correct here.
   imoNumber    String?   @unique
@@ -472,7 +499,7 @@ model ShipParticular {
   createdAt    DateTime  @default(now()) @db.Timestamptz
   updatedAt    DateTime  @updatedAt @db.Timestamptz
 
-  nominations Nomination[]
+  nominations     Nomination[]
   // Service Requests back-relation — the vessel is the module's anchor
   serviceRequests ServiceRequest[]
 

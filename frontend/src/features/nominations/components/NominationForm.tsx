@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   ActionIcon,
   Autocomplete,
@@ -138,6 +138,7 @@ export function NominationForm({
   const shipParticularId = watch('shipParticularId');
   const opPortId = watch('opPortId') ?? null;
   const branchId = watch('branchId');
+  const previousBranchId = useRef(defaultValues?.branchId);
   const kind = watch('kind') ?? 'SN';
   const referenceNo = watch('referenceNo');
 
@@ -170,6 +171,46 @@ export function NominationForm({
     enabled: !!branchId,
     staleTime: 5 * 60_000,
   });
+
+  const branchUsersQuery = useQuery({
+    queryKey: ['branch-operational-users'],
+    queryFn: () =>
+      apiRequest<{
+        items: Array<{
+          id: string;
+          email: string;
+          displayName: string | null;
+          branchId: string | null;
+          operationalRole: 'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT' | null;
+        }>;
+      }>('/master-data/ports/contact-users'),
+    staleTime: 30_000,
+  });
+
+  useEffect(() => {
+    if (!branchId || !branchUsersQuery.data) return;
+    const branchChanged = previousBranchId.current !== branchId;
+    const currentMic = form.getValues('mic')?.trim();
+    const currentBoarding = form.getValues('boardingClerk')?.trim();
+    if (mode === 'edit' && !branchChanged && currentMic && currentBoarding) return;
+    const staff = branchUsersQuery.data.items.filter((user) => user.branchId === branchId);
+    const names = (roles: Array<'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT'>) =>
+      staff
+        .filter((user) => user.operationalRole && roles.includes(user.operationalRole))
+        .map((user) => user.displayName?.trim() || user.email)
+        .join('; ');
+    if (branchChanged || !currentMic) {
+      setValue('mic', names(['BRANCH_MANAGER', 'SUPERVISOR']), { shouldDirty: true });
+    }
+    if (branchChanged || !currentBoarding) {
+      setValue('boardingClerk', names(['SHIPPING_AGENT']), { shouldDirty: true });
+    }
+    if (branchChanged) {
+      setValue('opPortId', undefined, { shouldDirty: true });
+      setValue('pierId', undefined, { shouldDirty: true });
+    }
+    previousBranchId.current = branchId;
+  }, [branchId, branchUsersQuery.data]);
 
   // Ports list — used for vessel-data port matching and subject generation
   const portsQuery = useQuery({
@@ -333,6 +374,7 @@ export function NominationForm({
         opened={portModalTarget !== null}
         onClose={() => setPortModalTarget(null)}
         onCreated={(id) => handlePortCreated(id)}
+        branchId={branchId}
       />
       <NewPierModal
         opened={newPierModalOpen}
@@ -559,6 +601,9 @@ export function NominationForm({
                         searchValue={opPortSearch}
                         onSearchChange={setOpPortSearch}
                         error={fieldState.error?.message}
+                        extraParams={branchId ? { branchId } : undefined}
+                        disabled={isReadOnly || !branchId}
+                        placeholder={branchId ? 'Select operating port' : 'Select branch first'}
                       />
                     )}
                   />

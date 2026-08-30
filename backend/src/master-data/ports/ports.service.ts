@@ -7,9 +7,20 @@ const PORT_SELECT = {
   name: true,
   abbreviation: true,
   country: true,
+  branchId: true,
+  branch: { select: { id: true, name: true, code: true } },
   emails: true,
   emailGroup: true,
   comments: true,
+  terminalContacts: {
+    orderBy: { createdAt: 'asc' as const },
+    select: {
+      id: true,
+      userId: true,
+      recipientType: true,
+      user: { select: { id: true, email: true, displayName: true, operationalRole: true } },
+    },
+  },
 } as const;
 
 export interface PortNode {
@@ -17,6 +28,7 @@ export interface PortNode {
   name: string;
   abbreviation: string | null;
   country: string | null;
+  branchId: string | null;
   emails: string[];
   emailGroup: string | null;
   comments: string | null;
@@ -32,12 +44,15 @@ export class PortsService {
   // list — cursor-paginated with optional name search
   // ---------------------------------------------------------------------------
   async list(query: PortListQuery) {
-    const { q, limit, cursor } = query;
+    const { q, limit, cursor, branchId } = query;
 
     const items = await this.prisma.port.findMany({
       take: limit + 1,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-      where: q ? { name: { contains: q, mode: 'insensitive' as const } } : {},
+      where: {
+        ...(q ? { name: { contains: q, mode: 'insensitive' as const } } : {}),
+        ...(branchId ? { branchId } : {}),
+      },
       orderBy: { name: 'asc' },
       select: PORT_SELECT,
     });
@@ -79,9 +94,13 @@ export class PortsService {
   // create
   // ---------------------------------------------------------------------------
   async create(input: PortCreateInput) {
+    const { terminalContacts, ...portData } = input;
     try {
       return await this.prisma.port.create({
-        data: input,
+        data: {
+          ...portData,
+          terminalContacts: { create: terminalContacts },
+        },
         select: PORT_SELECT,
       });
     } catch (err: unknown) {
@@ -97,11 +116,25 @@ export class PortsService {
   // ---------------------------------------------------------------------------
   async update(id: string, input: PortUpdateInput) {
     await this.assertExists(id);
+    const { terminalContacts, ...portData } = input;
     try {
-      return await this.prisma.port.update({
-        where: { id },
-        data: input,
-        select: PORT_SELECT,
+      if (terminalContacts === undefined) {
+        return await this.prisma.port.update({
+          where: { id },
+          data: portData,
+          select: PORT_SELECT,
+        });
+      }
+      return await this.prisma.$transaction(async (tx) => {
+        await tx.terminalContact.deleteMany({ where: { portId: id } });
+        return tx.port.update({
+          where: { id },
+          data: {
+            ...portData,
+            terminalContacts: { create: terminalContacts },
+          },
+          select: PORT_SELECT,
+        });
       });
     } catch (err: unknown) {
       if (this.isPrismaUniqueViolation(err)) {
@@ -144,13 +177,31 @@ export class PortsService {
     return rows.map((r) => r.country).filter((c): c is string => c != null && c.trim() !== '');
   }
 
+  async contactUsers() {
+    const users = await this.prisma.user.findMany({
+      where: { isActive: true },
+      orderBy: [{ displayName: 'asc' }, { email: 'asc' }],
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        branchId: true,
+        operationalRole: true,
+      },
+    });
+    return { items: users };
+  }
+
   // ---------------------------------------------------------------------------
   // search — quick type-ahead
   // ---------------------------------------------------------------------------
-  async search(q: string) {
+  async search(q: string, branchId?: string) {
     const items = await this.prisma.port.findMany({
       take: 20,
-      where: { name: { contains: q, mode: 'insensitive' } },
+      where: {
+        name: { contains: q, mode: 'insensitive' },
+        ...(branchId ? { branchId } : {}),
+      },
       orderBy: { name: 'asc' },
       select: { id: true, name: true },
     });

@@ -58,6 +58,20 @@ function formatDate(iso: string | null): string {
   });
 }
 
+const ACCESS_ROLE_OPTIONS = [
+  { value: 'OPS', label: 'OPS — Operations' },
+  { value: 'ADM', label: 'ADM — Administrator' },
+];
+
+const OPERATIONAL_ROLE_OPTIONS = [
+  { value: 'BRANCH_MANAGER', label: 'Branch Manager' },
+  { value: 'SUPERVISOR', label: 'Supervisor' },
+  { value: 'SHIPPING_AGENT', label: 'Shipping Agent' },
+];
+
+const operationalRoleLabel = (value: AdminUser['operationalRole']) =>
+  OPERATIONAL_ROLE_OPTIONS.find((option) => option.value === value)?.label ?? '—';
+
 // ── Main screen ────────────────────────────────────────────────────────────
 
 function UsersAdminScreen() {
@@ -129,6 +143,8 @@ function UsersAdminScreen() {
             <Table.Th>Email</Table.Th>
             <Table.Th>Name</Table.Th>
             <Table.Th>Role</Table.Th>
+            <Table.Th>Branch</Table.Th>
+            <Table.Th>Operational role</Table.Th>
             <Table.Th>Status</Table.Th>
             <Table.Th>Last Login</Table.Th>
             <Table.Th style={{ width: 160 }}>Actions</Table.Th>
@@ -150,6 +166,8 @@ function UsersAdminScreen() {
                   {user.role}
                 </Badge>
               </Table.Td>
+              <Table.Td>{user.branch?.name ?? '—'}</Table.Td>
+              <Table.Td>{operationalRoleLabel(user.operationalRole)}</Table.Td>
               <Table.Td>
                 <Badge variant="dot" color={user.isActive ? 'green' : 'gray'} size="sm">
                   {user.isActive ? 'Active' : 'Inactive'}
@@ -254,9 +272,17 @@ function UsersAdminScreen() {
 
 function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const createUser = useCreateUser();
+  const [branchSearch, setBranchSearch] = useState('');
   const form = useForm<CreateUserInput>({
     resolver: zodResolver(CreateUserSchema),
-    defaultValues: { email: '', displayName: '', password: '', role: 'OPS' },
+    defaultValues: {
+      email: '',
+      displayName: '',
+      password: '',
+      role: 'OPS',
+      branchId: null,
+      operationalRole: null,
+    },
   });
 
   async function onSubmit(values: CreateUserInput) {
@@ -303,15 +329,42 @@ function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void
             control={form.control}
             render={({ field }) => (
               <Select
-                label="Role"
+                label="Access Role"
                 required
-                data={[
-                  { value: 'OPS', label: 'OPS — Operations' },
-                  { value: 'ADM', label: 'ADM — Admin' },
-                ]}
+                data={ACCESS_ROLE_OPTIONS}
                 value={field.value}
                 onChange={(v) => field.onChange(v ?? 'OPS')}
                 error={form.formState.errors.role?.message}
+              />
+            )}
+          />
+          <Controller
+            name="branchId"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <EntityPicker
+                endpoint="/master-data/branches"
+                label="Branch"
+                placeholder="Select branch"
+                value={field.value ?? null}
+                onChange={field.onChange}
+                searchValue={branchSearch}
+                onSearchChange={setBranchSearch}
+                error={fieldState.error?.message}
+              />
+            )}
+          />
+          <Controller
+            name="operationalRole"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <Select
+                label="Operational Role"
+                data={OPERATIONAL_ROLE_OPTIONS}
+                value={field.value ?? null}
+                onChange={field.onChange}
+                clearable
+                error={fieldState.error?.message}
               />
             )}
           />
@@ -343,6 +396,7 @@ function EditUserModal({ user, onClose }: { user: AdminUser; onClose: () => void
       mobile: user.mobile ?? '',
       fax: user.fax ?? '',
       role: user.role,
+      operationalRole: user.operationalRole,
       isActive: user.isActive,
       branchId: user.branchId,
     },
@@ -392,14 +446,25 @@ function EditUserModal({ user, onClose }: { user: AdminUser; onClose: () => void
             control={form.control}
             render={({ field }) => (
               <Select
-                label="Role"
-                data={[
-                  { value: 'OPS', label: 'OPS — Operations' },
-                  { value: 'ADM', label: 'ADM — Admin' },
-                ]}
+                label="Access Role"
+                data={ACCESS_ROLE_OPTIONS}
                 value={field.value}
                 onChange={(v) => field.onChange(v ?? user.role)}
                 error={form.formState.errors.role?.message}
+              />
+            )}
+          />
+          <Controller
+            name="operationalRole"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <Select
+                label="Operational Role"
+                data={OPERATIONAL_ROLE_OPTIONS}
+                value={field.value ?? null}
+                onChange={field.onChange}
+                clearable
+                error={fieldState.error?.message}
               />
             )}
           />

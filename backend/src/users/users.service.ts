@@ -20,11 +20,12 @@ export type SafeUser = {
   mobile: string | null;
   fax: string | null;
   role: 'OPS' | 'ADM';
+  operationalRole: 'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT' | null;
   isActive: boolean;
   permissions: string[];
   branchId: string | null;
   /** Joined for the control-number prefix; null when no branch is assigned. */
-  branch: { code: string } | null;
+  branch: { id: string; name: string; code: string } | null;
   createdAt: Date;
   updatedAt: Date;
   lastLoginAt: Date | null;
@@ -39,12 +40,13 @@ const SAFE_USER_SELECT = {
   mobile: true,
   fax: true,
   role: true,
+  operationalRole: true,
   isActive: true,
   permissions: true,
   // Default Sucursal — pre-fills the service-request forms and is returned by
   // /auth/me alongside the branch code the control number is built from.
   branchId: true,
-  branch: { select: { code: true } },
+  branch: { select: { id: true, name: true, code: true } },
   createdAt: true,
   updatedAt: true,
   lastLoginAt: true,
@@ -55,6 +57,7 @@ export type CreateUserDto = {
   displayName?: string;
   password: string;
   role: 'OPS' | 'ADM';
+  operationalRole?: 'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT' | null;
   branchId?: string | null;
 };
 
@@ -65,6 +68,7 @@ export type UpdateUserDto = {
   mobile?: string;
   fax?: string;
   role?: 'OPS' | 'ADM';
+  operationalRole?: 'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT' | null;
   isActive?: boolean;
   branchId?: string | null;
 };
@@ -126,6 +130,7 @@ export class UsersService {
         displayName: dto.displayName ?? null,
         passwordHash,
         role: dto.role,
+        operationalRole: dto.operationalRole ?? null,
         branchId: dto.branchId ?? null,
       },
       select: SAFE_USER_SELECT,
@@ -144,6 +149,7 @@ export class UsersService {
         ...(dto.mobile !== undefined ? { mobile: dto.mobile } : {}),
         ...(dto.fax !== undefined ? { fax: dto.fax } : {}),
         ...(dto.role !== undefined ? { role: dto.role } : {}),
+        ...(dto.operationalRole !== undefined ? { operationalRole: dto.operationalRole } : {}),
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
         ...(dto.branchId !== undefined ? { branchId: dto.branchId } : {}),
       },

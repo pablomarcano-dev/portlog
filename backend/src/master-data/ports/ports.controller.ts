@@ -23,13 +23,18 @@ export class PortsController {
   constructor(private readonly portsService: PortsService) {}
 
   @Get('search')
-  search(@Query('q') q: string) {
-    return this.portsService.search(q ?? '');
+  search(@Query('q') q: string, @Query('branchId') branchId?: string) {
+    return this.portsService.search(q ?? '', branchId);
   }
 
   @Get('countries')
   countries() {
     return this.portsService.countries();
+  }
+
+  @Get('contact-users')
+  contactUsers() {
+    return this.portsService.contactUsers();
   }
 
   @Get()

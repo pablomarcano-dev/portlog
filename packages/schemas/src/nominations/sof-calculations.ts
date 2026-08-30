@@ -14,8 +14,14 @@ export interface SofCalculationRemark {
 }
 
 export interface SofOperationalSummary {
+  turnaroundFrom: number | null;
+  turnaroundTo: number | null;
   turnaroundMs: number | null;
+  laytimeFrom: number | null;
+  laytimeTo: number | null;
   laytimeMs: number | null;
+  operationFrom: number | null;
+  operationTo: number | null;
   grossOperationMs: number | null;
   delaysBeforeMs: number;
   delaysDuringMs: number;
@@ -54,21 +60,67 @@ function mergeDuration(intervals: Array<[number, number]>): number {
   return total + end - start;
 }
 
-function parseAmount(value?: string): number | null {
+export function parseSofAmount(value?: string | number | null): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
   if (!value?.trim()) return null;
   const cleaned = value.trim().replace(/\s/g, '');
+  const commaCount = (cleaned.match(/,/g) ?? []).length;
+  const dotCount = (cleaned.match(/\./g) ?? []).length;
   const singleSeparator = cleaned.match(/^[-+]?\d+([,.])\d+$/)?.[1];
   const trailingDigits = singleSeparator ? (cleaned.split(singleSeparator).at(-1)?.length ?? 0) : 0;
   const decimal =
-    cleaned.includes(',') && cleaned.includes('.')
-      ? cleaned.lastIndexOf('.') > cleaned.lastIndexOf(',')
-        ? cleaned.replace(/,/g, '')
-        : cleaned.replace(/\./g, '').replace(',', '.')
-      : singleSeparator && trailingDigits === 3
-        ? cleaned.replace(singleSeparator, '')
-        : cleaned.replace(',', '.');
+    commaCount > 1 && dotCount === 0
+      ? cleaned.replace(/,/g, '')
+      : dotCount > 1 && commaCount === 0
+        ? cleaned.replace(/\./g, '')
+        : cleaned.includes(',') && cleaned.includes('.')
+          ? cleaned.lastIndexOf('.') > cleaned.lastIndexOf(',')
+            ? cleaned.replace(/,/g, '')
+            : cleaned.replace(/\./g, '').replace(',', '.')
+          : singleSeparator && trailingDigits === 3
+            ? cleaned.replace(singleSeparator, '')
+            : cleaned.replace(',', '.');
   const number = Number(decimal);
   return Number.isFinite(number) ? number : null;
+}
+
+interface SofFigureData {
+  rows?: Record<string, string[]>;
+}
+
+export interface SofCargoInputs {
+  cargoQuantity: string;
+  obq: string;
+  cargoSource: 'SHIP_FIGURES' | 'MANUAL';
+  obqSource: 'BL_FIGURES' | 'MANUAL';
+}
+
+function sumFigureRow(data: SofFigureData | null | undefined, row: string): number | null {
+  const amounts = (data?.rows?.[row] ?? [])
+    .map(parseSofAmount)
+    .filter((amount): amount is number => amount != null);
+  return amounts.length ? amounts.reduce((total, amount) => total + amount, 0) : null;
+}
+
+/**
+ * Connects the operational calculation to the SOF's authoritative figure blocks.
+ * Manual values remain a compatibility fallback for older statements which do not
+ * yet have Ship/B-L figures recorded.
+ */
+export function resolveSofCargoInputs(
+  shipFiguresData: SofFigureData | null | undefined,
+  blFiguresData: SofFigureData | null | undefined,
+  manualCargoQuantity = '',
+  manualObq = '',
+): SofCargoInputs {
+  const shipBbls = sumFigureRow(shipFiguresData, 'bbls');
+  const originalOnBoard = sumFigureRow(blFiguresData, 'originalOnBoard');
+  return {
+    cargoQuantity: shipBbls == null ? manualCargoQuantity : String(shipBbls),
+    obq: originalOnBoard == null ? manualObq : String(originalOnBoard),
+    cargoSource: shipBbls == null ? 'MANUAL' : 'SHIP_FIGURES',
+    obqSource: originalOnBoard == null ? 'MANUAL' : 'BL_FIGURES',
+  };
 }
 
 export function calculateSofOperations(
@@ -129,14 +181,20 @@ export function calculateSofOperations(
   const delaysDuringMs = durationFor('DURING', true);
   const netOperationMs =
     grossOperationMs == null ? null : Math.max(0, grossOperationMs - delaysDuringMs);
-  const cargo = parseAmount(cargoQuantity);
-  const obqAmount = parseAmount(obq) ?? 0;
+  const cargo = parseSofAmount(cargoQuantity);
+  const obqAmount = parseSofAmount(obq) ?? 0;
   const netCargo = cargo == null ? null : cargo - obqAmount;
   const netHours = netOperationMs == null ? null : netOperationMs / 3_600_000;
 
   return {
+    turnaroundFrom: eosp,
+    turnaroundTo: sailed,
     turnaroundMs: span(eosp, sailed),
+    laytimeFrom: nor,
+    laytimeTo: documents,
     laytimeMs: span(nor, documents),
+    operationFrom: commenced,
+    operationTo: completed,
     grossOperationMs,
     delaysBeforeMs: durationFor('BEFORE'),
     delaysDuringMs,
@@ -145,6 +203,12 @@ export function calculateSofOperations(
     netCargo,
     averageRate: netCargo != null && netHours != null && netHours > 0 ? netCargo / netHours : null,
   };
+}
+
+export function formatSofCalculationStamp(milliseconds: number | null): string {
+  if (milliseconds == null) return 'Pending data';
+  const date = new Date(milliseconds);
+  return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
 export function formatSofDuration(milliseconds: number | null): string {

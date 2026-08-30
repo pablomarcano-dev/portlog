@@ -12,9 +12,17 @@ export interface PortRecord {
   name: string;
   abbreviation?: string | null;
   country?: string | null;
+  branchId?: string | null;
+  branch?: { id: string; name: string; code: string } | null;
   emails?: string[];
   emailGroup?: string | null;
   comments?: string | null;
+  terminalContacts?: Array<{
+    id: string;
+    userId: string;
+    recipientType: 'TO' | 'CC' | 'BCC';
+    user: { id: string; email: string; displayName: string | null; operationalRole: string | null };
+  }>;
 }
 
 export interface PierRecord {
@@ -38,11 +46,12 @@ export interface PortListResponse {
 // ---------------------------------------------------------------------------
 
 export const portsApi = {
-  list: (params?: { q?: string; limit?: number; cursor?: string }) => {
+  list: (params?: { q?: string; limit?: number; cursor?: string; branchId?: string }) => {
     const qs = new URLSearchParams();
     if (params?.q) qs.set('q', params.q);
     if (params?.limit != null) qs.set('limit', String(params.limit));
     if (params?.cursor) qs.set('cursor', params.cursor);
+    if (params?.branchId) qs.set('branchId', params.branchId);
     const query = qs.toString();
     return apiRequest<PortListResponse>(`/master-data/ports${query ? `?${query}` : ''}`);
   },
@@ -55,6 +64,17 @@ export const portsApi = {
     ),
 
   countries: () => apiRequest<string[]>('/master-data/ports/countries'),
+
+  contactUsers: () =>
+    apiRequest<{
+      items: Array<{
+        id: string;
+        email: string;
+        displayName: string | null;
+        branchId: string | null;
+        operationalRole: string | null;
+      }>;
+    }>('/master-data/ports/contact-users'),
 
   create: (data: PortCreateInput) =>
     apiRequest<PortRecord>('/master-data/ports', {

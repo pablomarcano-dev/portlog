@@ -15,6 +15,8 @@ import {
 import { DateTimePicker } from '@mantine/dates';
 import {
   calculateSofOperations,
+  resolveSofCargoInputs,
+  formatSofCalculationStamp,
   formatSofDuration,
   type SofTimesheetResponse,
   type SofLettersData,
@@ -137,9 +139,32 @@ export function SofLettersRemarksModal({
     onClose();
   }
 
-  const summary = useMemo(
-    () => calculateSofOperations(sofData?.entries ?? [], remarks, cargoQuantity, obq),
-    [sofData?.entries, remarks, cargoQuantity, obq],
+  const summary = useMemo(() => {
+    const inputs = resolveSofCargoInputs(
+      sofData?.shipFiguresData,
+      sofData?.blFiguresData,
+      cargoQuantity,
+      obq,
+    );
+    return calculateSofOperations(
+      sofData?.entries ?? [],
+      remarks,
+      inputs.cargoQuantity,
+      inputs.obq,
+    );
+  }, [
+    sofData?.entries,
+    sofData?.shipFiguresData,
+    sofData?.blFiguresData,
+    remarks,
+    cargoQuantity,
+    obq,
+  ]);
+
+  const cargoInputs = useMemo(
+    () =>
+      resolveSofCargoInputs(sofData?.shipFiguresData, sofData?.blFiguresData, cargoQuantity, obq),
+    [sofData?.shipFiguresData, sofData?.blFiguresData, cargoQuantity, obq],
   );
 
   const remarkDuration = (row: RemarkRow) => {
@@ -443,34 +468,68 @@ export function SofLettersRemarksModal({
               <Group grow w={360}>
                 <TextInput
                   label="Cargo quantity"
-                  value={cargoQuantity}
+                  description={
+                    cargoInputs.cargoSource === 'SHIP_FIGURES'
+                      ? "From Ship's Loaded Figures (BBLS)"
+                      : 'Manual fallback'
+                  }
+                  value={cargoInputs.cargoQuantity}
                   onChange={(e) => setCargoQuantity(e.currentTarget.value)}
                   placeholder="e.g. 100,000"
+                  readOnly={cargoInputs.cargoSource === 'SHIP_FIGURES'}
                 />
                 <TextInput
                   label="OBQ"
-                  value={obq}
+                  description={
+                    cargoInputs.obqSource === 'BL_FIGURES'
+                      ? 'From B/L Original on Board'
+                      : 'Manual fallback'
+                  }
+                  value={cargoInputs.obq}
                   onChange={(e) => setObq(e.currentTarget.value)}
                   placeholder="e.g. 1,000"
+                  readOnly={cargoInputs.obqSource === 'BL_FIGURES'}
                 />
               </Group>
             </Group>
-            <SimpleGrid cols={{ base: 2, md: 4 }} spacing="xs">
+            <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xs">
               {[
-                ['Turnaround', formatSofDuration(summary.turnaroundMs)],
-                ['Laytime', formatSofDuration(summary.laytimeMs)],
-                ['Gross operation', formatSofDuration(summary.grossOperationMs)],
-                ['Delay before', formatSofDuration(summary.delaysBeforeMs)],
-                ['Delay during', formatSofDuration(summary.delaysDuringMs)],
-                ['Delay after', formatSofDuration(summary.delaysAfterMs)],
-                ['Net operation', formatSofDuration(summary.netOperationMs)],
+                [
+                  'Turnaround',
+                  formatSofDuration(summary.turnaroundMs),
+                  summary.turnaroundFrom,
+                  summary.turnaroundTo,
+                ],
+                [
+                  'Laytime',
+                  formatSofDuration(summary.laytimeMs),
+                  summary.laytimeFrom,
+                  summary.laytimeTo,
+                ],
+                [
+                  'Gross operation',
+                  formatSofDuration(summary.grossOperationMs),
+                  summary.operationFrom,
+                  summary.operationTo,
+                ],
+                ['Delay before', formatSofDuration(summary.delaysBeforeMs), null, null],
+                ['Delay during', formatSofDuration(summary.delaysDuringMs), null, null],
+                ['Delay after', formatSofDuration(summary.delaysAfterMs), null, null],
+                [
+                  'Net operation',
+                  formatSofDuration(summary.netOperationMs),
+                  summary.operationFrom,
+                  summary.operationTo,
+                ],
                 [
                   'Average rate',
                   summary.averageRate == null
                     ? 'Pending data'
-                    : `${summary.averageRate.toLocaleString(undefined, { maximumFractionDigits: 2 })} / hr`,
+                    : `${summary.averageRate.toLocaleString(undefined, { maximumFractionDigits: 2 })} Barrels/hour`,
+                  null,
+                  null,
                 ],
-              ].map(([label, value]) => (
+              ].map(([label, value, from, to]) => (
                 <Box
                   key={label}
                   bg="white"
@@ -483,6 +542,22 @@ export function SofLettersRemarksModal({
                   <Text fw={700} size="sm">
                     {value}
                   </Text>
+                  {from != null || to != null ? (
+                    <Group gap="md" mt={4}>
+                      <Text size="xs">
+                        <Text span c="dimmed">
+                          From:{' '}
+                        </Text>
+                        {formatSofCalculationStamp(from as number | null)}
+                      </Text>
+                      <Text size="xs">
+                        <Text span c="dimmed">
+                          To:{' '}
+                        </Text>
+                        {formatSofCalculationStamp(to as number | null)}
+                      </Text>
+                    </Group>
+                  ) : null}
                 </Box>
               ))}
             </SimpleGrid>

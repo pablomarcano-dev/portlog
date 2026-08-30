@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Button, Group, Modal, Stack, TextInput } from '@mantine/core';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,17 +11,29 @@ interface Props {
   opened: boolean;
   onClose: () => void;
   onCreated: (id: string, name: string) => void;
+  branchId: string | undefined;
 }
 
-export function NewPortModal({ opened, onClose, onCreated }: Props) {
+export function NewPortModal({ opened, onClose, onCreated, branchId }: Props) {
   const qc = useQueryClient();
 
   const form = useForm<PortCreateInput>({
     resolver: zodResolver(PortCreateSchema),
-    defaultValues: { name: '', abbreviation: '', country: '', emailGroup: '' },
+    defaultValues: {
+      name: '',
+      abbreviation: '',
+      country: '',
+      emailGroup: '',
+      branchId,
+      terminalContacts: [],
+    },
   });
 
   const { register, handleSubmit, formState, reset } = form;
+
+  useEffect(() => {
+    form.setValue('branchId', branchId ?? '', { shouldValidate: opened });
+  }, [branchId, opened]);
 
   const create = useMutation({
     mutationFn: (data: PortCreateInput) =>
@@ -53,6 +66,7 @@ export function NewPortModal({ opened, onClose, onCreated }: Props) {
             error={formState.errors.name?.message}
             {...register('name')}
           />
+          <input type="hidden" {...register('branchId')} />
           <TextInput
             label="Acronym"
             placeholder="e.g. RTM"

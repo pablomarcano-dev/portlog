@@ -36,7 +36,7 @@ export function StatusHistoryTimeline({ history }: StatusHistoryTimelineProps) {
         <Timeline.Item
           key={item.id}
           title={
-            <Text size="sm" fw={600}>
+            <Text component="div" size="sm" fw={600}>
               {item.fromStatus != null ? `${item.fromStatus} → ` : ''}
               <Badge size="xs" variant="light">
                 {item.toStatus}

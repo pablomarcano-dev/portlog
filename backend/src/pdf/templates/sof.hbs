@@ -57,9 +57,10 @@
 {{/if}}
 <h2 style="font-size:13px; margin-top:20px;">Operational Time Calculation</h2>
 <table>
+  <thead><tr><th>Metric</th><th>From</th><th>To</th><th>Result</th></tr></thead>
   <tbody>
     {{#each operationalSummary}}
-    <tr><th>{{this.label}}</th><td>{{this.value}}</td></tr>
+    <tr><th>{{this.label}}</th><td>{{this.from}}</td><td>{{this.to}}</td><td>{{this.value}}</td></tr>
     {{/each}}
   </tbody>
 </table>

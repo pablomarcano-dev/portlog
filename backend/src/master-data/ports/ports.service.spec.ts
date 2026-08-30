@@ -96,6 +96,16 @@ describe('PortsService', () => {
         }),
       );
     });
+
+    it('filters operating ports by branch when branchId is supplied', async () => {
+      mockPrisma.port.findMany.mockResolvedValue([]);
+
+      await service.list({ q: undefined, limit: 50, cursor: undefined, branchId: 'branch-1' });
+
+      expect(mockPrisma.port.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { branchId: 'branch-1' } }),
+      );
+    });
   });
 
   // -------------------------------------------------------------------------

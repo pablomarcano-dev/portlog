@@ -7,6 +7,7 @@ import {
   Group,
   Checkbox,
   TextInput,
+  Textarea,
   Divider,
   Loader,
   Box,
@@ -59,6 +60,7 @@ export function EtaAnswerModal({
   const [etb, setEtb] = useState<Date | null>(null);
   const [etbOn, setEtbOn] = useState(false);
   const [refMessage, setRefMessage] = useState('');
+  const [captainMessage, setCaptainMessage] = useState('');
 
   const [activeSend, setActiveSend] = useState<EtaSendType | null>(null);
   // Countdown the outgoing notice is titled with, frozen when the send button
@@ -83,6 +85,7 @@ export function EtaAnswerModal({
     setEtb(r.etb ? new Date(r.etb) : null);
     setEtbOn(r.etbOn);
     setRefMessage(r.refMessage ?? '');
+    setCaptainMessage(r.captainMessage ?? '');
   }, [etaQuery.data]);
 
   function buildPayload() {
@@ -95,6 +98,7 @@ export function EtaAnswerModal({
       etb: etb?.toISOString() ?? null,
       etbOn,
       refMessage: refMessage || null,
+      captainMessage: captainMessage || null,
     };
   }
 
@@ -104,7 +108,7 @@ export function EtaAnswerModal({
 
   function handleSendClick(type: EtaSendType) {
     // Save first, then open compose
-    const label = etaCountdownLabel(nominationQuery.data?.etaDate, new Date());
+    const label = etaCountdownLabel(etaNotify ?? nominationQuery.data?.etaDate, new Date());
     etaSave.mutate(buildPayload(), {
       onSuccess: () => {
         setNoticeLabel(label);
@@ -252,6 +256,16 @@ export function EtaAnswerModal({
               placeholder="e.g. Master's message reference"
               value={refMessage}
               onChange={(e) => setRefMessage(e.currentTarget.value)}
+            />
+            <Textarea
+              label="Captain Message"
+              description="Forwarded verbatim inside QUOTE / UNQUOTE on the terminal ETA notice."
+              placeholder="Paste the captain's original message"
+              value={captainMessage}
+              onChange={(event) => setCaptainMessage(event.currentTarget.value)}
+              autosize
+              minRows={5}
+              maxRows={12}
             />
 
             {/* Actions */}

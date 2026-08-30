@@ -180,7 +180,9 @@ const mockPrisma = {
   },
   user: {
     findUnique: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]),
   },
+  port: { findFirst: jest.fn() },
   emailDispatch: {
     create: jest.fn(),
     update: jest.fn(),
@@ -737,6 +739,28 @@ describe('NominationsService', () => {
       expect(data.ccAddresses).toEqual(['ops@navieramar.com']);
     });
 
+    it('places user-backed terminal contacts in their configured envelope fields', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          opPort: {
+            name: 'PDVSA TAECJAA OFF-SHORE PLATFORM, JOSE',
+            emails: [],
+            terminalContacts: [
+              { recipientType: 'TO', user: { email: 'master@terminal.test' } },
+              { recipientType: 'CC', user: { email: 'documents@terminal.test' } },
+              { recipientType: 'BCC', user: { email: 'audit@terminal.test' } },
+            ],
+          },
+        }),
+      );
+
+      const data = await service.getComposeData(NOM_ID, 'ETA_TERMINAL', 'agent@navieramar.com');
+
+      expect(data.toAddresses).toEqual(['master@terminal.test', ...SHIPPER_EMAILS]);
+      expect(data.ccAddresses).toEqual(['documents@terminal.test']);
+      expect(data.bccAddresses).toEqual(['audit@terminal.test']);
+    });
+
     it('does not write the terminal notice to the client', async () => {
       mockPrisma.nomination.findUnique.mockResolvedValue(composeNomination());
 
@@ -992,15 +1016,35 @@ describe('NominationsService', () => {
       expect(lastTemplateVars()['eta_notice_label']).toBe('72 Hours ETA Notice');
     });
 
-    it("counts from the nomination's ETA, not the ETA the master notified", async () => {
+    it("passes the captain's message verbatim to the terminal ETA template", async () => {
       mockPrisma.pedr.findUnique.mockResolvedValue({
         etaRecord: {
           msgEta: null,
-          // Six days out. The body prints this as `eta_date`, but the countdown
-          // deliberately does not follow it — the notice series is numbered off
-          // the arrival the call was booked against, so a vessel never jumps
-          // back from "72 Hours" to "6 DAYS" because the master revised.
-          etaNotify: new Date(Date.now() + 6 * 24 * 3_600_000 + 3_600_000),
+          etaNotify: null,
+          etaNotifyOn: false,
+          etpob: null,
+          etpobOn: false,
+          etb: null,
+          etbOn: false,
+          refMessage: null,
+          captainMessage: 'ETA JOSE 31 AUG 1200 LT\nBEST REGARDS, MASTER',
+        },
+      });
+      mockPrisma.nomination.findUnique.mockResolvedValue(composeNomination());
+
+      await service.getComposeData(NOM_ID, 'ETA_TERMINAL', 'agent@navieramar.com');
+
+      expect(lastTemplateVars()['captain_message']).toBe(
+        'ETA JOSE 31 AUG 1200 LT\nBEST REGARDS, MASTER',
+      );
+    });
+
+    it('counts from the latest ETA the captain notified', async () => {
+      mockPrisma.pedr.findUnique.mockResolvedValue({
+        etaRecord: {
+          msgEta: null,
+          // 50 hours out rounds down to the 48-hour threshold.
+          etaNotify: new Date(Date.now() + 50 * 3_600_000),
           etaNotifyOn: true,
           etpob: null,
           etpobOn: false,
@@ -1015,8 +1059,7 @@ describe('NominationsService', () => {
 
       await service.getComposeData(NOM_ID, 'ETA_REPLY', 'agent@navieramar.com');
 
-      // 80h out rounds down to the 72-hour bucket.
-      expect(lastTemplateVars()['eta_notice_label']).toBe('72 Hours ETA Notice');
+      expect(lastTemplateVars()['eta_notice_label']).toBe('48 Hours ETA Notice');
     });
 
     it('states an unqualified notice when no ETA is recorded at all', async () => {

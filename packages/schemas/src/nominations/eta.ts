@@ -9,6 +9,7 @@ export const etaRecordSaveSchema = z.object({
   etb: z.string().datetime({ offset: true }).nullable().optional(),
   etbOn: z.boolean().default(false),
   refMessage: z.string().max(500).nullable().optional(),
+  captainMessage: z.string().max(20_000).nullable().optional(),
 });
 export type EtaRecordSaveInput = z.infer<typeof etaRecordSaveSchema>;
 
@@ -23,6 +24,7 @@ export const etaRecordResponseSchema = z.object({
   etb: z.string().nullable(),
   etbOn: z.boolean(),
   refMessage: z.string().nullable(),
+  captainMessage: z.string().nullable(),
   updatedAt: z.string(),
 });
 export type EtaRecordResponse = z.infer<typeof etaRecordResponseSchema>;

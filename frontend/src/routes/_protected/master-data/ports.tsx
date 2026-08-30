@@ -15,9 +15,11 @@ import {
   ActionIcon,
   Group,
   Select,
+  MultiSelect,
   Switch,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { useQuery } from '@tanstack/react-query';
 import { useForm, FormProvider, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PortCreateSchema } from '@portlog/schemas';
@@ -26,6 +28,7 @@ import { useCurrentUser } from '../../../lib/auth/queries';
 import { ButtonBar } from '../../../components/master-data/ButtonBar';
 import { CommentarioField } from '../../../components/master-data/CommentarioField';
 import { EmailChipsInput } from '../../../components/master-data/EmailChipsInput';
+import { EntityPicker } from '../../../components/master-data/EntityPicker';
 import {
   useSavePort,
   useDeletePort,
@@ -277,9 +280,14 @@ function PortsScreen() {
           name: port.name,
           abbreviation: port.abbreviation ?? undefined,
           country: port.country ?? undefined,
+          branchId: port.branchId ?? undefined,
           emails: port.emails ?? [],
           emailGroup: port.emailGroup ?? undefined,
           comments: port.comments ?? undefined,
+          terminalContacts: (port.terminalContacts ?? []).map((contact) => ({
+            userId: contact.userId,
+            recipientType: contact.recipientType,
+          })),
         });
       })
       .catch(() => setLoadError('Failed to load record. Please try again.'))
@@ -369,9 +377,14 @@ function PortsScreen() {
             name: port.name,
             abbreviation: port.abbreviation ?? undefined,
             country: port.country ?? undefined,
+            branchId: port.branchId ?? undefined,
             emails: port.emails ?? [],
             emailGroup: port.emailGroup ?? undefined,
             comments: port.comments ?? undefined,
+            terminalContacts: (port.terminalContacts ?? []).map((contact) => ({
+              userId: contact.userId,
+              recipientType: contact.recipientType,
+            })),
           }),
         )
         .catch(() => setLoadError('Failed to reload record.'))
@@ -513,6 +526,16 @@ function PortsScreen() {
 
 function PortFields({ form }: { form: ReturnType<typeof useForm<PortCreateInput>> }) {
   const { register, formState } = form;
+  const [branchSearch, setBranchSearch] = useState('');
+  const contactUsers = useQuery({
+    queryKey: ['ports', 'contact-users'],
+    queryFn: portsApi.contactUsers,
+    staleTime: 30_000,
+  });
+  const userOptions = (contactUsers.data?.items ?? []).map((user) => ({
+    value: user.id,
+    label: user.displayName ? `${user.displayName} — ${user.email}` : user.email,
+  }));
 
   return (
     <Stack gap="sm">
@@ -545,14 +568,90 @@ function PortFields({ form }: { form: ReturnType<typeof useForm<PortCreateInput>
           />
         </Grid.Col>
         <Grid.Col span={6}>
-          <TextInput
-            label="Email Group"
-            placeholder="e.g. rotterdam-ops"
-            error={formState.errors.emailGroup?.message}
-            {...register('emailGroup')}
+          <Controller
+            control={form.control}
+            name="branchId"
+            render={({ field, fieldState }) => (
+              <EntityPicker
+                endpoint="/master-data/branches"
+                label="Branch"
+                placeholder="Select responsible branch"
+                required
+                value={field.value ?? null}
+                onChange={field.onChange}
+                searchValue={branchSearch}
+                onSearchChange={setBranchSearch}
+                error={fieldState.error?.message}
+              />
+            )}
           />
         </Grid.Col>
       </Grid>
+      <TextInput
+        label="Email Group"
+        placeholder="e.g. rotterdam-ops"
+        error={formState.errors.emailGroup?.message}
+        {...register('emailGroup')}
+      />
+      <Controller
+        control={form.control}
+        name="terminalContacts"
+        render={({ field, fieldState }) => {
+          const assignments = field.value ?? [];
+          return (
+            <Stack gap="xs">
+              <MultiSelect
+                label="Terminal Contacts"
+                description="Active users who receive notices addressed to this terminal."
+                data={userOptions}
+                value={assignments.map((item) => item.userId)}
+                onChange={(ids) =>
+                  field.onChange(
+                    ids.map(
+                      (userId) =>
+                        assignments.find((item) => item.userId === userId) ?? {
+                          userId,
+                          recipientType: 'TO' as const,
+                        },
+                    ),
+                  )
+                }
+                searchable
+                error={fieldState.error?.message}
+              />
+              {assignments.map((assignment) => {
+                const user = contactUsers.data?.items.find((item) => item.id === assignment.userId);
+                return (
+                  <Group key={assignment.userId} justify="space-between" wrap="nowrap">
+                    <Text size="sm" truncate style={{ flex: 1 }}>
+                      {user?.displayName ?? user?.email ?? assignment.userId}
+                    </Text>
+                    <Select
+                      w={120}
+                      size="xs"
+                      aria-label="Recipient placement"
+                      data={['TO', 'CC', 'BCC']}
+                      value={assignment.recipientType}
+                      onChange={(recipientType) =>
+                        field.onChange(
+                          assignments.map((item) =>
+                            item.userId === assignment.userId
+                              ? {
+                                  ...item,
+                                  recipientType: (recipientType ?? 'TO') as 'TO' | 'CC' | 'BCC',
+                                }
+                              : item,
+                          ),
+                        )
+                      }
+                    />
+                  </Group>
+                );
+              })}
+            </Stack>
+          );
+        }}
+      />
       <Controller
         control={form.control}
         name="emails"

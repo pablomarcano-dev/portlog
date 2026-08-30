@@ -192,18 +192,19 @@ model PedrEvent {
 // fields (etaNotifyOn, etpobOn, etbOn) control which datetimes appear in
 // outgoing ETA emails (ETA_REQUEST, ETA_TERMINAL, ETA_REPLY).
 model PedrEtaRecord {
-  id          String    @id @default(cuid())
-  pedrId      String    @unique @db.Uuid
-  pedr        Pedr      @relation(fields: [pedrId], references: [id], onDelete: Cascade)
-  msgEta      DateTime? @db.Timestamptz(6)
-  etaNotify   DateTime? @db.Timestamptz(6)
-  etaNotifyOn Boolean   @default(false)
-  etpob       DateTime? @db.Timestamptz(6)
-  etpobOn     Boolean   @default(false)
-  etb         DateTime? @db.Timestamptz(6)
-  etbOn       Boolean   @default(false)
-  refMessage  String?   @db.Text
-  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+  id             String    @id @default(cuid())
+  pedrId         String    @unique @db.Uuid
+  pedr           Pedr      @relation(fields: [pedrId], references: [id], onDelete: Cascade)
+  msgEta         DateTime? @db.Timestamptz(6)
+  etaNotify      DateTime? @db.Timestamptz(6)
+  etaNotifyOn    Boolean   @default(false)
+  etpob          DateTime? @db.Timestamptz(6)
+  etpobOn        Boolean   @default(false)
+  etb            DateTime? @db.Timestamptz(6)
+  etbOn          Boolean   @default(false)
+  refMessage     String?   @db.Text
+  captainMessage String?   @db.Text
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(6)
 
   @@map("pedr_eta_records")
 }

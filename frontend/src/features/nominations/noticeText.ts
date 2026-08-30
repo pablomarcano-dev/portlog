@@ -40,10 +40,9 @@ const ETA_NOTICE_TAIL =
  * The countdown label an ETA notice is titled with, or `null` when there is no
  * ETA to count down to.
  *
- * Anchored to the *nomination's* ETA — not the ETB, and not the ETA the master
- * reported into the answer dialog. A nomination whose ETA has not been captured
- * yet returns null so the caller leaves the subject as composed, rather than
- * titling a legally binding notice "NaN Hours ETA Notice".
+ * The caller supplies the captain's latest reported ETA when available and the
+ * nomination ETA as fallback. A missing ETA returns null so the caller leaves
+ * the subject as composed rather than titling a notice "NaN Hours ETA Notice".
  */
 export function etaCountdownLabel(eta: Date | null | undefined, now: Date): string | null {
   if (!eta || Number.isNaN(eta.getTime())) return null;
