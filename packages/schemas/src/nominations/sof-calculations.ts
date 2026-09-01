@@ -140,8 +140,14 @@ export function calculateSofOperations(
   const last = (test: (name: string) => boolean) =>
     events.filter((event) => test(event.name)).sort((a, b) => b.at - a.at)[0]?.at ?? null;
 
-  const eosp = first((name) => name.includes('end of sea passage'));
-  const sailed = last((name) => name.includes('sailed full ahead'));
+  const eosp = first(
+    (name) => name.includes('end of sea passage') || name.includes('end of sea passed'),
+  );
+  // “Sailed Full Away” is the name used by the current master-data list, while
+  // some agencies use “Sailed Full Ahead” for the same turnaround endpoint.
+  const sailed = last(
+    (name) => name.includes('sailed full ahead') || name.includes('sailed full away'),
+  );
   const nor = first((name) => name.includes('notice of readiness') && name.includes('tender'));
   const documents = last(
     (name) => name.includes('document') && (name.includes('on board') || name.includes('deliver')),
@@ -165,10 +171,25 @@ export function calculateSofOperations(
   const durationFor = (category: SofDelayCategory, clip = false) =>
     mergeDuration(
       intervals
-        .filter((item) => item.category === category && item.start != null && item.end != null)
+        .filter((item) => item.start != null && item.end != null)
         .map((item) => {
           let start = item.start!;
           let end = item.end!;
+
+          // Statements saved before delay categories were introduced have no
+          // explicit classification. Preserve those records by deriving each
+          // applicable portion from the operation boundaries.
+          if (item.category == null && commenced != null && completed != null) {
+            if (category === 'BEFORE') end = Math.min(end, commenced);
+            if (category === 'DURING') {
+              start = Math.max(start, commenced);
+              end = Math.min(end, completed);
+            }
+            if (category === 'AFTER') start = Math.max(start, completed);
+          } else if (item.category !== category) {
+            return [0, 0] as [number, number];
+          }
+
           if (clip && commenced != null && completed != null) {
             start = Math.max(start, commenced);
             end = Math.min(end, completed);
