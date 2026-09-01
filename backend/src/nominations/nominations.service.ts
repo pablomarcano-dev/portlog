@@ -1375,7 +1375,7 @@ export class NominationsService {
         `Delays During Operations: ${formatSofDuration(calculation.delaysDuringMs)}`,
         `Delays After Operations: ${formatSofDuration(calculation.delaysAfterMs)}`,
         `Net Operation Time: ${formatSofDuration(calculation.netOperationMs)} (From: ${formatSofCalculationStamp(calculation.operationFrom)} To: ${formatSofCalculationStamp(calculation.operationTo)} less Delays During Operations)`,
-        `Average Rate: ${calculation.averageRate == null ? 'Pending data' : `${calculation.averageRate.toFixed(2)} Barrels/hour`}`,
+        `Average Rate: ${calculation.averageRate == null ? 'Pending data' : `${calculation.averageRate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Barrels/hour`}`,
       ].join('\n');
       templateVars.remarks_section = includeLettersRemarks
         ? [remarkLines, operationalLines].filter(Boolean).join('\n\n')

@@ -1,6 +1,7 @@
 import {
   calculateSofOperations,
   formatSofDuration,
+  parseSofAmount,
   resolveSofCargoInputs,
 } from '../sof-calculations.js';
 
@@ -45,6 +46,8 @@ describe('SOF operational calculations', () => {
       [
         entry('2026-07-05T16:00:00', 'End of Sea Passed'),
         entry('2026-07-05T18:30:00', 'Notice of Readiness Tendered'),
+        entry('2026-07-06T08:20:00', 'Anchor Aweigh'),
+        entry('2026-07-12T04:24:00', 'Anchor Aweigh'),
         entry('2026-07-12T13:42:00', 'Commenced Loading'),
         entry('2026-07-18T10:00:00', 'Completed Loading'),
         entry('2026-07-19T14:00:00', 'Sailed Full Away'),
@@ -97,7 +100,7 @@ describe('SOF operational calculations', () => {
           endTime: '04:00',
         },
       ],
-      '1,898,014',
+      '1,898,014.000',
       '1,476',
     );
 
@@ -109,6 +112,11 @@ describe('SOF operational calculations', () => {
     expect(formatSofDuration(result.netOperationMs)).toBe('4d 15h 11m');
     expect(result.netCargo).toBe(1_896_538);
     expect(result.averageRate).toBeCloseTo(17_057.75, 2);
+  });
+
+  it('treats the three zero decimals stored by ship figures as decimals, not thousands', () => {
+    expect(parseSofAmount('1898014.000')).toBe(1_898_014);
+    expect(parseSofAmount('1,898,014.000')).toBe(1_898_014);
   });
 
   it('sources cargo and OBQ from all saved SOF figure columns', () => {

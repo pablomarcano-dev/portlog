@@ -525,7 +525,7 @@ export function SofLettersRemarksModal({
                   'Average rate',
                   summary.averageRate == null
                     ? 'Pending data'
-                    : `${summary.averageRate.toLocaleString(undefined, { maximumFractionDigits: 2 })} Barrels/hour`,
+                    : `${summary.averageRate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Barrels/hour`,
                   null,
                   null,
                 ],

@@ -70,6 +70,7 @@ export function parseSofAmount(value?: string | number | null): number | null {
   const dotCount = (cleaned.match(/\./g) ?? []).length;
   const singleSeparator = cleaned.match(/^[-+]?\d+([,.])\d+$/)?.[1];
   const trailingDigits = singleSeparator ? (cleaned.split(singleSeparator).at(-1)?.length ?? 0) : 0;
+  const fractionalDigits = singleSeparator ? (cleaned.split(singleSeparator).at(-1) ?? '') : '';
   const decimal =
     commaCount > 1 && dotCount === 0
       ? cleaned.replace(/,/g, '')
@@ -79,7 +80,9 @@ export function parseSofAmount(value?: string | number | null): number | null {
           ? cleaned.lastIndexOf('.') > cleaned.lastIndexOf(',')
             ? cleaned.replace(/,/g, '')
             : cleaned.replace(/\./g, '').replace(',', '.')
-          : singleSeparator && trailingDigits === 3
+          : singleSeparator &&
+              trailingDigits === 3 &&
+              !(singleSeparator === '.' && fractionalDigits === '000')
             ? cleaned.replace(singleSeparator, '')
             : cleaned.replace(',', '.');
   const number = Number(decimal);
@@ -162,6 +165,17 @@ export function calculateSofOperations(
     (name) =>
       name.includes('completed') && (name.includes('loading') || name.includes('discharging')),
   );
+  // A vessel may heave anchor more than once before loading (for example after
+  // an aborted manoeuvre). The applicable endpoint is the final Anchor Aweigh
+  // after NOR and before cargo operations commence.
+  const anchorAweigh = events
+    .filter(
+      (event) =>
+        event.name.includes('anchor aweigh') &&
+        (nor == null || event.at >= nor) &&
+        (commenced == null || event.at <= commenced),
+    )
+    .sort((a, b) => b.at - a.at)[0]?.at;
   const span = (start: number | null, end: number | null) =>
     start != null && end != null && end >= start ? end - start : null;
 
@@ -196,9 +210,11 @@ export function calculateSofOperations(
           item.text.includes('awaiting for docking pilot')),
     )
     .sort((a, b) => b.end! - a.end!)[0]?.end;
-  const delaysBeforeMs = hasExplicitBefore
-    ? mergeDuration(explicitIntervals('BEFORE'))
-    : (span(nor, legacyBeforeEnd ?? null) ?? 0);
+  const delaysBeforeMs =
+    span(nor, anchorAweigh ?? null) ??
+    (hasExplicitBefore
+      ? mergeDuration(explicitIntervals('BEFORE'))
+      : (span(nor, legacyBeforeEnd ?? null) ?? 0));
 
   // Legacy statements have no delayCategory. A timestamp falling inside the
   // operation is not enough to make it a stoppage: inspections and other port
