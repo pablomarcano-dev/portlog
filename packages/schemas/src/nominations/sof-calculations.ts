@@ -6,6 +6,8 @@ export interface SofCalculationEntry {
 }
 
 export interface SofCalculationRemark {
+  remark?: string;
+  comment?: string;
   beginDate?: string;
   beginTime?: string;
   endDate?: string;
@@ -167,39 +169,63 @@ export function calculateSofOperations(
     category: remark.delayCategory,
     start: remarkDate(remark.beginDate, remark.beginTime),
     end: remarkDate(remark.endDate, remark.endTime),
+    text: normalized(`${remark.remark ?? ''} ${remark.comment ?? ''}`),
   }));
-  const durationFor = (category: SofDelayCategory, clip = false) =>
-    mergeDuration(
-      intervals
-        .filter((item) => item.start != null && item.end != null)
-        .map((item) => {
-          let start = item.start!;
-          let end = item.end!;
+  const explicitIntervals = (category: SofDelayCategory, clip = false) =>
+    intervals
+      .filter((item) => item.category === category && item.start != null && item.end != null)
+      .map((item) => {
+        let start = item.start!;
+        let end = item.end!;
+        if (clip && commenced != null && completed != null) {
+          start = Math.max(start, commenced);
+          end = Math.min(end, completed);
+        }
+        return [start, end] as [number, number];
+      });
 
-          // Statements saved before delay categories were introduced have no
-          // explicit classification. Preserve those records by deriving each
-          // applicable portion from the operation boundaries.
-          if (item.category == null && commenced != null && completed != null) {
-            if (category === 'BEFORE') end = Math.min(end, commenced);
-            if (category === 'DURING') {
-              start = Math.max(start, commenced);
-              end = Math.min(end, completed);
-            }
-            if (category === 'AFTER') start = Math.max(start, completed);
-          } else if (item.category !== category) {
-            return [0, 0] as [number, number];
-          }
+  const hasExplicitBefore = intervals.some((item) => item.category === 'BEFORE');
+  const legacyBeforeEnd = intervals
+    .filter(
+      (item) =>
+        item.category == null &&
+        item.end != null &&
+        (commenced == null || item.end <= commenced) &&
+        (item.text.includes('berth availability') ||
+          item.text.includes('anchor aweigh for berthing') ||
+          item.text.includes('awaiting for docking pilot')),
+    )
+    .sort((a, b) => b.end! - a.end!)[0]?.end;
+  const delaysBeforeMs = hasExplicitBefore
+    ? mergeDuration(explicitIntervals('BEFORE'))
+    : (span(nor, legacyBeforeEnd ?? null) ?? 0);
 
-          if (clip && commenced != null && completed != null) {
-            start = Math.max(start, commenced);
-            end = Math.min(end, completed);
-          }
-          return [start, end] as [number, number];
-        }),
-    );
+  // Legacy statements have no delayCategory. A timestamp falling inside the
+  // operation is not enough to make it a stoppage: inspections and other port
+  // activity also occur in that window. Only remarks whose text explicitly
+  // describes stopping or resuming loading/discharging are deducted.
+  const legacyDuringIntervals = intervals
+    .filter(
+      (item) =>
+        item.category == null &&
+        item.start != null &&
+        item.end != null &&
+        (item.text.includes('loading') || item.text.includes('discharging')) &&
+        (item.text.includes('stop') || item.text.includes('resume')),
+    )
+    .map((item) => {
+      const start = commenced == null ? item.start! : Math.max(item.start!, commenced);
+      const end = completed == null ? item.end! : Math.min(item.end!, completed);
+      return [start, end] as [number, number];
+    });
 
   const grossOperationMs = span(commenced, completed);
-  const delaysDuringMs = durationFor('DURING', true);
+  const delaysDuringMs = mergeDuration([
+    ...explicitIntervals('DURING', true),
+    ...legacyDuringIntervals,
+  ]);
+  const explicitAfterMs = mergeDuration(explicitIntervals('AFTER'));
+  const delaysAfterMs = span(completed, sailed) ?? explicitAfterMs;
   const netOperationMs =
     grossOperationMs == null ? null : Math.max(0, grossOperationMs - delaysDuringMs);
   const cargo = parseSofAmount(cargoQuantity);
@@ -217,9 +243,9 @@ export function calculateSofOperations(
     operationFrom: commenced,
     operationTo: completed,
     grossOperationMs,
-    delaysBeforeMs: durationFor('BEFORE'),
+    delaysBeforeMs,
     delaysDuringMs,
-    delaysAfterMs: durationFor('AFTER'),
+    delaysAfterMs,
     netOperationMs,
     netCargo,
     averageRate: netCargo != null && netHours != null && netHours > 0 ? netCargo / netHours : null,
