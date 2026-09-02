@@ -97,7 +97,12 @@ Both roles (`OPS`, `ADM`), matching the Sales flow this replaces.
 
 ## Control number
 
-`formatControlNumber(correlative, createdAt, branchCode)` → `SN1234/26/PLC`.
+`formatControlNumber(correlative, createdAt, branchCode)` → `SN0001/26/PLC`.
+
+The correlative is padded to at least four digits for scanability. Larger
+correlatives are left intact. The value is rendered from the stored numeric
+correlative, so this presentation change does not require a data migration;
+search accepts padded and unpadded numeric references.
 
 ⚠️ Minted from this table's **own** `correlative` sequence, so the string can
 collide with a nomination's reference built the same way in

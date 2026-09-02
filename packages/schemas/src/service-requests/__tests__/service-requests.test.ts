@@ -256,6 +256,15 @@ describe('bilingual labels', () => {
     });
   });
 
+  it('resolves provider-facing service descriptions in Spanish without changing the UI default', () => {
+    const tug = { type: 'TUG', operationType: 'BERTHING', tugCount: 2 };
+    const ballast = { type: 'BALLAST_WATER', analysisType: 'VGP_COMPLIANCE', tankCount: 1 };
+
+    expect(resolveServiceLabel(tug)).toBe('Berthing (Inbound) (×2)');
+    expect(resolveServiceLabel(tug, 'es')).toBe('Atraque (Entrada) (×2)');
+    expect(resolveServiceLabel(ballast, 'es')).toContain('1 tanque');
+  });
+
   it('builds Select options from the English side, in declaration order', () => {
     const options = toSelectOptions(SERVICE_REQUEST_TYPE_LABELS);
     expect(options[0]).toEqual({ value: 'LAUNCH', label: 'Launch Boat Services' });
@@ -386,7 +395,14 @@ describe('formatControlNumber', () => {
 
   it('takes the year from UTC, not the server timezone', () => {
     // 31 Dec 2025 21:00 in UTC-3 is already 2026 in UTC — the stored year wins.
-    expect(formatControlNumber(7, new Date('2026-01-01T00:30:00Z'), 'JSE')).toBe('SN7/26/JSE');
+    expect(formatControlNumber(7, new Date('2026-01-01T00:30:00Z'), 'JSE')).toBe('SN0007/26/JSE');
+  });
+
+  it('uses four digits as a minimum without truncating larger correlatives', () => {
+    const createdAt = new Date('2026-03-01T00:00:00Z');
+
+    expect(formatControlNumber(1, createdAt, 'MVD')).toBe('SN0001/26/MVD');
+    expect(formatControlNumber(12345, createdAt, 'MVD')).toBe('SN12345/26/MVD');
   });
 });
 

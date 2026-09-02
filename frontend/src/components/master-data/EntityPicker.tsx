@@ -19,7 +19,7 @@ interface EntityPickerProps {
   endpoint: string;
   label: string;
   value: string | null;
-  onChange: (val: string | null) => void;
+  onChange: (val: string | null, optionLabel?: string) => void;
   searchValue?: string;
   onSearchChange?: (val: string) => void;
   required?: boolean;
@@ -116,7 +116,7 @@ export function EntityPicker({
       required={required}
       error={error}
       value={value}
-      onChange={onChange}
+      onChange={(nextValue, option) => onChange(nextValue, option?.label)}
       data={selectData}
       searchable
       searchValue={searchValue}

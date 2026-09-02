@@ -255,7 +255,7 @@ export type ServiceRequestDocument = z.infer<typeof ServiceRequestDocumentSchema
 export const ServiceRequestListItemSchema = z.object({
   id: z.string().uuid(),
   correlative: z.number().int().positive(),
-  /** Rendered `SN1234/26/PLC`, attached by the service layer. */
+  /** Rendered `SN0001/26/PLC`, attached by the service layer. */
   controlNumber: z.string(),
   type: ServiceRequestTypeSchema,
   status: ServiceRequestStatusSchema,

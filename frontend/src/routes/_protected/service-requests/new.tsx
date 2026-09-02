@@ -1,9 +1,10 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { Alert, Stack } from '@mantine/core';
+import { Alert, Button, Group, Stack, Text, Title } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { z } from 'zod';
-import { ServiceRequestTypeSchema } from '@portlog/schemas';
+import { ServiceRequestTypeSchema, requiresAuthorizationDocument } from '@portlog/schemas';
 import { ServiceRequestStepper } from '../../../features/service-requests/components/ServiceRequestStepper';
+import { getBranchAssignmentGuidance } from '../../../features/service-requests/branchAssignment';
 import { useCreateServiceRequest } from '../../../features/service-requests/hooks';
 import { useCurrentUser } from '../../../lib/auth/queries';
 
@@ -23,15 +24,36 @@ function NewServiceRequestPage() {
   const { data: user } = useCurrentUser();
   const create = useCreateServiceRequest();
 
+  if (user?.branchId === null) {
+    const guidance = getBranchAssignmentGuidance(user.role);
+
+    return (
+      <Stack p="xl" gap="md">
+        <Title order={2}>New service request</Title>
+        <Alert color="yellow" variant="light" title="A branch is required to create requests">
+          <Stack gap="sm">
+            <Text size="sm">{guidance.message}</Text>
+            <Group>
+              <Button
+                variant="default"
+                onClick={() =>
+                  void navigate({ to: '/service-requests', search: { page: 1, pageSize: 25 } })
+                }
+              >
+                Back to service requests
+              </Button>
+              {guidance.canManageUsers && (
+                <Button onClick={() => void navigate({ to: '/admin/users' })}>Manage users</Button>
+              )}
+            </Group>
+          </Stack>
+        </Alert>
+      </Stack>
+    );
+  }
+
   return (
     <Stack p="xl" gap="md">
-      {user && user.branchId === null && (
-        <Alert color="yellow" variant="light" title="No branch assigned">
-          Your account has no default branch, so the Branch field is not pre-filled. An
-          administrator can assign one in Admin → Users.
-        </Alert>
-      )}
-
       <ServiceRequestStepper
         type={type}
         defaultBranchId={user?.branchId ?? null}
@@ -47,7 +69,11 @@ function NewServiceRequestPage() {
                 title: 'Service request created',
                 message: `Control number ${created.controlNumber}`,
               });
-              void navigate({ to: '/service-requests/$id', params: { id: created.id } });
+              void navigate({
+                to: '/service-requests/$id',
+                params: { id: created.id },
+                search: requiresAuthorizationDocument(values.details) ? { step: 'documents' } : {},
+              });
             },
             onError: (err) =>
               notifications.show({

@@ -15,7 +15,8 @@ import {
   Title,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import type { ServiceRequestStatus } from '@portlog/schemas';
+import { z } from 'zod';
+import { ServiceRequestSendReadinessSchema, type ServiceRequestStatus } from '@portlog/schemas';
 import { ServiceRequestStepper } from '../../../features/service-requests/components/ServiceRequestStepper';
 import { SendOrderDrawer } from '../../../features/service-requests/components/SendOrderDrawer';
 import {
@@ -27,6 +28,9 @@ import {
 import { formatDateTime } from '../../../lib/format/datetime';
 
 export const Route = createFileRoute('/_protected/service-requests/$id')({
+  validateSearch: z.object({
+    step: z.enum(['documents']).optional(),
+  }),
   component: ServiceRequestDetailPage,
 });
 
@@ -39,6 +43,7 @@ const STATUS_COLORS: Record<ServiceRequestStatus, string> = {
 
 function ServiceRequestDetailPage() {
   const { id } = Route.useParams();
+  const { step } = Route.useSearch();
   const navigate = useNavigate();
   const [sendOpen, setSendOpen] = useState(false);
 
@@ -66,6 +71,16 @@ function ServiceRequestDetailPage() {
   }
 
   const apiBase = import.meta.env.VITE_API_URL as string;
+  const sendReadiness = ServiceRequestSendReadinessSchema.safeParse({
+    supplierId: request.supplierId,
+    details: request.details,
+    documentCount: request.documents.length,
+  });
+  const sendBlockers = sendReadiness.success
+    ? []
+    : sendReadiness.error.issues.map((issue) => issue.message);
+  const sendDisabled = request.status === 'CANCELLED' || sendBlockers.length > 0;
+  const isResend = request.sentAt !== null;
 
   return (
     <Stack p="xl" gap="md">
@@ -100,9 +115,32 @@ function ServiceRequestDetailPage() {
               <Button variant="default">View purchase order</Button>
             </Anchor>
           )}
-          <Button onClick={() => setSendOpen(true)} disabled={request.status === 'CANCELLED'}>
-            Generate &amp; Send Order
-          </Button>
+          <Stack gap={2} align="flex-end">
+            <Button onClick={() => setSendOpen(true)} disabled={sendDisabled}>
+              {request.status === 'CANCELLED'
+                ? 'Request cancelled'
+                : sendBlockers.length > 0
+                  ? `${sendBlockers.length} requirement${sendBlockers.length === 1 ? '' : 's'} missing`
+                  : isResend
+                    ? 'Generate & Resend Order'
+                    : 'Generate & Send Order'}
+            </Button>
+            <Text
+              size="xs"
+              c={sendDisabled ? 'red' : 'teal'}
+              ta="right"
+              maw={320}
+              aria-live="polite"
+            >
+              {request.status === 'CANCELLED'
+                ? 'Cancelled requests cannot be sent.'
+                : sendBlockers.length > 0
+                  ? sendBlockers.join(' · ')
+                  : isResend
+                    ? 'Ready to resend; a new dispatch will be recorded.'
+                    : 'Ready to generate and send.'}
+            </Text>
+          </Stack>
           <Menu position="bottom-end">
             <Menu.Target>
               <Button variant="default">Actions</Button>
@@ -156,6 +194,13 @@ function ServiceRequestDetailPage() {
         </Alert>
       )}
 
+      {request.status === 'DRAFT' && !request.supplierId && (
+        <Alert color="orange" variant="light" title="Add a provider before sending">
+          This draft is saved, but its purchase order cannot be generated or sent yet. Select a
+          provider in the Identification step below and save the changes to enable sending.
+        </Alert>
+      )}
+
       {request.status !== 'DRAFT' && (
         <Alert color="gray" variant="light">
           The order has already been issued. Only the voucher number, actual cost, completion date
@@ -166,6 +211,7 @@ function ServiceRequestDetailPage() {
       <ServiceRequestStepper
         request={request}
         type={request.type}
+        initialStep={step === 'documents' ? 2 : 0}
         defaultBranchId={request.branchId}
         isSaving={update.isPending}
         onCancel={() =>

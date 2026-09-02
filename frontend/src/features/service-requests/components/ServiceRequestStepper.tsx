@@ -24,6 +24,7 @@ import {
   SERVICE_LOCATION_LABELS,
   SERVICE_REQUEST_TYPE_LABELS,
   ServiceRequestCreateSchema,
+  ServiceRequestSendReadinessSchema,
   toSelectOptions,
   requiresAuthorizationDocument,
   resolveServiceLabel,
@@ -33,7 +34,13 @@ import {
 } from '@portlog/schemas';
 import { EntityPicker } from '../../../components/master-data/EntityPicker';
 import { formatDateTime } from '../../../lib/format/datetime';
-import { blankServiceRequest, toFormValues, type ServiceRequestFormValues } from '../formDefaults';
+import {
+  blankServiceRequest,
+  isMidnight,
+  toFormValues,
+  withTime,
+  type ServiceRequestFormValues,
+} from '../formDefaults';
 import { ServiceDetailsFields } from './ServiceDetailsFields';
 import { AuthorizationDocumentsField } from './AuthorizationDocumentsField';
 import { listServiceRequestNominationOptions } from '../api';
@@ -81,6 +88,8 @@ interface Props {
   isSaving: boolean;
   onSubmit: (values: ServiceRequestCreate) => void;
   onCancel: () => void;
+  /** Opens a specific step after navigation, for example Documents after draft creation. */
+  initialStep?: number;
 }
 
 export function ServiceRequestStepper({
@@ -90,8 +99,9 @@ export function ServiceRequestStepper({
   isSaving,
   onSubmit,
   onCancel,
+  initialStep = 0,
 }: Props) {
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState(() => Math.min(Math.max(initialStep, 0), 4));
 
   // Picker search boxes are local UI state, not form state.
   const [nominationSearch, setNominationSearch] = useState('');
@@ -100,6 +110,12 @@ export function ServiceRequestStepper({
   const [portSearch, setPortSearch] = useState('');
   const [pierSearch, setPierSearch] = useState('');
   const [clientSearch, setClientSearch] = useState('');
+  const [selectedLabels, setSelectedLabels] = useState({
+    supplier: request?.supplier?.name ?? '',
+    port: request?.port?.name ?? '',
+    pier: request?.pier?.name ?? '',
+    client: request?.billToClient?.name ?? '',
+  });
 
   const form = useForm<ServiceRequestFormValues>({
     resolver: zodResolver(ServiceRequestCreateSchema),
@@ -112,6 +128,7 @@ export function ServiceRequestStepper({
   const portId = watch('portId');
   const supplierId = watch('supplierId');
   const nominationId = watch('nominationId');
+  const scheduledAt = watch('scheduledAt');
   const nominationOptions = useQuery({
     queryKey: ['service-requests', 'nomination-options', debouncedNominationSearch],
     queryFn: () => listServiceRequestNominationOptions(debouncedNominationSearch),
@@ -120,6 +137,14 @@ export function ServiceRequestStepper({
   const selectedNomination = nominationOptions.data?.find((item) => item.id === nominationId);
   const authorizationRequired = requiresAuthorizationDocument(details);
   const documentCount = request?.documents.length ?? 0;
+  const sendReadiness = ServiceRequestSendReadinessSchema.safeParse({
+    supplierId,
+    details,
+    documentCount,
+  });
+  const sendBlockers = sendReadiness.success
+    ? []
+    : sendReadiness.error.issues.map((issue) => issue.message);
 
   const supplierEmails = request?.supplier?.emails ?? [];
 
@@ -155,17 +180,9 @@ export function ServiceRequestStepper({
         noValidate
       >
         <Stack gap="lg">
-          <Group justify="space-between" align="center">
-            <div>
-              <Title order={3}>{SERVICE_REQUEST_TYPE_LABELS[type].en}</Title>
-              {request && (
-                <Text size="sm" c="dimmed">
-                  Control No. <strong>{request.controlNumber}</strong>
-                </Text>
-              )}
-            </div>
-            {request && <Badge variant="light">{request.status}</Badge>}
-          </Group>
+          <Title order={3}>{SERVICE_REQUEST_TYPE_LABELS[type].en}</Title>
+
+          <RequirementGuide authorizationRequired={authorizationRequired} />
 
           <Stepper active={active} onStepClick={setActive} allowNextStepsSelect={false} size="sm">
             {/* ------------------------------------------------------------- */}
@@ -244,7 +261,10 @@ export function ServiceRequestStepper({
                       label="Provider"
                       placeholder="Provider that will receive the purchase order"
                       value={asId(field.value)}
-                      onChange={field.onChange}
+                      onChange={(value, label) => {
+                        field.onChange(value);
+                        setSelectedLabels((current) => ({ ...current, supplier: label ?? '' }));
+                      }}
                       searchValue={supplierSearch}
                       onSearchChange={setSupplierSearch}
                       selectedOption={
@@ -256,6 +276,12 @@ export function ServiceRequestStepper({
                     />
                   )}
                 />
+                {!supplierId && (
+                  <Alert color="orange" variant="light" title="Provider needed before sending">
+                    You can save this request as a draft without a provider. Select one before you
+                    generate and send the purchase order.
+                  </Alert>
+                )}
                 {/* The spec asks for the provider's address to be visible before
                     sending, so the operator can confirm where the OC will go. */}
                 {Boolean(supplierId) && supplierEmails.length > 0 && (
@@ -279,6 +305,11 @@ export function ServiceRequestStepper({
                 <ServiceDetailsFields type={type} />
 
                 <Divider my="xs" />
+
+                <Text size="xs" c="dimmed">
+                  Location, port and berth are optional for the draft and the purchase order. If you
+                  add a berth, select its port first.
+                </Text>
 
                 <Group grow align="flex-start">
                   <Controller
@@ -304,7 +335,10 @@ export function ServiceRequestStepper({
                         endpoint="/master-data/ports"
                         label="Port / Terminal"
                         value={asId(field.value)}
-                        onChange={field.onChange}
+                        onChange={(value, label) => {
+                          field.onChange(value);
+                          setSelectedLabels((current) => ({ ...current, port: label ?? '' }));
+                        }}
                         searchValue={portSearch}
                         onSearchChange={setPortSearch}
                         selectedOption={
@@ -328,7 +362,10 @@ export function ServiceRequestStepper({
                         disabled={asId(portId) === null}
                         placeholder={asId(portId) ? 'Select the berth' : 'Select a port first'}
                         value={asId(field.value)}
-                        onChange={field.onChange}
+                        onChange={(value, label) => {
+                          field.onChange(value);
+                          setSelectedLabels((current) => ({ ...current, pier: label ?? '' }));
+                        }}
                         searchValue={pierSearch}
                         onSearchChange={setPierSearch}
                         selectedOption={
@@ -353,15 +390,39 @@ export function ServiceRequestStepper({
                       required
                       value={field.value instanceof Date ? field.value : null}
                       onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      timeInputProps={{
+                        'aria-label': `${SCHEDULED_LABELS[type]} time`,
+                        onBlur: (event) => {
+                          // Mantine keeps a draft time inside the popover. Commit
+                          // the native input value as it loses focus, including
+                          // when the popover is closed without clicking its tick.
+                          const committed = withTime(
+                            field.value instanceof Date ? field.value : null,
+                            event.currentTarget.value,
+                          );
+                          if (committed) field.onChange(committed);
+                          field.onBlur();
+                        },
+                      }}
                       error={fieldState.error?.message}
                     />
                   )}
                 />
+                {isMidnight(scheduledAt) && (
+                  <Alert color="yellow" variant="light" title="Midnight selected">
+                    This request is scheduled for 00:00. You can continue if midnight is
+                    intentional; otherwise, choose the required time.
+                  </Alert>
+                )}
               </Stack>
             </Stepper.Step>
 
             {/* ------------------------------------------------------------- */}
-            <Stepper.Step label="Documents" description="Authorisation and voucher">
+            <Stepper.Step
+              label="Documents"
+              description={request ? 'Authorisation and voucher' : 'Added after draft is saved'}
+            >
               <Stack gap="sm" mt="md">
                 {authorizationRequired ? (
                   <Alert color="orange" variant="light" title="Authorisation required">
@@ -382,15 +443,16 @@ export function ServiceRequestStepper({
                     disabled={request.status === 'CANCELLED'}
                   />
                 ) : (
-                  <Alert color="blue" variant="light">
-                    Save the request first — attachments are uploaded against a request that already
-                    exists.
+                  <Alert color="blue" variant="light" title="Documents are added after saving">
+                    {authorizationRequired
+                      ? 'Create the draft to continue. We will open this Documents step again so you can upload the required authorisation immediately.'
+                      : 'Supporting documents are optional. After creating the draft, you can return to this Documents step to add any files.'}
                   </Alert>
                 )}
 
                 <TextInput
                   label={VOUCHER_LABELS[type]}
-                  description="Filled in after the service, for accounting reconciliation."
+                  description="Optional. Filled in after the service for accounting reconciliation."
                   placeholder="e.g. 6009"
                   error={formState.errors.physicalVoucherNo?.message}
                   {...register('physicalVoucherNo')}
@@ -398,7 +460,8 @@ export function ServiceRequestStepper({
 
                 <Textarea
                   label="Observations"
-                  placeholder="Additional instructions â e.g. “Fire-fighting capable tug required (FiFi 1)”"
+                  description="Optional instructions or context for the provider."
+                  placeholder="Additional instructions — e.g. “Fire-fighting capable tug required (FiFi 1)”"
                   autosize
                   minRows={3}
                   error={formState.errors.notes?.message}
@@ -423,7 +486,10 @@ export function ServiceRequestStepper({
                         endpoint="/master-data/clients"
                         label="Bill To (Client)"
                         value={asId(field.value)}
-                        onChange={field.onChange}
+                        onChange={(value, label) => {
+                          field.onChange(value);
+                          setSelectedLabels((current) => ({ ...current, client: label ?? '' }));
+                        }}
                         searchValue={clientSearch}
                         onSearchChange={setClientSearch}
                         selectedOption={
@@ -483,8 +549,46 @@ export function ServiceRequestStepper({
               <Stack gap="sm" mt="md">
                 <Card withBorder padding="md">
                   <Stack gap={6}>
+                    <Text fw={600} size="sm">
+                      Identification
+                    </Text>
+                    <SummaryRow
+                      label="Control No."
+                      value={request?.controlNumber ?? 'Generated when saved'}
+                    />
+                    {type !== 'GENERAL' && (
+                      <>
+                        <SummaryRow
+                          label="Nomination"
+                          value={selectedNomination?.reference ?? '—'}
+                        />
+                        <SummaryRow
+                          label="Vessel"
+                          value={
+                            selectedNomination?.vesselName ?? request?.shipParticular?.name ?? '—'
+                          }
+                        />
+                      </>
+                    )}
+                    <SummaryRow
+                      label="Branch"
+                      value={
+                        selectedNomination?.branchName ??
+                        request?.branch.name ??
+                        (defaultBranchId ? 'Assigned branch' : '—')
+                      }
+                    />
+                    <SummaryRow label="Provider" value={selectedLabels.supplier || '—'} />
+
+                    <Divider my={4} />
+                    <Text fw={600} size="sm">
+                      Service
+                    </Text>
                     <SummaryRow label="Type" value={SERVICE_REQUEST_TYPE_LABELS[type].en} />
                     <SummaryRow label="Service" value={previewLabel} />
+                    {detailSummaryRows(details).map((row) => (
+                      <SummaryRow key={row.label} label={row.label} value={row.value} />
+                    ))}
                     <SummaryRow
                       label="Scheduled"
                       value={
@@ -503,6 +607,8 @@ export function ServiceRequestStepper({
                           : '—'
                       }
                     />
+                    <SummaryRow label="Port / Terminal" value={selectedLabels.port || '—'} />
+                    <SummaryRow label="Berth" value={selectedLabels.pier || '—'} />
                     <SummaryRow
                       label="Authorisation"
                       value={
@@ -513,13 +619,31 @@ export function ServiceRequestStepper({
                           : 'Not required'
                       }
                     />
+
+                    <Divider my={4} />
+                    <Text fw={600} size="sm">
+                      Billing and notes
+                    </Text>
+                    <SummaryRow label="Bill To" value={selectedLabels.client || '—'} />
+                    <SummaryRow
+                      label="Estimated Cost"
+                      value={formatMoney(watch('estimatedCost'), watch('currency'))}
+                    />
+                    <SummaryRow
+                      label="Actual Cost"
+                      value={formatMoney(watch('actualCost'), watch('currency'))}
+                    />
+                    <SummaryRow
+                      label="Voucher No."
+                      value={displayText(watch('physicalVoucherNo'))}
+                    />
+                    <SummaryRow label="Notes" value={displayText(watch('notes'))} />
                   </Stack>
                 </Card>
 
-                {authorizationRequired && documentCount === 0 && (
-                  <Alert color="orange" variant="light">
-                    You can save the request, but the purchase order cannot be sent until the
-                    authorisation letter is uploaded.
+                {sendBlockers.length > 0 && (
+                  <Alert color="orange" variant="light" title="Draft can be saved">
+                    Before generating and sending the purchase order: {sendBlockers.join('; ')}.
                   </Alert>
                 )}
 
@@ -550,7 +674,11 @@ export function ServiceRequestStepper({
                 <Button onClick={() => void next()}>Next</Button>
               ) : (
                 <Button type="submit" loading={isSaving}>
-                  {request ? 'Save changes' : 'Create request'}
+                  {request
+                    ? 'Save changes'
+                    : authorizationRequired
+                      ? 'Create draft & add document'
+                      : 'Create request'}
                 </Button>
               )}
             </Group>
@@ -558,6 +686,27 @@ export function ServiceRequestStepper({
         </Stack>
       </form>
     </FormProvider>
+  );
+}
+
+function RequirementGuide({ authorizationRequired }: { authorizationRequired: boolean }) {
+  return (
+    <Card withBorder padding="xs" radius="sm" role="note" aria-label="Field requirement guide">
+      <Group gap="xs">
+        <Badge size="sm" variant="light" color="red">
+          * Required to save
+        </Badge>
+        <Badge size="sm" variant="light" color="orange">
+          Provider required to send
+        </Badge>
+        <Badge size="sm" variant="light" color={authorizationRequired ? 'orange' : 'gray'}>
+          Authorisation {authorizationRequired ? 'required to send' : 'not required'}
+        </Badge>
+        <Text size="xs" c="dimmed">
+          Unmarked fields are optional.
+        </Text>
+      </Group>
+    </Card>
   );
 }
 
@@ -570,4 +719,94 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
       <Text size="sm">{value}</Text>
     </Group>
   );
+}
+
+function formatMoney(value: unknown, currency: unknown): string {
+  if (typeof value !== 'number') return '—';
+  return `${typeof currency === 'string' && currency ? currency : ''} ${value.toLocaleString(
+    undefined,
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    },
+  )}`.trim();
+}
+
+function displayText(value: unknown): string {
+  return typeof value === 'string' && value.trim() ? value : '—';
+}
+
+function humanize(value: unknown): string {
+  if (typeof value !== 'string' || !value) return '—';
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function enabledLabels(values: Record<string, unknown>): string {
+  const labels = Object.entries(values)
+    .filter(([, enabled]) => enabled === true)
+    .map(([name]) => name.replace(/([A-Z])/g, ' $1').toLowerCase())
+    .map((name) => name.charAt(0).toUpperCase() + name.slice(1));
+  return labels.length > 0 ? labels.join(', ') : 'None';
+}
+
+function detailSummaryRows(details: unknown): Array<{ label: string; value: string }> {
+  if (!details || typeof details !== 'object' || !('type' in details)) return [];
+  const value = details as Record<string, unknown>;
+
+  switch (value.type) {
+    case 'LAUNCH':
+      return [
+        { label: 'Boats', value: String(value.boatCount ?? '—') },
+        { label: 'Departure Point', value: String(value.departurePoint || '—') },
+      ];
+    case 'UNDERWATER_INSPECTION':
+      return [
+        { label: 'Method', value: humanize(value.method) },
+        {
+          label: 'Deliverables',
+          value: enabledLabels((value.deliverables ?? {}) as Record<string, unknown>),
+        },
+      ];
+    case 'BALLAST_WATER':
+      return [
+        { label: 'Tanks', value: String(value.tankCount ?? '—') },
+        { label: 'Certified Lab', value: value.requiresCertifiedLab ? 'Yes' : 'No' },
+        {
+          label: 'Deliverables',
+          value: enabledLabels((value.deliverables ?? {}) as Record<string, unknown>),
+        },
+      ];
+    case 'TUG':
+      return [{ label: 'Tugs', value: String(value.tugCount ?? '—') }];
+    case 'STS':
+      return [
+        { label: 'Target Vessel', value: String(value.targetVesselName || '—') },
+        { label: 'Our Role', value: humanize(value.ourRole) },
+        {
+          label: 'Product / Quantity',
+          value:
+            `${value.product || '—'} · ${value.quantity ?? '—'} ${value.quantityUnit ?? ''}`.trim(),
+        },
+        {
+          label: 'Equipment',
+          value: enabledLabels((value.equipment ?? {}) as Record<string, unknown>),
+        },
+        {
+          label: 'Spill Prevention',
+          value: enabledLabels((value.spillPrevention ?? {}) as Record<string, unknown>),
+        },
+        {
+          label: 'Personnel',
+          value: enabledLabels((value.personnel ?? {}) as Record<string, unknown>),
+        },
+      ];
+    case 'GENERAL':
+      return [{ label: 'Route', value: String(value.route || '—') }];
+    default:
+      return [];
+  }
 }

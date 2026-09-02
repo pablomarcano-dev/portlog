@@ -514,6 +514,14 @@ describe('ServiceRequestsService', () => {
       expect(or).toContainEqual({ correlative: 1234 });
     });
 
+    it('matches a zero-padded control number', async () => {
+      await service.list({ search: 'SN0007/26/JSE', page: 1, pageSize: 25 });
+
+      const where = whereFromLastCall();
+      const or = (where['AND'] as Array<{ OR: unknown[] }>)[0]!.OR;
+      expect(or).toContainEqual({ correlative: 7 });
+    });
+
     it('filters on the scheduled window, not on creation date', async () => {
       const from = new Date('2026-08-01T00:00:00.000Z');
       const to = new Date('2026-08-31T23:59:59.000Z');

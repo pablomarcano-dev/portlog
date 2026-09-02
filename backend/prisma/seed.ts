@@ -1805,6 +1805,40 @@ async function main(): Promise<void> {
   });
   console.log('Seeded 11 branches');
 
+  // Give every seeded account a usable operational context. These assignments
+  // are deliberately applied after branch creation so they also repair older
+  // development databases when the idempotent seed is run again.
+  await Promise.all([
+    prisma.user.updateMany({
+      where: {
+        email: {
+          in: [
+            'admin@portlog.local',
+            'ops@portlog.local',
+            'laura.gomez@portlog.local',
+            'sofia.rodriguez@portlog.local',
+            'valentina.torres@portlog.local',
+            'carlos.mendez@portlog.local',
+          ],
+        },
+      },
+      data: { branchId: branchMVD.id },
+    }),
+    prisma.user.updateMany({
+      where: {
+        email: { in: ['martin.silva@portlog.local', 'diego.perez@portlog.local'] },
+      },
+      data: { branchId: branchNPA.id },
+    }),
+    prisma.user.updateMany({
+      where: {
+        email: { in: ['andres.fernandez@portlog.local', 'paula.diaz@portlog.local'] },
+      },
+      data: { branchId: branchFBT.id },
+    }),
+  ]);
+  console.log('Assigned default branches to 10 users');
+
   // ---------------------------------------------------------------------------
   // Ship Particulars (10)
   // ---------------------------------------------------------------------------

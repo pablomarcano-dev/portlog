@@ -305,7 +305,7 @@ export class ServiceRequestsService {
         { supplier: { name: { contains: search, mode: 'insensitive' } } },
         { physicalVoucherNo: { contains: search, mode: 'insensitive' } },
       ];
-      // A bare number, or the numeric part of "SN1234/26/PLC", matches the
+      // A bare number, or the numeric part of "SN0007/26/PLC", matches the
       // control number — that is how operators quote a request over the phone.
       const digits = search.match(/\d+/)?.[0];
       if (digits) {

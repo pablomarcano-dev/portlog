@@ -9,7 +9,7 @@ import {
 import { ServiceRequestDetailsSchema } from './details.js';
 
 /**
- * Control number — e.g. `SN1234/26/PLC`.
+ * Control number — e.g. `SN0007/26/PLC`.
  *
  * Deliberately the same shape the agency already writes on notices, built the
  * same way as the nomination reference in `NominationsService` (correlative,
@@ -28,7 +28,8 @@ export function formatControlNumber(
   branchCode: string,
 ): string {
   const yy = String(createdAt.getUTCFullYear()).slice(-2);
-  return `SN${correlative}/${yy}/${branchCode}`;
+  const readableCorrelative = String(correlative).padStart(4, '0');
+  return `SN${readableCorrelative}/${yy}/${branchCode}`;
 }
 
 /**
@@ -41,29 +42,33 @@ export function formatControlNumber(
  * Falls back to an em dash when `details` is unparseable — a half-filled draft
  * still has to render a row.
  */
-export function resolveServiceLabel(details: unknown): string {
+export function resolveServiceLabel(details: unknown, locale: 'en' | 'es' = 'en'): string {
   const parsed = ServiceRequestDetailsSchema.safeParse(details);
   if (!parsed.success) return '—';
   const value = parsed.data;
 
   switch (value.type) {
     case 'LAUNCH': {
-      const label = LAUNCH_SERVICE_TYPE_LABELS[value.serviceType].en;
+      const label = LAUNCH_SERVICE_TYPE_LABELS[value.serviceType][locale];
       return value.boatCount > 1 ? `${label} (×${value.boatCount})` : label;
     }
     case 'UNDERWATER_INSPECTION':
-      return UNDERWATER_INSPECTION_TYPE_LABELS[value.inspectionType].en;
+      return UNDERWATER_INSPECTION_TYPE_LABELS[value.inspectionType][locale];
     case 'BALLAST_WATER': {
-      const label = BALLAST_ANALYSIS_TYPE_LABELS[value.analysisType].en;
-      return `${label} — ${value.tankCount} tank${value.tankCount === 1 ? '' : 's'}`;
+      const label = BALLAST_ANALYSIS_TYPE_LABELS[value.analysisType][locale];
+      const tanks =
+        locale === 'es'
+          ? `${value.tankCount} tanque${value.tankCount === 1 ? '' : 's'}`
+          : `${value.tankCount} tank${value.tankCount === 1 ? '' : 's'}`;
+      return `${label} — ${tanks}`;
     }
     case 'TUG': {
-      const label = TUG_OPERATION_TYPE_LABELS[value.operationType].en;
+      const label = TUG_OPERATION_TYPE_LABELS[value.operationType][locale];
       return value.tugCount > 1 ? `${label} (×${value.tugCount})` : label;
     }
     case 'STS':
-      return `${STS_ROLE_LABELS[value.ourRole].en} — ${value.targetVesselName}`;
+      return `${STS_ROLE_LABELS[value.ourRole][locale]} — ${value.targetVesselName}`;
     case 'GENERAL':
-      return value.route ?? SERVICE_REQUEST_TYPE_LABELS.GENERAL.en;
+      return value.route ?? SERVICE_REQUEST_TYPE_LABELS.GENERAL[locale];
   }
 }

@@ -44,7 +44,7 @@ enum ServiceLocation {
 model ServiceRequest {
   id String @id @default(uuid()) @db.Uuid
 
-  // `Nro. de Control (SN/OT)` — rendered "SN1234/26/PLC" by formatControlNumber()
+  // `Nro. de Control (SN/OT)` — rendered "SN0001/26/PLC" by formatControlNumber()
   // in @portlog/schemas. This is its OWN sequence, independent of the
   // nomination correlative; see that function's note on collisions.
   correlative Int @unique @default(autoincrement())

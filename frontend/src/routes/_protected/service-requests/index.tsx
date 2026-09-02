@@ -20,7 +20,9 @@ import {
   type ServiceRequestType,
 } from '@portlog/schemas';
 import { ServiceRequestTable } from '../../../features/service-requests/components/ServiceRequestTable';
+import { getBranchAssignmentGuidance } from '../../../features/service-requests/branchAssignment';
 import { useServiceRequestList } from '../../../features/service-requests/hooks';
+import { useCurrentUser } from '../../../lib/auth/queries';
 
 export const Route = createFileRoute('/_protected/service-requests/')({
   validateSearch: (search) => ServiceRequestListSearchSchema.parse(search),
@@ -37,9 +39,12 @@ const STATUS_OPTIONS = toSelectOptions(SERVICE_REQUEST_STATUS_LABELS);
 function ServiceRequestListPage() {
   const navigate = useNavigate();
   const search = Route.useSearch();
+  const { data: user } = useCurrentUser();
 
   const { data, isLoading, isError, refetch } = useServiceRequestList(search);
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
+  const branchRequired = user?.branchId === null;
+  const branchGuidance = user ? getBranchAssignmentGuidance(user.role) : null;
 
   function setSearch(updates: Partial<ServiceRequestListSearch>) {
     void navigate({ to: '/service-requests', search: { ...search, ...updates } });
@@ -51,7 +56,7 @@ function ServiceRequestListPage() {
         <Title order={2}>Service Requests</Title>
         <Menu position="bottom-end">
           <Menu.Target>
-            <Button>New request</Button>
+            <Button disabled={branchRequired}>New request</Button>
           </Menu.Target>
           <Menu.Dropdown>
             {TYPE_OPTIONS.map((option) => (
@@ -70,6 +75,24 @@ function ServiceRequestListPage() {
           </Menu.Dropdown>
         </Menu>
       </Group>
+
+      {branchRequired && branchGuidance && (
+        <Alert color="yellow" variant="light" title="A branch is required to create requests">
+          <Group justify="space-between" align="center">
+            <Text size="sm">{branchGuidance.message}</Text>
+            {branchGuidance.canManageUsers && (
+              <Button
+                variant="light"
+                color="yellow"
+                size="xs"
+                onClick={() => void navigate({ to: '/admin/users' })}
+              >
+                Manage users
+              </Button>
+            )}
+          </Group>
+        </Alert>
+      )}
 
       <Group align="flex-end" gap="sm">
         <TextInput
