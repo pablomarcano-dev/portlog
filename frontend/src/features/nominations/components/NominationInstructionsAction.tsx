@@ -14,18 +14,20 @@ export function NominationInstructionsAction({
 }: NominationInstructionsActionProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
-  async function handleOpen() {
+  async function handleDownload() {
     if (!client) return;
-    const preview = window.open('', '_blank');
     setIsGenerating(true);
     try {
-      const blob = await nominationsApi.nominationInstructionsPdf(nominationId);
+      const blob = await nominationsApi.nominationInstructionsDocx(nominationId);
       const url = URL.createObjectURL(blob);
-      if (preview) preview.location.href = url;
-      else window.location.href = url;
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `nomination-instructions-${nominationId}.docx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
     } catch (error) {
-      preview?.close();
       notifications.show({
         title: 'Could not generate instructions',
         message: error instanceof Error ? error.message : 'Please try again.',
@@ -50,12 +52,12 @@ export function NominationInstructionsAction({
           <Text size="xs" c="dimmed">
             Client: {client.name}
           </Text>
-          <Button size="xs" variant="light" loading={isGenerating} onClick={handleOpen}>
-            Open instruction sheet
+          <Button size="xs" variant="light" loading={isGenerating} onClick={handleDownload}>
+            Download instruction document
           </Button>
           <Text size="xs" c="dimmed">
-            Uses the latest nomination facts and the client’s saved contacts, email group, and
-            instructions.
+            Fills the original SNCA-RG-AGN-001 Word template with the latest nomination and client
+            information.
           </Text>
         </>
       )}

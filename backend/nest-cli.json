@@ -4,7 +4,10 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "deleteOutDir": false,
-    "assets": [{ "include": "pdf/templates/**/*.hbs", "watchAssets": true }],
+    "assets": [
+      { "include": "pdf/templates/**/*.hbs", "watchAssets": true },
+      { "include": "nominations/templates/**/*.docx", "watchAssets": true }
+    ],
     "watchAssets": true
   }
 }

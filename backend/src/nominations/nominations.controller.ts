@@ -138,15 +138,15 @@ export class NominationsController {
     return this.svc.listClients(id);
   }
 
-  @Get(':id/nomination-instructions.pdf')
-  async nominationInstructions(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Res() reply: FastifyReply,
-  ) {
+  @Get(':id/nomination-instructions.docx')
+  async nominationInstructions(@Param('id', ParseUUIDPipe) id: string, @Res() reply: FastifyReply) {
     const file = await this.svc.generateNominationInstructions(id);
     await reply
-      .header('Content-Type', 'application/pdf')
-      .header('Content-Disposition', `inline; filename="${file.filename}"`)
+      .header(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      )
+      .header('Content-Disposition', `attachment; filename="${file.filename}"`)
       .send(file.buffer);
   }
 

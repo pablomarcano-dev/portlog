@@ -5,12 +5,12 @@ import { PrismaModule } from '../prisma/prisma.module.js';
 import { EmailModule } from '../email/email.module.js';
 import { AttachmentsModule } from '../attachments/attachments.module.js';
 import { EmailTemplatesModule } from '../email-templates/email-templates.module.js';
-import { PdfModule } from '../pdf/pdf.module.js';
+import { NominationInstructionsDocxService } from './nomination-instructions-docx.service.js';
 
 @Module({
-  imports: [PrismaModule, EmailModule, AttachmentsModule, EmailTemplatesModule, PdfModule],
+  imports: [PrismaModule, EmailModule, AttachmentsModule, EmailTemplatesModule],
   controllers: [NominationsController],
-  providers: [NominationsService],
+  providers: [NominationsService, NominationInstructionsDocxService],
   exports: [NominationsService],
 })
 export class NominationsModule {}

@@ -12,7 +12,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { AttachmentsService } from '../attachments/attachments.service.js';
 import { EmailTemplateService } from '../email-templates/email-template.service.js';
-import { PdfService } from '../pdf/pdf.service.js';
+import { NominationInstructionsDocxService } from './nomination-instructions-docx.service.js';
 import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
 import {
   isValidTransition,
@@ -351,7 +351,7 @@ export class NominationsService {
     private readonly emailService: EmailService,
     private readonly attachmentsService: AttachmentsService,
     private readonly emailTemplates: EmailTemplateService,
-    @Optional() private readonly pdf?: PdfService,
+    @Optional() private readonly nominationInstructionsDocx?: NominationInstructionsDocxService,
   ) {}
 
   async create(dto: NominationCreateInput, userId: string) {
@@ -759,7 +759,9 @@ export class NominationsService {
   async generateNominationInstructions(
     nominationId: string,
   ): Promise<{ buffer: Buffer; filename: string }> {
-    if (!this.pdf) throw new BadRequestException('PDF generation is not available.');
+    if (!this.nominationInstructionsDocx) {
+      throw new BadRequestException('Nomination instruction generation is not available.');
+    }
 
     const nomination = await this.prisma.nomination.findUnique({
       where: { id: nominationId },
@@ -875,13 +877,11 @@ export class NominationsService {
         parcel.product,
       ]).join(' '),
     );
+    const clientChannels = uniqueNonBlank([client.phone, client.mobile, ...client.emails]);
 
+    const snOt = formatSnOt(nomination.correlative, nomination.dateNominated, nomination.kind);
     const context = {
-      documentCode: 'SNCA-RG-AGN-001',
-      revision: '00',
-      issueDate: formatInstructionDate(nomination.dateNominated),
-      snOt: formatSnOt(nomination.correlative, nomination.dateNominated, nomination.kind),
-      voyageNumber: nomination.voyageNumber,
+      snOt: uniqueNonBlank([snOt, nomination.voyageNumber]).join(' / '),
       vessel: nomination.shipParticular.name,
       owner: nomination.shipParticular.owner?.name ?? '—',
       operator: nomination.shipParticular.operator?.name ?? operator?.name ?? '—',
@@ -890,59 +890,58 @@ export class NominationsService {
       nextPort: nomination.nextPort?.name ?? '—',
       operationPort:
         uniqueNonBlank([nomination.opPort?.name, nomination.pier?.name]).join(' — ') || '—',
-      dischargePort: nomination.disPort?.name ?? '—',
-      operations: operationLines.length ? operationLines : ['—'],
+      operations: operationLines.join('\n') || '—',
       laycan:
         nomination.layDaysFirst || nomination.layDaysLast
           ? `${formatInstructionDate(nomination.layDaysFirst)} — ${formatInstructionDate(nomination.layDaysLast)}`
           : '—',
-      eta: formatInstructionDate(nomination.etaDate),
-      firstMessage: uniqueNonBlank([
-        client.emailGroup ? `Group: ${client.emailGroup.name}` : null,
-        ...groupLines,
-        ...client.emails,
-        ...clientContactLines,
-      ]),
-      secondMessage: uniqueNonBlank(nomination.emailTo),
-      thirdMessage: uniqueNonBlank(nomination.emailCc),
-      ccMessage: uniqueNonBlank(nomination.emailBcc),
-      nominationInstructions: client.nominationInstructions ?? '—',
-      nominationNotes: uniqueNonBlank([
-        nomination.subject,
-        nomination.referenceNo ? `Reference: ${nomination.referenceNo}` : null,
-        nomination.master ? `Master: ${nomination.master}` : null,
-        nomination.mic ? `M.I.C.: ${nomination.mic}` : null,
-        nomination.broker ? `Broker: ${nomination.broker}` : null,
-        nomination.boardingClerk ? `Boarding clerk: ${nomination.boardingClerk}` : null,
-        nomination.inspector ? `Inspector: ${nomination.inspector}` : null,
-      ]),
-      portCosts: {
-        name: client.name,
-        address: client.billingAddress ?? client.taxAddress ?? '—',
-        reference: nomination.referenceNo ?? '—',
-        proforma: '—',
-        contact: uniqueNonBlank([client.phone, client.mobile, ...client.emails]).join(' / ') || '—',
-      },
-      commercialOperator: {
-        name: charterer?.name ?? '—',
-        reference: charterer?.referenceNo ?? '—',
-        proforma: charterer?.proforma ?? '—',
-      },
-      technicalManager: {
-        name: operator?.name ?? nomination.shipParticular.operator?.name ?? '—',
-        reference: operator?.referenceNo ?? '—',
-        proforma: operator?.proforma ?? '—',
-      },
-      branch: nomination.branch ?? {
-        name: 'Servicios Navieramar',
-        code: '',
-        address: null,
-        phone: null,
-      },
+      firstMessage:
+        uniqueNonBlank([
+          client.emailGroup ? `Group: ${client.emailGroup.name}` : null,
+          ...groupLines,
+          ...client.emails,
+          ...clientContactLines,
+        ]).join('\n') || '—',
+      secondMessage: uniqueNonBlank(nomination.emailTo).join('\n') || '—',
+      thirdMessage: uniqueNonBlank(nomination.emailCc).join('\n') || '—',
+      ccMessage: uniqueNonBlank(nomination.emailBcc).join('\n') || '—',
+      nominationInstructions: client.nominationInstructions?.trim() || '—',
+      nominationNotes:
+        uniqueNonBlank([
+          nomination.subject,
+          `Nomination date: ${formatInstructionDate(nomination.dateNominated)}`,
+          nomination.etaDate ? `ETA: ${formatInstructionDate(nomination.etaDate)}` : null,
+          nomination.disPort?.name ? `Discharge port: ${nomination.disPort.name}` : null,
+          nomination.referenceNo ? `Reference: ${nomination.referenceNo}` : null,
+          nomination.master ? `Master: ${nomination.master}` : null,
+          nomination.mic ? `M.I.C.: ${nomination.mic}` : null,
+          nomination.broker ? `Broker: ${nomination.broker}` : null,
+          nomination.boardingClerk ? `Boarding clerk: ${nomination.boardingClerk}` : null,
+          nomination.inspector ? `Inspector: ${nomination.inspector}` : null,
+        ]).join('\n') || '—',
+      portCosts:
+        uniqueNonBlank([
+          client.name,
+          client.billingAddress ?? client.taxAddress,
+          nomination.referenceNo ? `Reference: ${nomination.referenceNo}` : null,
+          clientChannels.length ? `Contact: ${clientChannels.join(' / ')}` : null,
+        ]).join('\n') || '—',
+      commercialOperator:
+        uniqueNonBlank([
+          charterer?.name,
+          charterer?.referenceNo ? `Reference: ${charterer.referenceNo}` : null,
+          charterer?.proforma ? `Proforma: ${charterer.proforma}` : null,
+        ]).join('\n') || '—',
+      technicalManager:
+        uniqueNonBlank([
+          operator?.name ?? nomination.shipParticular.operator?.name,
+          operator?.referenceNo ? `Reference: ${operator.referenceNo}` : null,
+          operator?.proforma ? `Proforma: ${operator.proforma}` : null,
+        ]).join('\n') || '—',
     };
 
-    const buffer = await this.pdf.renderTemplate('nomination-instructions.hbs', context);
-    const filename = `${context.snOt.replace(/\//g, '-')}-nomination-instructions.pdf`;
+    const buffer = this.nominationInstructionsDocx.render(context);
+    const filename = `${snOt.replace(/\//g, '-')}-nomination-instructions.docx`;
     return { buffer, filename };
   }
 
