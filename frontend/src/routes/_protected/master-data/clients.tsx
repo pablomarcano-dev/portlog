@@ -1,6 +1,18 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useState, useCallback } from 'react';
-import { Stack, TextInput, Textarea, Group, Button, Table, Text, Box } from '@mantine/core';
+import {
+  Stack,
+  TextInput,
+  Textarea,
+  Group,
+  Button,
+  Table,
+  Text,
+  Box,
+  Divider,
+  MultiSelect,
+  Select,
+} from '@mantine/core';
 import { useColumnResize } from '../../../components/table/useColumnResize';
 import { ResizableTh } from '../../../components/table/ResizableTh';
 import { ClientCreateSchema } from '@portlog/schemas';
@@ -15,6 +27,8 @@ import {
   useDeleteClient,
   clientsApi,
 } from '../../../lib/api/master-data/clients';
+import { useContacts } from '../../../lib/api/master-data/contacts';
+import { useEmailGroup, useEmailGroups } from '../../../lib/api/master-data/email-groups';
 
 export const Route = createFileRoute('/_protected/master-data/clients')({
   component: ClientsScreen,
@@ -67,9 +81,10 @@ function ClientsScreen() {
       fax: client.fax ?? undefined,
       mobile: client.mobile ?? undefined,
       emails: client.emails ?? [],
-      emailGroup: client.emailGroup ?? undefined,
+      emailGroupId: client.emailGroupId ?? null,
+      contactIds: client.contacts.map((contact) => contact.id),
       tariff: client.tariff ?? undefined,
-      instructions: client.instructions ?? undefined,
+      nominationInstructions: client.nominationInstructions ?? undefined,
     };
   }, []);
 
@@ -115,6 +130,23 @@ function ClientFields({
   form: ReturnType<typeof import('react-hook-form').useForm<ClientCreateInput>>;
 }) {
   const physicalAddress = form.watch('physicalAddress');
+  const contactsQuery = useContacts({ limit: 100 });
+  const emailGroupsQuery = useEmailGroups({ pageSize: 100 });
+  const selectedEmailGroupId = form.watch('emailGroupId');
+  const selectedEmailGroupQuery = useEmailGroup(selectedEmailGroupId);
+  const emailGroupOptions = (emailGroupsQuery.data?.items ?? []).map((group) => ({
+    value: group.id,
+    label: `${group.name} (${group.memberCount})`,
+  }));
+  if (
+    selectedEmailGroupQuery.data &&
+    !emailGroupOptions.some((option) => option.value === selectedEmailGroupQuery.data?.id)
+  ) {
+    emailGroupOptions.unshift({
+      value: selectedEmailGroupQuery.data.id,
+      label: `${selectedEmailGroupQuery.data.name} (${selectedEmailGroupQuery.data.members.length})`,
+    });
+  }
 
   const copyPhysical = (field: keyof ClientCreateInput) => {
     form.setValue(field, physicalAddress ?? '');
@@ -238,6 +270,7 @@ function ClientFields({
       </Group>
 
       {/* Contact info row */}
+      <Divider label="Communication & contacts" labelPosition="left" />
       <Group align="flex-start" grow>
         <TextInput
           label="Mobile"
@@ -257,11 +290,47 @@ function ClientFields({
             />
           )}
         />
-        <TextInput
-          label="EMail Group"
-          placeholder="Email group"
-          error={form.formState.errors.emailGroup?.message}
-          {...form.register('emailGroup')}
+      </Group>
+
+      <Group align="flex-start" grow>
+        <Controller
+          control={form.control}
+          name="contactIds"
+          render={({ field, fieldState }) => (
+            <MultiSelect
+              label="Associated contacts"
+              description="People whose details should travel with this client"
+              placeholder="Select contacts"
+              searchable
+              clearable
+              value={field.value ?? []}
+              onChange={field.onChange}
+              data={(contactsQuery.data?.items ?? []).map((contact) => ({
+                value: contact.id,
+                label: contact.name,
+              }))}
+              error={fieldState.error?.message}
+              nothingFoundMessage={contactsQuery.isLoading ? 'Loading…' : 'No contacts found'}
+            />
+          )}
+        />
+        <Controller
+          control={form.control}
+          name="emailGroupId"
+          render={({ field, fieldState }) => (
+            <Select
+              label="Email group"
+              description="Default distribution list for nomination instructions"
+              placeholder="Select an email group"
+              searchable
+              clearable
+              value={field.value ?? null}
+              onChange={field.onChange}
+              data={emailGroupOptions}
+              error={fieldState.error?.message}
+              nothingFoundMessage={emailGroupsQuery.isLoading ? 'Loading…' : 'No groups found'}
+            />
+          )}
         />
       </Group>
 
@@ -359,14 +428,15 @@ function ClientFields({
         </Table>
       </Box>
 
-      {/* Instructions */}
+      <Divider label="Nomination defaults" labelPosition="left" />
       <Textarea
-        label="Instructions"
-        placeholder="Special instructions for this client"
+        label="Nomination Instructions"
+        description="Reusable operational requirements inserted into the instruction sheet generated from a nomination"
+        placeholder="Enter the client's standing reporting, communication, PDA, invoicing, and operational requirements"
         autosize
-        minRows={4}
-        error={form.formState.errors.instructions?.message}
-        {...form.register('instructions')}
+        minRows={7}
+        error={form.formState.errors.nominationInstructions?.message}
+        {...form.register('nominationInstructions')}
       />
     </Stack>
   );

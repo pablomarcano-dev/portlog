@@ -324,29 +324,52 @@ model Supplier {
 // Client — port agency clients (Clientes)
 // ---------------------------------------------------------------------------
 model Client {
-  id              String   @id @default(cuid())
-  name            String
-  phone           String?
-  phone2          String?
-  physicalAddress String?
-  billingAddress  String?
-  postalAddress   String?
-  taxAddress      String?
-  otherAddress    String?
-  fax             String?
-  mobile          String?
-  emails          String[] @default([])
-  emailGroup      String?
-  tariff          String?  @db.Text
-  instructions    String?  @db.Text
-  createdAt       DateTime @default(now()) @db.Timestamptz
-  updatedAt       DateTime @updatedAt @db.Timestamptz
+  id                     String      @id @default(cuid())
+  name                   String
+  phone                  String?
+  phone2                 String?
+  physicalAddress        String?
+  billingAddress         String?
+  postalAddress          String?
+  taxAddress             String?
+  otherAddress           String?
+  fax                    String?
+  mobile                 String?
+  emails                 String[]    @default([])
+  // Kept only so existing free-text values remain recoverable after the
+  // directory is upgraded to a real EmailGroup relation.
+  legacyEmailGroup       String?     @map("emailGroup")
+  emailGroupId           String?
+  emailGroup             EmailGroup? @relation(fields: [emailGroupId], references: [id], onDelete: SetNull)
+  tariff                 String?     @db.Text
+  nominationInstructions String?     @map("instructions") @db.Text
+  createdAt              DateTime    @default(now()) @db.Timestamptz
+  updatedAt              DateTime    @updatedAt @db.Timestamptz
+
+  contactLinks      ClientContact[]
+  nominationClients NominationClient[]
 
   // Service Requests back-relation — the optional `bill to` client
   serviceRequests ServiceRequest[]
 
   @@index([name])
+  @@index([emailGroupId])
   @@map("clients")
+}
+
+// Contacts may be relevant to more than one commercial client, and may also
+// retain their existing shipper/operator/owner/charterer association. An
+// explicit join keeps those meanings independent.
+model ClientContact {
+  clientId  String
+  contactId String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  @@id([clientId, contactId])
+  @@index([contactId])
+  @@map("client_contacts")
 }
 
 // ---------------------------------------------------------------------------
@@ -401,9 +424,9 @@ model SalesContact {
 // directly to the migration SQL (Prisma cannot express CHECK constraints natively).
 // ---------------------------------------------------------------------------
 model Contact {
-  id            String     @id @default(cuid())
+  id            String          @id @default(cuid())
   name          String
-  emails        String[]   @default([])
+  emails        String[]        @default([])
   homePhone     String?
   mobile        String?
   businessPhone String?
@@ -411,16 +434,17 @@ model Contact {
   address       String?
   // Entity FK cross-links — at most one may be non-null (enforced by DB CHECK constraint)
   shipperId     String?
-  shipper       Shipper?   @relation(fields: [shipperId], references: [id], onDelete: SetNull)
+  shipper       Shipper?        @relation(fields: [shipperId], references: [id], onDelete: SetNull)
   operatorId    String?
-  operator      Operator?  @relation(fields: [operatorId], references: [id], onDelete: SetNull)
+  operator      Operator?       @relation(fields: [operatorId], references: [id], onDelete: SetNull)
   ownerId       String?
-  owner         Owner?     @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  owner         Owner?          @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   charterId     String?
-  charterer     Charterer? @relation(fields: [charterId], references: [id], onDelete: SetNull)
-  comments      String?    @db.Text
-  createdAt     DateTime   @default(now()) @db.Timestamptz
-  updatedAt     DateTime   @updatedAt @db.Timestamptz
+  charterer     Charterer?      @relation(fields: [charterId], references: [id], onDelete: SetNull)
+  clientLinks   ClientContact[]
+  comments      String?         @db.Text
+  createdAt     DateTime        @default(now()) @db.Timestamptz
+  updatedAt     DateTime        @updatedAt @db.Timestamptz
 
   @@map("contacts")
 }

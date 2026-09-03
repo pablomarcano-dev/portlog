@@ -15,10 +15,22 @@ export interface ClientRecord {
   fax?: string | null;
   mobile?: string | null;
   emails: string[];
-  emailGroup?: string | null;
+  emailGroupId?: string | null;
+  emailGroup?: {
+    id: string;
+    name: string;
+    members: Array<{ id: string; email: string; displayName?: string | null; order: number }>;
+  } | null;
+  contacts: Array<{
+    id: string;
+    name: string;
+    emails: string[];
+    mobile?: string | null;
+    businessPhone?: string | null;
+  }>;
   tariff?: string | null;
-  instructions?: string | null;
-  label: string;
+  nominationInstructions?: string | null;
+  label?: string;
 }
 
 export interface ClientListResponse {

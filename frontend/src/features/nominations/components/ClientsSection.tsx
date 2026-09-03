@@ -10,7 +10,6 @@ import {
   useRemoveClient,
 } from '../hooks/useNominationClients';
 import { ClientNamePicker } from '../../../components/master-data/ClientNamePicker';
-import { clientTypeToContactRole } from '../clientTypeRole';
 
 type ClientColKey = 'type' | 'name' | 'voyageRef' | 'refNo' | 'actions';
 
@@ -37,7 +36,7 @@ function ClientRow({
   onUpdate,
   onRemove,
 }: ClientRowProps) {
-  const clientId = client.id ?? '';
+  const rowId = client.id ?? '';
   const isBusy = isUpdating || isRemoving;
   // Type and Name are controlled locally so the Name suggestions can react to
   // the Type as it is edited; both still persist on blur.
@@ -45,7 +44,12 @@ function ClientRow({
   const [name, setName] = useState(client.name);
   // Held alongside the name so the two persist together — a name without its
   // shipperId would leave the terminal notice unable to resolve addresses.
-  const [shipperId, setShipperId] = useState<string | null>(client.shipperId ?? null);
+  // Refs are deliberate: choosing an autocomplete option fires blur before a
+  // React state update is guaranteed to render. Reading the ref prevents the
+  // selected master-data id from being lost while the visible name is saved.
+  const shipperId = useRef<string | null>(client.shipperId ?? null);
+  const masterClientId = useRef<string | null>(client.clientId ?? null);
+  const selectionSaved = useRef(false);
   const isShipper = isShipperType(type);
 
   return (
@@ -62,10 +66,13 @@ function ClientRow({
             // Retyping the row as something other than a shipper drops the link,
             // so a stale FK can never point at a company the row no longer names.
             if (!isShipperType(val) && client.shipperId) {
-              setShipperId(null);
-              onUpdate(clientId, { type: val, shipperId: null });
+              shipperId.current = null;
+              onUpdate(rowId, { type: val, shipperId: null });
+            } else if (isShipperType(val) && client.clientId) {
+              masterClientId.current = null;
+              onUpdate(rowId, { type: val, clientId: null });
             } else {
-              onUpdate(clientId, { type: val });
+              onUpdate(rowId, { type: val });
             }
           }}
         />
@@ -76,18 +83,45 @@ function ClientRow({
           value={name}
           onChange={(val, entityId) => {
             setName(val);
-            if (isShipper) setShipperId(entityId ?? null);
+            if (isShipper) {
+              shipperId.current = entityId ?? null;
+              masterClientId.current = null;
+            } else {
+              masterClientId.current = entityId ?? null;
+              shipperId.current = null;
+            }
+            if (entityId) {
+              selectionSaved.current = true;
+              onUpdate(
+                rowId,
+                isShipper
+                  ? { name: val.trim(), shipperId: entityId, clientId: null }
+                  : { name: val.trim(), clientId: entityId, shipperId: null },
+              );
+            }
           }}
           disabled={isBusy}
-          // The Shipper row picks a company from the shippers directory so its
-          // addresses resolve; every other type suggests contacts scoped to the
-          // row's Type, falling back to the generic clients search.
-          entity={isShipper ? 'shipper' : undefined}
-          role={isShipper ? undefined : clientTypeToContactRole(type)}
+          // Shipper rows retain their dedicated directory link. Every other row
+          // can link to the Clients directory while still allowing free text.
+          entity={isShipper ? 'shipper' : 'client'}
           onBlur={() => {
+            if (selectionSaved.current) {
+              selectionSaved.current = false;
+              return;
+            }
             const val = name.trim();
-            if (val === client.name && shipperId === (client.shipperId ?? null)) return;
-            onUpdate(clientId, isShipper ? { name: val, shipperId } : { name: val });
+            if (
+              val === client.name &&
+              shipperId.current === (client.shipperId ?? null) &&
+              masterClientId.current === (client.clientId ?? null)
+            )
+              return;
+            onUpdate(
+              rowId,
+              isShipper
+                ? { name: val, shipperId: shipperId.current, clientId: null }
+                : { name: val, clientId: masterClientId.current, shipperId: null },
+            );
           }}
         />
       </Table.Td>
@@ -99,7 +133,7 @@ function ClientRow({
           onBlur={(e) => {
             const val = e.currentTarget.value.trim();
             if (val !== (client.voyageRef ?? '')) {
-              onUpdate(clientId, { voyageRef: val });
+              onUpdate(rowId, { voyageRef: val });
             }
           }}
         />
@@ -112,7 +146,7 @@ function ClientRow({
           onBlur={(e) => {
             const val = e.currentTarget.value.trim();
             if (val !== (client.referenceNo ?? '')) {
-              onUpdate(clientId, { referenceNo: val });
+              onUpdate(rowId, { referenceNo: val });
             }
           }}
         />
@@ -124,7 +158,7 @@ function ClientRow({
           variant="subtle"
           loading={isRemoving}
           disabled={isBusy}
-          onClick={() => onRemove(clientId)}
+          onClick={() => onRemove(rowId)}
           aria-label="Remove client row"
         >
           x

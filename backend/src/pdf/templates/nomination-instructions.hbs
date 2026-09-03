@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A4; margin: 12mm 12mm 14mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: #17243b; font-family: Arial, Helvetica, sans-serif; font-size: 9px; }
+  .header { display: grid; grid-template-columns: 1.35fr 1fr; border: 1px solid #1f365c; margin-bottom: 7px; }
+  .brand { padding: 9px 12px; display: flex; align-items: center; gap: 10px; }
+  .mark { width: 38px; height: 38px; border: 4px solid #1f365c; border-radius: 50%; position: relative; }
+  .mark::after { content: ''; position: absolute; left: 8px; top: 7px; width: 15px; height: 13px; border-left: 4px solid #ef7d21; border-bottom: 4px solid #ef7d21; transform: skew(-15deg); }
+  .wordmark { color: #1f365c; font-size: 19px; font-weight: 800; letter-spacing: .4px; }
+  .wordmark small { display: block; font-size: 7px; font-weight: 600; letter-spacing: 1.2px; color: #68758b; }
+  .control { border-left: 1px solid #1f365c; display: grid; grid-template-columns: 1.2fr .8fr; }
+  .control div { padding: 4px 7px; border-bottom: 1px solid #1f365c; }
+  .control div:nth-last-child(-n + 2) { border-bottom: 0; }
+  .control .label { color: #50617b; font-weight: 700; text-transform: uppercase; }
+  .title { background: #1f365c; color: white; padding: 7px 10px; text-align: center; font-size: 13px; font-weight: 800; letter-spacing: .7px; text-transform: uppercase; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 7px; align-items: start; }
+  .panel { border: 1px solid #1f365c; break-inside: avoid; }
+  .panel-title { background: #1f365c; color: white; font-weight: 800; padding: 5px 7px; text-transform: uppercase; letter-spacing: .3px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border-bottom: 1px solid #c8d0dc; padding: 4px 6px; text-align: left; vertical-align: top; }
+  tr:last-child th, tr:last-child td { border-bottom: 0; }
+  th { width: 34%; color: #324665; background: #eef2f7; font-size: 8px; text-transform: uppercase; }
+  td { min-height: 18px; }
+  .list { margin: 0; padding-left: 14px; }
+  .list li { margin: 0 0 2px; overflow-wrap: anywhere; }
+  .muted { color: #66758b; }
+  .instruction { white-space: pre-wrap; line-height: 1.38; padding: 7px; min-height: 77px; }
+  .requirements { margin-top: 7px; }
+  .footer-note { margin-top: 6px; color: #768399; font-size: 7px; display: flex; justify-content: space-between; }
+  .billing-page { page-break-before: always; }
+  .billing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+  .billing-card { border: 1px solid #1f365c; min-height: 190px; }
+  .billing-card h3 { margin: 0; padding: 6px; background: #1f365c; color: white; text-transform: uppercase; font-size: 9px; }
+  .billing-card dl { margin: 0; }
+  .billing-card dt { padding: 5px 6px 2px; color: #5b6d88; font-size: 7px; font-weight: 800; text-transform: uppercase; }
+  .billing-card dd { margin: 0; padding: 0 6px 5px; min-height: 16px; border-bottom: 1px solid #dde3ec; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <div class="mark"></div>
+      <div class="wordmark">NAVIERAMAR<small>PORT &amp; MARITIME SERVICES</small></div>
+    </div>
+    <div class="control">
+      <div class="label">Quality system</div><div>Agency</div>
+      <div class="label">Code</div><div>{{documentCode}}</div>
+      <div class="label">Date / Revision</div><div>{{issueDate}} / {{revision}}</div>
+      <div class="label">Page</div><div>1 / 2</div>
+    </div>
+  </div>
+  <div class="title">Nomination Instructions — Operations</div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-title">Nomination details</div>
+      <table>
+        <tr><th>SN / OT</th><td><strong>{{snOt}}</strong></td></tr>
+        <tr><th>Voyage</th><td>{{voyageNumber}}</td></tr>
+        <tr><th>Vessel</th><td>{{vessel}}</td></tr>
+        <tr><th>Owner</th><td>{{owner}}</td></tr>
+        <tr><th>Operator</th><td>{{operator}}</td></tr>
+        <tr><th>Charterer</th><td>{{charterer}}</td></tr>
+        <tr><th>Last port</th><td>{{lastPort}}</td></tr>
+        <tr><th>Next port</th><td>{{nextPort}}</td></tr>
+        <tr><th>Operation port</th><td>{{operationPort}}</td></tr>
+        <tr><th>Discharge port</th><td>{{dischargePort}}</td></tr>
+        <tr><th>Operation</th><td><ul class="list">{{#each operations}}<li>{{this}}</li>{{/each}}</ul></td></tr>
+        <tr><th>Lay days</th><td>{{laycan}}</td></tr>
+        <tr><th>ETA</th><td>{{eta}}</td></tr>
+      </table>
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="panel-title">Message distribution</div>
+        <table>
+          <tr><th>1st message</th><td>{{#if firstMessage.length}}<ul class="list">{{#each firstMessage}}<li>{{this}}</li>{{/each}}</ul>{{else}}—{{/if}}</td></tr>
+          <tr><th>2nd message</th><td>{{#if secondMessage.length}}<ul class="list">{{#each secondMessage}}<li>{{this}}</li>{{/each}}</ul>{{else}}—{{/if}}</td></tr>
+          <tr><th>3rd message</th><td>{{#if thirdMessage.length}}<ul class="list">{{#each thirdMessage}}<li>{{this}}</li>{{/each}}</ul>{{else}}—{{/if}}</td></tr>
+          <tr><th>CC message</th><td>{{#if ccMessage.length}}<ul class="list">{{#each ccMessage}}<li>{{this}}</li>{{/each}}</ul>{{else}}—{{/if}}</td></tr>
+        </table>
+      </div>
+
+      <div class="panel requirements">
+        <div class="panel-title">Customer requirements</div>
+        <div class="instruction">{{nominationInstructions}}</div>
+      </div>
+
+      <div class="panel requirements">
+        <div class="panel-title">Nomination-specific information</div>
+        <div class="instruction">{{#if nominationNotes.length}}{{#each nominationNotes}}{{this}}{{#unless @last}}\n{{/unless}}{{/each}}{{else}}—{{/if}}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    <span>{{branch.name}}{{#if branch.code}} — {{branch.code}}{{/if}}</span>
+    <span>{{snOt}} · Generated {{generatedAt}}</span>
+  </div>
+
+  <div class="billing-page">
+    <div class="header">
+      <div class="brand"><div class="wordmark">NAVIERAMAR<small>NOMINATION ADMINISTRATION</small></div></div>
+      <div class="control">
+        <div class="label">Code</div><div>{{documentCode}}</div>
+        <div class="label">Nomination</div><div>{{snOt}}</div>
+        <div class="label">Page</div><div>2 / 2</div>
+      </div>
+    </div>
+    <div class="title">Administration &amp; Invoicing Instructions</div>
+    <div class="billing-grid" style="margin-top: 7px;">
+      <div class="billing-card">
+        <h3>Port costs</h3>
+        <dl>
+          <dt>Bill to</dt><dd>{{portCosts.name}}</dd>
+          <dt>Billing / tax address</dt><dd>{{portCosts.address}}</dd>
+          <dt>Reference</dt><dd>{{portCosts.reference}}</dd>
+          <dt>Proforma</dt><dd>{{portCosts.proforma}}</dd>
+          <dt>Contact</dt><dd>{{portCosts.contact}}</dd>
+        </dl>
+      </div>
+      <div class="billing-card">
+        <h3>Commercial operator costs</h3>
+        <dl>
+          <dt>Bill to</dt><dd>{{commercialOperator.name}}</dd>
+          <dt>Reference</dt><dd>{{commercialOperator.reference}}</dd>
+          <dt>Proforma</dt><dd>{{commercialOperator.proforma}}</dd>
+        </dl>
+      </div>
+      <div class="billing-card">
+        <h3>Technical management costs</h3>
+        <dl>
+          <dt>Bill to</dt><dd>{{technicalManager.name}}</dd>
+          <dt>Reference</dt><dd>{{technicalManager.reference}}</dd>
+          <dt>Proforma</dt><dd>{{technicalManager.proforma}}</dd>
+        </dl>
+      </div>
+    </div>
+    <div class="panel requirements">
+      <div class="panel-title">Local agency reference</div>
+      <table>
+        <tr><th>Branch</th><td>{{branch.name}}{{#if branch.code}} ({{branch.code}}){{/if}}</td></tr>
+        <tr><th>Address</th><td>{{#if branch.address}}{{branch.address}}{{else}}—{{/if}}</td></tr>
+        <tr><th>Phone</th><td>{{#if branch.phone}}{{branch.phone}}{{else}}—{{/if}}</td></tr>
+      </table>
+    </div>
+  </div>
+</body>
+</html>

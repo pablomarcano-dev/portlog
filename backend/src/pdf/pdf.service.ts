@@ -25,7 +25,8 @@ export class PdfService implements OnModuleDestroy {
   private chromiumAvailable = true;
 
   constructor(private readonly config: ConfigService) {
-    this.executablePath = this.config.get<string>('CHROMIUM_EXECUTABLE_PATH');
+    this.executablePath =
+      this.config.get<string>('CHROMIUM_EXECUTABLE_PATH') ?? this.findLocalChromium();
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -88,5 +89,17 @@ export class PdfService implements OnModuleDestroy {
     });
 
     return this.browser;
+  }
+
+  /** Local development fallback; production continues to use the explicit env path. */
+  private findLocalChromium(): string | undefined {
+    const candidates = [
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '/Applications/Chromium.app/Contents/MacOS/Chromium',
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/google-chrome',
+    ];
+    return candidates.find((candidate) => fs.existsSync(candidate));
   }
 }

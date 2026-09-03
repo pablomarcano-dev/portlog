@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { emailList } from '../../common/fields';
+import { clearableCuid, emailList } from '../../common/fields';
 import { ListQuerySchema } from '../../common/pagination';
 
 export const ClientCreateSchema = z.object({
@@ -14,9 +14,10 @@ export const ClientCreateSchema = z.object({
   fax: z.string().max(50).optional(),
   mobile: z.string().max(50).optional(),
   emails: emailList(),
-  emailGroup: z.string().max(200).optional(),
+  emailGroupId: clearableCuid(),
+  contactIds: z.array(z.string().cuid()).default([]),
   tariff: z.string().max(100_000).optional(),
-  instructions: z.string().max(10_000).optional(),
+  nominationInstructions: z.string().max(100_000).optional(),
 });
 
 export const ClientUpdateSchema = ClientCreateSchema.partial();

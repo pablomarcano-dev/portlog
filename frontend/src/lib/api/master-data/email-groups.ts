@@ -77,8 +77,8 @@ export function useEmailGroups(q: Partial<EmailGroupListQuery> = {}) {
   return useQuery(emailGroupsQueryOptions(q));
 }
 
-export function useEmailGroup(id: string) {
-  return useQuery(emailGroupQueryOptions(id));
+export function useEmailGroup(id: string | null | undefined) {
+  return useQuery({ ...emailGroupQueryOptions(id ?? ''), enabled: Boolean(id) });
 }
 
 export function useSaveEmailGroup(selectedId: string | null) {

@@ -13,6 +13,7 @@ model EmailGroup {
   createdAt   DateTime           @default(now()) @db.Timestamptz
   updatedAt   DateTime           @updatedAt @db.Timestamptz
   members     EmailGroupMember[]
+  clients     Client[]
 
   @@index([name])
   @@map("email_groups")

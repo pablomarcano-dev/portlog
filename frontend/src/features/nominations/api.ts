@@ -1,4 +1,4 @@
-import { apiRequest } from '../../lib/api/client';
+import { apiRequest, apiRequestBlob } from '../../lib/api/client';
 import {
   NominationListResponseSchema,
   NominationSchema,
@@ -97,6 +97,11 @@ export const nominationsApi = {
       method: 'DELETE',
     });
   },
+
+  nominationInstructionsPdf: (nominationId: string, clientId: string): Promise<Blob> =>
+    apiRequestBlob(
+      `/nominations/${nominationId}/nomination-instructions.pdf?clientId=${encodeURIComponent(clientId)}`,
+    ),
 
   updateParcels: async (nominationId: string, parcels: unknown[]): Promise<void> => {
     await apiRequest<unknown>(`/nominations/${nominationId}/parcels`, {

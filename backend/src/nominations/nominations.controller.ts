@@ -12,7 +12,9 @@ import {
   Put,
   Query,
   Req,
+  Res,
 } from '@nestjs/common';
+import type { FastifyReply } from 'fastify';
 import { NominationsService } from './nominations.service.js';
 import { Roles } from '../auth/roles.decorator.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
@@ -134,6 +136,19 @@ export class NominationsController {
   @Get(':id/clients')
   listClients(@Param('id', ParseUUIDPipe) id: string) {
     return this.svc.listClients(id);
+  }
+
+  @Get(':id/nomination-instructions.pdf')
+  async nominationInstructions(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('clientId') clientId: string | undefined,
+    @Res() reply: FastifyReply,
+  ) {
+    const file = await this.svc.generateNominationInstructions(id, clientId);
+    await reply
+      .header('Content-Type', 'application/pdf')
+      .header('Content-Disposition', `inline; filename="${file.filename}"`)
+      .send(file.buffer);
   }
 
   @Post(':id/clients')

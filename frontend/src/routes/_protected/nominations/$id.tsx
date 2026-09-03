@@ -22,6 +22,7 @@ import { MessagesPanel } from '../../../features/nominations/components/Messages
 import { BranchDocumentsPanel } from '../../../features/branch-documents';
 import { EmailActionsPanel } from '../../../features/nominations/components/EmailActionsPanel';
 import { ClientsSection } from '../../../features/nominations/components/ClientsSection';
+import { NominationInstructionsAction } from '../../../features/nominations/components/NominationInstructionsAction';
 import { useNomination } from '../../../features/nominations/hooks/useNomination';
 import { useUpdateNomination } from '../../../features/nominations/hooks/useUpdateNomination';
 import { usePedrByNomination } from '../../../features/nominations/api/usePedrByNomination';
@@ -338,42 +339,40 @@ function NominationDetailPage() {
               </Collapse>
             </Stack>
 
-            {/* Actions — shown once a PEDR exists (auto-created when the nomination is Started) */}
-            {pedr && (
-              <>
-                <Divider my="sm" />
-                <Stack gap={0}>
-                  <UnstyledButton
-                    onClick={() => setActionsOpen((o) => !o)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '4px 0',
-                      userSelect: 'none',
-                    }}
-                  >
-                    <Text fw={700} size="sm">
-                      Actions
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      {actionsOpen ? '▲' : '▼'}
-                    </Text>
-                  </UnstyledButton>
-                  <Collapse in={actionsOpen}>
-                    <Box pt="xs">
-                      <EmailActionsPanel
-                        nominationId={nomination.id}
-                        opPortId={nomination.opPortId}
-                        pedrId={pedr.id}
-                        vesselName={nomination.shipParticular.name}
-                        parcels={nomination.parcels as NominationParcel[]}
-                      />
-                    </Box>
-                  </Collapse>
-                </Stack>
-              </>
-            )}
+            <Divider my="sm" />
+            <Stack gap={0}>
+              <UnstyledButton
+                onClick={() => setActionsOpen((o) => !o)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '4px 0',
+                  userSelect: 'none',
+                }}
+              >
+                <Text fw={700} size="sm">
+                  Actions
+                </Text>
+                <Text size="xs" c="dimmed">
+                  {actionsOpen ? '▲' : '▼'}
+                </Text>
+              </UnstyledButton>
+              <Collapse in={actionsOpen}>
+                <Box pt="xs">
+                  <NominationInstructionsAction nominationId={nomination.id} />
+                  {pedr && (
+                    <EmailActionsPanel
+                      nominationId={nomination.id}
+                      opPortId={nomination.opPortId}
+                      pedrId={pedr.id}
+                      vesselName={nomination.shipParticular.name}
+                      parcels={nomination.parcels as NominationParcel[]}
+                    />
+                  )}
+                </Box>
+              </Collapse>
+            </Stack>
           </Box>
         )}
       </Box>

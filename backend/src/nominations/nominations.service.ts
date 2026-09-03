@@ -5,12 +5,14 @@ import {
   Logger,
   MethodNotAllowedException,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { AttachmentsService } from '../attachments/attachments.service.js';
 import { EmailTemplateService } from '../email-templates/email-template.service.js';
+import { PdfService } from '../pdf/pdf.service.js';
 import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
 import {
   isValidTransition,
@@ -47,6 +49,36 @@ function formatSnOt(correlative: number, dateNominated: Date, kind: NominationKi
   const yy = String(dateNominated.getFullYear()).slice(-2);
   const prefix = kind === 'OT' ? 'OT' : 'SN';
   return `${prefix}-${yy}/${String(correlative).padStart(4, '0')}`;
+}
+
+function formatInstructionDate(value: Date | null | undefined): string {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'UTC',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+    .format(value)
+    .toUpperCase();
+}
+
+function uniqueNonBlank(values: Array<string | null | undefined>): string[] {
+  return [
+    ...new Set(values.map((value) => value?.trim()).filter((value): value is string => !!value)),
+  ];
+}
+
+function readParcelRows(value: Prisma.JsonValue): Array<{
+  product?: string;
+  quantity?: number;
+  unit?: string;
+  operation?: string;
+}> {
+  if (!Array.isArray(value)) return [];
+  return value.filter((row): row is Record<string, Prisma.JsonValue> => {
+    return typeof row === 'object' && row !== null && !Array.isArray(row);
+  }) as Array<{ product?: string; quantity?: number; unit?: string; operation?: string }>;
 }
 
 /**
@@ -318,6 +350,7 @@ export class NominationsService {
     private readonly emailService: EmailService,
     private readonly attachmentsService: AttachmentsService,
     private readonly emailTemplates: EmailTemplateService,
+    @Optional() private readonly pdf?: PdfService,
   ) {}
 
   async create(dto: NominationCreateInput, userId: string) {
@@ -715,6 +748,209 @@ export class NominationsService {
     await this.assertClientExists(nominationId, clientId);
     await this.prisma.nominationClient.delete({ where: { id: clientId } });
     this.logger.log({ event: 'nomination.client.removed', nominationId, clientId });
+  }
+
+  /**
+   * Render the operational instruction sheet distilled from SNCA-RG-AGN-001.
+   * The nomination supplies voyage-specific facts; the linked Client record
+   * supplies durable recipients, billing details, and operating instructions.
+   */
+  async generateNominationInstructions(
+    nominationId: string,
+    requestedClientId?: string,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    if (!this.pdf) throw new BadRequestException('PDF generation is not available.');
+
+    const nomination = await this.prisma.nomination.findUnique({
+      where: { id: nominationId },
+      select: {
+        correlative: true,
+        kind: true,
+        voyageNumber: true,
+        referenceNo: true,
+        subject: true,
+        dateNominated: true,
+        layDaysFirst: true,
+        layDaysLast: true,
+        etaDate: true,
+        emailTo: true,
+        emailCc: true,
+        emailBcc: true,
+        master: true,
+        mic: true,
+        broker: true,
+        boardingClerk: true,
+        inspector: true,
+        parcels: true,
+        shipParticular: {
+          select: {
+            name: true,
+            owner: { select: { name: true } },
+            operator: { select: { name: true } },
+          },
+        },
+        branch: { select: { name: true, code: true, address: true, phone: true } },
+        opPort: { select: { name: true } },
+        pier: { select: { name: true } },
+        lastPort: { select: { name: true } },
+        nextPort: { select: { name: true } },
+        disPort: { select: { name: true } },
+        nominationClients: {
+          orderBy: { sortOrder: 'asc' },
+          select: {
+            type: true,
+            name: true,
+            clientId: true,
+            voyageRef: true,
+            referenceNo: true,
+            proforma: true,
+            client: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                mobile: true,
+                emails: true,
+                billingAddress: true,
+                taxAddress: true,
+                nominationInstructions: true,
+                emailGroup: {
+                  select: {
+                    name: true,
+                    members: {
+                      orderBy: { order: 'asc' },
+                      select: { email: true, displayName: true },
+                    },
+                  },
+                },
+                contactLinks: {
+                  orderBy: { contact: { name: 'asc' } },
+                  select: {
+                    contact: {
+                      select: { name: true, emails: true, mobile: true, businessPhone: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!nomination) throw new NotFoundException(`Nomination ${nominationId} not found.`);
+
+    const linkedRows = nomination.nominationClients.filter((row) => row.client !== null);
+    const selectedRow = requestedClientId
+      ? linkedRows.find((row) => row.clientId === requestedClientId)
+      : linkedRows[0];
+    if (!selectedRow?.client) {
+      throw new BadRequestException(
+        requestedClientId
+          ? 'The selected client is not linked to this nomination.'
+          : 'Link a master-data Client to the nomination before generating instructions.',
+      );
+    }
+
+    const client = selectedRow.client;
+    const parcels = readParcelRows(nomination.parcels);
+    const clientContactLines = client.contactLinks.flatMap(({ contact }) => {
+      const channels = uniqueNonBlank([
+        ...contact.emails,
+        contact.mobile,
+        contact.businessPhone,
+      ]).join(' / ');
+      return [channels ? `${contact.name}: ${channels}` : contact.name];
+    });
+    const groupLines =
+      client.emailGroup?.members.map((member) =>
+        member.displayName ? `${member.displayName} <${member.email}>` : member.email,
+      ) ?? [];
+
+    const rowByType = (patterns: RegExp[]) =>
+      nomination.nominationClients.find((row) =>
+        patterns.some((pattern) => pattern.test(row.type.trim())),
+      );
+    const charterer = rowByType([/charter/i, /fletador/i]);
+    const operator = rowByType([/operator/i, /operador/i]);
+
+    const operationLines = parcels.map((parcel) =>
+      uniqueNonBlank([
+        parcel.operation,
+        parcel.quantity != null ? String(parcel.quantity) : null,
+        parcel.unit,
+        parcel.product,
+      ]).join(' '),
+    );
+
+    const context = {
+      documentCode: 'SNCA-RG-AGN-001',
+      revision: '00',
+      issueDate: formatInstructionDate(nomination.dateNominated),
+      snOt: formatSnOt(nomination.correlative, nomination.dateNominated, nomination.kind),
+      voyageNumber: nomination.voyageNumber,
+      vessel: nomination.shipParticular.name,
+      owner: nomination.shipParticular.owner?.name ?? '—',
+      operator: nomination.shipParticular.operator?.name ?? operator?.name ?? '—',
+      charterer: charterer?.name ?? '—',
+      lastPort: nomination.lastPort?.name ?? '—',
+      nextPort: nomination.nextPort?.name ?? '—',
+      operationPort:
+        uniqueNonBlank([nomination.opPort?.name, nomination.pier?.name]).join(' — ') || '—',
+      dischargePort: nomination.disPort?.name ?? '—',
+      operations: operationLines.length ? operationLines : ['—'],
+      laycan:
+        nomination.layDaysFirst || nomination.layDaysLast
+          ? `${formatInstructionDate(nomination.layDaysFirst)} — ${formatInstructionDate(nomination.layDaysLast)}`
+          : '—',
+      eta: formatInstructionDate(nomination.etaDate),
+      firstMessage: uniqueNonBlank([
+        client.emailGroup ? `Group: ${client.emailGroup.name}` : null,
+        ...groupLines,
+        ...client.emails,
+        ...clientContactLines,
+      ]),
+      secondMessage: uniqueNonBlank(nomination.emailTo),
+      thirdMessage: uniqueNonBlank(nomination.emailCc),
+      ccMessage: uniqueNonBlank(nomination.emailBcc),
+      nominationInstructions: client.nominationInstructions ?? '—',
+      nominationNotes: uniqueNonBlank([
+        nomination.subject,
+        nomination.referenceNo ? `Reference: ${nomination.referenceNo}` : null,
+        nomination.master ? `Master: ${nomination.master}` : null,
+        nomination.mic ? `M.I.C.: ${nomination.mic}` : null,
+        nomination.broker ? `Broker: ${nomination.broker}` : null,
+        nomination.boardingClerk ? `Boarding clerk: ${nomination.boardingClerk}` : null,
+        nomination.inspector ? `Inspector: ${nomination.inspector}` : null,
+      ]),
+      portCosts: {
+        name: client.name,
+        address: client.billingAddress ?? client.taxAddress ?? '—',
+        reference: selectedRow.referenceNo ?? nomination.referenceNo ?? '—',
+        proforma: selectedRow.proforma ?? '—',
+        contact: uniqueNonBlank([client.phone, client.mobile, ...client.emails]).join(' / ') || '—',
+      },
+      commercialOperator: {
+        name: charterer?.name ?? '—',
+        reference: charterer?.referenceNo ?? '—',
+        proforma: charterer?.proforma ?? '—',
+      },
+      technicalManager: {
+        name: operator?.name ?? nomination.shipParticular.operator?.name ?? '—',
+        reference: operator?.referenceNo ?? '—',
+        proforma: operator?.proforma ?? '—',
+      },
+      branch: nomination.branch ?? {
+        name: 'Servicios Navieramar',
+        code: '',
+        address: null,
+        phone: null,
+      },
+    };
+
+    const buffer = await this.pdf.renderTemplate('nomination-instructions.hbs', context);
+    const filename = `${context.snOt.replace(/\//g, '-')}-nomination-instructions.pdf`;
+    return { buffer, filename };
   }
 
   // ---------------------------------------------------------------------------
