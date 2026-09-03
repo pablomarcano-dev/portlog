@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { clearableCuid } from '../common/fields.js';
 
 // ---------------------------------------------------------------------------
 // NominationClient — single row in the CLIENT LIST table on a nomination
@@ -10,7 +9,6 @@ export const NominationClientSchema = z.object({
   id: z.string().uuid().optional(),
   type: z.string().max(100),
   name: z.string().max(200),
-  clientId: clearableCuid(),
   // Set when the row's name was picked from the shippers directory, so outgoing
   // notices can resolve that shipper's addresses. Null on hand-typed rows.
   shipperId: z.string().cuid().optional().nullable(),

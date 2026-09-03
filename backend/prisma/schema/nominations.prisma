@@ -48,6 +48,11 @@ model Nomination {
   branchId String?
   branch   Branch? @relation(fields: [branchId], references: [id], onDelete: Restrict)
 
+  // Commercial account for this nomination. This is distinct from the
+  // operational parties listed in NominationClient below.
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
   // Supplementary fields from legacy General Info tab
   nomReply      DateTime? @db.Timestamptz(6) // "Nom. Reply" — date nomination was acknowledged
   mobileOnBoard String? // mobile number for person on board
@@ -133,6 +138,7 @@ model Nomination {
 
   @@index([status])
   @@index([shipParticularId])
+  @@index([clientId])
   @@index([dateNominated])
   @@map("nominations")
 }
@@ -166,10 +172,6 @@ model NominationClient {
   nomination   Nomination @relation(fields: [nominationId], references: [id], onDelete: Cascade)
   type         String // "Time Charter", "Receivers", etc. — free-text; no enum, client varies
   name         String
-  // Optional link to the Clients directory. `name` remains a snapshot/free-text
-  // fallback for legacy rows and external parties that are not master data.
-  clientId     String?
-  client       Client?    @relation(fields: [clientId], references: [id], onDelete: SetNull)
   // Set only on Shipper rows, where the name is picked from the shippers
   // directory. `name` stays the source of truth for display (rows may be typed
   // free-hand); this FK exists so the shipper's `emails` can be resolved without
@@ -185,7 +187,6 @@ model NominationClient {
   updatedAt    DateTime   @updatedAt @db.Timestamptz(6)
 
   @@index([nominationId])
-  @@index([clientId])
   @@index([shipperId])
   @@map("nomination_clients")
 }

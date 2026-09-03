@@ -320,6 +320,7 @@ const DETAIL_INCLUDE = {
     },
   },
   branch: { select: { id: true, name: true, code: true, contactName: true, contactTitle: true } },
+  client: { select: { id: true, name: true } },
   opPort: { select: { id: true, name: true, abbreviation: true } },
   pier: { select: { id: true, name: true } },
   lastPort: { select: { id: true, name: true, abbreviation: true } },
@@ -752,12 +753,11 @@ export class NominationsService {
 
   /**
    * Render the operational instruction sheet distilled from SNCA-RG-AGN-001.
-   * The nomination supplies voyage-specific facts; the linked Client record
+   * The nomination supplies voyage-specific facts; its Client record
    * supplies durable recipients, billing details, and operating instructions.
    */
   async generateNominationInstructions(
     nominationId: string,
-    requestedClientId?: string,
   ): Promise<{ buffer: Buffer; filename: string }> {
     if (!this.pdf) throw new BadRequestException('PDF generation is not available.');
 
@@ -782,6 +782,35 @@ export class NominationsService {
         boardingClerk: true,
         inspector: true,
         parcels: true,
+        client: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            mobile: true,
+            emails: true,
+            billingAddress: true,
+            taxAddress: true,
+            nominationInstructions: true,
+            emailGroup: {
+              select: {
+                name: true,
+                members: {
+                  orderBy: { order: 'asc' },
+                  select: { email: true, displayName: true },
+                },
+              },
+            },
+            contactLinks: {
+              orderBy: { contact: { name: 'asc' } },
+              select: {
+                contact: {
+                  select: { name: true, emails: true, mobile: true, businessPhone: true },
+                },
+              },
+            },
+          },
+        },
         shipParticular: {
           select: {
             name: true,
@@ -800,39 +829,9 @@ export class NominationsService {
           select: {
             type: true,
             name: true,
-            clientId: true,
             voyageRef: true,
             referenceNo: true,
             proforma: true,
-            client: {
-              select: {
-                id: true,
-                name: true,
-                phone: true,
-                mobile: true,
-                emails: true,
-                billingAddress: true,
-                taxAddress: true,
-                nominationInstructions: true,
-                emailGroup: {
-                  select: {
-                    name: true,
-                    members: {
-                      orderBy: { order: 'asc' },
-                      select: { email: true, displayName: true },
-                    },
-                  },
-                },
-                contactLinks: {
-                  orderBy: { contact: { name: 'asc' } },
-                  select: {
-                    contact: {
-                      select: { name: true, emails: true, mobile: true, businessPhone: true },
-                    },
-                  },
-                },
-              },
-            },
           },
         },
       },
@@ -840,19 +839,13 @@ export class NominationsService {
 
     if (!nomination) throw new NotFoundException(`Nomination ${nominationId} not found.`);
 
-    const linkedRows = nomination.nominationClients.filter((row) => row.client !== null);
-    const selectedRow = requestedClientId
-      ? linkedRows.find((row) => row.clientId === requestedClientId)
-      : linkedRows[0];
-    if (!selectedRow?.client) {
+    if (!nomination.client) {
       throw new BadRequestException(
-        requestedClientId
-          ? 'The selected client is not linked to this nomination.'
-          : 'Link a master-data Client to the nomination before generating instructions.',
+        'Select a Client on the nomination before generating instructions.',
       );
     }
 
-    const client = selectedRow.client;
+    const client = nomination.client;
     const parcels = readParcelRows(nomination.parcels);
     const clientContactLines = client.contactLinks.flatMap(({ contact }) => {
       const channels = uniqueNonBlank([
@@ -926,8 +919,8 @@ export class NominationsService {
       portCosts: {
         name: client.name,
         address: client.billingAddress ?? client.taxAddress ?? '—',
-        reference: selectedRow.referenceNo ?? nomination.referenceNo ?? '—',
-        proforma: selectedRow.proforma ?? '—',
+        reference: nomination.referenceNo ?? '—',
+        proforma: '—',
         contact: uniqueNonBlank([client.phone, client.mobile, ...client.emails]).join(' / ') || '—',
       },
       commercialOperator: {

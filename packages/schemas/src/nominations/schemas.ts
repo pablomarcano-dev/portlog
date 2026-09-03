@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { NominationStatusSchema, NominationTypeSchema, NominationKindSchema } from './enums.js';
 import { NominationParcelSchema, NominationParcelReadSchema } from './parcel.js';
 import { BranchSummarySchema } from '../master-data/branch/index.js';
+import { clearableCuid } from '../common/fields.js';
 import { NominationClientSchema, NominationClientCreateSchema } from './client.js';
 
 // ---------------------------------------------------------------------------
@@ -45,6 +46,10 @@ export const NominationCreateSchema = z
 
     // Branch — resolves Open Question #5
     branchId: cuidFk,
+
+    // One commercial client for the nomination. This is independent from the
+    // operational party rows in nominationClients.
+    clientId: clearableCuid(),
 
     // Supplementary fields from legacy General Info tab
     nomReply: z.coerce.date().optional(),
@@ -249,6 +254,10 @@ export const NominationSchema = z.object({
   // Branch — resolves Open Question #5
   branchId: z.string().nullable(),
   branch: BranchSummarySchema.nullable(),
+
+  // Commercial client — separate from the operational Client List rows
+  clientId: cuidFk.nullable(),
+  client: z.object({ id: cuidFk, name: z.string() }).nullable(),
 
   // Supplementary fields from legacy General Info tab
   nomReply: z.coerce.date().nullable(),

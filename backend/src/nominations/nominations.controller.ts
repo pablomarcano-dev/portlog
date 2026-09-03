@@ -141,10 +141,9 @@ export class NominationsController {
   @Get(':id/nomination-instructions.pdf')
   async nominationInstructions(
     @Param('id', ParseUUIDPipe) id: string,
-    @Query('clientId') clientId: string | undefined,
     @Res() reply: FastifyReply,
   ) {
-    const file = await this.svc.generateNominationInstructions(id, clientId);
+    const file = await this.svc.generateNominationInstructions(id);
     await reply
       .header('Content-Type', 'application/pdf')
       .header('Content-Disposition', `inline; filename="${file.filename}"`)

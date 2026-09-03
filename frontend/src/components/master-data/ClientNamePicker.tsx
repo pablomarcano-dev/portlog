@@ -30,7 +30,7 @@ interface ClientNamePickerProps {
    * picked record's id is reported through `onChange`. Used where the row needs
    * a real FK — a Shipper row must resolve its addresses, which a name cannot.
    */
-  entity?: 'shipper' | 'client';
+  entity?: 'shipper';
   onBlur?: () => void;
 }
 
@@ -73,13 +73,13 @@ export function ClientNamePicker({
     queryFn: () =>
       entity === 'shipper'
         ? shippersApi.search(search)
-        : entity === 'client'
-          ? clientsApi.search(search)
-          : role
-            ? contactsApi
-                .list({ q: search, role, limit: SUGGESTION_LIMIT })
-                .then((res) => res.items.map((c) => ({ id: null, label: c.label })))
-            : clientsApi.search(search),
+        : role
+          ? contactsApi
+              .list({ q: search, role, limit: SUGGESTION_LIMIT })
+              .then((res) => res.items.map((c) => ({ id: null, label: c.label })))
+          : clientsApi
+              .search(search)
+              .then((items) => items.map((c) => ({ id: null, label: c.label }))),
     // Entity and role suggestions are bounded sets, so show them before the user types.
     enabled: entity != null || role != null || search.length > 0,
     staleTime: 30_000,

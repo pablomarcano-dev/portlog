@@ -10,6 +10,7 @@ import {
   useRemoveClient,
 } from '../hooks/useNominationClients';
 import { ClientNamePicker } from '../../../components/master-data/ClientNamePicker';
+import { clientTypeToContactRole } from '../clientTypeRole';
 
 type ClientColKey = 'type' | 'name' | 'voyageRef' | 'refNo' | 'actions';
 
@@ -48,7 +49,6 @@ function ClientRow({
   // React state update is guaranteed to render. Reading the ref prevents the
   // selected master-data id from being lost while the visible name is saved.
   const shipperId = useRef<string | null>(client.shipperId ?? null);
-  const masterClientId = useRef<string | null>(client.clientId ?? null);
   const selectionSaved = useRef(false);
   const isShipper = isShipperType(type);
 
@@ -68,9 +68,6 @@ function ClientRow({
             if (!isShipperType(val) && client.shipperId) {
               shipperId.current = null;
               onUpdate(rowId, { type: val, shipperId: null });
-            } else if (isShipperType(val) && client.clientId) {
-              masterClientId.current = null;
-              onUpdate(rowId, { type: val, clientId: null });
             } else {
               onUpdate(rowId, { type: val });
             }
@@ -85,25 +82,18 @@ function ClientRow({
             setName(val);
             if (isShipper) {
               shipperId.current = entityId ?? null;
-              masterClientId.current = null;
-            } else {
-              masterClientId.current = entityId ?? null;
-              shipperId.current = null;
             }
-            if (entityId) {
+            if (isShipper && entityId) {
               selectionSaved.current = true;
-              onUpdate(
-                rowId,
-                isShipper
-                  ? { name: val.trim(), shipperId: entityId, clientId: null }
-                  : { name: val.trim(), clientId: entityId, shipperId: null },
-              );
+              onUpdate(rowId, { name: val.trim(), shipperId: entityId });
             }
           }}
           disabled={isBusy}
-          // Shipper rows retain their dedicated directory link. Every other row
-          // can link to the Clients directory while still allowing free text.
-          entity={isShipper ? 'shipper' : 'client'}
+          // The Shipper row picks a company from the shippers directory so its
+          // addresses resolve; every other type suggests contacts scoped to the
+          // row's Type, falling back to the generic clients search.
+          entity={isShipper ? 'shipper' : undefined}
+          role={isShipper ? undefined : clientTypeToContactRole(type)}
           onBlur={() => {
             if (selectionSaved.current) {
               selectionSaved.current = false;
@@ -112,15 +102,14 @@ function ClientRow({
             const val = name.trim();
             if (
               val === client.name &&
-              shipperId.current === (client.shipperId ?? null) &&
-              masterClientId.current === (client.clientId ?? null)
+              shipperId.current === (client.shipperId ?? null)
             )
               return;
             onUpdate(
               rowId,
               isShipper
-                ? { name: val, shipperId: shipperId.current, clientId: null }
-                : { name: val, clientId: masterClientId.current, shipperId: null },
+                ? { name: val, shipperId: shipperId.current }
+                : { name: val },
             );
           }}
         />

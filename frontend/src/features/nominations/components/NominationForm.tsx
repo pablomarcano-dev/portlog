@@ -94,6 +94,8 @@ interface NominationFormProps {
   isReadOnly?: boolean;
   /** Auto-assigned correlative number to show as read-only in edit mode. */
   correlative?: number;
+  /** Ensures the saved Client label remains visible when editing. */
+  clientOption?: { value: string; label: string } | null;
 }
 
 export function NominationForm({
@@ -103,6 +105,7 @@ export function NominationForm({
   isSubmitting,
   isReadOnly = false,
   correlative,
+  clientOption,
 }: NominationFormProps) {
   const navigate = useNavigate();
   const [newShipModalOpen, setNewShipModalOpen] = useState(false);
@@ -333,6 +336,7 @@ export function NominationForm({
   // Search state for each EntityPicker
   const [shipSearch, setShipSearch] = useState('');
   const [branchSearch, setBranchSearch] = useState('');
+  const [clientSearch, setClientSearch] = useState('');
   const [opPortSearch, setOpPortSearch] = useState('');
   const [pierSearch, setPierSearch] = useState('');
   const [lastPortSearch, setLastPortSearch] = useState('');
@@ -584,8 +588,27 @@ export function NominationForm({
             </Grid.Col>
           </Grid>
 
-          {/* Row 3 — Op. Port / Berth / External Port */}
+          {/* Row 3 — Client / Op. Port / Berth */}
           <Grid gutter="xs" align="flex-end">
+            <Grid.Col span={4}>
+              <Controller
+                name="clientId"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <EntityPicker
+                    endpoint="/master-data/clients"
+                    label="Client"
+                    value={field.value ?? null}
+                    onChange={field.onChange}
+                    searchValue={clientSearch}
+                    onSearchChange={setClientSearch}
+                    selectedOption={clientOption}
+                    disabled={isReadOnly}
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
+            </Grid.Col>
             <Grid.Col span={4}>
               <Group gap={4} align="flex-end" wrap="nowrap">
                 <div style={{ flex: 1 }}>

@@ -75,6 +75,7 @@ function NominationDetailPage() {
   const defaultValues: Partial<NominationCreateInput> = {
     shipParticularId: nomination.shipParticularId,
     branchId: nomination.branchId ?? undefined,
+    clientId: nomination.clientId,
     nomReply: nomination.nomReply ?? undefined,
     mobileOnBoard: nomination.mobileOnBoard ?? undefined,
     referenceNo: nomination.referenceNo ?? undefined,
@@ -177,6 +178,11 @@ function NominationDetailPage() {
                     isSubmitting={updateNomination.isPending}
                     isReadOnly={isReadOnly}
                     correlative={nomination.correlative}
+                    clientOption={
+                      nomination.client
+                        ? { value: nomination.client.id, label: nomination.client.name }
+                        : null
+                    }
                   />
                 </Box>
               </Collapse>
@@ -360,7 +366,10 @@ function NominationDetailPage() {
               </UnstyledButton>
               <Collapse in={actionsOpen}>
                 <Box pt="xs">
-                  <NominationInstructionsAction nominationId={nomination.id} />
+                  <NominationInstructionsAction
+                    nominationId={nomination.id}
+                    client={nomination.client}
+                  />
                   {pedr && (
                     <EmailActionsPanel
                       nominationId={nomination.id}

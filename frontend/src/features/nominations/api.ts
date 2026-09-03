@@ -98,10 +98,8 @@ export const nominationsApi = {
     });
   },
 
-  nominationInstructionsPdf: (nominationId: string, clientId: string): Promise<Blob> =>
-    apiRequestBlob(
-      `/nominations/${nominationId}/nomination-instructions.pdf?clientId=${encodeURIComponent(clientId)}`,
-    ),
+  nominationInstructionsPdf: (nominationId: string): Promise<Blob> =>
+    apiRequestBlob(`/nominations/${nominationId}/nomination-instructions.pdf`),
 
   updateParcels: async (nominationId: string, parcels: unknown[]): Promise<void> => {
     await apiRequest<unknown>(`/nominations/${nominationId}/parcels`, {
