@@ -9,3 +9,4 @@ export * from './compose.js';
 export * from './eta.js';
 export * from './sof.js';
 export * from './sof-calculations.js';
+export * from './public-api.js';

@@ -183,6 +183,7 @@ const mockPrisma = {
     findMany: jest.fn().mockResolvedValue([]),
   },
   port: { findFirst: jest.fn() },
+  branch: { findUnique: jest.fn() },
   emailDispatch: {
     create: jest.fn(),
     update: jest.fn(),
@@ -225,6 +226,7 @@ describe('NominationsService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockPrisma.branch.findUnique.mockResolvedValue(null);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -1410,35 +1412,11 @@ describe('NominationsService', () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // The event log a cargo update carries
-  //
-  // The agency's note on the returned draft was that "Log-." must hold the whole
-  // statement of facts from End Of Sea Passage onward. This proves the log is
-  // built from every entry the timesheet holds, in the order it holds them.
-  // -------------------------------------------------------------------------
-  describe('getComposeData — the cargo update event log', () => {
-    const entryAt = (isoLocal: string, name: string) => ({
-      occurredAt: new Date(isoLocal),
-      comment: null,
-      activity: { name },
-    });
-
-    /** A full call, as a timesheet records it. */
-    const ENTRIES = [
-      entryAt('2026-07-16T18:24:00', 'End Of Sea Passage'),
-      entryAt('2026-07-16T19:00:00', 'Anchored'),
-      entryAt('2026-07-17T06:30:00', 'Pilot On Board'),
-      entryAt('2026-07-17T08:00:00', 'All Fast'),
-      entryAt('2026-07-17T10:12:00', 'Commenced Loading'),
-      entryAt('2026-07-18T06:00:00', 'Cargo Update'),
-    ];
-
+  describe('getComposeData — cargo update stops before the SOF log', () => {
     beforeEach(() => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
       mockPrisma.pedr.findUnique.mockResolvedValue({ etaRecord: null });
       mockPrisma.nomination.findUnique.mockResolvedValue(composeNomination());
-      mockPrisma.sofTimesheet.findUnique.mockResolvedValue({ entries: ENTRIES });
       mockEmailTemplateService.render.mockResolvedValue({
         subject: null,
         bodyText: 'body',
@@ -1446,54 +1424,11 @@ describe('NominationsService', () => {
       });
     });
 
-    it('carries every timesheet entry onto the update, in order', async () => {
+    it('does not fetch or append Statement of Facts entries', async () => {
       await service.getComposeData(NOM_ID, 'CARGO_UPDATE', 'agent@navieramar.com');
 
-      const lines = String(lastTemplateVars()['statement_of_facts_log']).split('\n');
-      expect(lines).toHaveLength(ENTRIES.length);
-      expect(lines[0]).toBe('Jul-16th, 2026 18:24 End Of Sea Passage');
-      expect(lines.at(-1)).toBe('Jul-18th, 2026 06:00 Cargo Update');
-      for (const entry of ENTRIES) {
-        expect(lines).toContainEqual(expect.stringContaining(entry.activity.name));
-      }
-    });
-
-    it('reads the timesheet in recorded order and takes no slice of it', async () => {
-      await service.getComposeData(NOM_ID, 'CARGO_UPDATE', 'agent@navieramar.com');
-
-      const [args] = mockPrisma.sofTimesheet.findUnique.mock.calls.at(-1) as [
-        Record<string, unknown>,
-      ];
-      const entries = (args['select'] as Record<string, Record<string, unknown>>)['entries'];
-      expect(entries?.['orderBy']).toEqual({ order: 'asc' });
-      // No take/skip: the whole statement of facts goes on the notice.
-      expect(entries?.['take']).toBeUndefined();
-      expect(entries?.['skip']).toBeUndefined();
-      expect(entries?.['where']).toBeUndefined();
-    });
-
-    it('keeps every comment on the same line as its activity', async () => {
-      mockPrisma.sofTimesheet.findUnique.mockResolvedValue({
-        entries: [
-          {
-            occurredAt: new Date('2026-07-17T10:12:00'),
-            comment: 'Hose connected\nwithout delay',
-            activity: { name: 'Commenced Loading' },
-          },
-          {
-            occurredAt: new Date('2026-07-17T11:00:00'),
-            comment: 'Rate 29,051 Bbls/Hr',
-            activity: { name: '.' },
-          },
-        ],
-      });
-
-      await service.getComposeData(NOM_ID, 'CARGO_UPDATE', 'agent@navieramar.com');
-
-      const log = String(lastTemplateVars()['statement_of_facts_log']);
-      expect(log).toContain('Jul-17th, 2026 10:12 Commenced Loading Hose connected without delay');
-      expect(log).toContain('Jul-17th, 2026 11:00 . Rate 29,051 Bbls/Hr');
-      expect(log).not.toContain('\n     ');
+      expect(lastTemplateVars()['statement_of_facts_log']).toBe('');
+      expect(mockPrisma.sofTimesheet.findUnique).not.toHaveBeenCalled();
     });
   });
 

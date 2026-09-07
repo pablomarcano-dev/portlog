@@ -82,6 +82,12 @@ const baseSchema = z
 
     APP_URL: z.string().optional(),
     CORS_ORIGIN: z.string().optional(),
+
+    // Comma-separated SHA-256 API-key hashes. Keeping both old and new hashes
+    // active during a rollout provides zero-downtime key rotation.
+    PUBLIC_API_KEY_HASHES: z
+      .union([z.literal(''), z.string().regex(/^\s*[a-fA-F0-9]{64}(\s*,\s*[a-fA-F0-9]{64})*\s*$/)])
+      .optional(),
   })
   .passthrough();
 

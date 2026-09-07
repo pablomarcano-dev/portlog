@@ -282,23 +282,15 @@ export function CargoUpdateModal({
       )
       .join('\n\n');
 
-    // Rebuild the notice around the figures entered above: the template's header
-    // (everything before its first rule), then these parcel blocks in place of
-    // the template's, then everything from "Log-." on — the event log, the
-    // standing remark and the signature.
-    //
-    // Splicing rather than replacing wholesale: the template renders parcels
-    // from what is stored on the nomination, but the ETC/ETD times here are
-    // typed into this dialog and never persisted, so its blocks are the ones
-    // with the figures the agent actually means to send. Dropping the tail is
-    // what used to send this notice with no log and no signature at all.
+    // Cargo updates end at ETD. The final SOF and its event log belong only to
+    // the Statement of Facts notice and must not be appended here.
     const template = composeData.bodyText;
     const header = template.split('------')[0];
-    const logStart = template.indexOf('Log-.');
-    const tail = logStart >= 0 ? `\n\n${template.slice(logStart)}` : '';
+    const closingStart = template.indexOf('Remarks:');
+    const closing = closingStart >= 0 ? `\n\n${template.slice(closingStart)}` : '';
 
     const etdLine = `${etdStr} ${timeEtd}`.trim();
-    const bodyText = `${header}${parcelLines}\n\n${etdLine} ETD${tail}`;
+    const bodyText = `${header}${parcelLines}\n\n${etdLine} ETD${closing}`;
 
     // Hand the built subject and body to the compose drawer so the user can
     // review and edit recipients/subject/body before the email is actually

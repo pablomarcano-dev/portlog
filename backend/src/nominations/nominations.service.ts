@@ -373,7 +373,11 @@ export class NominationsService {
           operationalRole: { not: null },
         },
         orderBy: { displayName: 'asc' },
-        select: { displayName: true, email: true, operationalRole: true },
+        select: { displayName: true, email: true, mobile: true, operationalRole: true },
+      });
+      const branchContact = await tx.branch.findUnique({
+        where: { id: nominationData.branchId },
+        select: { contactName: true, contactMobile: true, mobile24h: true },
       });
       const staffNames = (roles: Array<'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT'>) =>
         branchStaff
@@ -383,9 +387,25 @@ export class NominationsService {
       const nomination = await tx.nomination.create({
         data: {
           ...(nominationData as unknown as Prisma.NominationUncheckedCreateInput),
-          mic: nominationData.mic?.trim() || staffNames(['BRANCH_MANAGER', 'SUPERVISOR']) || null,
+          mic:
+            nominationData.mic?.trim() ||
+            staffNames(['BRANCH_MANAGER', 'SUPERVISOR']) ||
+            branchContact?.contactName ||
+            null,
           boardingClerk:
             nominationData.boardingClerk?.trim() || staffNames(['SHIPPING_AGENT']) || null,
+          mobileOnBoard:
+            nominationData.mobileOnBoard?.trim() ||
+            branchStaff.find(
+              (user) =>
+                user.mobile?.trim() &&
+                ['SHIPPING_AGENT', 'BRANCH_MANAGER', 'SUPERVISOR'].includes(
+                  user.operationalRole ?? '',
+                ),
+            )?.mobile ||
+            branchContact?.contactMobile ||
+            branchContact?.mobile24h ||
+            null,
           voyageNumber: nominationData.voyageNumber ?? '',
           createdById: userId,
         },
@@ -612,12 +632,16 @@ export class NominationsService {
       });
       if (!port) throw new BadRequestException('Operating port is not assigned to this branch.');
     }
-    let staffDefaults: { mic?: string; boardingClerk?: string } = {};
+    let staffDefaults: { mic?: string; boardingClerk?: string; mobileOnBoard?: string } = {};
     if (dto.branchId && dto.branchId !== existing.branchId) {
       const branchStaff = await this.prisma.user.findMany({
         where: { branchId: dto.branchId, isActive: true, operationalRole: { not: null } },
         orderBy: { displayName: 'asc' },
-        select: { displayName: true, email: true, operationalRole: true },
+        select: { displayName: true, email: true, mobile: true, operationalRole: true },
+      });
+      const branchContact = await this.prisma.branch.findUnique({
+        where: { id: dto.branchId },
+        select: { contactName: true, contactMobile: true, mobile24h: true },
       });
       const names = (roles: Array<'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT'>) =>
         branchStaff
@@ -625,8 +649,19 @@ export class NominationsService {
           .map((user) => user.displayName?.trim() || user.email)
           .join('; ');
       staffDefaults = {
-        mic: names(['BRANCH_MANAGER', 'SUPERVISOR']),
+        mic: names(['BRANCH_MANAGER', 'SUPERVISOR']) || branchContact?.contactName || undefined,
         boardingClerk: names(['SHIPPING_AGENT']),
+        mobileOnBoard:
+          branchStaff.find(
+            (user) =>
+              user.mobile?.trim() &&
+              ['SHIPPING_AGENT', 'BRANCH_MANAGER', 'SUPERVISOR'].includes(
+                user.operationalRole ?? '',
+              ),
+          )?.mobile ||
+          branchContact?.contactMobile ||
+          branchContact?.mobile24h ||
+          undefined,
       };
     }
     try {
@@ -1379,12 +1414,6 @@ export class NominationsService {
       actionType.toUpperCase(),
     );
     if (enrichesOperationWithParcels) {
-      if (actionType.toUpperCase() === 'CARGO_UPDATE') {
-        // A cargo update carries the same event log the SOF does — the recipient
-        // reads the figures against the history that produced them.
-        templateVars.statement_of_facts_log = await this.buildSofEventLog(nominationId);
-      }
-
       const parcelDescriptions = (parcels as Array<Record<string, unknown>>)
         .map((p) =>
           [

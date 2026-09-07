@@ -38,6 +38,7 @@ import { ParcelsFieldArray } from './ParcelsFieldArray';
 import { NewShipParticularModal } from './NewShipParticularModal';
 import { NewPortModal } from './NewPortModal';
 import { NewPierModal } from './NewPierModal';
+import { NewClientModal } from './NewClientModal';
 
 const NOMINATION_TYPE_OPTIONS = [
   { value: 'FULL_AGENCY', label: 'Full Agency' },
@@ -109,6 +110,11 @@ export function NominationForm({
 }: NominationFormProps) {
   const navigate = useNavigate();
   const [newShipModalOpen, setNewShipModalOpen] = useState(false);
+  const [newClientModalOpen, setNewClientModalOpen] = useState(false);
+  const [createdClientOption, setCreatedClientOption] = useState<{
+    value: string;
+    label: string;
+  } | null>(null);
   const [portModalTarget, setPortModalTarget] = useState<
     'opPortId' | 'lastPortId' | 'nextPortId' | null
   >(null);
@@ -170,7 +176,14 @@ export function NominationForm({
   const branchQuery = useQuery({
     queryKey: ['branch', branchId],
     queryFn: () =>
-      apiRequest<{ id: string; name: string; code: string }>(`/master-data/branches/${branchId}`),
+      apiRequest<{
+        id: string;
+        name: string;
+        code: string;
+        contactName: string | null;
+        contactMobile: string | null;
+        mobile24h: string | null;
+      }>(`/master-data/branches/${branchId}`),
     enabled: !!branchId,
     staleTime: 5 * 60_000,
   });
@@ -183,6 +196,7 @@ export function NominationForm({
           id: string;
           email: string;
           displayName: string | null;
+          mobile: string | null;
           branchId: string | null;
           operationalRole: 'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT' | null;
         }>;
@@ -195,7 +209,8 @@ export function NominationForm({
     const branchChanged = previousBranchId.current !== branchId;
     const currentMic = form.getValues('mic')?.trim();
     const currentBoarding = form.getValues('boardingClerk')?.trim();
-    if (mode === 'edit' && !branchChanged && currentMic && currentBoarding) return;
+    const currentMobile = form.getValues('mobileOnBoard')?.trim();
+    if (mode === 'edit' && !branchChanged && currentMic && currentBoarding && currentMobile) return;
     const staff = branchUsersQuery.data.items.filter((user) => user.branchId === branchId);
     const names = (roles: Array<'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT'>) =>
       staff
@@ -203,17 +218,35 @@ export function NominationForm({
         .map((user) => user.displayName?.trim() || user.email)
         .join('; ');
     if (branchChanged || !currentMic) {
-      setValue('mic', names(['BRANCH_MANAGER', 'SUPERVISOR']), { shouldDirty: true });
+      setValue(
+        'mic',
+        names(['BRANCH_MANAGER', 'SUPERVISOR']) || branchQuery.data?.contactName || '',
+        {
+          shouldDirty: true,
+        },
+      );
     }
     if (branchChanged || !currentBoarding) {
       setValue('boardingClerk', names(['SHIPPING_AGENT']), { shouldDirty: true });
+    }
+    if (branchChanged || !currentMobile) {
+      const mobile =
+        staff.find(
+          (user) =>
+            user.mobile?.trim() &&
+            ['SHIPPING_AGENT', 'BRANCH_MANAGER', 'SUPERVISOR'].includes(user.operationalRole ?? ''),
+        )?.mobile ??
+        branchQuery.data?.contactMobile ??
+        branchQuery.data?.mobile24h ??
+        '';
+      setValue('mobileOnBoard', mobile, { shouldDirty: true });
     }
     if (branchChanged) {
       setValue('opPortId', undefined, { shouldDirty: true });
       setValue('pierId', undefined, { shouldDirty: true });
     }
     previousBranchId.current = branchId;
-  }, [branchId, branchUsersQuery.data]);
+  }, [branchId, branchUsersQuery.data, branchQuery.data]);
 
   // Ports list — used for vessel-data port matching and subject generation
   const portsQuery = useQuery({
@@ -367,6 +400,13 @@ export function NominationForm({
     setPierSearch('');
   }
 
+  function handleClientCreated(client: { id: string; name: string }) {
+    setCreatedClientOption({ value: client.id, label: client.name });
+    setValue('clientId', client.id, { shouldValidate: true, shouldDirty: true });
+    setClientSearch('');
+    notifications.show({ color: 'green', message: `${client.name} added and selected.` });
+  }
+
   return (
     <>
       <NewShipParticularModal
@@ -374,6 +414,13 @@ export function NominationForm({
         onClose={() => setNewShipModalOpen(false)}
         onCreated={(id) => handleShipCreated(id)}
       />
+      {newClientModalOpen && (
+        <NewClientModal
+          opened
+          onClose={() => setNewClientModalOpen(false)}
+          onCreated={handleClientCreated}
+        />
+      )}
       <NewPortModal
         opened={portModalTarget !== null}
         onClose={() => setPortModalTarget(null)}
@@ -591,23 +638,42 @@ export function NominationForm({
           {/* Row 3 — Client / Op. Port / Berth */}
           <Grid gutter="xs" align="flex-end">
             <Grid.Col span={4}>
-              <Controller
-                name="clientId"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <EntityPicker
-                    endpoint="/master-data/clients"
-                    label="Client"
-                    value={field.value ?? null}
-                    onChange={field.onChange}
-                    searchValue={clientSearch}
-                    onSearchChange={setClientSearch}
-                    selectedOption={clientOption}
-                    disabled={isReadOnly}
-                    error={fieldState.error?.message}
+              <Group gap={4} align="flex-end" wrap="nowrap">
+                <div style={{ flex: 1 }}>
+                  <Controller
+                    name="clientId"
+                    control={control}
+                    render={({ field, fieldState }) => (
+                      <EntityPicker
+                        endpoint="/master-data/clients"
+                        label="Client"
+                        value={field.value ?? null}
+                        onChange={field.onChange}
+                        searchValue={clientSearch}
+                        onSearchChange={setClientSearch}
+                        selectedOption={
+                          createdClientOption?.value === field.value
+                            ? createdClientOption
+                            : clientOption
+                        }
+                        disabled={isReadOnly}
+                        error={fieldState.error?.message}
+                      />
+                    )}
                   />
-                )}
-              />
+                </div>
+                <Tooltip label="Add client">
+                  <ActionIcon
+                    variant="default"
+                    size="lg"
+                    aria-label="Add client"
+                    disabled={isReadOnly}
+                    onClick={() => setNewClientModalOpen(true)}
+                  >
+                    +
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
             </Grid.Col>
             <Grid.Col span={4}>
               <Group gap={4} align="flex-end" wrap="nowrap">
@@ -989,7 +1055,12 @@ export function NominationForm({
 
           {/* Parcels */}
           <Fieldset legend="Parcels">
-            <ParcelsFieldArray control={control} disabled={isReadOnly} kind={kind} />
+            <ParcelsFieldArray
+              control={control}
+              setValue={setValue}
+              disabled={isReadOnly}
+              kind={kind}
+            />
           </Fieldset>
 
           {/* Email Recipients */}

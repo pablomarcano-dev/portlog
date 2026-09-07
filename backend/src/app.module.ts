@@ -41,6 +41,7 @@ import { UsersModule } from './users/users.module.js';
 import { AttachmentsModule } from './attachments/attachments.module.js';
 import { ServiceRequestsModule } from './service-requests/service-requests.module.js';
 import { validateEnv } from './config/env.schema.js';
+import { PublicApiModule } from './public-api/public-api.module.js';
 
 @Module({
   imports: [
@@ -130,6 +131,7 @@ import { validateEnv } from './config/env.schema.js';
     UsersModule,
     AttachmentsModule,
     ServiceRequestsModule,
+    PublicApiModule,
   ],
   providers: [
     // Golden Rule 2 — every inbound body is validated by its canonical Zod schema.

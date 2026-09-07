@@ -39,6 +39,11 @@ describe('NominationInstructionsDocxService', () => {
       expect(documentXml).toContain(value.split('\n')[0]);
     }
     expect(documentXml).not.toMatch(/\{[A-Za-z]+\}/);
+    expect(documentXml.match(/@/g)).toHaveLength(5);
+    expect(documentXml).not.toContain('<w:tblpPr');
+
+    const documentRelationships = generated.file('word/_rels/document.xml.rels')?.asText() ?? '';
+    expect(documentRelationships).not.toContain('mailto:');
 
     for (const preservedPart of [
       'word/header1.xml',

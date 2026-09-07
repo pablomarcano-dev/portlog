@@ -185,6 +185,7 @@ export class PortsService {
         id: true,
         email: true,
         displayName: true,
+        mobile: true,
         branchId: true,
         operationalRole: true,
       },

@@ -102,6 +102,21 @@ describe('EmailTemplateService', () => {
     });
   });
 
+  it('keeps cargo updates separate from the Statement of Facts log', async () => {
+    const { bodyText } = await service.render('02_statement_of_facts/07_cargo_update.hbs', {
+      ...VARS,
+      vessel_name: 'M/T HAKKAISAN',
+      parcels: [],
+      t_etd: 'Sep-03rd, 2026 18:00',
+      statement_of_facts_log: 'THIS SOF LOG MUST NOT APPEAR',
+    });
+
+    expect(bodyText).toContain('Sep-03rd, 2026 18:00 ETD');
+    expect(bodyText).not.toContain('Log-.');
+    expect(bodyText).not.toContain('THIS SOF LOG MUST NOT APPEAR');
+    expect(bodyText.indexOf('ETD')).toBeLessThan(bodyText.indexOf('Best Regards,'));
+  });
+
   describe('signature partial', () => {
     const ACK = '01_prearrival/00_nomination_acceptance.hbs';
 

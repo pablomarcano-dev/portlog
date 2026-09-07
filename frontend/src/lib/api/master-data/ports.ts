@@ -71,6 +71,7 @@ export const portsApi = {
         id: string;
         email: string;
         displayName: string | null;
+        mobile: string | null;
         branchId: string | null;
         operationalRole: string | null;
       }>;
