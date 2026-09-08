@@ -11,7 +11,7 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { FastifyReply } from 'fastify';
 import { SHDocumentsService } from './sh-documents.service.js';
 import { Roles } from '../auth/roles.decorator.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
@@ -91,14 +91,13 @@ export class SHDocumentsController {
   async download(
     @Param('nominationId', ParseUUIDPipe) nominationId: string,
     @Param('shId', ParseUUIDPipe) shId: string,
-    @Res() res: Response,
+    @Res() reply: FastifyReply,
   ) {
     const { buffer, filename } = await this.service.downloadPdf(nominationId, shId);
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="${filename}"`,
-    });
-    res.send(buffer);
+    await reply
+      .header('Content-Type', 'application/pdf')
+      .header('Content-Disposition', `inline; filename="${filename}"`)
+      .send(buffer);
   }
 
   @Delete(':shId')

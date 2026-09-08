@@ -12,7 +12,7 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { FastifyReply } from 'fastify';
 import { BranchDocumentsService } from './branch-documents.service.js';
 import { Roles } from '../auth/roles.decorator.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
@@ -107,14 +107,13 @@ export class BranchDocumentsController {
   async download(
     @Param('nominationId', ParseUUIDPipe) nominationId: string,
     @Param('instanceId', ParseUUIDPipe) instanceId: string,
-    @Res() res: Response,
+    @Res() reply: FastifyReply,
   ) {
     const { buffer, filename } = await this.service.downloadPdf(nominationId, instanceId);
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="${filename}"`,
-    });
-    res.send(buffer);
+    await reply
+      .header('Content-Type', 'application/pdf')
+      .header('Content-Disposition', `inline; filename="${filename}"`)
+      .send(buffer);
   }
 
   @Delete('nominations/:nominationId/branch-documents/:instanceId')
