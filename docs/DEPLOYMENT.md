@@ -618,4 +618,23 @@ docker compose logs -f backend  # Watch for errors
 
 Migration applies automatically via the backend container's startup command. If a migration fails, the backend container stays in a restart loop — investigate via logs before forcing.
 
+### Agent nomination rollout
+
+Migration `20260907154500_agent_branch_and_operational_role` adds the Branch and Operational
+role fields used by the nomination M.I.C. and Boarding menus. It deliberately does **not**
+backfill existing Agent records: the current catalogue includes external port agencies, and
+there is no reliable mapping from their names or addresses to internal staff roles.
+
+After deploying this migration:
+
+1. Open **Master Data > Agents**. The warning at the top appears when no agent is available to
+   nominations or when a record is only partially configured. Intentionally unassigned external
+   agencies do not keep the warning active once nomination staff are configured.
+2. For each actual agency staff member who should appear in a nomination, assign both a Branch
+   and an Operational role. Branch manager and Supervisor feed M.I.C.; Shipping agent feeds
+   Boarding.
+3. Leave external port agencies unassigned. Do not assign a role merely to clear the warning.
+4. Verify one nomination for each active Branch. Only agents assigned to that Branch should be
+   offered, and the selected Boarding agent's mobile should populate Mobile on Board.
+
 For zero-downtime requirements (rare for an internal app of this size), see Blue-Green or rolling deploy patterns. Not justified for Portlog at current scale.

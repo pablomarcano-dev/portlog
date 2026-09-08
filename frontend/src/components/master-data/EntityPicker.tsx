@@ -9,6 +9,7 @@ interface EntityItem {
   name?: string;
   // Some entities (e.g. Owner) use a backend-computed `label` field instead of `name`
   label?: string;
+  country?: string | null;
 }
 
 interface EntityListResponse {
@@ -37,6 +38,10 @@ interface EntityPickerProps {
    * Supplying the option here makes the saved value visible without a lookup.
    */
   selectedOption?: { value: string; label: string } | null;
+  /** Groups Port options under their country heading. */
+  groupByCountry?: boolean;
+  /** Page size requested from the list endpoint (max 200). */
+  limit?: number;
 }
 
 /**
@@ -58,13 +63,15 @@ export function EntityPicker({
   extraParams,
   disabled: disabledProp,
   selectedOption,
+  groupByCountry = false,
+  limit = 50,
 }: EntityPickerProps) {
   const [debouncedSearch] = useDebouncedValue(searchValue, 300);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['entity-picker', endpoint, debouncedSearch, extraParams],
+    queryKey: ['entity-picker', endpoint, debouncedSearch, extraParams, limit],
     queryFn: () => {
-      const params = new URLSearchParams({ limit: '50' });
+      const params = new URLSearchParams({ limit: String(limit) });
       if (debouncedSearch) params.set('q', debouncedSearch);
       if (extraParams) {
         for (const [k, v] of Object.entries(extraParams)) params.set(k, v);
@@ -79,6 +86,7 @@ export function EntityPicker({
       (data?.items ?? []).map((item) => ({
         value: item.id,
         label: item.label ?? item.name ?? item.id,
+        country: item.country?.trim() || 'Other',
       })),
     [data],
   );
@@ -103,11 +111,27 @@ export function EntityPicker({
   }, [fetchedOptions]);
 
   const selectData = useMemo(() => {
-    if (!value || fetchedOptions.some((option) => option.value === value)) return fetchedOptions;
-    const known =
-      selectedOption?.value === value ? selectedOption.label : (labelCache[value] ?? null);
-    return known ? [{ value, label: known }, ...fetchedOptions] : fetchedOptions;
-  }, [fetchedOptions, value, selectedOption, labelCache]);
+    const options = (() => {
+      if (!value || fetchedOptions.some((option) => option.value === value)) return fetchedOptions;
+      const known =
+        selectedOption?.value === value ? selectedOption.label : (labelCache[value] ?? null);
+      return known
+        ? [{ value, label: known, country: 'Other' }, ...fetchedOptions]
+        : fetchedOptions;
+    })();
+
+    if (!groupByCountry) return options;
+
+    const groups = new Map<string, Array<{ value: string; label: string }>>();
+    for (const option of options) {
+      const items = groups.get(option.country) ?? [];
+      items.push({ value: option.value, label: option.label });
+      groups.set(option.country, items);
+    }
+    return [...groups.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([group, items]) => ({ group, items }));
+  }, [fetchedOptions, value, selectedOption, labelCache, groupByCountry]);
 
   return (
     <Select

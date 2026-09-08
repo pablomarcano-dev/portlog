@@ -10,7 +10,12 @@ import {
   useRemoveClient,
 } from '../hooks/useNominationClients';
 import { ClientNamePicker } from '../../../components/master-data/ClientNamePicker';
-import { clientTypeToContactRole } from '../clientTypeRole';
+import {
+  clientDirectoryIdField,
+  clientTypeToContactRole,
+  clientTypeToDirectory,
+  type ClientDirectoryIdField,
+} from '../clientTypeRole';
 
 type ClientColKey = 'type' | 'name' | 'voyageRef' | 'refNo' | 'actions';
 
@@ -24,10 +29,12 @@ interface ClientRowProps {
   onRemove: (clientId: string) => void;
 }
 
-/** True for the row that names the shipper, whose picker carries a real FK. */
-function isShipperType(type: string): boolean {
-  return type.trim().toLowerCase() === 'shipper';
-}
+const DIRECTORY_ID_FIELDS: ClientDirectoryIdField[] = [
+  'chartererId',
+  'ownerId',
+  'operatorId',
+  'shipperId',
+];
 
 function ClientRow({
   client,
@@ -43,14 +50,19 @@ function ClientRow({
   // the Type as it is edited; both still persist on blur.
   const [type, setType] = useState(client.type);
   const [name, setName] = useState(client.name);
-  // Held alongside the name so the two persist together — a name without its
-  // shipperId would leave the terminal notice unable to resolve addresses.
-  // Refs are deliberate: choosing an autocomplete option fires blur before a
-  // React state update is guaranteed to render. Reading the ref prevents the
-  // selected master-data id from being lost while the visible name is saved.
-  const shipperId = useRef<string | null>(client.shipperId ?? null);
+  // Held alongside the name so both persist together. Refs are deliberate:
+  // choosing an autocomplete option can fire blur before React renders state.
+  // `name` remains editable, while a selected suggestion also retains its
+  // durable master-data association.
+  const directoryIds = useRef<Record<ClientDirectoryIdField, string | null>>({
+    chartererId: client.chartererId ?? null,
+    ownerId: client.ownerId ?? null,
+    operatorId: client.operatorId ?? null,
+    shipperId: client.shipperId ?? null,
+  });
   const selectionSaved = useRef(false);
-  const isShipper = isShipperType(type);
+  const directory = clientTypeToDirectory(type);
+  const directoryIdField = clientDirectoryIdField(directory);
 
   return (
     <Table.Tr>
@@ -63,14 +75,18 @@ function ClientRow({
           onBlur={() => {
             const val = type.trim();
             if (val === client.type) return;
-            // Retyping the row as something other than a shipper drops the link,
-            // so a stale FK can never point at a company the row no longer names.
-            if (!isShipperType(val) && client.shipperId) {
-              shipperId.current = null;
-              onUpdate(rowId, { type: val, shipperId: null });
-            } else {
-              onUpdate(rowId, { type: val });
+            // Retyping a row invalidates its prior directory selection. Keep the
+            // visible name, but never retain a link from the old group.
+            for (const idField of DIRECTORY_ID_FIELDS) {
+              directoryIds.current[idField] = null;
             }
+            onUpdate(rowId, {
+              type: val,
+              chartererId: null,
+              ownerId: null,
+              operatorId: null,
+              shipperId: null,
+            });
           }}
         />
       </Table.Td>
@@ -80,37 +96,36 @@ function ClientRow({
           value={name}
           onChange={(val, entityId) => {
             setName(val);
-            if (isShipper) {
-              shipperId.current = entityId ?? null;
+            // A picked suggestion is saved immediately and its ensuing blur is
+            // ignored. If the picker stays focused and the user then edits the
+            // text, that edit starts a new save cycle and must not inherit the
+            // stale "selection already saved" marker.
+            selectionSaved.current = Boolean(directoryIdField && entityId);
+            if (directoryIdField) {
+              directoryIds.current[directoryIdField] = entityId ?? null;
             }
-            if (isShipper && entityId) {
-              selectionSaved.current = true;
-              onUpdate(rowId, { name: val.trim(), shipperId: entityId });
+            if (directoryIdField && entityId) {
+              onUpdate(rowId, { name: val.trim(), [directoryIdField]: entityId });
             }
           }}
           disabled={isBusy}
-          // The Shipper row picks a company from the shippers directory so its
-          // addresses resolve; every other type suggests contacts scoped to the
-          // row's Type, falling back to the generic clients search.
-          entity={isShipper ? 'shipper' : undefined}
-          role={isShipper ? undefined : clientTypeToContactRole(type)}
+          // Standard party rows use their matching company directory. Other
+          // types keep role-scoped or generic free-text suggestions.
+          entity={directory}
+          role={directory ? undefined : clientTypeToContactRole(type)}
           onBlur={() => {
             if (selectionSaved.current) {
               selectionSaved.current = false;
               return;
             }
             const val = name.trim();
-            if (
-              val === client.name &&
-              shipperId.current === (client.shipperId ?? null)
-            )
-              return;
-            onUpdate(
-              rowId,
-              isShipper
-                ? { name: val, shipperId: shipperId.current }
-                : { name: val },
-            );
+            const selectedId = directoryIdField ? directoryIds.current[directoryIdField] : null;
+            const savedId = directoryIdField ? (client[directoryIdField] ?? null) : null;
+            if (val === client.name && selectedId === savedId) return;
+            onUpdate(rowId, {
+              name: val,
+              ...(directoryIdField ? { [directoryIdField]: selectedId } : {}),
+            });
           }}
         />
       </Table.Td>

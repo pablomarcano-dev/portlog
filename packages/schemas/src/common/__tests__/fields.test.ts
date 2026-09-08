@@ -57,11 +57,17 @@ describe('clearableCuid', () => {
   // optionalCuid() normalises a cleared field to `undefined`, which JSON.stringify
   // drops — so a PATCH could never unset the FK and the stale link survived the save.
   it('normalises a cleared picker to null, not undefined', () => {
-    for (const cleared of ['', '   ', undefined]) {
+    for (const cleared of ['', '   ']) {
       const result = schema.safeParse(cleared);
       expect(result.success).toBe(true);
       expect(result.success && result.data).toBeNull();
     }
+  });
+
+  it('preserves undefined so omitted PATCH fields do not clear existing links', () => {
+    const result = schema.safeParse(undefined);
+    expect(result.success).toBe(true);
+    expect(result.success && result.data).toBeUndefined();
   });
 
   it('passes an explicit null through', () => {

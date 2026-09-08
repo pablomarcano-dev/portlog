@@ -175,7 +175,9 @@ model Charterer {
   createdAt   DateTime @default(now()) @db.Timestamptz
   updatedAt   DateTime @updatedAt @db.Timestamptz
 
-  contacts Contact[]
+  contacts    Contact[]
+  nominations Nomination[]
+  nominationClients NominationClient[]
 
   @@index([name])
   @@map("charterers")
@@ -209,15 +211,21 @@ model Shipper {
 // Agent — port agents
 // ---------------------------------------------------------------------------
 model Agent {
-  id          String   @id @default(cuid())
-  name        String
-  address     String?
-  contactInfo String?  @db.Text
-  comments    String?  @db.Text
-  createdAt   DateTime @default(now()) @db.Timestamptz
-  updatedAt   DateTime @updatedAt @db.Timestamptz
+  id              String               @id @default(cuid())
+  name            String
+  address         String?
+  contactInfo     String?              @db.Text
+  mobile          String?
+  branchId        String?
+  branch          Branch?              @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  operationalRole UserOperationalRole?
+  comments        String?              @db.Text
+  createdAt       DateTime             @default(now()) @db.Timestamptz
+  updatedAt       DateTime             @updatedAt @db.Timestamptz
 
   @@index([name])
+  @@index([branchId])
+  @@index([operationalRole])
   @@map("agents")
 }
 
@@ -246,6 +254,7 @@ model Operator {
 
   contacts        Contact[]
   shipParticulars ShipParticular[]
+  nominationClients NominationClient[]
 
   @@index([name])
   @@map("operators")
@@ -288,6 +297,7 @@ model Owner {
 
   contacts        Contact[]
   shipParticulars ShipParticular[]
+  nominationClients NominationClient[]
 
   @@index([name])
   @@map("owners")
@@ -482,6 +492,7 @@ model Branch {
   // Users whose default Sucursal this is (pre-fills service request forms)
   users             User[]
   ports             Port[]
+  agents            Agent[]
 
   @@index([code])
   @@map("branches")

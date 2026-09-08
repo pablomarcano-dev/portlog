@@ -53,10 +53,21 @@ model Nomination {
   clientId String?
   client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
+  // Charterer appointed for this call. This is a vessel-operation party and is
+  // deliberately separate from the commercial Client used by instruction sheets.
+  chartererId String?
+  charterer   Charterer? @relation(fields: [chartererId], references: [id], onDelete: SetNull)
+
   // Supplementary fields from legacy General Info tab
   nomReply      DateTime? @db.Timestamptz(6) // "Nom. Reply" — date nomination was acknowledged
   mobileOnBoard String? // mobile number for person on board
   referenceNo   String? // "Reference N°" free-text
+
+  // Per-call vessel particulars. They start from the vessel registry but remain
+  // editable because a recent ownership/flag change may make registry data stale.
+  sdwt Decimal? @db.Decimal(12, 3) // Summer Deadweight Tonnage
+  grt  Decimal? @db.Decimal(12, 3) // Gross Register Tonnage
+  loa  Decimal? @db.Decimal(10, 3) // Length Overall in metres
 
   contactBlackBerry String?
   blindCopy         String?
@@ -139,6 +150,7 @@ model Nomination {
   @@index([status])
   @@index([shipParticularId])
   @@index([clientId])
+  @@index([chartererId])
   @@index([dateNominated])
   @@map("nominations")
 }
@@ -172,10 +184,14 @@ model NominationClient {
   nomination   Nomination @relation(fields: [nominationId], references: [id], onDelete: Cascade)
   type         String // "Time Charter", "Receivers", etc. — free-text; no enum, client varies
   name         String
-  // Set only on Shipper rows, where the name is picked from the shippers
-  // directory. `name` stays the source of truth for display (rows may be typed
-  // free-hand); this FK exists so the shipper's `emails` can be resolved without
-  // matching on a name that may not exist in master data.
+  // When a directory suggestion is selected, retain that durable association.
+  // `name` remains a historical display snapshot and permits legacy/manual rows.
+  chartererId String?
+  charterer   Charterer? @relation(fields: [chartererId], references: [id], onDelete: SetNull)
+  ownerId     String?
+  owner       Owner?     @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  operatorId  String?
+  operator    Operator?  @relation(fields: [operatorId], references: [id], onDelete: SetNull)
   shipperId    String?
   shipper      Shipper?   @relation(fields: [shipperId], references: [id], onDelete: SetNull)
   voyageRef    String?
@@ -187,6 +203,9 @@ model NominationClient {
   updatedAt    DateTime   @updatedAt @db.Timestamptz(6)
 
   @@index([nominationId])
+  @@index([chartererId])
+  @@index([ownerId])
+  @@index([operatorId])
   @@index([shipperId])
   @@map("nomination_clients")
 }

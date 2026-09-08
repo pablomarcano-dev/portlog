@@ -6,6 +6,7 @@ import {
   Fieldset,
   Grid,
   Group,
+  NumberInput,
   Select,
   Stack,
   Table,
@@ -23,6 +24,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import {
   NominationCreateSchema,
+  vesselInfoSchema,
   vesselProDataSchema,
   vesselOwnershipSchema,
 } from '@portlog/schemas';
@@ -32,13 +34,15 @@ import { EntityPicker } from '../../../components/master-data/EntityPicker';
 import { EmailGroupPicker } from '../../../components/master-data/EmailGroupPicker';
 import { ContactNamePicker } from '../../../components/master-data/ContactNamePicker';
 import { ClientNamePicker } from '../../../components/master-data/ClientNamePicker';
-import { clientTypeToContactRole } from '../clientTypeRole';
-import { ClientPickerModal } from '../../../components/master-data/ClientPickerModal';
+import {
+  clientDirectoryIdField,
+  clientTypeToContactRole,
+  clientTypeToDirectory,
+} from '../clientTypeRole';
 import { ParcelsFieldArray } from './ParcelsFieldArray';
 import { NewShipParticularModal } from './NewShipParticularModal';
 import { NewPortModal } from './NewPortModal';
 import { NewPierModal } from './NewPierModal';
-import { NewClientModal } from './NewClientModal';
 
 const NOMINATION_TYPE_OPTIONS = [
   { value: 'FULL_AGENCY', label: 'Full Agency' },
@@ -87,6 +91,11 @@ const ADDITIONAL_CLIENT_TYPES = [
   'Receivers',
 ];
 
+function legacyAgentValue(field: 'mic' | 'boarding', name: string | null | undefined) {
+  const trimmed = name?.trim();
+  return trimmed ? `legacy:${field}:${trimmed}` : null;
+}
+
 interface NominationFormProps {
   mode: 'create' | 'edit';
   defaultValues?: Partial<NominationCreateInput>;
@@ -95,8 +104,13 @@ interface NominationFormProps {
   isReadOnly?: boolean;
   /** Auto-assigned correlative number to show as read-only in edit mode. */
   correlative?: number;
-  /** Ensures the saved Client label remains visible when editing. */
-  clientOption?: { value: string; label: string } | null;
+  /** Ensures the saved Charterer label remains visible when editing. */
+  chartererOption?: { value: string; label: string } | null;
+  /** Keep saved location labels visible when they are outside the first catalog page. */
+  opPortOption?: { value: string; label: string } | null;
+  pierOption?: { value: string; label: string } | null;
+  lastPortOption?: { value: string; label: string } | null;
+  nextPortOption?: { value: string; label: string } | null;
 }
 
 export function NominationForm({
@@ -106,19 +120,24 @@ export function NominationForm({
   isSubmitting,
   isReadOnly = false,
   correlative,
-  clientOption,
+  chartererOption,
+  opPortOption,
+  pierOption,
+  lastPortOption,
+  nextPortOption,
 }: NominationFormProps) {
   const navigate = useNavigate();
   const [newShipModalOpen, setNewShipModalOpen] = useState(false);
-  const [newClientModalOpen, setNewClientModalOpen] = useState(false);
-  const [createdClientOption, setCreatedClientOption] = useState<{
-    value: string;
-    label: string;
-  } | null>(null);
   const [portModalTarget, setPortModalTarget] = useState<
     'opPortId' | 'lastPortId' | 'nextPortId' | null
   >(null);
   const [newPierModalOpen, setNewPierModalOpen] = useState(false);
+  const [micAgentValue, setMicAgentValue] = useState<string | null>(() =>
+    legacyAgentValue('mic', defaultValues?.mic),
+  );
+  const [boardingAgentValue, setBoardingAgentValue] = useState<string | null>(() =>
+    legacyAgentValue('boarding', defaultValues?.boardingClerk),
+  );
 
   const defaultClients =
     mode === 'create'
@@ -130,6 +149,9 @@ export function NominationForm({
     defaultValues: {
       nominationType: 'FULL_AGENCY',
       kind: 'SN',
+      mic: '',
+      boardingClerk: '',
+      mobileOnBoard: '',
       parcels: [],
       nominationClients: defaultClients,
       ...defaultValues,
@@ -148,6 +170,8 @@ export function NominationForm({
   const opPortId = watch('opPortId') ?? null;
   const branchId = watch('branchId');
   const previousBranchId = useRef(defaultValues?.branchId);
+  const previousShipParticularId = useRef(defaultValues?.shipParticularId);
+  const previousOpPortId = useRef(defaultValues?.opPortId ?? null);
   const kind = watch('kind') ?? 'SN';
   const referenceNo = watch('referenceNo');
 
@@ -163,14 +187,36 @@ export function NominationForm({
   const shipQuery = useQuery({
     queryKey: ['ship-particulars', shipParticularId],
     queryFn: () =>
-      apiRequest<{ imoNumber: string | null; name: string; abbreviation: string | null }>(
-        `/master-data/ship-particulars/${shipParticularId}`,
-      ),
+      apiRequest<{
+        imoNumber: string | null;
+        name: string;
+        abbreviation: string | null;
+        loa: number | null;
+        dwt: number | null;
+        grt: number | null;
+      }>(`/master-data/ship-particulars/${shipParticularId}`),
     enabled: !!shipParticularId,
     staleTime: 60_000,
   });
   const shipImo = shipQuery.data?.imoNumber ?? null;
   const hasValidImo = !!shipImo && /^\d{7}$/.test(shipImo);
+
+  // Copy the registry values into this nomination. These fields intentionally
+  // remain editable, so an operator can record changed particulars for this call.
+  useEffect(() => {
+    const ship = shipQuery.data;
+    if (!ship || !shipParticularId) return;
+    const shipChanged = previousShipParticularId.current !== shipParticularId;
+    const seed = (field: 'sdwt' | 'grt' | 'loa', value: number | null) => {
+      if (shipChanged || form.getValues(field) == null) {
+        setValue(field, value, { shouldDirty: shipChanged });
+      }
+    };
+    seed('sdwt', ship.dwt);
+    seed('grt', ship.grt);
+    seed('loa', ship.loa);
+    previousShipParticularId.current = shipParticularId;
+  }, [shipParticularId, shipQuery.data, setValue]);
 
   // Fetch branch details for subject generation (code field)
   const branchQuery = useQuery({
@@ -188,65 +234,85 @@ export function NominationForm({
     staleTime: 5 * 60_000,
   });
 
-  const branchUsersQuery = useQuery({
-    queryKey: ['branch-operational-users'],
+  const agentsQuery = useQuery({
+    queryKey: ['agents-for-nomination', branchId],
     queryFn: () =>
       apiRequest<{
         items: Array<{
           id: string;
-          email: string;
-          displayName: string | null;
+          name: string;
           mobile: string | null;
           branchId: string | null;
           operationalRole: 'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT' | null;
         }>;
-      }>('/master-data/ports/contact-users'),
+      }>(`/master-data/agents?limit=200&branchId=${encodeURIComponent(branchId)}`),
+    enabled: !!branchId,
     staleTime: 30_000,
   });
 
   useEffect(() => {
-    if (!branchId || !branchUsersQuery.data) return;
+    if (!branchId || !agentsQuery.data) return;
     const branchChanged = previousBranchId.current !== branchId;
     const currentMic = form.getValues('mic')?.trim();
     const currentBoarding = form.getValues('boardingClerk')?.trim();
     const currentMobile = form.getValues('mobileOnBoard')?.trim();
-    if (mode === 'edit' && !branchChanged && currentMic && currentBoarding && currentMobile) return;
-    const staff = branchUsersQuery.data.items.filter((user) => user.branchId === branchId);
-    const names = (roles: Array<'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT'>) =>
-      staff
-        .filter((user) => user.operationalRole && roles.includes(user.operationalRole))
-        .map((user) => user.displayName?.trim() || user.email)
-        .join('; ');
+    const staff = agentsQuery.data.items;
+    const findByName = (
+      name: string | undefined,
+      roles: Array<'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT'>,
+    ) =>
+      name
+        ? staff.find(
+            (candidate) =>
+              candidate.operationalRole != null &&
+              roles.includes(candidate.operationalRole) &&
+              candidate.name.trim().localeCompare(name, undefined, { sensitivity: 'accent' }) === 0,
+          )
+        : undefined;
+    const micDefault = staff.find((candidate) =>
+      ['BRANCH_MANAGER', 'SUPERVISOR'].includes(candidate.operationalRole ?? ''),
+    );
+    const boardingDefault = staff.find(
+      (candidate) => candidate.operationalRole === 'SHIPPING_AGENT',
+    );
     if (branchChanged || !currentMic) {
-      setValue(
-        'mic',
-        names(['BRANCH_MANAGER', 'SUPERVISOR']) || branchQuery.data?.contactName || '',
-        {
-          shouldDirty: true,
-        },
+      const value = micDefault?.name.trim() || branchQuery.data?.contactName || '';
+      setValue('mic', value, {
+        shouldDirty: true,
+      });
+      setMicAgentValue(micDefault?.id ?? legacyAgentValue('mic', value));
+    } else {
+      setMicAgentValue(
+        findByName(currentMic, ['BRANCH_MANAGER', 'SUPERVISOR'])?.id ??
+          legacyAgentValue('mic', currentMic),
       );
     }
     if (branchChanged || !currentBoarding) {
-      setValue('boardingClerk', names(['SHIPPING_AGENT']), { shouldDirty: true });
+      const value = boardingDefault?.name.trim() || '';
+      setValue('boardingClerk', value, { shouldDirty: true });
+      setBoardingAgentValue(boardingDefault?.id ?? legacyAgentValue('boarding', value));
+    } else {
+      setBoardingAgentValue(
+        findByName(currentBoarding, ['SHIPPING_AGENT'])?.id ??
+          legacyAgentValue('boarding', currentBoarding),
+      );
     }
     if (branchChanged || !currentMobile) {
       const mobile =
+        staff.find((agent) => agent.mobile?.trim() && agent.operationalRole === 'SHIPPING_AGENT')
+          ?.mobile ??
         staff.find(
-          (user) =>
-            user.mobile?.trim() &&
-            ['SHIPPING_AGENT', 'BRANCH_MANAGER', 'SUPERVISOR'].includes(user.operationalRole ?? ''),
+          (agent) =>
+            agent.mobile?.trim() &&
+            ['BRANCH_MANAGER', 'SUPERVISOR'].includes(agent.operationalRole ?? ''),
         )?.mobile ??
         branchQuery.data?.contactMobile ??
         branchQuery.data?.mobile24h ??
         '';
       setValue('mobileOnBoard', mobile, { shouldDirty: true });
     }
-    if (branchChanged) {
-      setValue('opPortId', undefined, { shouldDirty: true });
-      setValue('pierId', undefined, { shouldDirty: true });
-    }
     previousBranchId.current = branchId;
-  }, [branchId, branchUsersQuery.data, branchQuery.data]);
+  }, [branchId, agentsQuery.data, branchQuery.data]);
 
   // Ports list — used for vessel-data port matching and subject generation
   const portsQuery = useQuery({
@@ -283,15 +349,15 @@ export function NominationForm({
   }, [shipQuery.data, branchQuery.data, portsQuery.data, opPortId, referenceNo]);
 
   const [isFetchingVessel, setIsFetchingVessel] = useState(false);
-  const [clientPickerIndex, setClientPickerIndex] = useState<number | null>(null);
 
   async function handleFetchFromVessel() {
     if (!shipImo) return;
     setIsFetchingVessel(true);
     try {
-      const [proRaw, ownerRaw] = await Promise.allSettled([
+      const [proRaw, ownerRaw, infoRaw] = await Promise.allSettled([
         apiRequest<unknown>(`/datalastic/vessel_pro?imo=${shipImo}`),
         apiRequest<unknown>(`/datalastic/ownership?imo=${shipImo}`),
+        apiRequest<unknown>(`/datalastic/vessel_info?imo=${shipImo}`),
       ]);
 
       let filled = 0;
@@ -316,6 +382,25 @@ export function NominationForm({
           if (nextPortId) {
             setValue('nextPortId', nextPortId, { shouldDirty: true });
             filled++;
+          }
+        }
+      }
+
+      // vessel_info → key particulars. Values remain manually editable.
+      if (infoRaw.status === 'fulfilled') {
+        const envelope = infoRaw.value as { data: unknown };
+        const parsed = vesselInfoSchema.safeParse(envelope?.data ?? infoRaw.value);
+        if (parsed.success) {
+          const values: Array<['sdwt' | 'grt' | 'loa', number | null]> = [
+            ['sdwt', parsed.data.deadweight],
+            ['grt', parsed.data.gross_tonnage],
+            ['loa', parsed.data.length],
+          ];
+          for (const [field, value] of values) {
+            if (value != null) {
+              setValue(field, value, { shouldDirty: true });
+              filled++;
+            }
           }
         }
       }
@@ -369,7 +454,7 @@ export function NominationForm({
   // Search state for each EntityPicker
   const [shipSearch, setShipSearch] = useState('');
   const [branchSearch, setBranchSearch] = useState('');
-  const [clientSearch, setClientSearch] = useState('');
+  const [chartererSearch, setChartererSearch] = useState('');
   const [opPortSearch, setOpPortSearch] = useState('');
   const [pierSearch, setPierSearch] = useState('');
   const [lastPortSearch, setLastPortSearch] = useState('');
@@ -377,6 +462,8 @@ export function NominationForm({
 
   // Clear pier selection whenever the operational port changes
   useEffect(() => {
+    if (previousOpPortId.current === opPortId) return;
+    previousOpPortId.current = opPortId;
     setValue('pierId', undefined);
     setPierSearch('');
   }, [opPortId, setValue]);
@@ -400,11 +487,33 @@ export function NominationForm({
     setPierSearch('');
   }
 
-  function handleClientCreated(client: { id: string; name: string }) {
-    setCreatedClientOption({ value: client.id, label: client.name });
-    setValue('clientId', client.id, { shouldValidate: true, shouldDirty: true });
-    setClientSearch('');
-    notifications.show({ color: 'green', message: `${client.name} added and selected.` });
+  const branchAgents = agentsQuery.data?.items ?? [];
+  const agentName = (agent: (typeof branchAgents)[number]) => agent.name.trim();
+  const micAgentOptions = branchAgents
+    .filter((agent) => ['BRANCH_MANAGER', 'SUPERVISOR'].includes(agent.operationalRole ?? ''))
+    .map((agent) => ({ value: agent.id, label: agentName(agent) }));
+  const boardingAgentOptions = branchAgents
+    .filter((agent) => agent.operationalRole === 'SHIPPING_AGENT')
+    .map((agent) => ({ value: agent.id, label: agentName(agent) }));
+
+  const currentMicName = watch('mic')?.trim() ?? '';
+  const currentBoardingName = watch('boardingClerk')?.trim() ?? '';
+  const micSelectOptions =
+    micAgentValue?.startsWith('legacy:') && currentMicName
+      ? [{ value: micAgentValue, label: currentMicName }, ...micAgentOptions]
+      : micAgentOptions;
+  const boardingSelectOptions =
+    boardingAgentValue?.startsWith('legacy:') && currentBoardingName
+      ? [{ value: boardingAgentValue, label: currentBoardingName }, ...boardingAgentOptions]
+      : boardingAgentOptions;
+
+  function updateBoardingAgent(value: string | null) {
+    setBoardingAgentValue(value);
+    const selected = branchAgents.find((agent) => agent.id === value);
+    setValue('boardingClerk', selected ? agentName(selected) : '', { shouldDirty: true });
+    if (selected?.mobile) {
+      setValue('mobileOnBoard', selected.mobile, { shouldDirty: true });
+    }
   }
 
   return (
@@ -414,13 +523,6 @@ export function NominationForm({
         onClose={() => setNewShipModalOpen(false)}
         onCreated={(id) => handleShipCreated(id)}
       />
-      {newClientModalOpen && (
-        <NewClientModal
-          opened
-          onClose={() => setNewClientModalOpen(false)}
-          onCreated={handleClientCreated}
-        />
-      )}
       <NewPortModal
         opened={portModalTarget !== null}
         onClose={() => setPortModalTarget(null)}
@@ -433,16 +535,6 @@ export function NominationForm({
         onClose={() => setNewPierModalOpen(false)}
         onCreated={(id) => handlePierCreated(id)}
       />
-      <ClientPickerModal
-        opened={clientPickerIndex !== null}
-        onClose={() => setClientPickerIndex(null)}
-        onSelect={(name) => {
-          if (clientPickerIndex !== null) {
-            setValue(`nominationClients.${clientPickerIndex}.name`, name, { shouldDirty: true });
-          }
-        }}
-      />
-
       <form id="nomination-form" onSubmit={handleSubmit(onSubmit)} noValidate>
         <Stack gap="xs">
           {/* Row 1 — Number / Branch / Lay Days */}
@@ -635,45 +727,88 @@ export function NominationForm({
             </Grid.Col>
           </Grid>
 
-          {/* Row 3 — Client / Op. Port / Berth */}
+          <Fieldset legend="Vessel particulars">
+            <Grid gutter="xs">
+              <Grid.Col span={4}>
+                <Controller
+                  name="sdwt"
+                  control={control}
+                  render={({ field, fieldState }) => (
+                    <NumberInput
+                      label="SDWT"
+                      description="Summer deadweight tonnage"
+                      placeholder="Enter tonnage"
+                      min={0}
+                      decimalScale={3}
+                      disabled={isReadOnly}
+                      value={field.value ?? ''}
+                      onChange={(value) => field.onChange(value === '' ? null : value)}
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+              </Grid.Col>
+              <Grid.Col span={4}>
+                <Controller
+                  name="grt"
+                  control={control}
+                  render={({ field, fieldState }) => (
+                    <NumberInput
+                      label="GRT"
+                      description="Gross register tonnage"
+                      placeholder="Enter tonnage"
+                      min={0}
+                      decimalScale={3}
+                      disabled={isReadOnly}
+                      value={field.value ?? ''}
+                      onChange={(value) => field.onChange(value === '' ? null : value)}
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+              </Grid.Col>
+              <Grid.Col span={4}>
+                <Controller
+                  name="loa"
+                  control={control}
+                  render={({ field, fieldState }) => (
+                    <NumberInput
+                      label="LOA (m)"
+                      description="Length overall"
+                      placeholder="Enter metres"
+                      min={0}
+                      decimalScale={3}
+                      disabled={isReadOnly}
+                      value={field.value ?? ''}
+                      onChange={(value) => field.onChange(value === '' ? null : value)}
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+              </Grid.Col>
+            </Grid>
+          </Fieldset>
+
+          {/* Row 3 — Charterer / Op. Port / Berth */}
           <Grid gutter="xs" align="flex-end">
             <Grid.Col span={4}>
-              <Group gap={4} align="flex-end" wrap="nowrap">
-                <div style={{ flex: 1 }}>
-                  <Controller
-                    name="clientId"
-                    control={control}
-                    render={({ field, fieldState }) => (
-                      <EntityPicker
-                        endpoint="/master-data/clients"
-                        label="Client"
-                        value={field.value ?? null}
-                        onChange={field.onChange}
-                        searchValue={clientSearch}
-                        onSearchChange={setClientSearch}
-                        selectedOption={
-                          createdClientOption?.value === field.value
-                            ? createdClientOption
-                            : clientOption
-                        }
-                        disabled={isReadOnly}
-                        error={fieldState.error?.message}
-                      />
-                    )}
-                  />
-                </div>
-                <Tooltip label="Add client">
-                  <ActionIcon
-                    variant="default"
-                    size="lg"
-                    aria-label="Add client"
+              <Controller
+                name="chartererId"
+                control={control}
+                render={({ field, fieldState }) => (
+                  <EntityPicker
+                    endpoint="/master-data/charterers"
+                    label="Charterers"
+                    value={field.value ?? null}
+                    onChange={field.onChange}
+                    searchValue={chartererSearch}
+                    onSearchChange={setChartererSearch}
+                    selectedOption={chartererOption}
                     disabled={isReadOnly}
-                    onClick={() => setNewClientModalOpen(true)}
-                  >
-                    +
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
             </Grid.Col>
             <Grid.Col span={4}>
               <Group gap={4} align="flex-end" wrap="nowrap">
@@ -690,9 +825,11 @@ export function NominationForm({
                         searchValue={opPortSearch}
                         onSearchChange={setOpPortSearch}
                         error={fieldState.error?.message}
-                        extraParams={branchId ? { branchId } : undefined}
-                        disabled={isReadOnly || !branchId}
-                        placeholder={branchId ? 'Select operating port' : 'Select branch first'}
+                        groupByCountry
+                        limit={200}
+                        selectedOption={opPortOption}
+                        disabled={isReadOnly}
+                        placeholder="Select operating port"
                       />
                     )}
                   />
@@ -727,6 +864,7 @@ export function NominationForm({
                         searchValue={pierSearch}
                         onSearchChange={setPierSearch}
                         error={fieldState.error?.message}
+                        selectedOption={pierOption}
                         disabled={!opPortId}
                         placeholder={opPortId ? 'Search piers...' : 'Select Oper. Port first'}
                       />
@@ -766,6 +904,9 @@ export function NominationForm({
                         searchValue={lastPortSearch}
                         onSearchChange={setLastPortSearch}
                         error={fieldState.error?.message}
+                        groupByCountry
+                        limit={200}
+                        selectedOption={lastPortOption}
                       />
                     )}
                   />
@@ -798,6 +939,9 @@ export function NominationForm({
                         searchValue={nextPortSearch}
                         onSearchChange={setNextPortSearch}
                         error={fieldState.error?.message}
+                        groupByCountry
+                        limit={200}
+                        selectedOption={nextPortOption}
                       />
                     )}
                   />
@@ -836,35 +980,33 @@ export function NominationForm({
           {/* Row 5 — M.I.C. / Boarding / Mobile on Board */}
           <Grid gutter="xs" align="flex-end">
             <Grid.Col span={4}>
-              <Controller
-                name="mic"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <ContactNamePicker
-                    label="M.I.C."
-                    placeholder="MIC officer"
-                    value={field.value ?? ''}
-                    onChange={field.onChange}
-                    error={fieldState.error?.message}
-                    disabled={isReadOnly}
-                  />
-                )}
+              <Select
+                label="M.I.C."
+                placeholder={branchId ? 'Select manager or supervisor' : 'Select branch first'}
+                value={micAgentValue}
+                onChange={(value) => {
+                  setMicAgentValue(value);
+                  const selected = branchAgents.find((agent) => agent.id === value);
+                  setValue('mic', selected ? agentName(selected) : '', { shouldDirty: true });
+                }}
+                data={micSelectOptions}
+                searchable
+                clearable
+                error={formState.errors.mic?.message}
+                disabled={isReadOnly || !branchId}
               />
             </Grid.Col>
             <Grid.Col span={4}>
-              <Controller
-                name="boardingClerk"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <ContactNamePicker
-                    label="Boarding"
-                    placeholder="Boarding clerk"
-                    value={field.value ?? ''}
-                    onChange={field.onChange}
-                    error={fieldState.error?.message}
-                    disabled={isReadOnly}
-                  />
-                )}
+              <Select
+                label="Boarding"
+                placeholder={branchId ? 'Select shipping agent' : 'Select branch first'}
+                value={boardingAgentValue}
+                onChange={updateBoardingAgent}
+                data={boardingSelectOptions}
+                searchable
+                clearable
+                error={formState.errors.boardingClerk?.message}
+                disabled={isReadOnly || !branchId}
               />
             </Grid.Col>
             <Grid.Col span={4}>
@@ -958,6 +1100,9 @@ export function NominationForm({
                 <Table.Tbody>
                   {clientFields.map((field, index) => {
                     const isDefault = index < DEFAULT_CLIENT_TYPES.length;
+                    const directory = clientTypeToDirectory(
+                      watch(`nominationClients.${index}.type`),
+                    );
                     return (
                       <Table.Tr key={field.id}>
                         <Table.Td>
@@ -973,7 +1118,19 @@ export function NominationForm({
                                   placeholder="Type"
                                   data={ADDITIONAL_CLIENT_TYPES}
                                   value={typeField.value}
-                                  onChange={typeField.onChange}
+                                  onChange={(type) => {
+                                    typeField.onChange(type);
+                                    for (const idField of [
+                                      'chartererId',
+                                      'ownerId',
+                                      'operatorId',
+                                      'shipperId',
+                                    ] as const) {
+                                      setValue(`nominationClients.${index}.${idField}`, null, {
+                                        shouldDirty: true,
+                                      });
+                                    }
+                                  }}
                                 />
                               )}
                             />
@@ -987,21 +1144,24 @@ export function NominationForm({
                               <ClientNamePicker
                                 placeholder="Name"
                                 value={field.value}
-                                onChange={field.onChange}
-                                role={clientTypeToContactRole(
-                                  watch(`nominationClients.${index}.type`),
-                                )}
-                                size="xs"
-                                rightSection={
-                                  <ActionIcon
-                                    size="xs"
-                                    variant="subtle"
-                                    onClick={() => setClientPickerIndex(index)}
-                                    title="Browse clients"
-                                  >
-                                    ⌕
-                                  </ActionIcon>
+                                onChange={(name, entityId) => {
+                                  field.onChange(name);
+                                  const idField = clientDirectoryIdField(directory);
+                                  if (idField) {
+                                    setValue(`nominationClients.${index}.${idField}`, entityId, {
+                                      shouldDirty: true,
+                                    });
+                                  }
+                                }}
+                                entity={directory}
+                                role={
+                                  directory
+                                    ? undefined
+                                    : clientTypeToContactRole(
+                                        watch(`nominationClients.${index}.type`),
+                                      )
                                 }
+                                size="xs"
                               />
                             )}
                           />
@@ -1142,7 +1302,15 @@ export function NominationForm({
           {/* Action buttons — create mode only; edit mode save button lives in the page right rail */}
           {!isReadOnly && mode === 'create' && (
             <Group justify="flex-end" mt="xs">
-              <Button variant="default" onClick={() => reset()} disabled={isSubmitting}>
+              <Button
+                variant="default"
+                onClick={() => {
+                  reset();
+                  setMicAgentValue(legacyAgentValue('mic', defaultValues?.mic));
+                  setBoardingAgentValue(legacyAgentValue('boarding', defaultValues?.boardingClerk));
+                }}
+                disabled={isSubmitting}
+              >
                 Clear
               </Button>
               <Button

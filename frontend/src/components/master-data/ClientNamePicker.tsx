@@ -4,7 +4,12 @@ import { useQuery } from '@tanstack/react-query';
 import type { ContactRole } from '@portlog/schemas';
 import { clientsApi } from '../../lib/api/master-data/clients';
 import { contactsApi } from '../../lib/api/master-data/contacts';
+import { charterersApi } from '../../lib/api/master-data/charterers';
+import { ownersApi } from '../../lib/api/master-data/owners';
+import { operatorsApi } from '../../lib/api/master-data/operators';
 import { shippersApi } from '../../lib/api/master-data/shippers';
+
+export type ClientDirectory = 'charterer' | 'owner' | 'operator' | 'shipper';
 
 interface ClientNamePickerProps {
   label?: string;
@@ -27,16 +32,29 @@ interface ClientNamePickerProps {
   role?: ContactRole;
   /**
    * When set, suggestions are companies from that master-data directory and the
-   * picked record's id is reported through `onChange`. Used where the row needs
-   * a real FK — a Shipper row must resolve its addresses, which a name cannot.
+   * picked record's id is reported through `onChange`, allowing the caller to
+   * retain both a stable association and the visible name snapshot.
    */
-  entity?: 'shipper';
+  entity?: ClientDirectory;
   onBlur?: () => void;
 }
 
 const SUGGESTION_LIMIT = 20;
 
-/** A name suggestion; `id` is set only for directories that carry a real FK. */
+function searchDirectory(entity: ClientDirectory, search: string) {
+  switch (entity) {
+    case 'charterer':
+      return charterersApi.search(search);
+    case 'owner':
+      return ownersApi.search(search);
+    case 'operator':
+      return operatorsApi.search(search);
+    case 'shipper':
+      return shippersApi.search(search);
+  }
+}
+
+/** A name suggestion; `id` is set for master-data directory records. */
 interface Suggestion {
   id: string | null;
   label: string;
@@ -71,8 +89,8 @@ export function ClientNamePicker({
         ? ['contacts', 'by-role', role, search]
         : ['clients', 'search', search],
     queryFn: () =>
-      entity === 'shipper'
-        ? shippersApi.search(search)
+      entity
+        ? searchDirectory(entity, search)
         : role
           ? contactsApi
               .list({ q: search, role, limit: SUGGESTION_LIMIT })

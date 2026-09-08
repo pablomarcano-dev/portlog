@@ -75,10 +75,13 @@ function NominationDetailPage() {
   const defaultValues: Partial<NominationCreateInput> = {
     shipParticularId: nomination.shipParticularId,
     branchId: nomination.branchId ?? undefined,
-    clientId: nomination.clientId,
+    chartererId: nomination.chartererId,
     nomReply: nomination.nomReply ?? undefined,
     mobileOnBoard: nomination.mobileOnBoard ?? undefined,
     referenceNo: nomination.referenceNo ?? undefined,
+    sdwt: nomination.sdwt ?? nomination.shipParticular.dwt ?? undefined,
+    grt: nomination.grt ?? nomination.shipParticular.grt ?? undefined,
+    loa: nomination.loa ?? nomination.shipParticular.loa ?? undefined,
     contactBlackBerry: nomination.contactBlackBerry ?? undefined,
     blindCopy: nomination.blindCopy ?? undefined,
     emailTo: nomination.emailTo ?? [],
@@ -178,9 +181,29 @@ function NominationDetailPage() {
                     isSubmitting={updateNomination.isPending}
                     isReadOnly={isReadOnly}
                     correlative={nomination.correlative}
-                    clientOption={
-                      nomination.client
-                        ? { value: nomination.client.id, label: nomination.client.name }
+                    chartererOption={
+                      nomination.charterer
+                        ? { value: nomination.charterer.id, label: nomination.charterer.name }
+                        : null
+                    }
+                    opPortOption={
+                      nomination.opPort
+                        ? { value: nomination.opPort.id, label: nomination.opPort.name }
+                        : null
+                    }
+                    pierOption={
+                      nomination.pier
+                        ? { value: nomination.pier.id, label: nomination.pier.name }
+                        : null
+                    }
+                    lastPortOption={
+                      nomination.lastPort
+                        ? { value: nomination.lastPort.id, label: nomination.lastPort.name }
+                        : null
+                    }
+                    nextPortOption={
+                      nomination.nextPort
+                        ? { value: nomination.nextPort.id, label: nomination.nextPort.name }
                         : null
                     }
                   />
@@ -369,6 +392,7 @@ function NominationDetailPage() {
                   <NominationInstructionsAction
                     nominationId={nomination.id}
                     client={nomination.client}
+                    disabled={isReadOnly}
                   />
                   {pedr && (
                     <EmailActionsPanel

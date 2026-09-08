@@ -40,11 +40,13 @@ export const optionalCuid = () => optionalBlank(z.string().cuid());
  * `optionalCuid()` normalises a cleared picker to `undefined`, which `JSON.stringify`
  * strips from the request body — so a PATCH can never unset the column, and the old
  * link silently survives the save. Blank input becomes `null` here, which Prisma
- * writes as NULL. Use this for any FK the user is allowed to unset.
+ * writes as NULL. An omitted/`undefined` value must remain `undefined`; otherwise a
+ * partial update can accidentally clear a relation the caller did not send. Use
+ * this for any FK the user is allowed to unset.
  */
 export const clearableCuid = () =>
   z.preprocess(
-    (v) => (v === undefined || (typeof v === 'string' && v.trim() === '') ? null : v),
+    (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
     z.string().cuid().nullish(),
   );
 

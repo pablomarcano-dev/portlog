@@ -88,12 +88,47 @@ describe('NominationCreateSchema', () => {
     const result = NominationCreateSchema.safeParse({ ...VALID_CREATE_PAYLOAD, kind: 'XX' });
     expect(result.success).toBe(false);
   });
+
+  it('accepts a charterer and editable vessel particulars', () => {
+    const result = NominationCreateSchema.safeParse({
+      ...VALID_CREATE_PAYLOAD,
+      chartererId: 'clzzzzzzzzzzzzzzzzzzzzzzz',
+      sdwt: 54_321.5,
+      grt: 30_100,
+      loa: 183.75,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.sdwt).toBe(54_321.5);
+      expect(result.data.grt).toBe(30_100);
+      expect(result.data.loa).toBe(183.75);
+    }
+  });
+
+  it('rejects negative vessel particulars', () => {
+    const result = NominationCreateSchema.safeParse({
+      ...VALID_CREATE_PAYLOAD,
+      sdwt: -1,
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
 // NominationUpdateSchema — kind is locked (omitted from the update shape)
 // ---------------------------------------------------------------------------
 describe('NominationUpdateSchema', () => {
+  it('does not inject clearable relations that were omitted from a patch', () => {
+    const result = NominationUpdateSchema.parse({ voyageNumber: 'NEW' });
+
+    expect(result).not.toHaveProperty('clientId');
+    expect(result).not.toHaveProperty('chartererId');
+  });
+
+  it('keeps an explicitly cleared relation as null', () => {
+    expect(NominationUpdateSchema.parse({ clientId: '' })).toEqual({ clientId: null });
+  });
+
   it('drops kind from the parsed output so it can never be changed', () => {
     const result = NominationUpdateSchema.safeParse({ kind: 'OT', voyageNumber: 'NEW' });
     expect(result.success).toBe(true);

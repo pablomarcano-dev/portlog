@@ -43,6 +43,8 @@ import {
   type EtaRecordSaveInput,
   type SofTimesheetInput,
   type SendNominationEmailInput,
+  NominationClientDirectoryLinkError,
+  normalizeNominationClientDirectoryLinks,
 } from '@portlog/schemas';
 
 function formatSnOt(correlative: number, dateNominated: Date, kind: NominationKind): string {
@@ -67,6 +69,90 @@ function uniqueNonBlank(values: Array<string | null | undefined>): string[] {
   return [
     ...new Set(values.map((value) => value?.trim()).filter((value): value is string => !!value)),
   ];
+}
+
+type BranchAgentForNominationDefaults = {
+  name: string;
+  mobile: string | null;
+  operationalRole: 'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT' | null;
+};
+
+type BranchContactForNominationDefaults = {
+  contactName: string | null;
+  contactMobile: string | null;
+  mobile24h: string | null;
+} | null;
+
+function trimmedOrUndefined(value: string | null | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed || undefined;
+}
+
+function normalizeClientDirectoryLinks<
+  T extends {
+    type?: string;
+    chartererId?: string | null;
+    ownerId?: string | null;
+    operatorId?: string | null;
+    shipperId?: string | null;
+  },
+>(
+  input: T,
+  existing?: {
+    type?: string;
+    chartererId?: string | null;
+    ownerId?: string | null;
+    operatorId?: string | null;
+    shipperId?: string | null;
+  },
+): T {
+  try {
+    return normalizeNominationClientDirectoryLinks(input, existing);
+  } catch (error) {
+    if (error instanceof NominationClientDirectoryLinkError) {
+      throw new BadRequestException(error.message);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Resolve one person for each operational role. Values explicitly supplied by
+ * the caller always win; branch data is only used for omitted/blank fields.
+ */
+function resolveNominationStaff(
+  branchStaff: BranchAgentForNominationDefaults[],
+  branchContact: BranchContactForNominationDefaults,
+  input: { mic?: string; boardingClerk?: string; mobileOnBoard?: string },
+): { mic?: string; boardingClerk?: string; mobileOnBoard?: string } {
+  const explicitMic = trimmedOrUndefined(input.mic);
+  const explicitBoarding = trimmedOrUndefined(input.boardingClerk);
+  const explicitMobile = trimmedOrUndefined(input.mobileOnBoard);
+  const micAgent = branchStaff.find((agent) =>
+    ['BRANCH_MANAGER', 'SUPERVISOR'].includes(agent.operationalRole ?? ''),
+  );
+  const boardingAgent = branchStaff.find((agent) => agent.operationalRole === 'SHIPPING_AGENT');
+  const explicitlySelectedAgent = branchStaff.find(
+    (agent) =>
+      agent.name.trim().localeCompare(explicitBoarding ?? explicitMic ?? '', undefined, {
+        sensitivity: 'accent',
+      }) === 0,
+  );
+
+  return {
+    mic:
+      explicitMic ||
+      trimmedOrUndefined(micAgent?.name) ||
+      trimmedOrUndefined(branchContact?.contactName),
+    boardingClerk: explicitBoarding || trimmedOrUndefined(boardingAgent?.name),
+    mobileOnBoard:
+      explicitMobile ||
+      trimmedOrUndefined(explicitlySelectedAgent?.mobile) ||
+      trimmedOrUndefined(boardingAgent?.mobile) ||
+      trimmedOrUndefined(micAgent?.mobile) ||
+      trimmedOrUndefined(branchContact?.contactMobile) ||
+      trimmedOrUndefined(branchContact?.mobile24h),
+  };
 }
 
 function readParcelRows(value: Prisma.JsonValue): Array<{
@@ -314,6 +400,7 @@ const DETAIL_INCLUDE = {
       imoNumber: true,
       abbreviation: true,
       loa: true,
+      dwt: true,
       grt: true,
       nrt: true,
       flag: { select: { name: true } },
@@ -321,6 +408,7 @@ const DETAIL_INCLUDE = {
   },
   branch: { select: { id: true, name: true, code: true, contactName: true, contactTitle: true } },
   client: { select: { id: true, name: true } },
+  charterer: { select: { id: true, name: true } },
   opPort: { select: { id: true, name: true, abbreviation: true } },
   pier: { select: { id: true, name: true } },
   lastPort: { select: { id: true, name: true, abbreviation: true } },
@@ -356,56 +444,29 @@ export class NominationsService {
 
   async create(dto: NominationCreateInput, userId: string) {
     const { nominationClients: clientRows, ...nominationData } = dto;
+    const normalizedClientRows = clientRows?.map((row) => normalizeClientDirectoryLinks(row));
     return this.prisma.$transaction(async (tx) => {
       // OT nominations may only carry OT-category products (no-op for SN).
       await this.assertParcelsMatchKind(tx, nominationData.kind, nominationData.parcels);
-      if (nominationData.opPortId) {
-        const port = await tx.port.findFirst({
-          where: { id: nominationData.opPortId, branchId: nominationData.branchId },
-          select: { id: true },
-        });
-        if (!port) throw new BadRequestException('Operating port is not assigned to this branch.');
-      }
-      const branchStaff = await tx.user.findMany({
+      const branchStaff = await tx.agent.findMany({
         where: {
           branchId: nominationData.branchId,
-          isActive: true,
           operationalRole: { not: null },
         },
-        orderBy: { displayName: 'asc' },
-        select: { displayName: true, email: true, mobile: true, operationalRole: true },
+        orderBy: { name: 'asc' },
+        select: { name: true, mobile: true, operationalRole: true },
       });
       const branchContact = await tx.branch.findUnique({
         where: { id: nominationData.branchId },
         select: { contactName: true, contactMobile: true, mobile24h: true },
       });
-      const staffNames = (roles: Array<'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT'>) =>
-        branchStaff
-          .filter((user) => user.operationalRole && roles.includes(user.operationalRole))
-          .map((user) => user.displayName?.trim() || user.email)
-          .join('; ');
+      const staff = resolveNominationStaff(branchStaff, branchContact, nominationData);
       const nomination = await tx.nomination.create({
         data: {
           ...(nominationData as unknown as Prisma.NominationUncheckedCreateInput),
-          mic:
-            nominationData.mic?.trim() ||
-            staffNames(['BRANCH_MANAGER', 'SUPERVISOR']) ||
-            branchContact?.contactName ||
-            null,
-          boardingClerk:
-            nominationData.boardingClerk?.trim() || staffNames(['SHIPPING_AGENT']) || null,
-          mobileOnBoard:
-            nominationData.mobileOnBoard?.trim() ||
-            branchStaff.find(
-              (user) =>
-                user.mobile?.trim() &&
-                ['SHIPPING_AGENT', 'BRANCH_MANAGER', 'SUPERVISOR'].includes(
-                  user.operationalRole ?? '',
-                ),
-            )?.mobile ||
-            branchContact?.contactMobile ||
-            branchContact?.mobile24h ||
-            null,
+          mic: staff.mic ?? null,
+          boardingClerk: staff.boardingClerk ?? null,
+          mobileOnBoard: staff.mobileOnBoard ?? null,
           voyageNumber: nominationData.voyageNumber ?? '',
           createdById: userId,
         },
@@ -451,9 +512,9 @@ export class NominationsService {
         userId,
         trigger: 'nomination.created',
       });
-      if (clientRows && clientRows.length > 0) {
+      if (normalizedClientRows && normalizedClientRows.length > 0) {
         await tx.nominationClient.createMany({
-          data: clientRows.map((row, i) => ({
+          data: normalizedClientRows.map((row, i) => ({
             ...row,
             nominationId: nomination.id,
             sortOrder: row.sortOrder ?? i,
@@ -624,44 +685,26 @@ export class NominationsService {
     if (dto.parcels) {
       await this.assertParcelsMatchKind(this.prisma, existing.kind, dto.parcels);
     }
-    const effectiveBranchId = dto.branchId ?? existing.branchId;
-    if (dto.opPortId && effectiveBranchId) {
-      const port = await this.prisma.port.findFirst({
-        where: { id: dto.opPortId, branchId: effectiveBranchId },
-        select: { id: true },
-      });
-      if (!port) throw new BadRequestException('Operating port is not assigned to this branch.');
-    }
     let staffDefaults: { mic?: string; boardingClerk?: string; mobileOnBoard?: string } = {};
     if (dto.branchId && dto.branchId !== existing.branchId) {
-      const branchStaff = await this.prisma.user.findMany({
-        where: { branchId: dto.branchId, isActive: true, operationalRole: { not: null } },
-        orderBy: { displayName: 'asc' },
-        select: { displayName: true, email: true, mobile: true, operationalRole: true },
+      const branchStaff = await this.prisma.agent.findMany({
+        where: { branchId: dto.branchId, operationalRole: { not: null } },
+        orderBy: { name: 'asc' },
+        select: { name: true, mobile: true, operationalRole: true },
       });
       const branchContact = await this.prisma.branch.findUnique({
         where: { id: dto.branchId },
         select: { contactName: true, contactMobile: true, mobile24h: true },
       });
-      const names = (roles: Array<'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT'>) =>
-        branchStaff
-          .filter((user) => user.operationalRole && roles.includes(user.operationalRole))
-          .map((user) => user.displayName?.trim() || user.email)
-          .join('; ');
+      const resolved = resolveNominationStaff(branchStaff, branchContact, dto);
       staffDefaults = {
-        mic: names(['BRANCH_MANAGER', 'SUPERVISOR']) || branchContact?.contactName || undefined,
-        boardingClerk: names(['SHIPPING_AGENT']),
-        mobileOnBoard:
-          branchStaff.find(
-            (user) =>
-              user.mobile?.trim() &&
-              ['SHIPPING_AGENT', 'BRANCH_MANAGER', 'SUPERVISOR'].includes(
-                user.operationalRole ?? '',
-              ),
-          )?.mobile ||
-          branchContact?.contactMobile ||
-          branchContact?.mobile24h ||
-          undefined,
+        ...(!trimmedOrUndefined(dto.mic) && resolved.mic ? { mic: resolved.mic } : {}),
+        ...(!trimmedOrUndefined(dto.boardingClerk) && resolved.boardingClerk
+          ? { boardingClerk: resolved.boardingClerk }
+          : {}),
+        ...(!trimmedOrUndefined(dto.mobileOnBoard) && resolved.mobileOnBoard
+          ? { mobileOnBoard: resolved.mobileOnBoard }
+          : {}),
       };
     }
     try {
@@ -767,16 +810,18 @@ export class NominationsService {
 
   async addClient(nominationId: string, dto: NominationClientCreate) {
     await this.assertNominationExists(nominationId);
+    const normalized = normalizeClientDirectoryLinks(dto);
     return this.prisma.nominationClient.create({
-      data: { ...dto, nominationId },
+      data: { ...normalized, nominationId },
     });
   }
 
   async updateClient(nominationId: string, clientId: string, dto: NominationClientUpdate) {
-    await this.assertClientExists(nominationId, clientId);
+    const existing = await this.assertClientExists(nominationId, clientId);
+    const normalized = normalizeClientDirectoryLinks(dto, existing);
     return this.prisma.nominationClient.update({
       where: { id: clientId },
-      data: dto,
+      data: normalized,
     });
   }
 
@@ -848,6 +893,7 @@ export class NominationsService {
             },
           },
         },
+        charterer: { select: { name: true } },
         shipParticular: {
           select: {
             name: true,
@@ -901,7 +947,11 @@ export class NominationsService {
       nomination.nominationClients.find((row) =>
         patterns.some((pattern) => pattern.test(row.type.trim())),
       );
-    const charterer = rowByType([/charter/i, /fletador/i]);
+    const rosterCharterer = rowByType([/charter/i, /fletador/i]);
+    const selectedChartererName = nomination.charterer?.name.trim();
+    const charterer = selectedChartererName
+      ? { ...rosterCharterer, name: selectedChartererName }
+      : rosterCharterer;
     const operator = rowByType([/operator/i, /operador/i]);
 
     const operationLines = parcels.map((parcel) =>
@@ -2062,14 +2112,22 @@ export class NominationsService {
     }
   }
 
-  private async assertClientExists(nominationId: string, clientId: string): Promise<void> {
+  private async assertClientExists(nominationId: string, clientId: string) {
     const exists = await this.prisma.nominationClient.findFirst({
       where: { id: clientId, nominationId },
-      select: { id: true },
+      select: {
+        id: true,
+        type: true,
+        chartererId: true,
+        ownerId: true,
+        operatorId: true,
+        shipperId: true,
+      },
     });
     if (!exists) {
       throw new NotFoundException(`Client ${clientId} not found on nomination ${nominationId}.`);
     }
+    return exists;
   }
 
   /** Returns the sale's service window so callers can validate partial updates against it. */

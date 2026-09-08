@@ -8,22 +8,31 @@ export class AgentsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  private readonly select = {
+    id: true,
+    name: true,
+    address: true,
+    contactInfo: true,
+    mobile: true,
+    branchId: true,
+    branch: { select: { id: true, name: true, code: true } },
+    operationalRole: true,
+    comments: true,
+  } as const;
+
   async list(query: AgentListQuery) {
-    const { q, limit, cursor } = query;
+    const { q, limit, cursor, branchId, operationalRole } = query;
 
     const items = await this.prisma.agent.findMany({
       take: limit + 1,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-      where: q
-        ? {
-            name: {
-              contains: q,
-              mode: 'insensitive',
-            },
-          }
-        : undefined,
+      where: {
+        ...(q ? { name: { contains: q, mode: 'insensitive' as const } } : {}),
+        ...(branchId ? { branchId } : {}),
+        ...(operationalRole ? { operationalRole } : {}),
+      },
       orderBy: { name: 'asc' },
-      select: { id: true, name: true, address: true, contactInfo: true, comments: true },
+      select: this.select,
     });
 
     const hasMore = items.length > limit;
@@ -37,10 +46,44 @@ export class AgentsService {
     };
   }
 
+  async getNominationConfigurationHealth() {
+    const [total, availableForNominations, partiallyConfigured, unassigned] = await Promise.all([
+      this.prisma.agent.count(),
+      this.prisma.agent.count({
+        where: {
+          branchId: { not: null },
+          operationalRole: { not: null },
+        },
+      }),
+      this.prisma.agent.count({
+        where: {
+          OR: [
+            { branchId: null, operationalRole: { not: null } },
+            { branchId: { not: null }, operationalRole: null },
+          ],
+        },
+      }),
+      this.prisma.agent.count({
+        where: {
+          branchId: null,
+          operationalRole: null,
+        },
+      }),
+    ]);
+
+    return {
+      total,
+      availableForNominations,
+      unavailableForNominations: total - availableForNominations,
+      partiallyConfigured,
+      unassigned,
+    };
+  }
+
   async getById(id: string) {
     const agent = await this.prisma.agent.findUnique({
       where: { id },
-      select: { id: true, name: true, address: true, contactInfo: true, comments: true },
+      select: this.select,
     });
 
     if (!agent) {
@@ -54,7 +97,7 @@ export class AgentsService {
     try {
       return await this.prisma.agent.create({
         data: input,
-        select: { id: true, name: true, address: true, contactInfo: true, comments: true },
+        select: this.select,
       });
     } catch (err: unknown) {
       if (this.isPrismaUniqueViolation(err)) {
@@ -70,7 +113,7 @@ export class AgentsService {
       return await this.prisma.agent.update({
         where: { id },
         data: input,
-        select: { id: true, name: true, address: true, contactInfo: true, comments: true },
+        select: this.select,
       });
     } catch (err: unknown) {
       if (this.isPrismaUniqueViolation(err)) {

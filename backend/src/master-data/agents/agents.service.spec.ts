@@ -18,6 +18,7 @@ const mockAgent = {
 
 const mockPrisma = {
   agent: {
+    count: jest.fn(),
     findMany: jest.fn(),
     findUnique: jest.fn(),
     create: jest.fn(),
@@ -55,6 +56,64 @@ describe('AgentsService', () => {
       expect(result.items).toHaveLength(1);
       expect(result.items[0]?.name).toBe('Port Agent Co.');
       expect(result.hasMore).toBe(false);
+    });
+
+    it('scopes results by branch and operational role before pagination', async () => {
+      mockPrisma.agent.findMany.mockResolvedValue([]);
+
+      await service.list({
+        q: undefined,
+        limit: 50,
+        cursor: undefined,
+        branchId: 'clbranch000000001',
+        operationalRole: 'SHIPPING_AGENT',
+      });
+
+      expect(mockPrisma.agent.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            branchId: 'clbranch000000001',
+            operationalRole: 'SHIPPING_AGENT',
+          },
+        }),
+      );
+    });
+  });
+
+  describe('getNominationConfigurationHealth', () => {
+    it('reports exact availability without inferring branch or role assignments', async () => {
+      mockPrisma.agent.count
+        .mockResolvedValueOnce(12)
+        .mockResolvedValueOnce(3)
+        .mockResolvedValueOnce(2)
+        .mockResolvedValueOnce(7);
+
+      const result = await service.getNominationConfigurationHealth();
+
+      expect(result).toEqual({
+        total: 12,
+        availableForNominations: 3,
+        unavailableForNominations: 9,
+        partiallyConfigured: 2,
+        unassigned: 7,
+      });
+      expect(mockPrisma.agent.count).toHaveBeenNthCalledWith(2, {
+        where: {
+          branchId: { not: null },
+          operationalRole: { not: null },
+        },
+      });
+      expect(mockPrisma.agent.count).toHaveBeenNthCalledWith(3, {
+        where: {
+          OR: [
+            { branchId: null, operationalRole: { not: null } },
+            { branchId: { not: null }, operationalRole: null },
+          ],
+        },
+      });
+      expect(mockPrisma.agent.count).toHaveBeenNthCalledWith(4, {
+        where: { branchId: null, operationalRole: null },
+      });
     });
   });
 
@@ -107,6 +166,28 @@ describe('AgentsService', () => {
       const result = await service.update('agent-cuid-1', { address: '2 New Wharf' });
 
       expect(result.address).toBe('2 New Wharf');
+    });
+
+    it('passes a cleared branch through as null', async () => {
+      mockPrisma.agent.findUnique.mockResolvedValue(mockAgent);
+      mockPrisma.agent.update.mockResolvedValue({ ...mockAgent, branchId: null });
+
+      await service.update('agent-cuid-1', { branchId: null });
+
+      expect(mockPrisma.agent.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { branchId: null } }),
+      );
+    });
+
+    it('passes a cleared mobile through as null', async () => {
+      mockPrisma.agent.findUnique.mockResolvedValue(mockAgent);
+      mockPrisma.agent.update.mockResolvedValue({ ...mockAgent, mobile: null });
+
+      await service.update('agent-cuid-1', { mobile: null });
+
+      expect(mockPrisma.agent.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { mobile: null } }),
+      );
     });
 
     it('throws NotFoundException when agent does not exist', async () => {

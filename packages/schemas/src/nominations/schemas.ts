@@ -51,10 +51,18 @@ export const NominationCreateSchema = z
     // operational party rows in nominationClients.
     clientId: clearableCuid(),
 
+    // Operational charterer. Kept separate from the commercial Client record.
+    chartererId: clearableCuid(),
+
     // Supplementary fields from legacy General Info tab
     nomReply: z.coerce.date().optional(),
     mobileOnBoard: z.string().max(50).optional(),
     referenceNo: z.string().max(100).optional(),
+
+    // Snapshot/override of the vessel's main particulars for this call.
+    sdwt: z.coerce.number().nonnegative().nullable().optional(),
+    grt: z.coerce.number().nonnegative().nullable().optional(),
+    loa: z.coerce.number().nonnegative().nullable().optional(),
 
     contactBlackBerry: z.string().max(255).optional().nullable(),
     blindCopy: z.string().max(255).optional().nullable(),
@@ -246,6 +254,7 @@ export const NominationSchema = z.object({
     imoNumber: z.string().nullable(),
     abbreviation: z.string().nullable(),
     loa: z.coerce.number().nullable().optional(),
+    dwt: z.coerce.number().nullable().optional(),
     grt: z.coerce.number().nullable().optional(),
     nrt: z.coerce.number().nullable().optional(),
     flag: z.object({ name: z.string() }).nullable().optional(),
@@ -258,11 +267,16 @@ export const NominationSchema = z.object({
   // Commercial client — separate from the operational Client List rows
   clientId: cuidFk.nullable(),
   client: z.object({ id: cuidFk, name: z.string() }).nullable(),
+  chartererId: cuidFk.nullable(),
+  charterer: z.object({ id: cuidFk, name: z.string() }).nullable(),
 
   // Supplementary fields from legacy General Info tab
   nomReply: z.coerce.date().nullable(),
   mobileOnBoard: z.string().nullable(),
   referenceNo: z.string().nullable(),
+  sdwt: z.coerce.number().nullable(),
+  grt: z.coerce.number().nullable(),
+  loa: z.coerce.number().nullable(),
 
   contactBlackBerry: z.string().nullable(),
   blindCopy: z.string().nullable(),

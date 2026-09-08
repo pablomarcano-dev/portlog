@@ -32,6 +32,11 @@ export class AgentsController {
     return this.agentsService.search(q ?? '');
   }
 
+  @Get('nomination-configuration-health')
+  getNominationConfigurationHealth() {
+    return this.agentsService.getNominationConfigurationHealth();
+  }
+
   @Get(':id')
   getById(@Param('id') id: string) {
     return this.agentsService.getById(id);

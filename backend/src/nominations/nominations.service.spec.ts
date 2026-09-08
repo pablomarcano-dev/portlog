@@ -17,6 +17,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { AttachmentsService } from '../attachments/attachments.service.js';
 import { EmailTemplateService } from '../email-templates/email-template.service.js';
+import { NominationInstructionsDocxService } from './nomination-instructions-docx.service.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -25,6 +26,8 @@ import { EmailTemplateService } from '../email-templates/email-template.service.
 const NOW = new Date('2026-01-15T12:00:00Z');
 const USER_ID = 'cluser0000000001';
 const NOM_ID = '00000000-0000-0000-0000-000000000001';
+const NOM_CLIENT_ID = '00000000-0000-0000-0000-000000000002';
+const DIRECTORY_ID = 'cms2268fg00cspz6hc0dz4yac';
 
 const mockNomBase = {
   id: NOM_ID,
@@ -152,6 +155,55 @@ function composeNomination(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function nominationInstructionsFixture(overrides: Record<string, unknown> = {}) {
+  return {
+    correlative: 1522,
+    kind: 'SN' as const,
+    voyageNumber: '029',
+    referenceNo: null,
+    subject: 'MV HAKKAISAN nomination',
+    dateNominated: NOW,
+    layDaysFirst: null,
+    layDaysLast: null,
+    etaDate: null,
+    emailTo: [],
+    emailCc: [],
+    emailBcc: [],
+    master: null,
+    mic: null,
+    broker: null,
+    boardingClerk: null,
+    inspector: null,
+    parcels: [],
+    client: {
+      id: 'client-1',
+      name: 'Instructions Client',
+      phone: null,
+      mobile: null,
+      emails: [],
+      billingAddress: null,
+      taxAddress: null,
+      nominationInstructions: 'Follow the standing instructions.',
+      emailGroup: null,
+      contactLinks: [],
+    },
+    charterer: null,
+    shipParticular: {
+      name: 'HAKKAISAN',
+      owner: null,
+      operator: null,
+    },
+    branch: { name: 'José Branch', code: 'JSE', address: null, phone: null },
+    opPort: null,
+    pier: null,
+    lastPort: null,
+    nextPort: null,
+    disPort: null,
+    nominationClients: [],
+    ...overrides,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Prisma mock
 // ---------------------------------------------------------------------------
@@ -168,6 +220,14 @@ const mockPrisma = {
   nominationStatusHistory: {
     create: jest.fn(),
   },
+  nominationClient: {
+    create: jest.fn(),
+    createMany: jest.fn(),
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+  },
   pedr: {
     create: jest.fn(),
     findUnique: jest.fn(),
@@ -180,6 +240,9 @@ const mockPrisma = {
   },
   user: {
     findUnique: jest.fn(),
+    findMany: jest.fn().mockResolvedValue([]),
+  },
+  agent: {
     findMany: jest.fn().mockResolvedValue([]),
   },
   port: { findFirst: jest.fn() },
@@ -210,6 +273,10 @@ const mockEmailTemplateService = {
   render: jest.fn(),
 };
 
+const mockNominationInstructionsDocx = {
+  render: jest.fn().mockReturnValue(Buffer.from('rendered-docx')),
+};
+
 /** The variables handed to the template on the most recent render. */
 function lastTemplateVars(): Record<string, unknown> {
   const calls = mockEmailTemplateService.render.mock.calls as unknown[][];
@@ -235,6 +302,10 @@ describe('NominationsService', () => {
         { provide: EmailService, useValue: mockEmailService },
         { provide: AttachmentsService, useValue: mockAttachmentsService },
         { provide: EmailTemplateService, useValue: mockEmailTemplateService },
+        {
+          provide: NominationInstructionsDocxService,
+          useValue: mockNominationInstructionsDocx,
+        },
       ],
     }).compile();
 
@@ -362,6 +433,83 @@ describe('NominationsService', () => {
 
       expect(mockPrisma.cargo.findMany).not.toHaveBeenCalled();
     });
+
+    it('uses only the first matching branch agent for each missing staff field', async () => {
+      mockPrisma.agent.findMany.mockResolvedValue([
+        { name: 'Alicia Manager', mobile: '+58 111', operationalRole: 'BRANCH_MANAGER' },
+        { name: 'Bruno Supervisor', mobile: '+58 222', operationalRole: 'SUPERVISOR' },
+        { name: 'Carla Boarding', mobile: '+58 333', operationalRole: 'SHIPPING_AGENT' },
+        { name: 'Diego Boarding', mobile: '+58 444', operationalRole: 'SHIPPING_AGENT' },
+      ]);
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (tx: typeof mockPrisma) => Promise<unknown>) => {
+          mockPrisma.nomination.create.mockResolvedValue(mockNomBase);
+          mockPrisma.nominationStatusHistory.create.mockResolvedValue({});
+          mockPrisma.pedr.create.mockResolvedValue({ id: 'clpedr0000000001' });
+          mockPrisma.pedrStageHistory.create.mockResolvedValue({});
+          return fn(mockPrisma);
+        },
+      );
+
+      await service.create(
+        {
+          shipParticularId: 'clship0000000001',
+          branchId: 'clbranch000000001',
+          dateNominated: NOW,
+          nominationType: 'FULL_AGENCY',
+        },
+        USER_ID,
+      );
+
+      expect(mockPrisma.nomination.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            mic: 'Alicia Manager',
+            boardingClerk: 'Carla Boarding',
+            mobileOnBoard: '+58 333',
+          }),
+        }),
+      );
+    });
+
+    it('preserves explicitly selected staff and mobile values on create', async () => {
+      mockPrisma.agent.findMany.mockResolvedValue([
+        { name: 'Default Manager', mobile: '+58 111', operationalRole: 'BRANCH_MANAGER' },
+        { name: 'Default Boarding', mobile: '+58 222', operationalRole: 'SHIPPING_AGENT' },
+      ]);
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (tx: typeof mockPrisma) => Promise<unknown>) => {
+          mockPrisma.nomination.create.mockResolvedValue(mockNomBase);
+          mockPrisma.nominationStatusHistory.create.mockResolvedValue({});
+          mockPrisma.pedr.create.mockResolvedValue({ id: 'clpedr0000000001' });
+          mockPrisma.pedrStageHistory.create.mockResolvedValue({});
+          return fn(mockPrisma);
+        },
+      );
+
+      await service.create(
+        {
+          shipParticularId: 'clship0000000001',
+          branchId: 'clbranch000000001',
+          dateNominated: NOW,
+          nominationType: 'FULL_AGENCY',
+          mic: 'Selected Manager',
+          boardingClerk: 'Selected Boarding Agent',
+          mobileOnBoard: '+58 999',
+        },
+        USER_ID,
+      );
+
+      expect(mockPrisma.nomination.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            mic: 'Selected Manager',
+            boardingClerk: 'Selected Boarding Agent',
+            mobileOnBoard: '+58 999',
+          }),
+        }),
+      );
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -393,10 +541,155 @@ describe('NominationsService', () => {
         NotFoundException,
       );
     });
+
+    it('does not overwrite explicit staff values when the branch changes', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue({
+        id: NOM_ID,
+        status: 'NOMINATED',
+        kind: 'SN',
+        branchId: 'clbranch000000001',
+      });
+      mockPrisma.agent.findMany.mockResolvedValue([
+        { name: 'Default Manager', mobile: '+58 111', operationalRole: 'BRANCH_MANAGER' },
+        { name: 'Default Boarding', mobile: '+58 222', operationalRole: 'SHIPPING_AGENT' },
+      ]);
+      mockPrisma.nomination.update.mockResolvedValue(mockNomBase);
+
+      await service.update(
+        NOM_ID,
+        {
+          branchId: 'clbranch000000002',
+          mic: 'Selected Manager',
+          boardingClerk: 'Selected Boarding Agent',
+          mobileOnBoard: '+58 999',
+        },
+        USER_ID,
+      );
+
+      expect(mockPrisma.nomination.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            mic: 'Selected Manager',
+            boardingClerk: 'Selected Boarding Agent',
+            mobileOnBoard: '+58 999',
+          }),
+        }),
+      );
+    });
+
+    it('defaults blank staff values to one matching agent when the branch changes', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue({
+        id: NOM_ID,
+        status: 'NOMINATED',
+        kind: 'SN',
+        branchId: 'clbranch000000001',
+      });
+      mockPrisma.agent.findMany.mockResolvedValue([
+        { name: 'Alicia Manager', mobile: '+58 111', operationalRole: 'BRANCH_MANAGER' },
+        { name: 'Bruno Supervisor', mobile: '+58 222', operationalRole: 'SUPERVISOR' },
+        { name: 'Carla Boarding', mobile: '+58 333', operationalRole: 'SHIPPING_AGENT' },
+        { name: 'Diego Boarding', mobile: '+58 444', operationalRole: 'SHIPPING_AGENT' },
+      ]);
+      mockPrisma.nomination.update.mockResolvedValue(mockNomBase);
+
+      await service.update(
+        NOM_ID,
+        {
+          branchId: 'clbranch000000002',
+          mic: '   ',
+          boardingClerk: '',
+          mobileOnBoard: ' ',
+        },
+        USER_ID,
+      );
+
+      expect(mockPrisma.nomination.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            mic: 'Alicia Manager',
+            boardingClerk: 'Carla Boarding',
+            mobileOnBoard: '+58 333',
+          }),
+        }),
+      );
+    });
   });
 
   // -------------------------------------------------------------------------
-  // 3. transition — invalid transition throws BadRequest
+  // 3. nomination clients — one compatible directory association per row
+  // -------------------------------------------------------------------------
+  describe('nomination clients', () => {
+    const chartererRow = {
+      id: NOM_CLIENT_ID,
+      type: 'Charterer',
+      chartererId: DIRECTORY_ID,
+      ownerId: null,
+      operatorId: null,
+      shipperId: null,
+    };
+
+    it('rejects an incompatible directory association even when called outside the DTO pipe', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue({ id: NOM_ID });
+
+      await expect(
+        service.addClient(NOM_ID, {
+          type: 'Charterer',
+          name: 'Wrong directory',
+          ownerId: DIRECTORY_ID,
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.nominationClient.create).not.toHaveBeenCalled();
+    });
+
+    it('clears the previous directory association when a known row type changes', async () => {
+      mockPrisma.nominationClient.findFirst.mockResolvedValue(chartererRow);
+      mockPrisma.nominationClient.update.mockResolvedValue({
+        ...chartererRow,
+        type: 'Commercial Operator',
+        chartererId: null,
+      });
+
+      await service.updateClient(NOM_ID, NOM_CLIENT_ID, { type: 'Commercial Operator' });
+
+      expect(mockPrisma.nominationClient.update).toHaveBeenCalledWith({
+        where: { id: NOM_CLIENT_ID },
+        data: {
+          type: 'Commercial Operator',
+          chartererId: null,
+          ownerId: null,
+          shipperId: null,
+        },
+      });
+    });
+
+    it('rejects a partial update whose link conflicts with the stored known type', async () => {
+      mockPrisma.nominationClient.findFirst.mockResolvedValue(chartererRow);
+
+      await expect(
+        service.updateClient(NOM_ID, NOM_CLIENT_ID, { shipperId: DIRECTORY_ID }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.nominationClient.update).not.toHaveBeenCalled();
+    });
+
+    it('does not rewrite directory links on an unrelated edit to an unknown legacy row', async () => {
+      mockPrisma.nominationClient.findFirst.mockResolvedValue({
+        ...chartererRow,
+        type: 'Receivers',
+        ownerId: 'cms2268fg00cspz6hc0dz4yad',
+      });
+      mockPrisma.nominationClient.update.mockResolvedValue({});
+
+      await service.updateClient(NOM_ID, NOM_CLIENT_ID, { name: 'Updated receiver' });
+
+      expect(mockPrisma.nominationClient.update).toHaveBeenCalledWith({
+        where: { id: NOM_CLIENT_ID },
+        data: { name: 'Updated receiver' },
+      });
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 4. transition — invalid transition throws BadRequest
   // -------------------------------------------------------------------------
   describe('transition', () => {
     it('throws BadRequestException for a non-CANCELLED target (status is derived)', async () => {
@@ -457,6 +750,66 @@ describe('NominationsService', () => {
   describe('delete', () => {
     it('throws MethodNotAllowedException', () => {
       expect(() => service.delete()).toThrow(MethodNotAllowedException);
+    });
+  });
+
+  describe('generateNominationInstructions — charterer source', () => {
+    it('uses the charterer selected on the nomination instead of the legacy roster row', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        nominationInstructionsFixture({
+          charterer: { name: 'Selected Charterer S.A.' },
+          nominationClients: [
+            {
+              type: 'Charterer',
+              name: 'Legacy Roster Charterer Ltd.',
+              voyageRef: null,
+              referenceNo: 'LEGACY-REF',
+              proforma: 'LEGACY-PROFORMA',
+            },
+          ],
+        }),
+      );
+
+      await service.generateNominationInstructions(NOM_ID);
+
+      expect(mockPrisma.nomination.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: expect.objectContaining({ charterer: { select: { name: true } } }),
+        }),
+      );
+      expect(mockNominationInstructionsDocx.render).toHaveBeenCalledWith(
+        expect.objectContaining({
+          charterer: 'Selected Charterer S.A.',
+          commercialOperator:
+            'Selected Charterer S.A.\nReference: LEGACY-REF\nProforma: LEGACY-PROFORMA',
+        }),
+      );
+    });
+
+    it('falls back to the legacy charterer roster row when no charterer is selected', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        nominationInstructionsFixture({
+          nominationClients: [
+            {
+              type: 'Charterer',
+              name: 'Legacy Roster Charterer Ltd.',
+              voyageRef: null,
+              referenceNo: 'LEGACY-REF',
+              proforma: 'LEGACY-PROFORMA',
+            },
+          ],
+        }),
+      );
+
+      await service.generateNominationInstructions(NOM_ID);
+
+      expect(mockNominationInstructionsDocx.render).toHaveBeenCalledWith(
+        expect.objectContaining({
+          charterer: 'Legacy Roster Charterer Ltd.',
+          commercialOperator:
+            'Legacy Roster Charterer Ltd.\nReference: LEGACY-REF\nProforma: LEGACY-PROFORMA',
+        }),
+      );
     });
   });
 
