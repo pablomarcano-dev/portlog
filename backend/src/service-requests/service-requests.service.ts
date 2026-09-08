@@ -139,48 +139,54 @@ export class ServiceRequestsService {
     });
     if (!user?.branchId) return [];
 
-    const search = q.trim();
-    const digits = search.match(/\d+/)?.[0];
-    const correlative = digits ? Number.parseInt(digits, 10) : null;
+    const search = q.trim().toLocaleLowerCase();
     const rows = await this.prisma.nomination.findMany({
       where: {
         branchId: user.branchId,
         status: { not: 'CANCELLED' },
-        ...(search && {
-          OR: [
-            { shipParticular: { name: { contains: search, mode: 'insensitive' } } },
-            { voyageNumber: { contains: search, mode: 'insensitive' } },
-            ...(correlative != null && Number.isSafeInteger(correlative) ? [{ correlative }] : []),
-          ],
-        }),
       },
       select: {
         id: true,
         kind: true,
         correlative: true,
         dateNominated: true,
+        voyageNumber: true,
         shipParticularId: true,
         shipParticular: { select: { name: true } },
         branchId: true,
         branch: { select: { name: true } },
       },
       orderBy: { createdAt: 'desc' },
-      take: 100,
+      // Search the formatted reference before limiting results; otherwise a
+      // matching older nomination can disappear behind the first 100 rows.
+      ...(!search && { take: 100 }),
     });
 
-    return rows.map((row) => {
-      const yy = String(row.dateNominated.getFullYear()).slice(-2);
-      const reference = `${row.kind}-${yy}/${String(row.correlative).padStart(4, '0')}`;
-      return {
-        id: row.id,
-        label: `${reference} · ${row.shipParticular.name}`,
-        reference,
-        shipParticularId: row.shipParticularId,
-        vesselName: row.shipParticular.name,
-        branchId: row.branchId ?? user.branchId,
-        branchName: row.branch?.name ?? '',
-      };
-    });
+    return rows
+      .flatMap((row) => {
+        const yy = String(row.dateNominated.getFullYear()).slice(-2);
+        const reference = `${row.kind}-${yy}/${String(row.correlative).padStart(4, '0')}`;
+        const label = `${reference} · ${row.shipParticular.name}`;
+        if (
+          search &&
+          !label.toLocaleLowerCase().includes(search) &&
+          !row.voyageNumber?.toLocaleLowerCase().includes(search)
+        ) {
+          return [];
+        }
+        return [
+          {
+            id: row.id,
+            label,
+            reference,
+            shipParticularId: row.shipParticularId,
+            vesselName: row.shipParticular.name,
+            branchId: row.branchId ?? user.branchId,
+            branchName: row.branch?.name ?? '',
+          },
+        ];
+      })
+      .slice(0, 100);
   }
 
   async update(id: string, dto: ServiceRequestUpdate): Promise<ServiceRequestRead> {

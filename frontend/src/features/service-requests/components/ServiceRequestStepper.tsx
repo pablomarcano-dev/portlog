@@ -205,6 +205,7 @@ export function ServiceRequestStepper({
                           placeholder="Search or select an SN, OT or vessel"
                           required
                           searchable
+                          filter={({ options }) => options}
                           clearable
                           searchValue={nominationSearch}
                           onSearchChange={setNominationSearch}

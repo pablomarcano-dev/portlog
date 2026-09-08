@@ -257,15 +257,55 @@ describe('ServiceRequestsService', () => {
   });
 
   describe('nominationOptions', () => {
-    it('limits selectable SN/OT records to the signed-in user branch', async () => {
+    const optionRow = (kind = 'SN', correlative = 1234) => ({
+      id: `${kind}-${correlative}`,
+      kind,
+      correlative,
+      dateNominated: new Date('2026-06-01T12:00:00Z'),
+      voyageNumber: 'TRIP-ALPHA-99',
+      shipParticularId: 'vessel-1',
+      shipParticular: { name: 'Nordic Pearl' },
+      branchId: 'branch-1',
+      branch: { name: 'Branch One' },
+    });
+
+    it.each(['SN', 'sn-26/', '26/12', '123', '234', 'SN-26/1234', 'nordic', 'PEAR', 'alpha'])(
+      'finds SN by partial reference, vessel or voyage: %s',
+      async (query) => {
+        prisma.user.findUnique.mockResolvedValue({ branchId: 'branch-1' });
+        prisma.nomination.findMany.mockResolvedValue([optionRow()]);
+        const result = await service.nominationOptions('user-1', query);
+        expect(result.map((item) => item.reference)).toEqual(['SN-26/1234']);
+      },
+    );
+
+    it.each(['OT', 'ot-26/', '26/12', '123', '234'])(
+      'finds OT by partial reference: %s',
+      async (query) => {
+        prisma.user.findUnique.mockResolvedValue({ branchId: 'branch-1' });
+        prisma.nomination.findMany.mockResolvedValue([optionRow('OT')]);
+        expect(await service.nominationOptions('user-1', query)).toHaveLength(1);
+      },
+    );
+
+    it('filters before limiting and does not return unrelated references', async () => {
+      prisma.user.findUnique.mockResolvedValue({ branchId: 'branch-1' });
+      prisma.nomination.findMany.mockResolvedValue([
+        ...Array.from({ length: 100 }, (_, i) => optionRow('OT', i + 1)),
+        optionRow('SN', 1234),
+      ]);
+      expect(
+        (await service.nominationOptions('user-1', 'SN-26/12')).map((item) => item.id),
+      ).toEqual(['SN-1234']);
+    });
+
+    it('limits selectable records to the signed-in user branch and excludes cancelled records', async () => {
       prisma.user.findUnique.mockResolvedValue({ branchId: 'branch-1' });
       prisma.nomination.findMany.mockResolvedValue([]);
-
       await service.nominationOptions('user-1', 'Nordic');
-
       expect(prisma.nomination.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ branchId: 'branch-1', status: { not: 'CANCELLED' } }),
+          where: { branchId: 'branch-1', status: { not: 'CANCELLED' } },
         }),
       );
     });
