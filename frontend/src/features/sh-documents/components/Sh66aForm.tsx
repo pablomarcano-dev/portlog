@@ -10,7 +10,7 @@ import {
   Textarea,
   TextInput,
 } from '@mantine/core';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { Controller, useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { SHDocumentDto } from '@portlog/schemas';
@@ -25,6 +25,7 @@ import { ShDocStatusBadge } from './ShDocStatusBadge';
 import { SendShDocumentDrawer } from './SendShDocumentDrawer';
 import { useColumnResize } from '../../../components/table/useColumnResize';
 import { ResizableTh } from '../../../components/table/ResizableTh';
+import { TimeInput24 } from '../../../components/inputs/TimeInput24';
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -252,21 +253,37 @@ export function Sh66aForm({ nominationId, doc, isLoading }: Sh66aFormProps) {
                       />
                     </Table.Td>
                     <Table.Td style={{ width: colWidths.from }}>
-                      <TextInput
-                        size="xs"
-                        placeholder="08:00"
-                        disabled={isDisabled}
-                        {...register(`rows.${idx}.from`)}
-                        error={errors.rows?.[idx]?.from?.message}
+                      <Controller
+                        name={`rows.${idx}.from`}
+                        control={control}
+                        render={({ field: timeField }) => (
+                          <TimeInput24
+                            size="xs"
+                            placeholder="08:00"
+                            disabled={isDisabled}
+                            value={timeField.value}
+                            onChange={timeField.onChange}
+                            onBlur={timeField.onBlur}
+                            error={errors.rows?.[idx]?.from?.message}
+                          />
+                        )}
                       />
                     </Table.Td>
                     <Table.Td style={{ width: colWidths.to }}>
-                      <TextInput
-                        size="xs"
-                        placeholder="10:00"
-                        disabled={isDisabled}
-                        {...register(`rows.${idx}.to`)}
-                        error={errors.rows?.[idx]?.to?.message}
+                      <Controller
+                        name={`rows.${idx}.to`}
+                        control={control}
+                        render={({ field: timeField }) => (
+                          <TimeInput24
+                            size="xs"
+                            placeholder="10:00"
+                            disabled={isDisabled}
+                            value={timeField.value}
+                            onChange={timeField.onChange}
+                            onBlur={timeField.onBlur}
+                            error={errors.rows?.[idx]?.to?.message}
+                          />
+                        )}
                       />
                     </Table.Td>
                     <Table.Td style={{ width: colWidths.activity }}>

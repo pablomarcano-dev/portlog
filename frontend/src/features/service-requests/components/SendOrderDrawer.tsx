@@ -17,6 +17,7 @@ import {
   type ServiceRequestRead,
 } from '@portlog/schemas';
 import { EmailChipsInput } from '../../../components/master-data/EmailChipsInput';
+import { EmailGroupPicker } from '../../../components/master-data/EmailGroupPicker';
 import { EmailAttachmentsField } from '../../../components/master-data/EmailAttachmentsField';
 import { formatDateTime } from '../../../lib/format/datetime';
 import { useSendServiceRequestOrder } from '../hooks';
@@ -168,6 +169,24 @@ export function SendOrderDrawer({ opened, onClose, request }: Props) {
           }
         />
         <EmailChipsInput label="CC" value={cc} onChange={setCc} />
+
+        <EmailGroupPicker
+          nominationId={request.nominationId ?? undefined}
+          targets={[
+            {
+              key: 'to',
+              label: 'To',
+              value: to,
+              onChange: setTo,
+            },
+            {
+              key: 'cc',
+              label: 'CC',
+              value: cc,
+              onChange: setCc,
+            },
+          ]}
+        />
 
         <TextInput
           label="Subject"

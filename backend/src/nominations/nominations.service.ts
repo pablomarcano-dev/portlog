@@ -13,6 +13,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { AttachmentsService } from '../attachments/attachments.service.js';
+import { appendBranchCc, dedupeEmails } from '../email/email-address.util.js';
 import { EmailTemplateService } from '../email-templates/email-template.service.js';
 import { NominationInstructionsDocxService } from './nomination-instructions-docx.service.js';
 import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
@@ -306,19 +307,7 @@ export function alignFigureColumn(values: string[]): string[] {
  * address is routinely registered with different casing in two places. The first
  * spelling seen is the one kept.
  */
-export function dedupeEmails(addresses: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const raw of addresses) {
-    const address = raw.trim();
-    if (address === '') continue;
-    const key = address.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(address);
-  }
-  return out;
-}
+export { dedupeEmails } from '../email/email-address.util.js';
 
 // Fetches the sent PREARRIVAL / SOF dispatches used to derive the operational
 // status (IN_PORT / FULL_AWAY). Merged into DETAIL_INCLUDE and LIST_INCLUDE.
@@ -1739,9 +1728,8 @@ export class NominationsService {
     //     resolveShipper refuses to. Owner has no address column at all, so its
     //     registered contacts are the only way to reach it.
     //
-    // In both cases the agency's internal copies are added deliberately, since
-    // the notice has left the client's list: the branch handling the call is
-    // copied and head office is blind-copied.
+    // Every address configured on the branch handling the call is copied on
+    // every nomination message.
     //
     // If nothing is registered there is nothing to address it to, so it falls
     // back to the nomination's list rather than opening with an empty To that
@@ -1752,8 +1740,18 @@ export class NominationsService {
     let bccAddresses = nomination.emailBcc;
 
     const action = actionType.toUpperCase();
+    const isPrearrival = action === 'PREARRIVAL';
     const isTerminalAddressed = TERMINAL_ADDRESSED_ACTIONS.has(action);
     const isMasterAddressed = MASTER_ADDRESSED_ACTIONS.has(action);
+
+    if (isPrearrival) {
+      // The pre-arrival notice is addressed to the nomination's client list,
+      // but the vessel's captain must receive a copy as well. ShipParticular
+      // emails are the vessel/bridge inboxes used for the master-addressed ETA
+      // correspondence above, so append them without replacing the client's
+      // existing Cc list.
+      ccAddresses = dedupeEmails([...ccAddresses, ...(nomination.shipParticular?.emails ?? [])]);
+    }
 
     if (isTerminalAddressed) {
       const contacts = nomination.opPort?.terminalContacts ?? [];
@@ -1775,6 +1773,14 @@ export class NominationsService {
       if (terminalBcc.length > 0) bccAddresses = dedupeEmails(terminalBcc);
     }
 
+    if (action === 'ETA_TERMINAL') {
+      // Keep the terminal's registered addresses in To (the established
+      // terminal-delivery rule), and also copy the operating-port distribution
+      // list on ETA forwards. Append rather than replace so manually configured
+      // nomination and terminal-contact Cc recipients remain intact.
+      ccAddresses = dedupeEmails([...ccAddresses, ...(nomination.opPort?.emails ?? [])]);
+    }
+
     if (isMasterAddressed) {
       const vessel = nomination.shipParticular;
       const vesselEmails = dedupeEmails(vessel?.emails ?? []);
@@ -1791,18 +1797,11 @@ export class NominationsService {
       if (ownerOperatorEmails.length > 0) ccAddresses = ownerOperatorEmails;
     }
 
-    if (isTerminalAddressed || isMasterAddressed) {
-      // With the notice addressed outside the client's list, the agency's own
-      // copies have to be added deliberately: the branch handling the call is
-      // copied, and head office is blind-copied so the recipients do not see the
-      // agency's internal oversight list. Both are appended to whatever the
-      // notice already carries rather than replacing it.
-      const branchEmails = branch?.emails ?? [];
-      const centralEmails = branch?.centralEmails ?? [];
-      if (branchEmails.length > 0) ccAddresses = dedupeEmails([...ccAddresses, ...branchEmails]);
-      if (centralEmails.length > 0)
-        bccAddresses = dedupeEmails([...bccAddresses, ...centralEmails]);
-    }
+    // Do this after the action-specific recipient rules because terminal- and
+    // master-addressed notices may replace the nomination's original Cc list.
+    // `emails`, `contactEmails`, and `centralEmails` are the three address lists
+    // exposed by the branch UI; all of them belong in Cc on every message.
+    ccAddresses = appendBranchCc(ccAddresses, branch);
 
     return {
       subject,
@@ -2134,9 +2133,18 @@ export class NominationsService {
   ): Promise<void> {
     const pedr = await this.prisma.pedr.findUnique({
       where: { nominationId },
-      select: { id: true },
+      select: {
+        id: true,
+        nomination: {
+          select: {
+            branch: { select: { emails: true, contactEmails: true, centralEmails: true } },
+          },
+        },
+      },
     });
     if (!pedr) throw new NotFoundException(`No PEDR found for nomination ${nominationId}.`);
+
+    const ccAddresses = appendBranchCc(body.ccAddresses, pedr.nomination?.branch);
 
     // Resolve user-uploaded attachments up front (fails fast on bad id / oversize).
     const userAttachments = await this.attachmentsService.resolveForSend(body.attachmentIds ?? []);
@@ -2151,7 +2159,7 @@ export class NominationsService {
         pedrId: pedr.id,
         subDocType: body.subDocType,
         toAddresses: body.toAddresses,
-        ccAddresses: body.ccAddresses,
+        ccAddresses,
         bccAddresses: body.bccAddresses,
         subject: body.subject,
         bodyHtml,
@@ -2161,7 +2169,7 @@ export class NominationsService {
 
     await this.emailService.send({
       to: body.toAddresses,
-      cc: body.ccAddresses,
+      cc: ccAddresses,
       bcc: body.bccAddresses,
       subject: body.subject,
       html: bodyHtml,

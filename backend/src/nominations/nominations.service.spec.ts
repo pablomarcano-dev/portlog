@@ -1061,6 +1061,48 @@ describe('NominationsService', () => {
       expect(created.data.bodyHtml).toBe(html);
     });
 
+    it('enforces every branch email list at send time', async () => {
+      mockPrisma.pedr.findUnique.mockResolvedValue({
+        id: 'pedr-1',
+        nomination: {
+          branch: {
+            emails: ['branch@example.com'],
+            contactEmails: ['manager@example.com'],
+            centralEmails: ['HQ@example.com', 'existing@example.com'],
+          },
+        },
+      });
+
+      await service.sendEmail(
+        'nom-1',
+        { ...input(BODY), ccAddresses: ['existing@example.com'] },
+        'user-1',
+      );
+
+      expect(mockEmailService.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cc: [
+            'existing@example.com',
+            'branch@example.com',
+            'manager@example.com',
+            'HQ@example.com',
+          ],
+        }),
+      );
+      expect(mockPrisma.emailDispatch.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            ccAddresses: [
+              'existing@example.com',
+              'branch@example.com',
+              'manager@example.com',
+              'HQ@example.com',
+            ],
+          }),
+        }),
+      );
+    });
+
     it('leaves an already-wrapped body alone, so a re-send is not double-wrapped', async () => {
       const alreadyWrapped = '<pre style="font-family:monospace">Ref: MT Maran Leo</pre>';
 
@@ -1077,9 +1119,8 @@ describe('NominationsService', () => {
   // Every notice defaults to the nomination's own list, which is the client's.
   // "ETA — Send to Terminal" and the NOR are the exceptions: both go to the
   // shipper and the terminal. They were going to the client until 2 Aug 2026,
-  // because compose returned nomination.emailTo for every type. Addressed
-  // outside the client's list, they carry the agency's own copies explicitly —
-  // branch on Cc, head office on Bcc.
+  // because compose returned nomination.emailTo for every type. Every action
+  // copies every address configured on the branch.
   // -------------------------------------------------------------------------
   describe('getComposeData — recipients', () => {
     beforeEach(() => {
@@ -1098,7 +1139,41 @@ describe('NominationsService', () => {
       const data = await service.getComposeData(NOM_ID, 'ETA_TERMINAL', 'agent@navieramar.com');
 
       expect(data.toAddresses).toEqual([...TERMINAL_EMAILS, ...SHIPPER_EMAILS]);
-      // The agency's internal copies apply to this notice too.
+      // The operating port's distribution list is also copied on ETA forwards.
+      expect(data.ccAddresses).toEqual(['ops@navieramar.com', ...TERMINAL_EMAILS]);
+    });
+
+    it('appends operating-port emails to ETA terminal Cc without case duplicates', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          emailCc: ['ops@navieramar.com', 'OPS@TAECJAA.COM'],
+          opPort: {
+            name: 'PDVSA TAECJAA OFF-SHORE PLATFORM, JOSE',
+            emails: ['ops@taecjaa.com', 'loadingmaster@taecjaa.com'],
+          },
+        }),
+      );
+
+      const data = await service.getComposeData(NOM_ID, 'ETA_TERMINAL', 'agent@navieramar.com');
+
+      expect(data.toAddresses).toEqual([
+        'ops@taecjaa.com',
+        'loadingmaster@taecjaa.com',
+        ...SHIPPER_EMAILS,
+      ]);
+      expect(data.ccAddresses).toEqual([
+        'ops@navieramar.com',
+        'OPS@TAECJAA.COM',
+        'loadingmaster@taecjaa.com',
+      ]);
+    });
+
+    it('does not copy operating-port emails on the NOR', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(composeNomination());
+
+      const data = await service.getComposeData(NOM_ID, 'NOR', 'agent@navieramar.com');
+
+      expect(data.toAddresses).toEqual([...TERMINAL_EMAILS, ...SHIPPER_EMAILS]);
       expect(data.ccAddresses).toEqual(['ops@navieramar.com']);
     });
 
@@ -1194,12 +1269,14 @@ describe('NominationsService', () => {
       expect(data.toAddresses).not.toContain('charterer@ril.com');
     });
 
-    it('copies the branch and blind-copies head office on the NOR', async () => {
+    it('copies every branch email list on the terminal-addressed NOR', async () => {
       mockPrisma.nomination.findUnique.mockResolvedValue(
         composeNomination({
+          emailBcc: ['private@navieramar.com'],
           branch: {
             ...BRANCH_FIXTURE,
             emails: ['jse@navieramar.com'],
+            contactEmails: ['manager@navieramar.com'],
             centralEmails: ['supervision@navieramar.com'],
           },
         }),
@@ -1207,27 +1284,72 @@ describe('NominationsService', () => {
 
       const data = await service.getComposeData(NOM_ID, 'NOR', 'agent@navieramar.com');
 
-      // Appended to the nomination's own Cc, not swapped for it.
-      expect(data.ccAddresses).toEqual(['ops@navieramar.com', 'jse@navieramar.com']);
-      // Bcc, so the terminal and the shipper never see the oversight list.
-      expect(data.bccAddresses).toEqual(['supervision@navieramar.com']);
+      expect(data.ccAddresses).toEqual([
+        'ops@navieramar.com',
+        'jse@navieramar.com',
+        'manager@navieramar.com',
+        'supervision@navieramar.com',
+      ]);
+      expect(data.bccAddresses).toEqual(['private@navieramar.com']);
     });
 
-    it('leaves the client-addressed notices without the branch copies', async () => {
+    it('copies every branch email list on ordinary client-addressed notices', async () => {
       mockPrisma.nomination.findUnique.mockResolvedValue(
         composeNomination({
           branch: {
             ...BRANCH_FIXTURE,
             emails: ['jse@navieramar.com'],
-            centralEmails: ['supervision@navieramar.com'],
+            contactEmails: ['manager@navieramar.com'],
+            centralEmails: ['supervision@navieramar.com', 'JSE@NAVIERAMAR.COM'],
           },
         }),
       );
 
       const data = await service.getComposeData(NOM_ID, 'PREARRIVAL', 'agent@navieramar.com');
 
-      expect(data.ccAddresses).toEqual(['ops@navieramar.com']);
+      expect(data.ccAddresses).toEqual([
+        'ops@navieramar.com',
+        'jse@navieramar.com',
+        'manager@navieramar.com',
+        'supervision@navieramar.com',
+      ]);
       expect(data.bccAddresses).toEqual([]);
+    });
+
+    it('deduplicates branch addresses already on a client-addressed notice', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          emailCc: ['ops@navieramar.com', 'JSE@NAVIERAMAR.COM'],
+          branch: {
+            ...BRANCH_FIXTURE,
+            emails: ['jse@navieramar.com', 'agency@navieramar.com'],
+          },
+        }),
+      );
+
+      const data = await service.getComposeData(NOM_ID, 'ACKNOWLEDGEMENT', 'agent@navieramar.com');
+
+      expect(data.ccAddresses).toEqual([
+        'ops@navieramar.com',
+        'JSE@NAVIERAMAR.COM',
+        'agency@navieramar.com',
+      ]);
+    });
+
+    it("copies the vessel's captain on the pre-arrival notice", async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          shipParticular: {
+            name: 'HAKKAISAN',
+            emails: ['master@hakkaisan.sat', 'OPS@NAVIERAMAR.COM'],
+          },
+        }),
+      );
+
+      const data = await service.getComposeData(NOM_ID, 'PREARRIVAL', 'agent@navieramar.com');
+
+      expect(data.toAddresses).toEqual(['charterer@ril.com']);
+      expect(data.ccAddresses).toEqual(['ops@navieramar.com', 'master@hakkaisan.sat']);
     });
 
     it('adds nothing when the branch has no addresses registered', async () => {
@@ -1559,13 +1681,14 @@ describe('NominationsService', () => {
       expect(data.ccAddresses).toEqual(['ops@navieramar.com']);
     });
 
-    it('copies the branch and blind-copies head office, as on the terminal notices', async () => {
+    it('copies every branch email list on master-addressed notices', async () => {
       mockPrisma.nomination.findUnique.mockResolvedValue(
         composeNomination({
           shipParticular: VESSEL,
           branch: {
             ...BRANCH_FIXTURE,
             emails: ['jse@navieramar.com'],
+            contactEmails: ['manager@navieramar.com'],
             centralEmails: ['supervision@navieramar.com'],
           },
         }),
@@ -1573,8 +1696,36 @@ describe('NominationsService', () => {
 
       const data = await service.getComposeData(NOM_ID, 'ETA_REPLY', 'agent@navieramar.com');
 
-      expect(data.ccAddresses).toContain('jse@navieramar.com');
-      expect(data.bccAddresses).toEqual(['supervision@navieramar.com']);
+      expect(data.ccAddresses).toEqual([
+        'ops@molgsm.sg',
+        'duty@molgsm.sg',
+        'chartering@mol.co.jp',
+        'jse@navieramar.com',
+        'manager@navieramar.com',
+        'supervision@navieramar.com',
+      ]);
+      expect(data.bccAddresses).toEqual([]);
+    });
+
+    it('deduplicates the branch when a master-addressed rule already copied it', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          shipParticular: {
+            ...VESSEL,
+            operator: {
+              ...VESSEL.operator,
+              emails: ['ops@molgsm.sg', 'JSE@NAVIERAMAR.COM'],
+            },
+          },
+          branch: { ...BRANCH_FIXTURE, emails: ['jse@navieramar.com'] },
+        }),
+      );
+
+      const data = await service.getComposeData(NOM_ID, 'ETA_REQUEST', 'agent@navieramar.com');
+
+      expect(
+        data.ccAddresses.filter((email) => email.toLowerCase() === 'jse@navieramar.com'),
+      ).toHaveLength(1);
     });
 
     it('leaves the notice to the terminal on the terminal addressing', async () => {

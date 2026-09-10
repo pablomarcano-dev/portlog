@@ -29,6 +29,7 @@ import { StorageService } from '../storage/storage.service.js';
 import { EmailService } from '../email/email.service.js';
 import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
 import { AttachmentsService } from '../attachments/attachments.service.js';
+import { appendBranchCc } from '../email/email-address.util.js';
 import { buildOrderContext } from './order-context.js';
 
 /**
@@ -37,7 +38,16 @@ import { buildOrderContext } from './order-context.js';
  */
 const DETAIL_INCLUDE = {
   shipParticular: { select: { id: true, name: true, imoNumber: true } },
-  branch: { select: { id: true, name: true, code: true } },
+  branch: {
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      emails: true,
+      contactEmails: true,
+      centralEmails: true,
+    },
+  },
   supplier: { select: { id: true, name: true, emails: true } },
   port: { select: { id: true, name: true } },
   pier: { select: { id: true, name: true } },
@@ -486,13 +496,14 @@ export class ServiceRequestsService {
     const requestDocuments = await this.attachments.resolveServiceRequestDocuments(id);
 
     const bodyHtml = dto.bodyText ? wrapPlainTextEmailBody(dto.bodyText) : null;
+    const ccAddresses = appendBranchCc(dto.ccAddresses, request.branch);
 
     const { dispatch } = await this.prisma.$transaction(async (tx) => {
       const dispatch = await tx.serviceRequestDispatch.create({
         data: {
           serviceRequestId: id,
           toAddresses: dto.toAddresses,
-          ccAddresses: dto.ccAddresses,
+          ccAddresses,
           bccAddresses: dto.bccAddresses,
           subject,
           bodyHtml,
@@ -531,7 +542,7 @@ export class ServiceRequestsService {
     try {
       await this.email.send({
         to: dto.toAddresses,
-        cc: dto.ccAddresses,
+        cc: ccAddresses,
         bcc: dto.bccAddresses,
         subject,
         html: bodyHtml ?? '',
@@ -631,7 +642,7 @@ export class ServiceRequestsService {
       shipParticularId: row.shipParticularId,
       shipParticular: row.shipParticular,
       branchId: row.branchId,
-      branch: row.branch,
+      branch: { id: row.branch.id, name: row.branch.name, code: row.branch.code },
       nominationId: row.nominationId,
       supplierId: row.supplierId,
       supplier: row.supplier,
