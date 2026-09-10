@@ -10,6 +10,7 @@ import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
 import { PdfService } from '../pdf/pdf.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { AttachmentsService } from '../attachments/attachments.service.js';
+import { appendBranchCc } from '../email/email-address.util.js';
 import {
   calculateSofOperations,
   resolveSofCargoInputs,
@@ -23,6 +24,7 @@ import type { PedrSubDocumentType } from '@portlog/schemas';
 // Full nomination include needed to build PDF template data
 const NOMINATION_INCLUDE = {
   shipParticular: { select: { id: true, name: true, imoNumber: true } },
+  branch: { select: { emails: true, contactEmails: true, centralEmails: true } },
   opPort: { select: { id: true, name: true, abbreviation: true } },
   pier: { select: { id: true, name: true } },
   lastPort: { select: { id: true, name: true } },
@@ -78,6 +80,7 @@ export class DispatchService {
     }
 
     const { nomination } = pedr;
+    const resolvedCcAddresses = appendBranchCc(ccAddresses, nomination.branch);
 
     // Resolve a client name from the nomination's roster by its Type row
     // (case-insensitive). Returns '' when the type isn't present or is unfilled.
@@ -294,7 +297,7 @@ export class DispatchService {
         pedrId,
         subDocType,
         toAddresses,
-        ccAddresses: ccAddresses ?? [],
+        ccAddresses: resolvedCcAddresses,
         bccAddresses: bccAddresses ?? [],
         subject,
         bodyHtml: bodyText ? emailBody : null,
@@ -307,7 +310,7 @@ export class DispatchService {
     try {
       await this.emailService.send({
         to: toAddresses,
-        cc: ccAddresses,
+        cc: resolvedCcAddresses,
         bcc: bccAddresses,
         subject,
         html: emailBody,

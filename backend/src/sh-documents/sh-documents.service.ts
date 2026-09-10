@@ -12,6 +12,7 @@ import { StorageService } from '../storage/storage.service.js';
 import { EmailService } from '../email/email.service.js';
 import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
 import { AttachmentsService } from '../attachments/attachments.service.js';
+import { appendBranchCc } from '../email/email-address.util.js';
 import {
   type CreateSHDocumentInput,
   type UpdateSHDocumentInput,
@@ -199,9 +200,13 @@ export class SHDocumentsService {
     // --- Build default subject from nomination ---
     const nomination = await this.prisma.nomination.findUnique({
       where: { id: nominationId },
-      select: { correlative: true },
+      select: {
+        correlative: true,
+        branch: { select: { emails: true, contactEmails: true, centralEmails: true } },
+      },
     });
     const subject = dto.subject ?? `${doc.type} — ${nomination?.correlative ?? nominationId}`;
+    const ccAddresses = appendBranchCc(dto.ccAddresses, nomination?.branch);
 
     // Resolve user-uploaded attachments up front so a bad id / oversize aborts
     // before we flip the document to SENT.
@@ -221,7 +226,7 @@ export class SHDocumentsService {
         data: {
           shDocumentId: shId,
           toAddresses: dto.toAddresses,
-          ccAddresses: dto.ccAddresses ?? [],
+          ccAddresses,
           subject,
           bodyHtml,
           pdfStorageKey: doc.minioKey!,
@@ -256,7 +261,7 @@ export class SHDocumentsService {
     try {
       await this.email.send({
         to: dto.toAddresses,
-        cc: dto.ccAddresses ?? [],
+        cc: ccAddresses,
         subject,
         html: bodyHtml ?? '',
         attachments: [

@@ -5,7 +5,6 @@ import {
   Text,
   Button,
   Group,
-  TextInput,
   NumberInput,
   Select,
   Divider,
@@ -30,6 +29,7 @@ import { formatEtc, parseEtc, toEtcParts } from '../parcelEtc';
 import { cargoFigureLine, cargoUpdateSubject } from '../noticeText';
 import { EmailComposeDrawer } from './EmailComposeDrawer';
 import { CargoNamePicker } from './CargoNamePicker';
+import { TimeInput24 } from '../../../components/inputs/TimeInput24';
 
 const OPERATION_OPTIONS = [
   { value: 'Load', label: 'Load' },
@@ -348,12 +348,12 @@ export function CargoUpdateModal({
                 onChange={setDateUpdate}
                 style={{ width: 150 }}
               />
-              <TextInput
+              <TimeInput24
                 label="Time"
                 size="sm"
                 placeholder="HH:MM"
                 value={timeUpdate}
-                onChange={(e) => setTimeUpdate(e.currentTarget.value)}
+                onChange={setTimeUpdate}
                 style={{ width: 80 }}
               />
             </Group>
@@ -368,12 +368,12 @@ export function CargoUpdateModal({
                 onChange={setDateEtd}
                 style={{ width: 150 }}
               />
-              <TextInput
+              <TimeInput24
                 label="Time"
                 size="sm"
                 placeholder="HH:MM"
                 value={timeEtd}
-                onChange={(e) => setTimeEtd(e.currentTarget.value)}
+                onChange={setTimeEtd}
                 style={{ width: 80 }}
               />
             </Group>

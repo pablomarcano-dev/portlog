@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type DragEvent } from 'react';
 import {
   Alert,
   Button,
@@ -68,6 +68,7 @@ export function EmailAttachmentsField({
   // Metadata for uploaded items, keyed by id. Kept in sync with `value`.
   const [items, setItems] = useState<UploadedItem[]>([]);
   const [pending, setPending] = useState<PendingItem[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
 
   const uploadedTotal = items.reduce((sum, it) => sum + it.sizeBytes, 0);
 
@@ -152,27 +153,80 @@ export function EmailAttachmentsField({
     });
   }
 
+  function handleDragEnter(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!disabled) setIsDragging(true);
+  }
+
+  function handleDragOver(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!disabled) event.dataTransfer.dropEffect = 'copy';
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const nextTarget = event.relatedTarget;
+    if (!(nextTarget instanceof Node) || !event.currentTarget.contains(nextTarget)) {
+      setIsDragging(false);
+    }
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragging(false);
+
+    if (disabled) return;
+    void handleSelect(Array.from(event.dataTransfer.files));
+  }
+
   const count = items.length + pending.length;
 
   return (
     <Stack gap={6}>
-      <Group justify="space-between" align="center">
-        <Text size="sm" fw={500}>
-          {label}
-          {count > 0 ? ` (${count})` : ''}
-        </Text>
-        <FileButton multiple onChange={(files) => void handleSelect(files)} disabled={disabled}>
-          {(props) => (
-            <Button {...props} size="xs" variant="light" data-cy="attach-files">
-              Attach files
-            </Button>
-          )}
-        </FileButton>
-      </Group>
-
-      <Text size="xs" c="dimmed">
-        Up to {MAX_ATTACHMENTS_PER_EMAIL} files, {MAX_MB} MB each, {MAX_TOTAL_MB} MB total.
+      <Text size="sm" fw={500}>
+        {label}
+        {count > 0 ? ` (${count})` : ''}
       </Text>
+
+      <Paper
+        withBorder
+        p="md"
+        radius="sm"
+        data-cy="attachment-dropzone"
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        style={{
+          borderColor: isDragging ? 'var(--mantine-color-blue-6)' : undefined,
+          backgroundColor: isDragging ? 'var(--mantine-color-blue-0)' : undefined,
+          transition: 'background-color 120ms ease, border-color 120ms ease',
+        }}
+      >
+        <Stack gap={6} align="center">
+          <Text size="sm" ta="center" fw={isDragging ? 600 : 400}>
+            {isDragging ? 'Drop files to attach them' : 'Drag and drop files here'}
+          </Text>
+          <Text size="xs" c="dimmed">
+            or
+          </Text>
+          <FileButton multiple onChange={(files) => void handleSelect(files)} disabled={disabled}>
+            {(props) => (
+              <Button {...props} size="xs" variant="light" data-cy="attach-files">
+                Select files
+              </Button>
+            )}
+          </FileButton>
+          <Text size="xs" c="dimmed" ta="center">
+            Up to {MAX_ATTACHMENTS_PER_EMAIL} files, {MAX_MB} MB each, {MAX_TOTAL_MB} MB total.
+          </Text>
+        </Stack>
+      </Paper>
 
       {count === 0 ? null : (
         <Stack gap={4}>

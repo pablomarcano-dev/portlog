@@ -506,6 +506,45 @@ describe('ServiceRequestsService', () => {
       );
     });
 
+    it('copies every branch email list on the order dispatch', async () => {
+      prisma.serviceRequest.findUnique.mockResolvedValue(
+        makeRequest({
+          branch: {
+            id: 'branch-1',
+            name: 'Puerto La Cruz',
+            code: 'PLC',
+            emails: ['plc@example.com'],
+            contactEmails: ['manager@example.com'],
+            centralEmails: ['hq@example.com', 'EXISTING@example.com'],
+          },
+        }),
+      );
+
+      await service.sendOrder(
+        REQ_ID,
+        { ...sendDto, ccAddresses: ['existing@example.com'] } as never,
+        'user-1',
+      );
+
+      expect(email.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cc: ['existing@example.com', 'plc@example.com', 'manager@example.com', 'hq@example.com'],
+        }),
+      );
+      expect(prisma.serviceRequestDispatch.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            ccAddresses: [
+              'existing@example.com',
+              'plc@example.com',
+              'manager@example.com',
+              'hq@example.com',
+            ],
+          }),
+        }),
+      );
+    });
+
     it('keeps the request SENT and records the error when SMTP fails', async () => {
       prisma.serviceRequest.findUnique.mockResolvedValue(makeRequest());
       email.send.mockRejectedValue(new Error('relay refused'));
