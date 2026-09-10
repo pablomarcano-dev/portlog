@@ -3,115 +3,54 @@ import {
   NominationClientUpdateSchema,
   normalizeNominationClientDirectoryLinks,
 } from '../client';
-
-const ENTITY_ID = 'cms2268fg00cspz6hc0dz4yac';
-
-describe('NominationClientCreateSchema directory links', () => {
-  it.each(['chartererId', 'ownerId', 'operatorId', 'shipperId'] as const)(
-    'accepts a selected master-data record in %s',
-    (idField) => {
-      const result = NominationClientCreateSchema.parse({
-        type: 'Directory party',
-        name: 'Catalog Company',
-        [idField]: ENTITY_ID,
-      });
-
-      expect(result[idField]).toBe(ENTITY_ID);
-      expect(result.name).toBe('Catalog Company');
+const ID = 'cms2268fg00cspz6hc0dz4yac';
+describe('unified nomination clients', () => {
+  it.each(['Charterer', 'Shipper', 'Commercial Operator', 'Receivers', 'Head Owner'])(
+    'accepts any Client for %s',
+    (type) => {
+      expect(
+        NominationClientCreateSchema.parse({ type, name: 'Company', clientId: ID }).clientId,
+      ).toBe(ID);
     },
   );
-
-  it('keeps a manually entered legacy row valid without a directory link', () => {
+  it('supports manual names', () =>
     expect(
-      NominationClientCreateSchema.parse({
-        type: 'Receivers',
-        name: 'Free-form receiver',
-      }),
-    ).toMatchObject({ type: 'Receivers', name: 'Free-form receiver' });
-  });
-
-  it('rejects malformed directory ids', () => {
+      NominationClientCreateSchema.parse({ type: 'Receivers', name: 'Manual' }).clientId,
+    ).toBeUndefined());
+  it('rejects two linked companies', () =>
     expect(
       NominationClientCreateSchema.safeParse({
-        type: 'Charterer',
-        name: 'Catalog Company',
-        chartererId: 'not-an-id',
+        type: 'Shipper',
+        name: 'A',
+        clientId: ID,
+        ownerId: ID,
       }).success,
-    ).toBe(false);
-  });
-
-  it('rejects more than one directory reference', () => {
-    const result = NominationClientCreateSchema.safeParse({
-      type: 'Charterer',
-      name: 'Catalog Company',
-      chartererId: ENTITY_ID,
-      ownerId: 'cms2268fg00cspz6hc0dz4yad',
-    });
-
-    expect(result.success).toBe(false);
-  });
-
-  it.each([
-    ['Charterer', 'ownerId'],
-    ['Disponent Owner', 'operatorId'],
-    ['Commercial Operator', 'shipperId'],
-    ['Shipper', 'chartererId'],
-  ] as const)('rejects an incompatible %s → %s link', (type, idField) => {
-    expect(
-      NominationClientCreateSchema.safeParse({
-        type,
-        name: 'Catalog Company',
-        [idField]: ENTITY_ID,
-      }).success,
-    ).toBe(false);
-  });
-
-  it('validates a partial update when type and link are supplied together', () => {
-    expect(
-      NominationClientUpdateSchema.safeParse({ type: 'Head Owner', shipperId: ENTITY_ID }).success,
-    ).toBe(false);
-  });
-});
-
-describe('normalizeNominationClientDirectoryLinks', () => {
-  it('clears stale directory links when a compatible record is selected', () => {
+    ).toBe(false));
+  it('rejects malformed ids', () =>
+    expect(NominationClientUpdateSchema.safeParse({ clientId: 'wrong' }).success).toBe(false));
+  it('keeps identity on a role change', () =>
     expect(
       normalizeNominationClientDirectoryLinks(
-        { ownerId: ENTITY_ID },
-        { type: 'Disponent Owner', chartererId: 'cms2268fg00cspz6hc0dz4yad' },
+        { type: 'Shipper' },
+        { type: 'Charterer', clientId: ID },
       ),
-    ).toEqual({
-      chartererId: null,
-      ownerId: ENTITY_ID,
-      operatorId: null,
-      shipperId: null,
-    });
-  });
-
-  it('clears an old link when a row changes to another known type', () => {
-    expect(
-      normalizeNominationClientDirectoryLinks(
-        { type: 'Commercial Operator' },
-        { type: 'Charterer', chartererId: ENTITY_ID },
-      ),
-    ).toEqual({
-      type: 'Commercial Operator',
-      chartererId: null,
+    ).toEqual({ type: 'Shipper' }));
+  it('switches an Owner selection to a Client atomically', () =>
+    expect(normalizeNominationClientDirectoryLinks({ clientId: ID }, { ownerId: ID })).toEqual({
+      clientId: ID,
       ownerId: null,
-      shipperId: null,
-    });
-  });
-
-  it('preserves an unknown legacy row during an unrelated update', () => {
-    expect(
-      normalizeNominationClientDirectoryLinks(
-        { name: 'Updated legacy name' },
-        {
-          type: 'Receivers',
-          chartererId: ENTITY_ID,
-          ownerId: 'cms2268fg00cspz6hc0dz4yad',
-        },
-      ),
-    ).toEqual({ name: 'Updated legacy name' });
-  });
+    }));
+  it('switches a Client selection to an Owner atomically', () =>
+    expect(normalizeNominationClientDirectoryLinks({ ownerId: ID }, { clientId: ID })).toEqual({
+      ownerId: ID,
+      clientId: null,
+    }));
+  it('checks merged partial state', () =>
+    expect(() =>
+      normalizeNominationClientDirectoryLinks({ type: 'Other' }, { clientId: ID, ownerId: ID }),
+    ).toThrow());
+  it('permits explicit unlink', () =>
+    expect(normalizeNominationClientDirectoryLinks({ clientId: null }, { clientId: ID })).toEqual({
+      clientId: null,
+    }));
 });

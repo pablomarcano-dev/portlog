@@ -2,36 +2,8 @@ import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/r
 import { apiRequest } from '../client';
 import type { ClientCreateInput, ClientUpdateInput, ClientListQuery } from '@portlog/schemas';
 
-export interface ClientRecord {
-  id: string;
-  name: string;
-  phone?: string | null;
-  phone2?: string | null;
-  physicalAddress?: string | null;
-  billingAddress?: string | null;
-  postalAddress?: string | null;
-  taxAddress?: string | null;
-  otherAddress?: string | null;
-  fax?: string | null;
-  mobile?: string | null;
-  emails: string[];
-  emailGroupId?: string | null;
-  emailGroup?: {
-    id: string;
-    name: string;
-    members: Array<{ id: string; email: string; displayName?: string | null; order: number }>;
-  } | null;
-  contacts: Array<{
-    id: string;
-    name: string;
-    emails: string[];
-    mobile?: string | null;
-    businessPhone?: string | null;
-  }>;
-  tariff?: string | null;
-  nominationInstructions?: string | null;
-  label?: string;
-}
+export type { ClientRecord } from '@portlog/schemas';
+import type { ClientRecord } from '@portlog/schemas';
 
 export interface ClientListResponse {
   items: ClientRecord[];
@@ -45,6 +17,7 @@ export const clientsApi = {
     if (query?.q) params.set('q', query.q);
     if (query?.limit) params.set('limit', String(query.limit));
     if (query?.cursor) params.set('cursor', query.cursor);
+    if (query?.entityType) params.set('entityType', query.entityType);
     const qs = params.toString();
     return apiRequest<ClientListResponse>(`/master-data/clients${qs ? `?${qs}` : ''}`);
   },
@@ -104,6 +77,10 @@ export function useSaveClient(selectedId: string | null) {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['clients'] });
+      void qc.invalidateQueries({ queryKey: ['contacts'] });
+      void qc.invalidateQueries({ queryKey: ['nominations'] });
+      void qc.invalidateQueries({ queryKey: ['nomination'] });
+      void qc.invalidateQueries({ queryKey: ['entity-picker'] });
     },
   });
 }
@@ -114,6 +91,10 @@ export function useDeleteClient() {
     mutationFn: (id: string) => clientsApi.delete(id),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['clients'] });
+      void qc.invalidateQueries({ queryKey: ['contacts'] });
+      void qc.invalidateQueries({ queryKey: ['nominations'] });
+      void qc.invalidateQueries({ queryKey: ['nomination'] });
+      void qc.invalidateQueries({ queryKey: ['entity-picker'] });
     },
   });
 }

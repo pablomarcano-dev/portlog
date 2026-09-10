@@ -6,21 +6,8 @@ import type { ContactCreateInput, ContactUpdateInput, ContactListQuery } from '@
 // Types mirroring backend response shapes
 // ---------------------------------------------------------------------------
 
-export interface ContactRecord {
-  id: string;
-  name: string;
-  emails: string[];
-  homePhone?: string | null;
-  mobile?: string | null;
-  businessPhone?: string | null;
-  businessFax?: string | null;
-  address?: string | null;
-  shipperId?: string | null;
-  operatorId?: string | null;
-  ownerId?: string | null;
-  charterId?: string | null;
-  comments?: string | null;
-}
+export type { ContactRecord } from '@portlog/schemas';
+import type { ContactRecord } from '@portlog/schemas';
 
 export interface ContactListResponse {
   items: (ContactRecord & { label: string })[];
@@ -38,11 +25,9 @@ export const contactsApi = {
     if (query?.q) params.set('q', query.q);
     if (query?.limit) params.set('limit', String(query.limit));
     if (query?.cursor) params.set('cursor', query.cursor);
-    if (query?.role) params.set('role', query.role);
-    if (query?.shipperId) params.set('shipperId', query.shipperId);
-    if (query?.operatorId) params.set('operatorId', query.operatorId);
+    if (query?.clientId) params.set('clientId', query.clientId);
+    if (query?.entityType) params.set('entityType', query.entityType);
     if (query?.ownerId) params.set('ownerId', query.ownerId);
-    if (query?.charterId) params.set('charterId', query.charterId);
     const qs = params.toString();
     return apiRequest<ContactListResponse>(`/master-data/contacts${qs ? `?${qs}` : ''}`);
   },
@@ -109,7 +94,11 @@ export function useSaveContact(selectedId: string | null) {
       return contactsApi.create(values);
     },
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['clients'] });
       void qc.invalidateQueries({ queryKey: ['contacts'] });
+      void qc.invalidateQueries({ queryKey: ['nominations'] });
+      void qc.invalidateQueries({ queryKey: ['nomination'] });
+      void qc.invalidateQueries({ queryKey: ['entity-picker'] });
     },
   });
 }
@@ -119,7 +108,11 @@ export function useDeleteContact() {
   return useMutation({
     mutationFn: (id: string) => contactsApi.delete(id),
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['clients'] });
       void qc.invalidateQueries({ queryKey: ['contacts'] });
+      void qc.invalidateQueries({ queryKey: ['nominations'] });
+      void qc.invalidateQueries({ queryKey: ['nomination'] });
+      void qc.invalidateQueries({ queryKey: ['entity-picker'] });
     },
   });
 }

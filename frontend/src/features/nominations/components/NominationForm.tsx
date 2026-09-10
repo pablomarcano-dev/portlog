@@ -34,11 +34,6 @@ import { EntityPicker } from '../../../components/master-data/EntityPicker';
 import { EmailGroupPicker } from '../../../components/master-data/EmailGroupPicker';
 import { ContactNamePicker } from '../../../components/master-data/ContactNamePicker';
 import { ClientNamePicker } from '../../../components/master-data/ClientNamePicker';
-import {
-  clientDirectoryIdField,
-  clientTypeToContactRole,
-  clientTypeToDirectory,
-} from '../clientTypeRole';
 import { ParcelsFieldArray } from './ParcelsFieldArray';
 import { NewShipParticularModal } from './NewShipParticularModal';
 import { NewPortModal } from './NewPortModal';
@@ -98,6 +93,7 @@ function legacyAgentValue(field: 'mic' | 'boarding', name: string | null | undef
 
 interface NominationFormProps {
   mode: 'create' | 'edit';
+  nominationId?: string;
   defaultValues?: Partial<NominationCreateInput>;
   onSubmit: (vals: NominationCreateInput) => void;
   isSubmitting: boolean;
@@ -115,6 +111,7 @@ interface NominationFormProps {
 
 export function NominationForm({
   mode,
+  nominationId,
   defaultValues,
   onSubmit,
   isSubmitting,
@@ -189,6 +186,7 @@ export function NominationForm({
     queryFn: () =>
       apiRequest<{
         imoNumber: string | null;
+        operatorId: string | null;
         name: string;
         abbreviation: string | null;
         loa: number | null;
@@ -797,7 +795,7 @@ export function NominationForm({
                 control={control}
                 render={({ field, fieldState }) => (
                   <EntityPicker
-                    endpoint="/master-data/charterers"
+                    endpoint="/master-data/clients"
                     label="Charterers"
                     value={field.value ?? null}
                     onChange={field.onChange}
@@ -1100,9 +1098,6 @@ export function NominationForm({
                 <Table.Tbody>
                   {clientFields.map((field, index) => {
                     const isDefault = index < DEFAULT_CLIENT_TYPES.length;
-                    const directory = clientTypeToDirectory(
-                      watch(`nominationClients.${index}.type`),
-                    );
                     return (
                       <Table.Tr key={field.id}>
                         <Table.Td>
@@ -1120,16 +1115,6 @@ export function NominationForm({
                                   value={typeField.value}
                                   onChange={(type) => {
                                     typeField.onChange(type);
-                                    for (const idField of [
-                                      'chartererId',
-                                      'ownerId',
-                                      'operatorId',
-                                      'shipperId',
-                                    ] as const) {
-                                      setValue(`nominationClients.${index}.${idField}`, null, {
-                                        shouldDirty: true,
-                                      });
-                                    }
                                   }}
                                 />
                               )}
@@ -1144,23 +1129,19 @@ export function NominationForm({
                               <ClientNamePicker
                                 placeholder="Name"
                                 value={field.value}
-                                onChange={(name, entityId) => {
+                                onChange={(name, entityId, directory) => {
                                   field.onChange(name);
-                                  const idField = clientDirectoryIdField(directory);
-                                  if (idField) {
-                                    setValue(`nominationClients.${index}.${idField}`, entityId, {
-                                      shouldDirty: true,
-                                    });
-                                  }
+                                  setValue(
+                                    `nominationClients.${index}.clientId`,
+                                    directory === 'client' ? (entityId ?? null) : null,
+                                    { shouldDirty: true },
+                                  );
+                                  setValue(
+                                    `nominationClients.${index}.ownerId`,
+                                    directory === 'owner' ? (entityId ?? null) : null,
+                                    { shouldDirty: true },
+                                  );
                                 }}
-                                entity={directory}
-                                role={
-                                  directory
-                                    ? undefined
-                                    : clientTypeToContactRole(
-                                        watch(`nominationClients.${index}.type`),
-                                      )
-                                }
                                 size="xs"
                               />
                             )}
@@ -1273,6 +1254,13 @@ export function NominationForm({
               />
               {!isReadOnly && (
                 <EmailGroupPicker
+                  nominationId={nominationId}
+                  clientIds={[
+                    watch('clientId'),
+                    watch('chartererId'),
+                    shipQuery.data?.operatorId,
+                    ...(watch('nominationClients') ?? []).map((row) => row.clientId),
+                  ].filter((id): id is string => Boolean(id))}
                   targets={[
                     {
                       key: 'to',

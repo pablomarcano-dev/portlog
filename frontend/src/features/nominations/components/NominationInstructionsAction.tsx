@@ -89,8 +89,8 @@ export function NominationInstructionsAction({
         Nomination instructions
       </Text>
       <Text size="xs" c="dimmed">
-        Choose the client whose contacts, distribution list and standing instructions belong in this
-        document. This is separate from the nomination's Charterer.
+        Choose the client whose contacts, message groups and standing instructions belong in this
+        document. Clients of every entity type are available.
       </Text>
       <Group align="flex-end" wrap="nowrap">
         <div style={{ flex: 1 }}>

@@ -197,7 +197,7 @@ function ShipParticularFields({
         control={form.control}
         render={({ field, fieldState }) => (
           <EntityPicker
-            endpoint="/master-data/operators"
+            endpoint="/master-data/clients"
             label="Operator"
             value={field.value ?? null}
             onChange={field.onChange}

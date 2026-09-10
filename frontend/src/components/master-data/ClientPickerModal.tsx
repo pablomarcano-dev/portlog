@@ -1,3 +1,4 @@
+import { formatPhones } from '@portlog/schemas';
 import { useState } from 'react';
 import { Button, Group, Loader, Modal, ScrollArea, Table, Text, TextInput } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
@@ -117,7 +118,7 @@ export function ClientPickerModal({ opened, onClose, onSelect }: ClientPickerMod
                   </Table.Td>
                   <Table.Td style={{ width: colWidths.phone }}>
                     <Text size="xs" c="dimmed">
-                      {c.phone ?? c.mobile ?? '—'}
+                      {formatPhones(c.phones) || '—'}
                     </Text>
                   </Table.Td>
                   <Table.Td style={{ width: colWidths.action }}>

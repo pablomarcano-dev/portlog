@@ -127,7 +127,11 @@ export const emailList = () =>
     if (v === null || v === undefined) return undefined;
     if (typeof v === 'string') return parseEmailList(v);
     if (Array.isArray(v)) {
-      return v.flatMap((entry) => (typeof entry === 'string' ? parseEmailList(entry) : entry));
+      return [
+        ...new Set(
+          v.flatMap((entry) => (typeof entry === 'string' ? parseEmailList(entry) : entry)),
+        ),
+      ];
     }
     return v;
   }, z.array(z.string().email()).optional());

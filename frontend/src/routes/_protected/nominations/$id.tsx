@@ -175,6 +175,7 @@ function NominationDetailPage() {
               <Collapse in={formOpen}>
                 <Box pt="xs">
                   <NominationForm
+                    nominationId={id}
                     mode="edit"
                     defaultValues={defaultValues}
                     onSubmit={handleUpdate}

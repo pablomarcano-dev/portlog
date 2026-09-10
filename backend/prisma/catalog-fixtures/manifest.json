@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "source": {
+    "host": "localhost",
+    "port": "5432",
+    "database": "portlog",
+    "schema": "public"
+  },
+  "capturedAt": "2026-09-10T14:28:22.345Z",
+  "migrations": [
+    "20260510213302_init",
+    "20260510215528_add_audit_log",
+    "20260512014802_m2_master_data",
+    "20260512232800_add_owner_financial_denied_audit_event",
+    "20260513115333_m3_nominations",
+    "20260513132123_add_email_groups",
+    "20260519230727_m4_pedr_schema",
+    "20260520_add_fleet_vessels",
+    "20260521_add_email_dispatches",
+    "20260521_add_nomination_agent_fk",
+    "20260521_add_pedr_metadata",
+    "20260522_m5_sh_documents",
+    "20260523_m5_sh_document_dispatches",
+    "20260524_rename_spanish_fields_to_english",
+    "20260525_nomination_gaps",
+    "20260531_clients_master_data",
+    "20260531_nomination_client_proforma",
+    "20260531_nomination_email_recipients",
+    "20260531_remove_nomination_parties",
+    "20260605_add_bcc_to_dispatch_tables",
+    "20260605_branch_contact_fields_user_display_name",
+    "20260605_user_phone_mobile_fax",
+    "20260606_add_piers",
+    "20260607_eta_record_and_subdoc_types",
+    "20260607_port_country_emailgroup",
+    "20260607_rename_features_to_parcels",
+    "20260607_sof_timesheet",
+    "20260609_sof_support_modals",
+    "20260610_schema_drift_fix",
+    "20260618234147_add_branch_document_hub",
+    "20260715180517_add_services_and_sales",
+    "20260720231141_simplify_nomination_status",
+    "20260720233425_restore_nomination_email_defaults",
+    "20260720234934_remove_nomination_external_port",
+    "20260721001157_add_nomination_kind_and_cargo_category",
+    "20260721001550_add_email_attachments",
+    "20260726150000_email_fields_to_arrays",
+    "20260729192500_extend_sale_with_voucher_fields",
+    "20260729220000_add_sales_contacts",
+    "20260730014403_add_user_job_title",
+    "20260802190000_terminal_emails_and_shipper_link",
+    "20260808200000_add_service_requests_drop_sales",
+    "20260819113000_add_sof_section_visibility",
+    "20260824233000_administrative_service_requests",
+    "20260830160000_branch_roles_terminal_contacts_captain_message",
+    "20260903143000_client_nomination_instructions",
+    "20260903173000_move_client_link_to_nomination",
+    "20260907150000_nomination_charterer_and_vessel_particulars",
+    "20260907154500_agent_branch_and_operational_role",
+    "20260907160000_nomination_client_directory_links"
+  ],
+  "tables": {
+    "activities": {
+      "count": 361,
+      "sha256": "91c5852be9c5661fc48568aced3015f4b56730646c2005efb9c13aed341dc616"
+    },
+    "cargoes": {
+      "count": 11,
+      "sha256": "b64fb7e7a4fd200a61fee8b279bdb39f0dc5432e486689287036ba15b66f3132"
+    }
+  }
+}

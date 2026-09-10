@@ -1,185 +1,130 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import type {
-  ContactCreateInput,
-  ContactUpdateInput,
-  ContactListQuery,
-  ContactRole,
-} from '@portlog/schemas';
-
-/** Role filter → the cross-link FK that must be set for a contact to hold that role. */
-const ROLE_FK: Record<ContactRole, 'shipperId' | 'operatorId' | 'ownerId' | 'charterId'> = {
-  SHIPPER: 'shipperId',
-  OPERATOR: 'operatorId',
-  OWNER: 'ownerId',
-  CHARTERER: 'charterId',
-};
-
-const CONTACT_SELECT = {
+import type { ContactCreateInput, ContactUpdateInput, ContactListQuery } from '@portlog/schemas';
+import { COMMUNICATION_SELECT, directoryError } from '../shared/communication.js';
+const SELECT = {
   id: true,
   name: true,
-  emails: true,
-  homePhone: true,
-  mobile: true,
-  businessPhone: true,
-  businessFax: true,
-  address: true,
-  shipperId: true,
-  operatorId: true,
+  ...COMMUNICATION_SELECT,
+  notes: true,
   ownerId: true,
-  charterId: true,
-  comments: true,
+  clientLinks: { select: { client: { select: { id: true, name: true, entityType: true } } } },
 } as const;
-
+function present<T extends { clientLinks: Array<{ client: unknown }> }>(row: T) {
+  const { clientLinks, ...data } = row;
+  return { ...data, clients: clientLinks.map((l) => l.client) };
+}
 @Injectable()
 export class ContactsService {
   private readonly logger = new Logger(ContactsService.name);
-
   constructor(private readonly prisma: PrismaService) {}
-
   async list(query: ContactListQuery) {
-    const { q, limit, cursor, role, shipperId, operatorId, ownerId, charterId } = query;
-
-    const items = await this.prisma.contact.findMany({
+    const { q, cursor, limit, clientId, entityType, ownerId } = query;
+    const rows = await this.prisma.contact.findMany({
       take: limit + 1,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       where: {
         ...(q
           ? {
               OR: [
-                { name: { contains: q, mode: 'insensitive' } },
-                // emails is text[]; Prisma can only match a whole element, not a substring.
+                { name: { contains: q, mode: 'insensitive' as const } },
                 { emails: { has: q.toLowerCase() } },
               ],
             }
           : {}),
-        ...(role ? { [ROLE_FK[role]]: { not: null } } : {}),
-        ...(shipperId ? { shipperId } : {}),
-        ...(operatorId ? { operatorId } : {}),
+        ...(clientId || entityType
+          ? {
+              clientLinks: {
+                some: {
+                  ...(clientId ? { clientId } : {}),
+                  ...(entityType ? { client: { entityType } } : {}),
+                },
+              },
+            }
+          : {}),
         ...(ownerId ? { ownerId } : {}),
-        ...(charterId ? { charterId } : {}),
       },
-      orderBy: { name: 'asc' },
-      select: CONTACT_SELECT,
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      select: SELECT,
     });
-
-    const hasMore = items.length > limit;
-    const page = hasMore ? items.slice(0, limit) : items;
-    const nextCursor = hasMore ? (page[page.length - 1]?.id ?? null) : null;
-
+    const hasMore = rows.length > limit;
+    const page = rows.slice(0, limit);
     return {
-      items: page.map((c) => ({ ...c, label: c.name })),
-      nextCursor,
+      items: page.map((row) => ({ ...present(row), label: row.name })),
       hasMore,
+      nextCursor: hasMore ? (page.at(-1)?.id ?? null) : null,
     };
   }
-
   async getById(id: string) {
-    const contact = await this.prisma.contact.findUnique({
-      where: { id },
-      select: CONTACT_SELECT,
-    });
-
-    if (!contact) {
-      throw new NotFoundException(`Contact ${id} not found.`);
-    }
-
-    return contact;
+    const row = await this.prisma.contact.findUnique({ where: { id }, select: SELECT });
+    if (!row) throw new NotFoundException('Contact not found.');
+    return present(row);
   }
-
   async create(input: ContactCreateInput) {
-    this.assertSingleOwner(input);
+    const { phones, addresses, clientIds, ...data } = input;
     try {
-      return await this.prisma.contact.create({
-        data: input,
-        select: CONTACT_SELECT,
-      });
-    } catch (err: unknown) {
-      this.handlePrismaError(err);
+      return present(
+        await this.prisma.contact.create({
+          data: {
+            ...data,
+            phones: { create: phones },
+            addresses: { create: addresses },
+            clientLinks: { create: clientIds.map((clientId) => ({ clientId })) },
+          },
+          select: SELECT,
+        }),
+      );
+    } catch (error) {
+      directoryError(error);
     }
   }
-
   async update(id: string, input: ContactUpdateInput) {
-    await this.assertExists(id);
-    this.assertSingleOwner(input);
+    await this.getById(id);
+    const { phones, addresses, clientIds, ...data } = input;
     try {
-      return await this.prisma.contact.update({
-        where: { id },
-        data: input,
-        select: CONTACT_SELECT,
-      });
-    } catch (err: unknown) {
-      this.handlePrismaError(err);
+      return present(
+        await this.prisma.contact.update({
+          where: { id },
+          data: {
+            ...data,
+            ...(phones !== undefined ? { phones: { deleteMany: {}, create: phones } } : {}),
+            ...(addresses !== undefined
+              ? { addresses: { deleteMany: {}, create: addresses } }
+              : {}),
+            ...(clientIds !== undefined
+              ? {
+                  clientLinks: {
+                    deleteMany: {},
+                    create: clientIds.map((clientId) => ({ clientId })),
+                  },
+                }
+              : {}),
+          },
+          select: SELECT,
+        }),
+      );
+    } catch (error) {
+      directoryError(error);
     }
   }
-
   async remove(id: string) {
-    await this.assertExists(id);
-    await this.prisma.contact.delete({ where: { id } });
+    await this.getById(id);
+    try {
+      await this.prisma.contact.delete({ where: { id } });
+    } catch (error) {
+      directoryError(error);
+    }
     this.logger.log({ event: 'contacts.delete', id });
   }
-
   async search(q: string) {
-    const items = await this.prisma.contact.findMany({
+    const rows = await this.prisma.contact.findMany({
       take: 20,
       where: {
-        OR: [
-          { name: { contains: q, mode: 'insensitive' } },
-          // emails is text[]; exact-address match only (see list()).
-          { emails: { has: q.toLowerCase() } },
-        ],
+        OR: [{ name: { contains: q, mode: 'insensitive' } }, { emails: { has: q.toLowerCase() } }],
       },
-      orderBy: { name: 'asc' },
-      select: { id: true, name: true, emails: true },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      select: { id: true, name: true },
     });
-    return items.map((c) => ({ id: c.id, label: c.name }));
-  }
-
-  // ---------------------------------------------------------------------------
-  // Guards
-  // ---------------------------------------------------------------------------
-
-  private assertSingleOwner(input: ContactCreateInput | ContactUpdateInput) {
-    const fks = [input.shipperId, input.operatorId, input.ownerId, input.charterId];
-    if (fks.filter(Boolean).length > 1) {
-      throw new BadRequestException('contact_multiple_owners');
-    }
-  }
-
-  private async assertExists(id: string): Promise<void> {
-    const exists = await this.prisma.contact.findUnique({
-      where: { id },
-      select: { id: true },
-    });
-    if (!exists) {
-      throw new NotFoundException(`Contact ${id} not found.`);
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Error handling
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Catches Prisma P2002 (unique violation) and P2003 (FK constraint) errors,
-   * as well as DB-level CHECK constraint violations (mapped to P2002/raw errors),
-   * and surfaces them as 400 BadRequestException with a human-readable message.
-   */
-  private handlePrismaError(err: unknown): never {
-    if (typeof err === 'object' && err !== null && 'code' in err) {
-      const code = (err as { code: string }).code;
-      if (code === 'P2002') {
-        throw new BadRequestException('A contact with these unique fields already exists.');
-      }
-    }
-    // CHECK constraint violations surface as PrismaClientKnownRequestError with
-    // code P2010 (raw query error) or as an error message containing the constraint name.
-    if (typeof err === 'object' && err !== null && 'message' in err) {
-      const msg = String((err as { message: string }).message);
-      if (msg.includes('contacts_single_owner_chk')) {
-        throw new BadRequestException('contact_multiple_owners');
-      }
-    }
-    throw err as Error;
+    return rows.map((row) => ({ id: row.id, label: row.name }));
   }
 }

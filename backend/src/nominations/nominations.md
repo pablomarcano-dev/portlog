@@ -32,6 +32,14 @@ Design decisions (Sales, 2026-07-15):
 - Sales are **not** part of the nomination `DETAIL_INCLUDE`; the Sales modal fetches them on open.
 - `price` is a plain amount — currency deliberately out of scope (see `.claude/docs/open-questions.md`).
 
+## Unified clients (September 2026)
+
+The instruction client, charterer and vessel operator all reference Client. Roster rows accept either `clientId` or `ownerId`; changing the row's role retains its company link. Any Client entity type can fill any role. Names remain editable snapshots.
+
+`GET /nominations/:id/client-email-context` returns the distinct Client IDs from the instruction client, charterer, vessel operator and roster. Email pickers surface those clients' four assigned groups alongside the global group directory and resolve current members when applied.
+
+`GET /nominations/:id/nomination-instructions.docx` uses the instruction Client's `instructions` and four groups, including group names and members. Internal notes are excluded. Company/contact communication details populate the billing section of the retained Word template. Long content flows onto additional numbered pages.
+
 ## Major changes — repro log
 
 ### 2026-07-20 — SN/OT nomination kind + OT product gating

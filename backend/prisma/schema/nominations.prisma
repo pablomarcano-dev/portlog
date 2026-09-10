@@ -51,12 +51,12 @@ model Nomination {
   // Commercial account for this nomination. This is distinct from the
   // operational parties listed in NominationClient below.
   clientId String?
-  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  client   Client? @relation("InstructionClient", fields: [clientId], references: [id], onDelete: SetNull)
 
   // Charterer appointed for this call. This is a vessel-operation party and is
   // deliberately separate from the commercial Client used by instruction sheets.
   chartererId String?
-  charterer   Charterer? @relation(fields: [chartererId], references: [id], onDelete: SetNull)
+  charterer   Client? @relation("NominationCharterer", fields: [chartererId], references: [id], onDelete: SetNull)
 
   // Supplementary fields from legacy General Info tab
   nomReply      DateTime? @db.Timestamptz(6) // "Nom. Reply" — date nomination was acknowledged
@@ -186,14 +186,10 @@ model NominationClient {
   name         String
   // When a directory suggestion is selected, retain that durable association.
   // `name` remains a historical display snapshot and permits legacy/manual rows.
-  chartererId String?
-  charterer   Charterer? @relation(fields: [chartererId], references: [id], onDelete: SetNull)
-  ownerId     String?
-  owner       Owner?     @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  operatorId  String?
-  operator    Operator?  @relation(fields: [operatorId], references: [id], onDelete: SetNull)
-  shipperId    String?
-  shipper      Shipper?   @relation(fields: [shipperId], references: [id], onDelete: SetNull)
+  clientId     String?
+  client       Client?    @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  ownerId      String?
+  owner        Owner?     @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   voyageRef    String?
   referenceNo  String?
   proforma     String?
@@ -203,10 +199,8 @@ model NominationClient {
   updatedAt    DateTime   @updatedAt @db.Timestamptz(6)
 
   @@index([nominationId])
-  @@index([chartererId])
+  @@index([clientId])
   @@index([ownerId])
-  @@index([operatorId])
-  @@index([shipperId])
   @@map("nomination_clients")
 }
 

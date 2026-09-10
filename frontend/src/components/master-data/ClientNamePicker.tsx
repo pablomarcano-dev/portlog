@@ -1,133 +1,95 @@
-import { Autocomplete, type AutocompleteProps } from '@mantine/core';
+import { Combobox, TextInput, useCombobox, Text } from '@mantine/core';
 import { useState } from 'react';
+import { useDebouncedValue } from '@mantine/hooks';
 import { useQuery } from '@tanstack/react-query';
-import type { ContactRole } from '@portlog/schemas';
 import { clientsApi } from '../../lib/api/master-data/clients';
-import { contactsApi } from '../../lib/api/master-data/contacts';
-import { charterersApi } from '../../lib/api/master-data/charterers';
 import { ownersApi } from '../../lib/api/master-data/owners';
-import { operatorsApi } from '../../lib/api/master-data/operators';
-import { shippersApi } from '../../lib/api/master-data/shippers';
-
-export type ClientDirectory = 'charterer' | 'owner' | 'operator' | 'shipper';
-
-interface ClientNamePickerProps {
+export type ClientDirectory = 'client' | 'owner';
+interface Props {
   label?: string;
   placeholder?: string;
   value?: string;
-  /**
-   * `entityId` is the id of the master-data record the typed name matches, or
-   * null when it matches none. Only meaningful with `entity` set; callers that
-   * store the name alone can ignore the second argument.
-   */
-  onChange: (val: string, entityId?: string | null) => void;
   error?: string;
   disabled?: boolean;
-  size?: string;
-  rightSection?: AutocompleteProps['rightSection'];
-  /**
-   * When set, suggestions come from the contacts directory scoped to that role
-   * instead of the generic clients search. Ignored when `entity` is set.
-   */
-  role?: ContactRole;
-  /**
-   * When set, suggestions are companies from that master-data directory and the
-   * picked record's id is reported through `onChange`, allowing the caller to
-   * retain both a stable association and the visible name snapshot.
-   */
-  entity?: ClientDirectory;
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   onBlur?: () => void;
+  onChange: (name: string, id?: string | null, directory?: ClientDirectory) => void;
 }
-
-const SUGGESTION_LIMIT = 20;
-
-function searchDirectory(entity: ClientDirectory, search: string) {
-  switch (entity) {
-    case 'charterer':
-      return charterersApi.search(search);
-    case 'owner':
-      return ownersApi.search(search);
-    case 'operator':
-      return operatorsApi.search(search);
-    case 'shipper':
-      return shippersApi.search(search);
-  }
-}
-
-/** A name suggestion; `id` is set for master-data directory records. */
-interface Suggestion {
-  id: string | null;
-  label: string;
-}
-
-/**
- * Free-text field with name suggestions. With `entity`, suggestions are companies
- * from that directory and the match's id is reported alongside the name; with
- * `role`, they are the contacts cross-linked to that role; with neither, they come
- * from the clients search endpoint. The field itself always stores the name string,
- * so it stays compatible with string schema fields.
- */
-export function ClientNamePicker({
-  label,
-  placeholder,
-  value = '',
-  onChange,
-  error,
-  disabled,
-  size,
-  rightSection,
-  role,
-  entity,
-  onBlur,
-}: ClientNamePickerProps) {
+/** Explicit option IDs preserve company identity even when display names repeat. */
+export function ClientNamePicker({ value = '', onChange, onBlur, ...props }: Props) {
   const [search, setSearch] = useState('');
-
-  const { data } = useQuery<Suggestion[]>({
-    queryKey: entity
-      ? [entity, 'search', search]
-      : role
-        ? ['contacts', 'by-role', role, search]
-        : ['clients', 'search', search],
-    queryFn: () =>
-      entity
-        ? searchDirectory(entity, search)
-        : role
-          ? contactsApi
-              .list({ q: search, role, limit: SUGGESTION_LIMIT })
-              .then((res) => res.items.map((c) => ({ id: null, label: c.label })))
-          : clientsApi
-              .search(search)
-              .then((items) => items.map((c) => ({ id: null, label: c.label }))),
-    // Entity and role suggestions are bounded sets, so show them before the user types.
-    enabled: entity != null || role != null || search.length > 0,
-    staleTime: 30_000,
+  const box = useCombobox();
+  const [query] = useDebouncedValue(search, 200);
+  const { data, isFetching, isError } = useQuery({
+    queryKey: ['clients', 'party-search', query],
+    queryFn: async () => {
+      const [clients, owners] = await Promise.all([
+        clientsApi.list({ q: query, limit: 50 }),
+        ownersApi.search(query),
+      ]);
+      return [
+        ...clients.items.map((c) => ({
+          id: c.id,
+          name: c.name,
+          kind: 'client' as const,
+          detail: c.entityType.toLowerCase(),
+        })),
+        ...owners.map((o) => ({
+          id: o.id,
+          name: o.label,
+          kind: 'owner' as const,
+          detail: 'owner',
+        })),
+      ];
+    },
   });
-
-  const suggestions = (data ?? []).map((c) => c.label);
-
-  /** The directory record the typed name names exactly, if any. */
-  function matchedId(val: string): string | null {
-    const needle = val.trim().toLowerCase();
-    if (needle === '') return null;
-    return (data ?? []).find((c) => c.label.trim().toLowerCase() === needle)?.id ?? null;
-  }
-
   return (
-    <Autocomplete
-      label={label}
-      placeholder={placeholder}
-      value={value}
-      onChange={(val) => {
-        setSearch(val);
-        onChange(val, matchedId(val));
+    <Combobox
+      store={box}
+      withinPortal
+      onOptionSubmit={(key) => {
+        const option = data?.find((o) => `${o.kind}:${o.id}` === key);
+        if (option) {
+          onChange(option.name, option.id, option.kind);
+          setSearch('');
+        }
+        box.closeDropdown();
       }}
-      onBlur={onBlur}
-      data={suggestions}
-      disabled={disabled}
-      error={error}
-      size={size as 'xs' | 'sm' | 'md' | 'lg' | 'xl' | undefined}
-      rightSection={rightSection}
-      comboboxProps={{ withinPortal: true }}
-    />
+    >
+      <Combobox.Target>
+        <TextInput
+          {...props}
+          value={value}
+          onChange={(e) => {
+            setSearch(e.currentTarget.value);
+            onChange(e.currentTarget.value, null);
+            box.openDropdown();
+          }}
+          onFocus={() => box.openDropdown()}
+          onClick={() => box.openDropdown()}
+          onBlur={() => {
+            box.closeDropdown();
+            onBlur?.();
+          }}
+        />
+      </Combobox.Target>
+      <Combobox.Dropdown>
+        <Combobox.Options mah={260} style={{ overflowY: 'auto' }}>
+          {(data ?? []).map((o) => (
+            <Combobox.Option key={`${o.kind}:${o.id}`} value={`${o.kind}:${o.id}`}>
+              <Text size="sm">{o.name}</Text>
+              <Text size="xs" c="dimmed">
+                {o.detail} · {o.id.slice(-6)}
+              </Text>
+            </Combobox.Option>
+          ))}
+          {isFetching && <Combobox.Empty>Loading companies…</Combobox.Empty>}
+          {isError && <Combobox.Empty>Could not load companies. Please retry.</Combobox.Empty>}
+          {!isFetching && !isError && !data?.length && (
+            <Combobox.Empty>No companies found. You can enter a name manually.</Combobox.Empty>
+          )}
+        </Combobox.Options>
+      </Combobox.Dropdown>
+    </Combobox>
   );
 }

@@ -233,9 +233,10 @@ function VesselDetailPage() {
     return {
       name: dd.technical_manager!,
       emails: dd.email ? [dd.email] : [],
-      businessPhone: dd.phone ?? undefined,
-      address: dd.address ?? undefined,
-      comments: commentParts.join('\n') || undefined,
+      phones: dd.phone ? [{ kind: 'BUSINESS', number: dd.phone, sortOrder: 0 }] : [],
+      clientIds: [],
+      addresses: dd.address ? [{ purpose: 'PHYSICAL', text: dd.address, sortOrder: 0 }] : [],
+      notes: commentParts.join('\n') || undefined,
     };
   }
 
@@ -250,7 +251,7 @@ function VesselDetailPage() {
       country ? `Country: ${country}` : null,
       `For vessel: ${vesselLabel} (IMO ${imo})`,
     ].filter(Boolean);
-    return { name, comments: commentParts.join('\n') };
+    return { name, notes: commentParts.join('\n'), phones: [], addresses: [], clientIds: [] };
   }
 
   type InspColKey =

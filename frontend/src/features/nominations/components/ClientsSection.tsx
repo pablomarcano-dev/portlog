@@ -10,12 +10,6 @@ import {
   useRemoveClient,
 } from '../hooks/useNominationClients';
 import { ClientNamePicker } from '../../../components/master-data/ClientNamePicker';
-import {
-  clientDirectoryIdField,
-  clientTypeToContactRole,
-  clientTypeToDirectory,
-  type ClientDirectoryIdField,
-} from '../clientTypeRole';
 
 type ClientColKey = 'type' | 'name' | 'voyageRef' | 'refNo' | 'actions';
 
@@ -28,13 +22,6 @@ interface ClientRowProps {
   onUpdate: (clientId: string, patch: NominationClientUpdate) => void;
   onRemove: (clientId: string) => void;
 }
-
-const DIRECTORY_ID_FIELDS: ClientDirectoryIdField[] = [
-  'chartererId',
-  'ownerId',
-  'operatorId',
-  'shipperId',
-];
 
 function ClientRow({
   client,
@@ -54,15 +41,11 @@ function ClientRow({
   // choosing an autocomplete option can fire blur before React renders state.
   // `name` remains editable, while a selected suggestion also retains its
   // durable master-data association.
-  const directoryIds = useRef<Record<ClientDirectoryIdField, string | null>>({
-    chartererId: client.chartererId ?? null,
+  const directoryIds = useRef<{ clientId: string | null; ownerId: string | null }>({
+    clientId: client.clientId ?? null,
     ownerId: client.ownerId ?? null,
-    operatorId: client.operatorId ?? null,
-    shipperId: client.shipperId ?? null,
   });
   const selectionSaved = useRef(false);
-  const directory = clientTypeToDirectory(type);
-  const directoryIdField = clientDirectoryIdField(directory);
 
   return (
     <Table.Tr>
@@ -75,18 +58,7 @@ function ClientRow({
           onBlur={() => {
             const val = type.trim();
             if (val === client.type) return;
-            // Retyping a row invalidates its prior directory selection. Keep the
-            // visible name, but never retain a link from the old group.
-            for (const idField of DIRECTORY_ID_FIELDS) {
-              directoryIds.current[idField] = null;
-            }
-            onUpdate(rowId, {
-              type: val,
-              chartererId: null,
-              ownerId: null,
-              operatorId: null,
-              shipperId: null,
-            });
+            onUpdate(rowId, { type: val });
           }}
         />
       </Table.Td>
@@ -94,38 +66,29 @@ function ClientRow({
         <ClientNamePicker
           size="xs"
           value={name}
-          onChange={(val, entityId) => {
+          onChange={(val, entityId, directory) => {
             setName(val);
-            // A picked suggestion is saved immediately and its ensuing blur is
-            // ignored. If the picker stays focused and the user then edits the
-            // text, that edit starts a new save cycle and must not inherit the
-            // stale "selection already saved" marker.
-            selectionSaved.current = Boolean(directoryIdField && entityId);
-            if (directoryIdField) {
-              directoryIds.current[directoryIdField] = entityId ?? null;
-            }
-            if (directoryIdField && entityId) {
-              onUpdate(rowId, { name: val.trim(), [directoryIdField]: entityId });
-            }
+            directoryIds.current = {
+              clientId: directory === 'client' ? (entityId ?? null) : null,
+              ownerId: directory === 'owner' ? (entityId ?? null) : null,
+            };
+            selectionSaved.current = Boolean(entityId);
+            if (entityId) onUpdate(rowId, { name: val.trim(), ...directoryIds.current });
           }}
           disabled={isBusy}
-          // Standard party rows use their matching company directory. Other
-          // types keep role-scoped or generic free-text suggestions.
-          entity={directory}
-          role={directory ? undefined : clientTypeToContactRole(type)}
           onBlur={() => {
             if (selectionSaved.current) {
               selectionSaved.current = false;
               return;
             }
             const val = name.trim();
-            const selectedId = directoryIdField ? directoryIds.current[directoryIdField] : null;
-            const savedId = directoryIdField ? (client[directoryIdField] ?? null) : null;
-            if (val === client.name && selectedId === savedId) return;
-            onUpdate(rowId, {
-              name: val,
-              ...(directoryIdField ? { [directoryIdField]: selectedId } : {}),
-            });
+            if (
+              val === client.name &&
+              directoryIds.current.clientId === (client.clientId ?? null) &&
+              directoryIds.current.ownerId === (client.ownerId ?? null)
+            )
+              return;
+            onUpdate(rowId, { name: val, ...directoryIds.current });
           }}
         />
       </Table.Td>

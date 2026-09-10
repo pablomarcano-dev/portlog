@@ -8,7 +8,7 @@ import {
 } from '../fields';
 import { ContactCreateSchema } from '../../master-data/contact';
 import { OwnerCreateSchema } from '../../master-data/owner';
-import { ShipperCreateSchema } from '../../master-data/shipper';
+import { ClientCreateSchema } from '../../master-data/client';
 import { EmailGroupCreateSchema } from '../../master-data/email-group';
 
 describe('optionalText', () => {
@@ -89,21 +89,18 @@ describe('ContactCreateSchema cross-links', () => {
   it('accepts null for a link the user cleared', () => {
     const result = ContactCreateSchema.safeParse({
       name: 'Jane Doe',
-      shipperId: null,
-      operatorId: null,
+      clientIds: [],
       ownerId: null,
-      charterId: null,
     });
     expect(result.success).toBe(true);
   });
 
-  it('still rejects two links at once', () => {
+  it('accepts a contact shared by two clients', () => {
     const result = ContactCreateSchema.safeParse({
       name: 'Jane Doe',
-      shipperId: 'cms2268fg00cspz6hc0dz4yac',
-      charterId: 'cms2268fv00cxpz6hlmqn2uwy',
+      clientIds: ['cms2268fg00cspz6hc0dz4yac', 'cms2268fv00cxpz6hlmqn2uwy'],
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 });
 
@@ -189,11 +186,11 @@ describe('master-data forms accept a name-only record', () => {
   });
 
   it('saves a Shipper with several addresses and no phone or fax', () => {
-    const result = ShipperCreateSchema.safeParse({
+    const result = ClientCreateSchema.safeParse({
       name: 'PDVSA PETROLEOS S.A.',
       emails: 'a@pdvsa.com.ve, b@pdvsa.com.ve',
-      businessPhone: '',
-      businessFax: '',
+      entityType: 'SHIPPER',
+      phones: [],
     });
     expect(result.success).toBe(true);
     expect(result.success && result.data.emails).toHaveLength(2);

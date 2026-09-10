@@ -24,14 +24,14 @@
  *
  * ## Shell responsibilities
  * - Owns the `<FormProvider>` so child fields call `useFormContext()` normally.
- * - Always renders `<CommentarioField>` — entity forms must NOT add their own `comments` field.
+ * - Renders `<CommentarioField>` unless showComments is false.
  * - Owns list navigation (Prior/Next/First/Last) since it owns the list state.
  * - `Delete` button is only visible when `user.role === 'ADM'`.
  * - Calls `notifications.show` on successful save.
  *
  * ## Entity form contract
  * The `children` render-prop receives the `UseFormReturn<TForm>` instance.
- * The TForm Zod schema MUST include an optional `comments` field (string | null | undefined).
+ * When showComments is true, TForm includes an optional `comments` field.
  * Entity forms render only their domain-specific fields inside the children slot.
  */
 
@@ -70,7 +70,9 @@ export interface ListItem {
 export interface MasterDetailShellProps<TForm extends FieldValues> {
   /** Unique key for this entity type — used for query keys and aria labels. */
   entityKey: string;
-  /** Zod schema for the form. Must include an optional `comments` field. */
+  showComments?: boolean;
+  newValues?: TForm;
+  /** Zod schema for the form. Includes optional `comments` when showComments is true. */
   schema: ZodType<TForm, ZodTypeDef, unknown>;
   /** TanStack Query result providing the full list of records. */
   listQuery: UseQueryResult<{ items: ListItem[] }>;
@@ -103,6 +105,8 @@ export interface MasterDetailShellProps<TForm extends FieldValues> {
  */
 export function MasterDetailShell<TForm extends FieldValues>({
   entityKey,
+  showComments = true,
+  newValues,
   schema,
   listQuery,
   selectedId,
@@ -144,7 +148,7 @@ export function MasterDetailShell<TForm extends FieldValues>({
   // Load detail data whenever selectedId changes
   useEffect(() => {
     if (selectedId === null) {
-      reset(undefined);
+      reset(newValues);
       setLoadError(null);
       return;
     }
@@ -160,7 +164,7 @@ export function MasterDetailShell<TForm extends FieldValues>({
       .finally(() => {
         setIsLoadingDetail(false);
       });
-  }, [selectedId, loadById, reset]);
+  }, [selectedId, loadById, reset, newValues]);
 
   const onSubmit = useCallback(
     async (values: TForm) => {
@@ -241,7 +245,7 @@ export function MasterDetailShell<TForm extends FieldValues>({
 
   function handleNew() {
     onSelect(null);
-    reset(undefined);
+    reset(newValues);
   }
 
   function handleCancel() {
@@ -259,7 +263,7 @@ export function MasterDetailShell<TForm extends FieldValues>({
           setIsLoadingDetail(false);
         });
     } else {
-      reset(undefined);
+      reset(newValues);
     }
   }
 
@@ -398,8 +402,8 @@ export function MasterDetailShell<TForm extends FieldValues>({
                   <Stack gap="md">
                     {/* Entity-specific fields slot */}
                     {children(form)}
-                    {/* Comentarios — always rendered, always bound to `comments` */}
-                    <CommentarioField />
+                    {/* Optional legacy comments field */}
+                    {showComments && <CommentarioField />}
                   </Stack>
                 )}
               </ScrollArea>

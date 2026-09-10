@@ -138,6 +138,11 @@ export class NominationsController {
     return this.svc.listClients(id);
   }
 
+  @Get(':id/client-email-context')
+  clientEmailContext(@Param('id', ParseUUIDPipe) id: string) {
+    return this.svc.clientEmailContext(id);
+  }
+
   @Get(':id/nomination-instructions.docx')
   async nominationInstructions(@Param('id', ParseUUIDPipe) id: string, @Res() reply: FastifyReply) {
     const file = await this.svc.generateNominationInstructions(id);

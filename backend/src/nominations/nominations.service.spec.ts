@@ -55,7 +55,7 @@ const mockNomBase = {
   ownerVariant: null,
   ownerContactId: null,
   shipperId: null,
-  shipper: null,
+  client: null,
   shipperVariant: null,
   shipperContactId: null,
   contactBlackBerry: null,
@@ -138,11 +138,11 @@ function composeNomination(overrides: Record<string, unknown> = {}) {
     nominationType: 'FULL_AGENCY' as const,
     master: null,
     nominationClients: [
-      { type: 'Charterer', name: 'Reliance Industries Limited', shipper: null },
+      { type: 'Charterer', name: 'Reliance Industries Limited', client: null },
       {
         type: 'Shipper',
         name: 'Cargill S.A.',
-        shipper: { name: 'Cargill S.A.', emails: SHIPPER_EMAILS },
+        client: { name: 'Cargill S.A.', emails: SHIPPER_EMAILS },
       },
     ],
     nominatedBy: null,
@@ -178,13 +178,13 @@ function nominationInstructionsFixture(overrides: Record<string, unknown> = {}) 
     client: {
       id: 'client-1',
       name: 'Instructions Client',
-      phone: null,
-      mobile: null,
+      phones: [],
+
       emails: [],
-      billingAddress: null,
-      taxAddress: null,
-      nominationInstructions: 'Follow the standing instructions.',
-      emailGroup: null,
+      addresses: [],
+
+      instructions: 'Follow the standing instructions.',
+      emailGroups: [],
       contactLinks: [],
     },
     charterer: null,
@@ -619,71 +619,42 @@ describe('NominationsService', () => {
   // 3. nomination clients — one compatible directory association per row
   // -------------------------------------------------------------------------
   describe('nomination clients', () => {
-    const chartererRow = {
-      id: NOM_CLIENT_ID,
-      type: 'Charterer',
-      chartererId: DIRECTORY_ID,
-      ownerId: null,
-      operatorId: null,
-      shipperId: null,
-    };
-
-    it('rejects an incompatible directory association even when called outside the DTO pipe', async () => {
+    it('preserves the company link when its role changes', async () => {
+      mockPrisma.nominationClient.findFirst.mockResolvedValue({
+        id: NOM_CLIENT_ID,
+        type: 'Charterer',
+        clientId: DIRECTORY_ID,
+        ownerId: null,
+      });
+      mockPrisma.nominationClient.update.mockResolvedValue({});
+      await service.updateClient(NOM_ID, NOM_CLIENT_ID, { type: 'Shipper' });
+      expect(mockPrisma.nominationClient.update).toHaveBeenCalledWith({
+        where: { id: NOM_CLIENT_ID },
+        data: { type: 'Shipper' },
+      });
+    });
+    it('rejects two simultaneous identities even outside DTO validation', async () => {
       mockPrisma.nomination.findUnique.mockResolvedValue({ id: NOM_ID });
-
       await expect(
         service.addClient(NOM_ID, {
           type: 'Charterer',
-          name: 'Wrong directory',
+          name: 'Company',
+          clientId: DIRECTORY_ID,
           ownerId: DIRECTORY_ID,
         }),
       ).rejects.toThrow(BadRequestException);
-      expect(mockPrisma.nominationClient.create).not.toHaveBeenCalled();
     });
-
-    it('clears the previous directory association when a known row type changes', async () => {
-      mockPrisma.nominationClient.findFirst.mockResolvedValue(chartererRow);
-      mockPrisma.nominationClient.update.mockResolvedValue({
-        ...chartererRow,
-        type: 'Commercial Operator',
-        chartererId: null,
-      });
-
-      await service.updateClient(NOM_ID, NOM_CLIENT_ID, { type: 'Commercial Operator' });
-
-      expect(mockPrisma.nominationClient.update).toHaveBeenCalledWith({
-        where: { id: NOM_CLIENT_ID },
-        data: {
-          type: 'Commercial Operator',
-          chartererId: null,
-          ownerId: null,
-          shipperId: null,
-        },
-      });
-    });
-
-    it('rejects a partial update whose link conflicts with the stored known type', async () => {
-      mockPrisma.nominationClient.findFirst.mockResolvedValue(chartererRow);
-
-      await expect(
-        service.updateClient(NOM_ID, NOM_CLIENT_ID, { shipperId: DIRECTORY_ID }),
-      ).rejects.toThrow(BadRequestException);
-      expect(mockPrisma.nominationClient.update).not.toHaveBeenCalled();
-    });
-
-    it('does not rewrite directory links on an unrelated edit to an unknown legacy row', async () => {
+    it('accepts a Client in any role and clears a former Owner association', async () => {
       mockPrisma.nominationClient.findFirst.mockResolvedValue({
-        ...chartererRow,
-        type: 'Receivers',
-        ownerId: 'cms2268fg00cspz6hc0dz4yad',
+        id: NOM_CLIENT_ID,
+        type: 'Shipper',
+        ownerId: DIRECTORY_ID,
       });
       mockPrisma.nominationClient.update.mockResolvedValue({});
-
-      await service.updateClient(NOM_ID, NOM_CLIENT_ID, { name: 'Updated receiver' });
-
+      await service.updateClient(NOM_ID, NOM_CLIENT_ID, { clientId: DIRECTORY_ID });
       expect(mockPrisma.nominationClient.update).toHaveBeenCalledWith({
         where: { id: NOM_CLIENT_ID },
-        data: { name: 'Updated receiver' },
+        data: { clientId: DIRECTORY_ID, ownerId: null },
       });
     });
   });
@@ -750,6 +721,43 @@ describe('NominationsService', () => {
   describe('delete', () => {
     it('throws MethodNotAllowedException', () => {
       expect(() => service.delete()).toThrow(MethodNotAllowedException);
+    });
+  });
+
+  describe('instruction group slots', () => {
+    it('prints the four Client groups independently of nomination recipients', async () => {
+      const fixture = nominationInstructionsFixture();
+      mockPrisma.nomination.findUnique.mockResolvedValue({
+        ...fixture,
+        emailTo: ['unrelated-to@example.test'],
+        emailBcc: ['private@example.test'],
+        client: {
+          ...fixture.client,
+          instructions: 'Full standing instructions',
+          emailGroups: ['FIRST_MESSAGE', 'SECOND_MESSAGE', 'THIRD_MESSAGE', 'CC_MESSAGE'].map(
+            (slot, index) => ({
+              slot,
+              emailGroup: {
+                name: `Group ${index + 1}`,
+                members: [{ email: `group${index + 1}@example.test`, displayName: null }],
+              },
+            }),
+          ),
+        },
+      });
+      await service.generateNominationInstructions(NOM_ID);
+      expect(mockNominationInstructionsDocx.render).toHaveBeenCalledWith(
+        expect.objectContaining({
+          firstMessage: 'Group: Group 1\ngroup1@example.test',
+          secondMessage: 'Group: Group 2\ngroup2@example.test',
+          thirdMessage: 'Group: Group 3\ngroup3@example.test',
+          ccMessage: 'Group: Group 4\ngroup4@example.test',
+          nominationInstructions: 'Full standing instructions',
+        }),
+      );
+      expect(JSON.stringify(mockNominationInstructionsDocx.render.mock.calls[0])).not.toContain(
+        'private@example.test',
+      );
     });
   });
 
@@ -1132,7 +1140,7 @@ describe('NominationsService', () => {
               type: 'Shipper',
               name: 'Cargill S.A.',
               // Same address as the terminal's, spelled differently.
-              shipper: { name: 'Cargill S.A.', emails: ['Ops@TAECJAA.com'] },
+              client: { name: 'Cargill S.A.', emails: ['Ops@TAECJAA.com'] },
             },
           ],
         }),
@@ -1146,7 +1154,7 @@ describe('NominationsService', () => {
     it('sends to the terminal alone when the shipper row is hand-typed', async () => {
       mockPrisma.nomination.findUnique.mockResolvedValue(
         composeNomination({
-          nominationClients: [{ type: 'Shipper', name: 'Some Trader Ltd', shipper: null }],
+          nominationClients: [{ type: 'Shipper', name: 'Some Trader Ltd', client: null }],
         }),
       );
 
@@ -1159,7 +1167,7 @@ describe('NominationsService', () => {
       mockPrisma.nomination.findUnique.mockResolvedValue(
         composeNomination({
           opPort: { name: 'PDVSA TAECJAA OFF-SHORE PLATFORM, JOSE', emails: [] },
-          nominationClients: [{ type: 'Shipper', name: '', shipper: null }],
+          nominationClients: [{ type: 'Shipper', name: '', client: null }],
         }),
       );
 
@@ -1260,16 +1268,16 @@ describe('NominationsService', () => {
   describe('getComposeData — header parties', () => {
     /** A roster carrying all four owner/operator types plus the cargo side. */
     const ROSTER = [
-      { type: 'Charterer', name: 'Reliance Industries Limited', shipper: null },
-      { type: 'Commercial Operator', name: 'MOL India Private Limited', shipper: null },
-      { type: 'Head Owner', name: 'Mitsui O.S.K. Lines, Ltd., Tokyo/CRAMO', shipper: null },
-      { type: 'Technical Operator', name: 'MOL Global Ship Management Pte Ltd', shipper: null },
+      { type: 'Charterer', name: 'Reliance Industries Limited', client: null },
+      { type: 'Commercial Operator', name: 'MOL India Private Limited', client: null },
+      { type: 'Head Owner', name: 'Mitsui O.S.K. Lines, Ltd., Tokyo/CRAMO', client: null },
+      { type: 'Technical Operator', name: 'MOL Global Ship Management Pte Ltd', client: null },
       // Auto-created and never filled in — must not print an empty Cc line.
-      { type: 'Disponent Owner', name: '  ', shipper: null },
+      { type: 'Disponent Owner', name: '  ', client: null },
       {
         type: 'Shipper',
         name: 'Cargill S.A.',
-        shipper: { name: 'Cargill S.A.', emails: SHIPPER_EMAILS },
+        client: { name: 'Cargill S.A.', emails: SHIPPER_EMAILS },
       },
     ];
 
@@ -1340,9 +1348,9 @@ describe('NominationsService', () => {
       mockPrisma.nomination.findUnique.mockResolvedValue(
         composeNomination({
           nominationClients: [
-            { type: 'Head Owner', name: 'Mitsui O.S.K. Lines, Ltd.', shipper: null },
+            { type: 'Head Owner', name: 'Mitsui O.S.K. Lines, Ltd.', client: null },
             // Same company, spelled with different case under a second type.
-            { type: 'Technical Operator', name: 'MITSUI O.S.K. LINES, LTD.', shipper: null },
+            { type: 'Technical Operator', name: 'MITSUI O.S.K. LINES, LTD.', client: null },
           ],
         }),
       );
@@ -1483,7 +1491,7 @@ describe('NominationsService', () => {
       operator: {
         name: 'MOL Global Ship Management Pte Ltd',
         emails: ['ops@molgsm.sg'],
-        contacts: [{ emails: ['duty@molgsm.sg'] }],
+        contactLinks: [{ contact: { emails: ['duty@molgsm.sg'] } }],
       },
     };
 
@@ -1617,7 +1625,7 @@ describe('NominationsService', () => {
           netLt: ['111667.5'],
           api: ['16.4'],
           temp: ['120.5'],
-          shipper: ['Cargill S.A.'],
+          client: ['Cargill S.A.'],
           consignee: ['Reliance'],
           destination: ['Sikka'],
           scacCode: ['NVMR'],
@@ -1877,14 +1885,14 @@ describe('NominationsService', () => {
           {
             type: 'Shipper',
             name: 'Cargill S.A.',
-            shipper: { name: 'Cargill S.A.', emails: ['ops@cargill.com', 'docs@cargill.com'] },
+            client: { name: 'Cargill S.A.', emails: ['ops@cargill.com', 'docs@cargill.com'] },
           },
         ]),
       ).toEqual({ name: 'Cargill S.A.', emails: ['ops@cargill.com', 'docs@cargill.com'] });
     });
 
     it('gives a hand-typed row its name but no addresses', () => {
-      expect(resolve([{ type: 'Shipper', name: 'Some Trader Ltd', shipper: null }])).toEqual({
+      expect(resolve([{ type: 'Shipper', name: 'Some Trader Ltd', client: null }])).toEqual({
         name: 'Some Trader Ltd',
         emails: [],
       });
@@ -1903,7 +1911,7 @@ describe('NominationsService', () => {
           {
             type: 'Shipper',
             name: '   ',
-            shipper: { name: 'Cargill S.A.', emails: ['ops@cargill.com'] },
+            client: { name: 'Cargill S.A.', emails: ['ops@cargill.com'] },
           },
         ]),
       ).toEqual({ name: 'Cargill S.A.', emails: ['ops@cargill.com'] });

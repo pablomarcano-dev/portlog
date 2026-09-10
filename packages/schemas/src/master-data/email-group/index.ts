@@ -48,7 +48,9 @@ export const EmailGroupSchema = z.object({
   name: z.string(),
   description: z.string().nullable(),
   comments: z.string().nullable(),
-  members: z.array(EmailGroupMemberSchema.extend({ id: z.string() })),
+  members: z.array(
+    EmailGroupMemberSchema.extend({ id: z.string(), displayName: z.string().max(255).nullish() }),
+  ),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });

@@ -77,7 +77,8 @@ function OwnershipRowContent({ vessel }: { vessel: EnrichedVessel }) {
   const [saved, setSaved] = useState<Set<string>>(new Set());
 
   const addContact = useMutation({
-    mutationFn: (name: string) => contactsApi.create({ name }),
+    mutationFn: (name: string) =>
+      contactsApi.create({ name, phones: [], addresses: [], clientIds: [] }),
     onSuccess: (_, name) => {
       void qc.invalidateQueries({ queryKey: ['contacts'] });
       setSaved((prev) => new Set(prev).add(name));

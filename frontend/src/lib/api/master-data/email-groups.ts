@@ -91,6 +91,7 @@ export function useSaveEmailGroup(selectedId: string | null) {
       return emailGroupsApi.create(values);
     },
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['clients'] });
       void qc.invalidateQueries({ queryKey: ['email-groups'] });
     },
   });
@@ -101,6 +102,7 @@ export function useDeleteEmailGroup() {
   return useMutation({
     mutationFn: (id: string) => emailGroupsApi.delete(id),
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['clients'] });
       void qc.invalidateQueries({ queryKey: ['email-groups'] });
     },
   });

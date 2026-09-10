@@ -164,50 +164,6 @@ model Crew {
 }
 
 // ---------------------------------------------------------------------------
-// Charterer — vessel charterers
-// ---------------------------------------------------------------------------
-model Charterer {
-  id          String   @id @default(cuid())
-  name        String
-  address     String?
-  contactInfo String?  @db.Text
-  comments    String?  @db.Text
-  createdAt   DateTime @default(now()) @db.Timestamptz
-  updatedAt   DateTime @updatedAt @db.Timestamptz
-
-  contacts    Contact[]
-  nominations Nomination[]
-  nominationClients NominationClient[]
-
-  @@index([name])
-  @@map("charterers")
-}
-
-// ---------------------------------------------------------------------------
-// Shipper — cargo shippers
-// ---------------------------------------------------------------------------
-model Shipper {
-  id            String   @id @default(cuid())
-  name          String
-  emails        String[] @default([])
-  businessPhone String?
-  businessFax   String?
-  address       String?
-  comments      String?  @db.Text
-  createdAt     DateTime @default(now()) @db.Timestamptz
-  updatedAt     DateTime @updatedAt @db.Timestamptz
-
-  contacts Contact[]
-
-  // CLIENT LIST rows that name this shipper — the link that lets an outgoing
-  // notice resolve the shipper's addresses instead of matching on name.
-  nominationClients NominationClient[]
-
-  @@index([name])
-  @@map("shippers")
-}
-
-// ---------------------------------------------------------------------------
 // Agent — port agents
 // ---------------------------------------------------------------------------
 model Agent {
@@ -227,37 +183,6 @@ model Agent {
   @@index([branchId])
   @@index([operationalRole])
   @@map("agents")
-}
-
-// ---------------------------------------------------------------------------
-// Operator — vessel operators
-// location validated to "L" (local) | "E" (exterior) at the application layer
-// sendCopy: whether to CC this operator on outbound documents
-// itemsProforma: placeholder JSON for proforma line items (full normalization deferred)
-// ---------------------------------------------------------------------------
-model Operator {
-  id                   String   @id @default(cuid())
-  name                 String
-  emails               String[] @default([])
-  businessPhone        String?
-  businessFax          String?
-  address              String?
-  standardRequirements String?  @db.Text
-  sendCopy             Boolean  @default(false)
-  // "L" = local | "E" = exterior — enforced at app layer, not DB constraint
-  location             String?
-  // Placeholder for proforma line items; full normalization deferred to a later milestone
-  itemsProforma        Json?
-  comments             String?  @db.Text
-  createdAt            DateTime @default(now()) @db.Timestamptz
-  updatedAt            DateTime @updatedAt @db.Timestamptz
-
-  contacts        Contact[]
-  shipParticulars ShipParticular[]
-  nominationClients NominationClient[]
-
-  @@index([name])
-  @@map("operators")
 }
 
 // ---------------------------------------------------------------------------
@@ -295,8 +220,8 @@ model Owner {
   createdAt       DateTime @default(now()) @db.Timestamptz
   updatedAt       DateTime @updatedAt @db.Timestamptz
 
-  contacts        Contact[]
-  shipParticulars ShipParticular[]
+  contacts          Contact[]
+  shipParticulars   ShipParticular[]
   nominationClients NominationClient[]
 
   @@index([name])
@@ -333,43 +258,67 @@ model Supplier {
 // ---------------------------------------------------------------------------
 // Client — port agency clients (Clientes)
 // ---------------------------------------------------------------------------
+enum ClientEntityType {
+  CLIENT
+  CHARTERER
+  SHIPPER
+  OPERATOR
+}
+
+enum PhoneKind {
+  BUSINESS
+  HOME
+  MOBILE
+  FAX
+  OTHER
+}
+
+enum AddressPurpose {
+  PHYSICAL
+  BILLING
+  POSTAL
+  TAX
+  OTHER
+}
+
+enum ClientLocationType {
+  LOCAL
+  EXTERIOR
+}
+
+enum ClientEmailSlot {
+  FIRST_MESSAGE
+  SECOND_MESSAGE
+  THIRD_MESSAGE
+  CC_MESSAGE
+}
+
 model Client {
-  id                     String      @id @default(cuid())
-  name                   String
-  phone                  String?
-  phone2                 String?
-  physicalAddress        String?
-  billingAddress         String?
-  postalAddress          String?
-  taxAddress             String?
-  otherAddress           String?
-  fax                    String?
-  mobile                 String?
-  emails                 String[]    @default([])
-  // Kept only so existing free-text values remain recoverable after the
-  // directory is upgraded to a real EmailGroup relation.
-  legacyEmailGroup       String?     @map("emailGroup")
-  emailGroupId           String?
-  emailGroup             EmailGroup? @relation(fields: [emailGroupId], references: [id], onDelete: SetNull)
-  tariff                 String?     @db.Text
-  nominationInstructions String?     @map("instructions") @db.Text
-  createdAt              DateTime    @default(now()) @db.Timestamptz
-  updatedAt              DateTime    @updatedAt @db.Timestamptz
+  id                   String              @id @default(cuid())
+  name                 String
+  entityType           ClientEntityType    @default(CLIENT)
+  emails               String[]            @default([])
+  instructions         String?             @db.Text
+  notes                String?             @db.Text
+  locationType         ClientLocationType?
+  phones               ClientPhone[]
+  addresses            ClientAddress[]
+  tariffItems          ClientTariffItem[]
+  emailGroups          ClientEmailGroup[]
+  contactLinks         ClientContact[]
+  nominations          Nomination[]        @relation("InstructionClient")
+  chartererNominations Nomination[]        @relation("NominationCharterer")
+  nominationClients    NominationClient[]
+  shipParticulars      ShipParticular[]    @relation("VesselOperator")
+  serviceRequests      ServiceRequest[]
+  createdAt            DateTime            @default(now()) @db.Timestamptz
+  updatedAt            DateTime            @updatedAt @db.Timestamptz
 
-  contactLinks ClientContact[]
-  nominations  Nomination[]
-
-  // Service Requests back-relation — the optional `bill to` client
-  serviceRequests ServiceRequest[]
-
-  @@index([name])
-  @@index([emailGroupId])
+  @@index([name, id])
+  @@index([entityType])
   @@map("clients")
 }
 
-// Contacts may be relevant to more than one commercial client, and may also
-// retain their existing shipper/operator/owner/charterer association. An
-// explicit join keeps those meanings independent.
 model ClientContact {
   clientId  String
   contactId String
@@ -380,6 +329,57 @@ model ClientContact {
   @@id([clientId, contactId])
   @@index([contactId])
   @@map("client_contacts")
+}
+
+model ClientPhone {
+  id        String    @id @default(cuid())
+  clientId  String
+  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  kind      PhoneKind
+  number    String
+  label     String?
+  sortOrder Int       @default(0)
+
+  @@index([clientId])
+  @@map("client_phones")
+}
+
+model ClientAddress {
+  id        String         @id @default(cuid())
+  clientId  String
+  client    Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  purpose   AddressPurpose
+  text      String
+  label     String?
+  sortOrder Int            @default(0)
+
+  @@index([clientId])
+  @@map("client_addresses")
+}
+
+model ClientTariffItem {
+  id          String  @id @default(cuid())
+  clientId    String
+  client      Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  item        String
+  amountText  String?
+  information String?
+  sortOrder   Int     @default(0)
+
+  @@index([clientId])
+  @@map("client_tariff_items")
+}
+
+model ClientEmailGroup {
+  clientId     String
+  slot         ClientEmailSlot
+  emailGroupId String
+  client       Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  emailGroup   EmailGroup      @relation(fields: [emailGroupId], references: [id], onDelete: Cascade)
+
+  @@id([clientId, slot])
+  @@index([emailGroupId])
+  @@map("client_email_groups")
 }
 
 // ---------------------------------------------------------------------------
@@ -405,9 +405,7 @@ model Service {
 // One flat directory feeds both fields; there is deliberately no driver/user
 // role split, since the same person can appear in either line.
 //
-// Deliberately NOT part of the `Contact` directory: those rows hang off a
-// Shipper / Operator / Owner / Charterer cross-link (enforced by a CHECK
-// constraint), and a driver belongs to no such entity.
+// Separate from Contact: these are service-voucher people and vehicle details.
 // ---------------------------------------------------------------------------
 model SalesContact {
   id             String   @id @default(cuid())
@@ -428,35 +426,50 @@ model SalesContact {
 
 // ---------------------------------------------------------------------------
 // Contact — generic contacts directory
-// Cross-linked to Shipper / Operator / Owner / Charterer via four nullable FKs.
-// Business rule: at most ONE of the four entity FKs may be non-null per row.
-// This is enforced by the CHECK constraint `contacts_single_owner_chk` added
-// directly to the migration SQL (Prisma cannot express CHECK constraints natively).
+// Shared by multiple Clients through ClientContact; an optional Owner link remains.
+// Communication fields use the same normalized shape as Client.
 // ---------------------------------------------------------------------------
 model Contact {
-  id            String          @id @default(cuid())
-  name          String
-  emails        String[]        @default([])
-  homePhone     String?
-  mobile        String?
-  businessPhone String?
-  businessFax   String?
-  address       String?
-  // Entity FK cross-links — at most one may be non-null (enforced by DB CHECK constraint)
-  shipperId     String?
-  shipper       Shipper?        @relation(fields: [shipperId], references: [id], onDelete: SetNull)
-  operatorId    String?
-  operator      Operator?       @relation(fields: [operatorId], references: [id], onDelete: SetNull)
-  ownerId       String?
-  owner         Owner?          @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  charterId     String?
-  charterer     Charterer?      @relation(fields: [charterId], references: [id], onDelete: SetNull)
-  clientLinks   ClientContact[]
-  comments      String?         @db.Text
-  createdAt     DateTime        @default(now()) @db.Timestamptz
-  updatedAt     DateTime        @updatedAt @db.Timestamptz
+  id          String           @id @default(cuid())
+  name        String
+  emails      String[]         @default([])
+  phones      ContactPhone[]
+  addresses   ContactAddress[]
+  notes       String?          @db.Text
+  ownerId     String?
+  owner       Owner?           @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  clientLinks ClientContact[]
+  createdAt   DateTime         @default(now()) @db.Timestamptz
+  updatedAt   DateTime         @updatedAt @db.Timestamptz
 
+  @@index([name, id])
   @@map("contacts")
+}
+
+model ContactPhone {
+  id        String    @id @default(cuid())
+  contactId String
+  contact   Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  kind      PhoneKind
+  number    String
+  label     String?
+  sortOrder Int       @default(0)
+
+  @@index([contactId])
+  @@map("contact_phones")
+}
+
+model ContactAddress {
+  id        String         @id @default(cuid())
+  contactId String
+  contact   Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  purpose   AddressPurpose
+  text      String
+  label     String?
+  sortOrder Int            @default(0)
+
+  @@index([contactId])
+  @@map("contact_addresses")
 }
 
 // ---------------------------------------------------------------------------
@@ -508,31 +521,31 @@ model Branch {
 //   call signs across flags should be allowed — keeping @unique until client confirms otherwise.
 // ---------------------------------------------------------------------------
 model ShipParticular {
-  id           String    @id @default(cuid())
+  id           String   @id @default(cuid())
   // Call sign is unique per vessel identification rules (open question: cross-flag duplicates allowed?)
-  callSign     String    @unique
+  callSign     String   @unique
   name         String
   abbreviation String?
-  loa          Decimal?  @db.Decimal(10, 3) // Length Overall in metres
-  dwt          Decimal?  @db.Decimal(12, 3) // Deadweight Tonnage
-  grt          Decimal?  @db.Decimal(12, 3) // Gross Register Tonnage
-  nrt          Decimal?  @db.Decimal(12, 3) // Net Register Tonnage
-  emails       String[]  @default([])
+  loa          Decimal? @db.Decimal(10, 3) // Length Overall in metres
+  dwt          Decimal? @db.Decimal(12, 3) // Deadweight Tonnage
+  grt          Decimal? @db.Decimal(12, 3) // Gross Register Tonnage
+  nrt          Decimal? @db.Decimal(12, 3) // Net Register Tonnage
+  emails       String[] @default([])
   // imoNumber is unique among non-null values (Postgres unique index allows multiple NULLs).
   // Partial-uniqueness concern: Prisma @unique maps to a standard unique index, which is correct here.
-  imoNumber    String?   @unique
+  imoNumber    String?  @unique
   phone        String?
   phone2       String?
   fax          String?
   flagId       String
-  flag         Flag      @relation(fields: [flagId], references: [id])
+  flag         Flag     @relation(fields: [flagId], references: [id])
   ownerId      String?
-  owner        Owner?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  owner        Owner?   @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   operatorId   String?
-  operator     Operator? @relation(fields: [operatorId], references: [id], onDelete: SetNull)
-  comments     String?   @db.Text
-  createdAt    DateTime  @default(now()) @db.Timestamptz
-  updatedAt    DateTime  @updatedAt @db.Timestamptz
+  operator     Client?  @relation("VesselOperator", fields: [operatorId], references: [id], onDelete: SetNull)
+  comments     String?  @db.Text
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  updatedAt    DateTime @updatedAt @db.Timestamptz
 
   nominations     Nomination[]
   // Service Requests back-relation — the vessel is the module's anchor

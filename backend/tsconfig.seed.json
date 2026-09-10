@@ -5,7 +5,9 @@
     "moduleResolution": "node",
     "rootDir": "./prisma",
     "outDir": "./dist-seed",
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "resolvePackageJsonExports": false
   },
-  "include": ["prisma/**/*.ts"]
+  "include": ["prisma/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
 }

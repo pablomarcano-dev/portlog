@@ -1,0 +1,101 @@
+[
+  {
+    "id": "cmppofpn4000humtgvxlb9st1",
+    "name": "Soja",
+    "comments": null,
+    "createdAt": "2026-05-28T15:57:46.769+00:00",
+    "updatedAt": "2026-05-28T15:57:46.769+00:00",
+    "bblUnit": "MT",
+    "category": "SN"
+  },
+  {
+    "id": "cmppofpn6000iumtgeqg7p3ey",
+    "name": "Trigo",
+    "comments": null,
+    "createdAt": "2026-05-28T15:57:46.77+00:00",
+    "updatedAt": "2026-05-28T15:57:46.77+00:00",
+    "bblUnit": "MT",
+    "category": "SN"
+  },
+  {
+    "id": "cmppofpn6000jumtg0cfefc4k",
+    "name": "Maíz",
+    "comments": null,
+    "createdAt": "2026-05-28T15:57:46.771+00:00",
+    "updatedAt": "2026-05-28T15:57:46.771+00:00",
+    "bblUnit": "MT",
+    "category": "SN"
+  },
+  {
+    "id": "cmppofpn7000kumtgxhywzogh",
+    "name": "Celulosa",
+    "comments": null,
+    "createdAt": "2026-05-28T15:57:46.772+00:00",
+    "updatedAt": "2026-05-28T15:57:46.772+00:00",
+    "bblUnit": "MT",
+    "category": "SN"
+  },
+  {
+    "id": "cmppofpn8000lumtgo5r11yur",
+    "name": "Fertilizantes",
+    "comments": null,
+    "createdAt": "2026-05-28T15:57:46.773+00:00",
+    "updatedAt": "2026-05-28T15:57:46.773+00:00",
+    "bblUnit": "MT",
+    "category": "SN"
+  },
+  {
+    "id": "cmppofpn9000mumtgq5wc3s3b",
+    "name": "Combustible",
+    "comments": null,
+    "createdAt": "2026-05-28T15:57:46.773+00:00",
+    "updatedAt": "2026-05-28T15:57:46.773+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cmppofpna000numtglxt2wox3",
+    "name": "Carga General",
+    "comments": null,
+    "createdAt": "2026-05-28T15:57:46.774+00:00",
+    "updatedAt": "2026-05-28T15:57:46.774+00:00",
+    "bblUnit": "MT",
+    "category": "SN"
+  },
+  {
+    "id": "cmppofpna000oumtgmz06dqqy",
+    "name": "Contenedores",
+    "comments": null,
+    "createdAt": "2026-05-28T15:57:46.775+00:00",
+    "updatedAt": "2026-05-28T15:57:46.775+00:00",
+    "bblUnit": "TEU",
+    "category": "SN"
+  },
+  {
+    "id": "cmpppal29000mum73r2nknm5n",
+    "name": "Aceite Vegetal",
+    "comments": null,
+    "createdAt": "2026-05-28T16:21:47.17+00:00",
+    "updatedAt": "2026-05-28T16:21:47.17+00:00",
+    "bblUnit": "MT",
+    "category": "SN"
+  },
+  {
+    "id": "cmpppal2b000num73zzw3pktw",
+    "name": "Carne Refrigerada",
+    "comments": null,
+    "createdAt": "2026-05-28T16:21:47.171+00:00",
+    "updatedAt": "2026-05-28T16:21:47.171+00:00",
+    "bblUnit": "MT",
+    "category": "SN"
+  },
+  {
+    "id": "cmszcd55t00abum8asuhkh52z",
+    "name": "Pellets de Madera",
+    "comments": null,
+    "createdAt": "2026-08-19T00:16:40.289+00:00",
+    "updatedAt": "2026-08-19T00:16:40.289+00:00",
+    "bblUnit": "MT",
+    "category": "SN"
+  }
+]

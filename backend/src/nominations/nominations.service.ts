@@ -1,3 +1,5 @@
+import { CLIENT_SELECT } from '../master-data/clients/clients.service.js';
+import { formatPhones, addressFor, type ClientEmailSlot } from '@portlog/schemas';
 import {
   BadRequestException,
   ConflictException,
@@ -91,19 +93,15 @@ function trimmedOrUndefined(value: string | null | undefined): string | undefine
 function normalizeClientDirectoryLinks<
   T extends {
     type?: string;
-    chartererId?: string | null;
+    clientId?: string | null;
     ownerId?: string | null;
-    operatorId?: string | null;
-    shipperId?: string | null;
   },
 >(
   input: T,
   existing?: {
     type?: string;
-    chartererId?: string | null;
+    clientId?: string | null;
     ownerId?: string | null;
-    operatorId?: string | null;
-    shipperId?: string | null;
   },
 ): T {
   try {
@@ -836,6 +834,31 @@ export class NominationsService {
    * The nomination supplies voyage-specific facts; its Client record
    * supplies durable recipients, billing details, and operating instructions.
    */
+  async clientEmailContext(nominationId: string) {
+    const nomination = await this.prisma.nomination.findUnique({
+      where: { id: nominationId },
+      select: {
+        clientId: true,
+        chartererId: true,
+        shipParticular: { select: { operatorId: true } },
+        nominationClients: { select: { clientId: true } },
+      },
+    });
+    if (!nomination) throw new NotFoundException('Nomination not found.');
+    return {
+      clientIds: [
+        ...new Set(
+          [
+            nomination.clientId,
+            nomination.chartererId,
+            nomination.shipParticular.operatorId,
+            ...nomination.nominationClients.map((row) => row.clientId),
+          ].filter((id): id is string => Boolean(id)),
+        ),
+      ],
+    };
+  }
+
   async generateNominationInstructions(
     nominationId: string,
   ): Promise<{ buffer: Buffer; filename: string }> {
@@ -864,35 +887,7 @@ export class NominationsService {
         boardingClerk: true,
         inspector: true,
         parcels: true,
-        client: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            mobile: true,
-            emails: true,
-            billingAddress: true,
-            taxAddress: true,
-            nominationInstructions: true,
-            emailGroup: {
-              select: {
-                name: true,
-                members: {
-                  orderBy: { order: 'asc' },
-                  select: { email: true, displayName: true },
-                },
-              },
-            },
-            contactLinks: {
-              orderBy: { contact: { name: 'asc' } },
-              select: {
-                contact: {
-                  select: { name: true, emails: true, mobile: true, businessPhone: true },
-                },
-              },
-            },
-          },
-        },
+        client: { select: CLIENT_SELECT },
         charterer: { select: { name: true } },
         shipParticular: {
           select: {
@@ -931,17 +926,21 @@ export class NominationsService {
     const client = nomination.client;
     const parcels = readParcelRows(nomination.parcels);
     const clientContactLines = client.contactLinks.flatMap(({ contact }) => {
-      const channels = uniqueNonBlank([
-        ...contact.emails,
-        contact.mobile,
-        contact.businessPhone,
-      ]).join(' / ');
+      const channels = uniqueNonBlank([...contact.emails, formatPhones(contact.phones)]).join(
+        ' / ',
+      );
       return [channels ? `${contact.name}: ${channels}` : contact.name];
     });
-    const groupLines =
-      client.emailGroup?.members.map((member) =>
-        member.displayName ? `${member.displayName} <${member.email}>` : member.email,
-      ) ?? [];
+    const groupText = (slot: ClientEmailSlot) => {
+      const group = client.emailGroups.find((assignment) => assignment.slot === slot)?.emailGroup;
+      if (!group) return '—';
+      return [
+        `Group: ${group.name}`,
+        ...group.members.map((member) =>
+          member.displayName ? `${member.displayName} <${member.email}>` : member.email,
+        ),
+      ].join('\n');
+    };
 
     const rowByType = (patterns: RegExp[]) =>
       nomination.nominationClients.find((row) =>
@@ -962,7 +961,7 @@ export class NominationsService {
         parcel.product,
       ]).join(' '),
     );
-    const clientChannels = uniqueNonBlank([client.phone, client.mobile, ...client.emails]);
+    const clientChannels = uniqueNonBlank([formatPhones(client.phones), ...client.emails]);
 
     const snOt = formatSnOt(nomination.correlative, nomination.dateNominated, nomination.kind);
     const context = {
@@ -980,17 +979,11 @@ export class NominationsService {
         nomination.layDaysFirst || nomination.layDaysLast
           ? `${formatInstructionDate(nomination.layDaysFirst)} — ${formatInstructionDate(nomination.layDaysLast)}`
           : '—',
-      firstMessage:
-        uniqueNonBlank([
-          client.emailGroup ? `Group: ${client.emailGroup.name}` : null,
-          ...groupLines,
-          ...client.emails,
-          ...clientContactLines,
-        ]).join('\n') || '—',
-      secondMessage: uniqueNonBlank(nomination.emailTo).join('\n') || '—',
-      thirdMessage: uniqueNonBlank(nomination.emailCc).join('\n') || '—',
-      ccMessage: uniqueNonBlank(nomination.emailBcc).join('\n') || '—',
-      nominationInstructions: client.nominationInstructions?.trim() || '—',
+      firstMessage: groupText('FIRST_MESSAGE'),
+      secondMessage: groupText('SECOND_MESSAGE'),
+      thirdMessage: groupText('THIRD_MESSAGE'),
+      ccMessage: groupText('CC_MESSAGE'),
+      nominationInstructions: client.instructions?.trim() || '—',
       nominationNotes:
         uniqueNonBlank([
           nomination.subject,
@@ -1007,9 +1000,10 @@ export class NominationsService {
       portCosts:
         uniqueNonBlank([
           client.name,
-          client.billingAddress ?? client.taxAddress,
+          addressFor(client.addresses, 'BILLING', 'TAX'),
           nomination.referenceNo ? `Reference: ${nomination.referenceNo}` : null,
           clientChannels.length ? `Contact: ${clientChannels.join(' / ')}` : null,
+          ...clientContactLines,
         ]).join('\n') || '—',
       commercialOperator:
         uniqueNonBlank([
@@ -1142,7 +1136,7 @@ export class NominationsService {
             select: {
               type: true,
               name: true,
-              shipper: { select: { name: true, emails: true } },
+              client: { select: { name: true, emails: true } },
             },
             orderBy: { sortOrder: 'asc' },
           },
@@ -1159,7 +1153,11 @@ export class NominationsService {
               flag: { select: { name: true } },
               owner: { select: { name: true, contacts: { select: { emails: true } } } },
               operator: {
-                select: { name: true, emails: true, contacts: { select: { emails: true } } },
+                select: {
+                  name: true,
+                  emails: true,
+                  contactLinks: { select: { contact: { select: { emails: true } } } },
+                },
               },
             },
           },
@@ -1784,7 +1782,7 @@ export class NominationsService {
 
       const ownerOperatorEmails = dedupeEmails([
         ...(vessel?.operator?.emails ?? []),
-        ...(vessel?.operator?.contacts ?? []).flatMap((c) => c.emails),
+        ...(vessel?.operator?.contactLinks ?? []).flatMap((link) => link.contact.emails),
         ...(vessel?.owner?.contacts ?? []).flatMap((c) => c.emails),
       ]);
       // Replaces the client's Cc rather than joining it: the charterer is not
@@ -2006,15 +2004,15 @@ export class NominationsService {
    * typed free-hand therefore contributes a name and no addresses.
    */
   private static resolveShipper(
-    clients: { type: string; name: string; shipper?: { name: string; emails: string[] } | null }[],
+    clients: { type: string; name: string; client?: { name: string; emails: string[] } | null }[],
   ): { name: string; emails: string[] } {
     const row = clients.find(
-      (c) => c.type.trim().toLowerCase() === 'shipper' && (c.name.trim() !== '' || c.shipper),
+      (c) => c.type.trim().toLowerCase() === 'shipper' && (c.name.trim() !== '' || c.client),
     );
     if (!row) return { name: '', emails: [] };
     return {
-      name: row.name.trim() || (row.shipper?.name ?? ''),
-      emails: row.shipper?.emails ?? [],
+      name: row.name.trim() || (row.client?.name ?? ''),
+      emails: row.client?.emails ?? [],
     };
   }
 
@@ -2118,10 +2116,8 @@ export class NominationsService {
       select: {
         id: true,
         type: true,
-        chartererId: true,
+        clientId: true,
         ownerId: true,
-        operatorId: true,
-        shipperId: true,
       },
     });
     if (!exists) {

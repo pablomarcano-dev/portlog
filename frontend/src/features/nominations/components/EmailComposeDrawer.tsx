@@ -326,6 +326,7 @@ export function EmailComposeDrawer({
 
             {/* Add from group */}
             <EmailGroupPicker
+              nominationId={nominationId}
               targets={[
                 {
                   key: 'to',

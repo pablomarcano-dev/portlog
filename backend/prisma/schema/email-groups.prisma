@@ -6,14 +6,14 @@
 // ---------------------------------------------------------------------------
 
 model EmailGroup {
-  id          String             @id @default(cuid())
-  name        String
-  description String?
-  comments    String?            @db.Text
-  createdAt   DateTime           @default(now()) @db.Timestamptz
-  updatedAt   DateTime           @updatedAt @db.Timestamptz
-  members     EmailGroupMember[]
-  clients     Client[]
+  id                String             @id @default(cuid())
+  name              String
+  description       String?
+  comments          String?            @db.Text
+  createdAt         DateTime           @default(now()) @db.Timestamptz
+  updatedAt         DateTime           @updatedAt @db.Timestamptz
+  members           EmailGroupMember[]
+  clientAssignments ClientEmailGroup[]
 
   @@index([name])
   @@map("email_groups")

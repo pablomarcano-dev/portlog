@@ -19,7 +19,8 @@ export function useAddClient(nominationId: string) {
   return useMutation({
     mutationFn: (data: NominationClientCreate) => nominationsApi.addClient(nominationId, data),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: clientsQueryKey(nominationId) });
+      void qc.invalidateQueries({ queryKey: ['nominations', nominationId] });
+      void qc.invalidateQueries({ queryKey: ['nomination', nominationId] });
     },
     onError: () => {
       notifications.show({
@@ -38,7 +39,8 @@ export function useUpdateClient(nominationId: string) {
     mutationFn: ({ clientId, data }: { clientId: string; data: NominationClientUpdate }) =>
       nominationsApi.updateClient(nominationId, clientId, data),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: clientsQueryKey(nominationId) });
+      void qc.invalidateQueries({ queryKey: ['nominations', nominationId] });
+      void qc.invalidateQueries({ queryKey: ['nomination', nominationId] });
     },
     onError: () => {
       notifications.show({
@@ -56,7 +58,8 @@ export function useRemoveClient(nominationId: string) {
   return useMutation({
     mutationFn: (clientId: string) => nominationsApi.removeClient(nominationId, clientId),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: clientsQueryKey(nominationId) });
+      void qc.invalidateQueries({ queryKey: ['nominations', nominationId] });
+      void qc.invalidateQueries({ queryKey: ['nomination', nominationId] });
     },
     onError: () => {
       notifications.show({

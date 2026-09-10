@@ -1,9 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
-const prisma = new PrismaClient({
-  datasourceUrl: process.env['E2E_DATABASE_URL'],
-});
+const databaseUrl = process.env['E2E_DATABASE_URL'];
+if (!databaseUrl) throw new Error('E2E_DATABASE_URL must explicitly identify the test database.');
+const prisma = new PrismaClient({ datasourceUrl: databaseUrl });
 
 export async function resetDb(): Promise<null> {
   // Physical table names, not model names: every model here carries an @@map to
@@ -73,7 +73,7 @@ export async function cleanupEtaRecipientFixture(): Promise<null> {
       emails: { hasSome: [ETA_FIXTURE.operatorContactEmail, ETA_FIXTURE.ownerContactEmail] },
     },
   });
-  await prisma.operator.deleteMany({ where: { name: ETA_FIXTURE.operatorName } });
+  await prisma.client.deleteMany({ where: { name: ETA_FIXTURE.operatorName } });
   await prisma.owner.deleteMany({ where: { name: ETA_FIXTURE.ownerName } });
   await prisma.flag.deleteMany({ where: { name: ETA_FIXTURE.flagName } });
   return null;
@@ -90,8 +90,12 @@ export async function seedEtaRecipientFixture(): Promise<{
 }> {
   await cleanupEtaRecipientFixture();
 
-  const operator = await prisma.operator.create({
-    data: { name: ETA_FIXTURE.operatorName, emails: [ETA_FIXTURE.operatorEmail] },
+  const operator = await prisma.client.create({
+    data: {
+      entityType: 'OPERATOR',
+      name: ETA_FIXTURE.operatorName,
+      emails: [ETA_FIXTURE.operatorEmail],
+    },
   });
   const owner = await prisma.owner.create({ data: { name: ETA_FIXTURE.ownerName } });
 
@@ -101,7 +105,7 @@ export async function seedEtaRecipientFixture(): Promise<{
     data: {
       name: 'E2E Operator Contact',
       emails: [ETA_FIXTURE.operatorContactEmail],
-      operatorId: operator.id,
+      clientLinks: { create: [{ clientId: operator.id }] },
     },
   });
   await prisma.contact.create({

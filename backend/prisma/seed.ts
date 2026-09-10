@@ -15,6 +15,7 @@ import * as Minio from 'minio';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
+import { readFixtures, restoreCatalogs } from './catalogs.cjs';
 const prisma = new PrismaClient();
 
 const minioClient = new Minio.Client({
@@ -57,6 +58,7 @@ async function findOrCreate<T extends { id: string }>(
 }
 
 async function main(): Promise<void> {
+  readFixtures(); // Validate live captures before any seed writes.
   await initMinio();
   if (!minioAvailable) {
     console.warn(
@@ -270,388 +272,10 @@ async function main(): Promise<void> {
   // ---------------------------------------------------------------------------
   // Activities (10)
   // ---------------------------------------------------------------------------
-  const activityNames = [
-    '.',
-    'Aborted Maneuver',
-    'Aft. Tug Casted Off',
-    'Aft. Tug Made Fast for Custody',
-    'Agent and port authorities Disembarked',
-    'Agent and port authorities on board',
-    'Agent On Board',
-    'Agent on Board (Departure)',
-    'Agent on Board (Shifting)',
-    'Agent on Board - name:',
-    'All Clamshells Onboard',
-    'All Clamshells Placed On Barge',
-    'All Fast',
-    'All Lines Clear',
-    'Anchor Aweigh',
-    'Anchored',
-    'Anchored Aw. Charter`s Instructions',
-    'Anchored Aw. Layday',
-    'Anchored Aw. Owner`s Instructions',
-    'Anchored Aw. Terminal`s Instructions',
-    'Anchored Awaiting',
-    'Anchored Awaiting Berthing Instructions',
-    'Anchored Awaiting Port Formalities',
-    'Arrived at Pilot Station',
-    'Arrived EM Buoy',
-    'Arrived Guaranao P/S',
-    'Arrived La Salina',
-    'Arrived Maracaibo Bay',
-    'Arrived Off-Harbour',
-    'Arrived Puerto Miranda Bay',
-    'Arrived to El Tablazo Bay',
-    'Arrived to Guaranao Pilot Station',
-    'Arrived to Puerto Miranda Bay',
-    'Authorities Disembarked',
-    'Authorities On Board',
-    'Barge alongside',
-    'Barge away',
-    'BDN on Board',
-    'Bunker Arm(s) Connected',
-    'Bunker Arm(s) Disconnected',
-    'Bunker Hose(s) Connected',
-    'Bunker Hose(s) Disconnected',
-    'C.O.S.P',
-    'Calculations Commenced',
-    'Calculations Completed',
-    'Calculations Completed (Closing)',
-    'Calculations Completed (Final)',
-    'Calculations Completed (Opening)',
-    'Cargo Arm(s) Connected',
-    'Cargo Arm(s) Disconnected',
-    'Cargo Documents On Board',
-    'Cargo documents ready',
-    'Cargo Documents Signed',
-    'Cargo documents signed by Master',
-    'Cargo figures to agent',
-    'Cargo Hold(s) Closed',
-    'Cargo Hold(s) Open',
-    'Cargo holds approved (Loading Only)',
-    'Cargo Hose(s) Connected',
-    'Cargo Hose(s) Disconnected',
-    'Cargo inspector disembarked',
-    'Cargo Inspector On Board',
-    'Cargo inspector on board (Departure)',
-    'Cargo Tanks inspection Completed',
-    'Cargo Tanks inspection started',
-    'Ccommenced Discharge',
-    'Channel Pilot Off',
-    'Channel Pilot on board',
-    'Checklist # 1 completed',
-    'Checklist # 2 completed',
-    'Checklist # 3 completed',
-    'Checklist # 4 completed',
-    'Checklist # 5 completed',
-    'Chemist Disembarked',
-    'Chemist On Board',
-    'Cleared',
-    'Cleared By Port Authorities',
-    'Commence Cargo Sampling',
-    'Commence Drifting aw. terminal instructions',
-    'Commence Vessel Shifting',
-    'Commenced approaching -',
-    'Commenced Arms Connection',
-    'Commenced Arms Disconnection',
-    'Commenced Bunkering',
-    'Commenced Calculation',
-    'Commenced Calculations',
-    'Commenced Cargo Arms Connection',
-    'Commenced Cargo Arms Disconnection',
-    'Commenced Cargo Calculation',
-    'Commenced Cargo Calculations',
-    'Commenced Cargo Hose Connection',
-    'Commenced Cargo Hose Disconnection',
-    'Commenced Cargo Transfer',
-    'Commenced de-Ballasting',
-    'Commenced de-fendering',
-    'Commenced Discharge',
-    'Commenced draft survey (closing)',
-    'Commenced draft survey (opening)',
-    'Commenced drifting',
-    'Commenced drifting aw. Traffic outbound',
-    'Commenced Fendering',
-    'Commenced Final Calculations',
-    'Commenced Final Tanks Inspection',
-    'Commenced Gauging',
-    'Commenced heaving anchor',
-    'Commenced Hose Connection',
-    'Commenced Hose Disconnection',
-    'Commenced Key Meeting',
-    'Commenced Lashing',
-    'Commenced Line Clearance',
-    'Commenced Loading',
-    'Commenced Mooring',
-    'Commenced Port Security Inspection',
-    'Commenced Port Security Inspection on Deck',
-    'Commenced Port Security Inspection On Deck',
-    'Commenced Pre-draft',
-    'Commenced Pressure Test',
-    'Commenced Safe Key Meeting',
-    'Commenced Sampling',
-    'Commenced Self-Consumption',
-    'Commenced Shore Line Displacement',
-    'Commenced Slops Discharge',
-    'Commenced Sludge Discharge',
-    'Commenced Sounding',
-    'Commenced Tanks Inspection',
-    'Commenced Tanks Inspections',
-    'Commenced Underwater Inspection',
-    'Commenced unmooring',
-    'Commenced Unmooring',
-    'Commenced Vessel Line Displacement',
-    'Commenced Vessel Shifting',
-    'Commenced:',
-    'Commeneced Discharge',
-    'Complete Bunkering',
-    'Complete Cargo Sampling',
-    'Complete de-Ballasting',
-    'Completed',
-    'Completed Arms Connection',
-    'Completed Arms Disconnection',
-    'Completed Calculations',
-    'Completed Cargo Arms Connection',
-    'Completed Cargo Arms Disconnection',
-    'Completed Cargo Calculation',
-    'Completed Cargo Calculations',
-    'Completed Cargo Hose Connection',
-    'Completed Cargo Hose Disconnection',
-    'Completed Cargo Transfer',
-    'Completed de-fendering',
-    'Completed Discharge',
-    'Completed draft survey (closing)',
-    'Completed draft survey (opening)',
-    'Completed drifting',
-    'Completed Fendering',
-    'Completed Final Calculations',
-    'Completed Final Tanks Inspection',
-    'Completed Gauging',
-    'Completed Hose Connection',
-    'Completed Hose Disconnection',
-    'Completed Key Meeting',
-    'Completed Lashing',
-    'Completed Line Clearance',
-    'Completed Line Clearing/ Blowing',
-    'Completed Loading',
-    'Completed Mooring',
-    'Completed Port Security Inspection',
-    'Completed Port Security Inspection on Deck',
-    'Completed Port Security Inspection On Deck',
-    'Completed Pre-Draft',
-    'Completed pressure / leak test',
-    'Completed Safe Key Meeting',
-    'Completed Sampling',
-    'Completed Self-Consumption',
-    'Completed Shore Line Displacement',
-    'Completed Slops Discharge',
-    'Completed Sludge Discharge',
-    'Completed Sounding',
-    'Completed Tanks Inspection',
-    'Completed Underwater Inspection',
-    'Completed Unmooring',
-    'Completed Vessel Line Displacement',
-    'Completed Vessel Shifting',
-    'Crew Disembarked',
-    'Crew Embarked',
-    'Customs On Board:',
-    'Discharge Arm Disconnected',
-    'Discharge Arms Disconnected',
-    'Discharge Resumed',
-    'Discharge Suspended',
-    'Discharge Suspended for Line Displacement',
-    'Discharging Commenced',
-    'Discharging Completed',
-    'Discharging Hose Disconnected',
-    'Documents on Board',
-    'Documents Signed',
-    'Dropped Anchor',
-    'E.T Pilot on Board',
-    'E.T. Commence Bunker Operations',
-    'E.T. Commence Discharging',
-    'E.T. Commence Loading',
-    'E.T. Resume Discharging',
-    'E.T. Resume Loading',
-    'E.T.A Guaranao Pilot Station',
-    'E.T.A. Maracaibo Bay',
-    'E.T.A. Next Port',
-    'E.T.B.',
-    'E.T.C.',
-    'E.T.D.',
-    'E.T.D. From Maracaibo Bay',
-    'E.T.D. from Terminal',
-    'End Of Sea Passage',
-    'End Of Sea Passage (No Usar)',
-    'Engine Ready',
-    'Entered Maracaibo Channel',
-    'Est. Undocking pilot on board',
-    'Figures confirmed with Loss Control',
-    'Figures to Agent',
-    'First Anchor Down',
-    'First Line',
-    'First Line Ashore',
-    'First Line to Dock',
-    'Free Pratique',
-    'Free Pratique Granted',
-    'Full Away On Passage',
-    'Gangway in Position',
-    'Gangway Removed',
-    'Gas Free Cert. Received',
-    'Gas Test Approved',
-    'Immigration On Board',
-    'Key Meeting Commenced',
-    'Key Meeting Completed',
-    'Lashing Gang On Board',
-    'Last line',
-    'Last Line Off/Cleared from Berth',
-    'Last Slop Arm Disconnected',
-    'Last Slop Hose Disconnected',
-    'Last Tug Away - Berthing',
-    'Last Tug Away - Unberthing',
-    'Left berth',
-    'Loading Commenced',
-    'Loading Completed',
-    'Loading Master / Surveyor / Government Surveyor On Board',
-    'Loading Master / Surveyor / Port Security Team / Agent on Board',
-    'Loading Master / Surveyor / Port Security Team on Board',
-    'Loading Master and Surveyor Disembark',
-    'Loading Master and Surveyor on board',
-    'Loading Master disembarked',
-    'Loading Master On Board',
-    'Loading resumed',
-    'Loading suspended',
-    'Loading suspended for line displacement',
-    'Loss Control approval / release -',
-    'Mooring Master and Surveyor disembarked',
-    'Mooring Master and Surveyor on board',
-    'Mooring Master disembarked',
-    'Mooring Master On board',
-    'N.O.R. Accepted',
-    'N.O.R. Re-Tendered',
-    'N.O.R. Tendered',
-    'Notice of Readiness Accepted',
-    'Notice of Readiness Re-Tendered',
-    'Notice of Readiness Received',
-    'Notice of Readiness Tendered',
-    'Passed E.M Buoy',
-    'Passed General Rafael Urdaneta Bridge',
-    'Passed San Carlos P/S',
-    'Pilot / Government Surveyor Off',
-    'Pilot / Government Surveyor On Board',
-    'Pilot Off',
-    'Pilot On Board',
-    'Pilot On Board (Berthing)',
-    'Pilot On Board (Channel)',
-    'Pilot On Board (For Anchorage)',
-    'Pilot On Board (Shifting)',
-    'Pilot On Board (Unberthing)',
-    'Port Authorities / Agent Off',
-    'Port Authorities / Agent On Board',
-    'Port Authorities Disembarked',
-    'Port Authorities On Board',
-    'Port Captain Disembarked',
-    'Port Captain On Board',
-    'Port Clearance SIgned',
-    'Port Security Team / Agent Off',
-    'Port Security Team / Agent On Board',
-    'Port Security Team / Divers / Agent Off',
-    'Port Security Team / Divers / Agent On Board',
-    'Port Security Team / Divers On Board',
-    'Port Security Team On Board',
-    'Port State Control Disembarked',
-    'Port State Control On Board',
-    'Quantity Received:',
-    'Re-gauging commenced',
-    'Re-gauging completed',
-    'Received Final API',
-    'Resume Bunkering',
-    'Resume Discharging',
-    'Resumed Cargo Operations',
-    'Resumed Cargo Transference',
-    'Resumed Discharge',
-    'Resumed Loading',
-    'Sailed from Gnao Pilot Station',
-    'Sailed from Maracaibo bay',
-    'Sailed Full Away',
-    'Sailing documents on board',
-    'Sailing Documents On Board',
-    'Sampling Approved',
-    'Sanitary Authorities On Board',
-    'Sanitary Inspector On Board',
-    'Sea Trial Commenced',
-    'Sea Trial Completed',
-    'Ship to ship safety checklist completed',
-    'Slop Arm Connected',
-    'Slop Hose Connected',
-    'Slop Hose Disconnected',
-    'Stevedores On Board',
-    'Steverdores Off Board',
-    'Stopped Bunkering',
-    'Stopped Cargo Operations',
-    'Stopped Discharging',
-    'Stopped Discharging - Completed Line Displacement',
-    'Stopped Loading',
-    'Stopped Loading - Completed Line Displacement',
-    'Surveyor Disembarked',
-    'Surveyor On Board',
-    'Suspended Discharging',
-    'Suspended Loading',
-    'Tanks Accepted',
-    'Tanks Inspection Commenced (Closing)',
-    'Tanks Inspection Commenced (Final)',
-    'Tanks Inspection Commenced (Initial)',
-    'Tanks Inspection Commenced (Opening)',
-    'Tanks Inspection Completed (Closing)',
-    'Tanks Inspection Completed (Final)',
-    'Tanks Inspection Completed (Initial)',
-    'Tanks Inspection Completed (Opening)',
-    'Tug Boat Assisting',
-    'Tug(s) Alongside or Standby',
-    'Tugs Away',
-    'Tugs Made Fast',
-    'Unberthing Tug(s) Alongside or Standby',
-    'Vessel alongside',
-    'Vessel arrived at rendezvous position',
-    'Vessel arrived at rendezvous position for defendering',
-    'Vessel arrived at rendezvous position for fendering',
-    'Vessel cast off',
-    'Vessel Cleared',
-    'Vessel Cleared / Free Pratique Granted',
-    'Vessel Enter DryDock',
-    'Vessel Laying on DryDock Blocks',
-    'Vessel Must Be At Pilot Station',
-    'Vessel Ready',
-    'Vessel Received Instructions from Terminal to Proceed at Pilot Station',
-  ];
-  for (const name of activityNames) {
-    await prisma.activity.upsert({ where: { name }, update: {}, create: { name } });
-  }
-  console.log(`Seeded ${activityNames.length} activities`);
-
-  // ---------------------------------------------------------------------------
-  // Cargoes (10)
-  // ---------------------------------------------------------------------------
-  // category defaults to 'SN' (unrestricted); a couple are marked 'OT' so OT
-  // nominations have eligible products to select in dev.
-  const cargoData = [
-    { name: 'Soja', bblUnit: 'MT', category: 'SN' as const },
-    { name: 'Trigo', bblUnit: 'MT', category: 'SN' as const },
-    { name: 'Maíz', bblUnit: 'MT', category: 'SN' as const },
-    { name: 'Celulosa', bblUnit: 'MT', category: 'SN' as const },
-    { name: 'Fertilizantes', bblUnit: 'MT', category: 'SN' as const },
-    { name: 'Combustible', bblUnit: 'BBL', category: 'OT' as const },
-    { name: 'Carga General', bblUnit: 'MT', category: 'SN' as const },
-    { name: 'Contenedores', bblUnit: 'TEU', category: 'SN' as const },
-    { name: 'Pellets de Madera', bblUnit: 'MT', category: 'SN' as const },
-    { name: 'Aceite Vegetal', bblUnit: 'MT', category: 'OT' as const },
-  ];
-  for (const c of cargoData) {
-    await findOrCreate(
-      () => prisma.cargo.findFirst({ where: { name: c.name } }),
-      () => prisma.cargo.create({ data: c }),
-    );
-  }
-  console.log('Seeded 10 cargoes');
+  // Catalogs are restored verbatim from the mandatory live capture.
+  await restoreCatalogs(prisma);
+  const seedCargo = await prisma.cargo.findFirst({ orderBy: { id: 'asc' } });
+  if (!seedCargo) throw new Error('The preserved live cargo catalog is empty.');
 
   // ---------------------------------------------------------------------------
   // Services (9) — sale service catalog (no prices; price is typed per sale)
@@ -785,143 +409,177 @@ async function main(): Promise<void> {
   // Operators (10)
   // ---------------------------------------------------------------------------
   const op1 = await findOrCreate(
-    () => prisma.operator.findFirst({ where: { name: 'Granos del Sur S.A.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedoperator000000000001' } }),
     () =>
-      prisma.operator.create({
+      prisma.client.create({
         data: {
+          id: 'cseedoperator000000000001',
+          entityType: 'OPERATOR',
+          phones: { create: [{ kind: 'BUSINESS', number: '+598 2 900 1234', sortOrder: 0 }] },
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: 'Av. Italia 2850, Montevideo', sortOrder: 0 }],
+          },
           name: 'Granos del Sur S.A.',
           emails: ['operaciones@granosdelsur.com.uy'],
-          businessPhone: '+598 2 900 1234',
-          address: 'Av. Italia 2850, Montevideo',
-          location: 'L',
-          sendCopy: true,
-          comments: 'Operador principal de graneles.',
+          locationType: 'LOCAL',
+          notes: 'Operador principal de graneles.',
         },
       }),
   );
   const op2 = await findOrCreate(
-    () => prisma.operator.findFirst({ where: { name: 'Rioplatense Shipping Co.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedoperator000000000002' } }),
     () =>
-      prisma.operator.create({
+      prisma.client.create({
         data: {
+          id: 'cseedoperator000000000002',
+          entityType: 'OPERATOR',
+          phones: { create: [{ kind: 'BUSINESS', number: '+598 2 711 5678', sortOrder: 0 }] },
+          addresses: {
+            create: [
+              { purpose: 'PHYSICAL', text: 'Rambla 25 de Agosto 490, Montevideo', sortOrder: 0 },
+            ],
+          },
           name: 'Rioplatense Shipping Co.',
           emails: ['ops@rioplatense.com'],
-          businessPhone: '+598 2 711 5678',
-          address: 'Rambla 25 de Agosto 490, Montevideo',
-          location: 'E',
-          sendCopy: false,
+          locationType: 'EXTERIOR',
         },
       }),
   );
   const op3 = await findOrCreate(
-    () => prisma.operator.findFirst({ where: { name: 'Ultramar Agencia Marítima S.A.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedoperator000000000003' } }),
     () =>
-      prisma.operator.create({
+      prisma.client.create({
         data: {
+          id: 'cseedoperator000000000003',
+          entityType: 'OPERATOR',
+          phones: { create: [{ kind: 'BUSINESS', number: '+598 2 916 2200', sortOrder: 0 }] },
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: 'Juncal 1327, Montevideo', sortOrder: 0 }],
+          },
           name: 'Ultramar Agencia Marítima S.A.',
           emails: ['ops@ultramar.com.uy'],
-          businessPhone: '+598 2 916 2200',
-          address: 'Juncal 1327, Montevideo',
-          location: 'L',
-          sendCopy: true,
+          locationType: 'LOCAL',
         },
       }),
   );
   const op4 = await findOrCreate(
-    () => prisma.operator.findFirst({ where: { name: 'Sudatlantic Shipping S.A.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedoperator000000000004' } }),
     () =>
-      prisma.operator.create({
+      prisma.client.create({
         data: {
+          id: 'cseedoperator000000000004',
+          entityType: 'OPERATOR',
+          phones: { create: [{ kind: 'BUSINESS', number: '+54 11 4311 7890', sortOrder: 0 }] },
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: 'Corrientes 456, Buenos Aires', sortOrder: 0 }],
+          },
           name: 'Sudatlantic Shipping S.A.',
           emails: ['operations@sudatlantic.com'],
-          businessPhone: '+54 11 4311 7890',
-          address: 'Corrientes 456, Buenos Aires',
-          location: 'E',
-          sendCopy: false,
+          locationType: 'EXTERIOR',
         },
       }),
   );
   await findOrCreate(
-    () => prisma.operator.findFirst({ where: { name: 'Naviera Austral S.R.L.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedoperator000000000005' } }),
     () =>
-      prisma.operator.create({
+      prisma.client.create({
         data: {
+          id: 'cseedoperator000000000005',
+          entityType: 'OPERATOR',
+          phones: { create: [{ kind: 'BUSINESS', number: '+598 2 600 4455', sortOrder: 0 }] },
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: 'Br. Artigas 1680, Montevideo', sortOrder: 0 }],
+          },
           name: 'Naviera Austral S.R.L.',
           emails: ['info@navieraustral.com.uy'],
-          businessPhone: '+598 2 600 4455',
-          address: 'Br. Artigas 1680, Montevideo',
-          location: 'L',
-          sendCopy: true,
+          locationType: 'LOCAL',
         },
       }),
   );
   await findOrCreate(
-    () => prisma.operator.findFirst({ where: { name: 'Portimar Operaciones S.A.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedoperator000000000006' } }),
     () =>
-      prisma.operator.create({
+      prisma.client.create({
         data: {
+          id: 'cseedoperator000000000006',
+          entityType: 'OPERATOR',
+          phones: { create: [{ kind: 'BUSINESS', number: '+598 2 418 3300', sortOrder: 0 }] },
+          addresses: {
+            create: [
+              { purpose: 'PHYSICAL', text: 'Luis A. de Herrera 1248, Montevideo', sortOrder: 0 },
+            ],
+          },
           name: 'Portimar Operaciones S.A.',
           emails: ['ops@portimar.com.uy'],
-          businessPhone: '+598 2 418 3300',
-          address: 'Luis A. de Herrera 1248, Montevideo',
-          location: 'L',
-          sendCopy: false,
+          locationType: 'LOCAL',
         },
       }),
   );
   await findOrCreate(
-    () => prisma.operator.findFirst({ where: { name: 'Interocean Shipping Ltd.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedoperator000000000007' } }),
     () =>
-      prisma.operator.create({
+      prisma.client.create({
         data: {
+          id: 'cseedoperator000000000007',
+          entityType: 'OPERATOR',
+          phones: { create: [{ kind: 'BUSINESS', number: '+44 20 7123 4567', sortOrder: 0 }] },
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: '30 St Mary Axe, London', sortOrder: 0 }],
+          },
           name: 'Interocean Shipping Ltd.',
           emails: ['ops@interocean.com'],
-          businessPhone: '+44 20 7123 4567',
-          address: '30 St Mary Axe, London',
-          location: 'E',
-          sendCopy: false,
+          locationType: 'EXTERIOR',
         },
       }),
   );
   await findOrCreate(
-    () => prisma.operator.findFirst({ where: { name: 'Delta Marine Operators' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedoperator000000000008' } }),
     () =>
-      prisma.operator.create({
+      prisma.client.create({
         data: {
+          id: 'cseedoperator000000000008',
+          entityType: 'OPERATOR',
+          phones: { create: [{ kind: 'BUSINESS', number: '+54 341 440 2200', sortOrder: 0 }] },
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: 'Córdoba 1250, Rosario', sortOrder: 0 }],
+          },
           name: 'Delta Marine Operators',
           emails: ['ops@deltamarine.com.ar'],
-          businessPhone: '+54 341 440 2200',
-          address: 'Córdoba 1250, Rosario',
-          location: 'E',
-          sendCopy: false,
+          locationType: 'EXTERIOR',
         },
       }),
   );
   await findOrCreate(
-    () => prisma.operator.findFirst({ where: { name: 'Pacific Rim Shipping S.A.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedoperator000000000009' } }),
     () =>
-      prisma.operator.create({
+      prisma.client.create({
         data: {
+          id: 'cseedoperator000000000009',
+          entityType: 'OPERATOR',
+          phones: { create: [{ kind: 'BUSINESS', number: '+65 6123 4567', sortOrder: 0 }] },
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: '1 Marina Blvd, Singapore', sortOrder: 0 }],
+          },
           name: 'Pacific Rim Shipping S.A.',
           emails: ['ops@pacificrim.com'],
-          businessPhone: '+65 6123 4567',
-          address: '1 Marina Blvd, Singapore',
-          location: 'E',
-          sendCopy: false,
+          locationType: 'EXTERIOR',
         },
       }),
   );
   await findOrCreate(
-    () => prisma.operator.findFirst({ where: { name: 'Armadores del Río S.A.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedoperator000000000010' } }),
     () =>
-      prisma.operator.create({
+      prisma.client.create({
         data: {
+          id: 'cseedoperator000000000010',
+          entityType: 'OPERATOR',
+          phones: { create: [{ kind: 'BUSINESS', number: '+598 2 915 0011', sortOrder: 0 }] },
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: 'Ciudadela 1228, Montevideo', sortOrder: 0 }],
+          },
           name: 'Armadores del Río S.A.',
           emails: ['ops@armadoresrio.com.uy'],
-          businessPhone: '+598 2 915 0011',
-          address: 'Ciudadela 1228, Montevideo',
-          location: 'L',
-          sendCopy: true,
+          locationType: 'LOCAL',
         },
       }),
   );
@@ -1064,112 +722,144 @@ async function main(): Promise<void> {
   // Charterers (10)
   // ---------------------------------------------------------------------------
   const ch1 = await findOrCreate(
-    () => prisma.charterer.findFirst({ where: { name: 'Cargill S.A.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedcharterer000000000001' } }),
     () =>
-      prisma.charterer.create({
+      prisma.client.create({
         data: {
+          id: 'cseedcharterer000000000001',
+          entityType: 'CHARTERER',
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: 'WTC Torre 3, Montevideo', sortOrder: 0 }],
+          },
           name: 'Cargill S.A.',
-          address: 'WTC Torre 3, Montevideo',
-          contactInfo: 'chartering@cargill.com.uy | +598 2 628 0000',
         },
       }),
   );
   const ch2 = await findOrCreate(
-    () => prisma.charterer.findFirst({ where: { name: 'Bunge Uruguay S.A.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedcharterer000000000002' } }),
     () =>
-      prisma.charterer.create({
+      prisma.client.create({
         data: {
+          id: 'cseedcharterer000000000002',
+          entityType: 'CHARTERER',
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: 'Ruta 1 km 26, Montevideo', sortOrder: 0 }],
+          },
           name: 'Bunge Uruguay S.A.',
-          address: 'Ruta 1 km 26, Montevideo',
-          contactInfo: 'ops@bunge.com.uy | +598 2 2000 3300',
         },
       }),
   );
   const ch3 = await findOrCreate(
-    () => prisma.charterer.findFirst({ where: { name: 'Louis Dreyfus Company' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedcharterer000000000003' } }),
     () =>
-      prisma.charterer.create({
+      prisma.client.create({
         data: {
+          id: 'cseedcharterer000000000003',
+          entityType: 'CHARTERER',
+          addresses: {
+            create: [
+              { purpose: 'PHYSICAL', text: 'Av. del Libertador 1234, Buenos Aires', sortOrder: 0 },
+            ],
+          },
           name: 'Louis Dreyfus Company',
-          address: 'Av. del Libertador 1234, Buenos Aires',
-          contactInfo: 'chartering@ldc.com | +54 11 4000 8000',
         },
       }),
   );
   await await findOrCreate(
-    () => prisma.charterer.findFirst({ where: { name: 'Viterra Uruguay S.A.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedcharterer000000000004' } }),
     () =>
-      prisma.charterer.create({
+      prisma.client.create({
         data: {
+          id: 'cseedcharterer000000000004',
+          entityType: 'CHARTERER',
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: 'Zabala 1463, Montevideo', sortOrder: 0 }],
+          },
           name: 'Viterra Uruguay S.A.',
-          address: 'Zabala 1463, Montevideo',
-          contactInfo: 'ops@viterra.com.uy | +598 2 915 0022',
         },
       }),
   );
   await await findOrCreate(
-    () => prisma.charterer.findFirst({ where: { name: 'Cofco International' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedcharterer000000000005' } }),
     () =>
-      prisma.charterer.create({
+      prisma.client.create({
         data: {
+          id: 'cseedcharterer000000000005',
+          entityType: 'CHARTERER',
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: 'Ruta 9 km 11, Montevideo', sortOrder: 0 }],
+          },
           name: 'Cofco International',
-          address: 'Ruta 9 km 11, Montevideo',
-          contactInfo: 'chartering@cofco.com | +598 2 510 3300',
         },
       }),
   );
   await findOrCreate(
-    () => prisma.charterer.findFirst({ where: { name: 'ADM Argentina S.A.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedcharterer000000000006' } }),
     () =>
-      prisma.charterer.create({
+      prisma.client.create({
         data: {
+          id: 'cseedcharterer000000000006',
+          entityType: 'CHARTERER',
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: 'Reconquista 258, Buenos Aires', sortOrder: 0 }],
+          },
           name: 'ADM Argentina S.A.',
-          address: 'Reconquista 258, Buenos Aires',
-          contactInfo: 'ops@adm.com.ar | +54 11 4390 1100',
         },
       }),
   );
   await findOrCreate(
-    () => prisma.charterer.findFirst({ where: { name: 'Toepfer Transport GmbH' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedcharterer000000000007' } }),
     () =>
-      prisma.charterer.create({
+      prisma.client.create({
         data: {
+          id: 'cseedcharterer000000000007',
+          entityType: 'CHARTERER',
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: 'Ballindamm 17, Hamburg', sortOrder: 0 }],
+          },
           name: 'Toepfer Transport GmbH',
-          address: 'Ballindamm 17, Hamburg',
-          contactInfo: 'chartering@toepfer-transport.com | +49 40 3202 0',
         },
       }),
   );
   await findOrCreate(
-    () => prisma.charterer.findFirst({ where: { name: 'Glencore Grain Rotterdam BV' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedcharterer000000000008' } }),
     () =>
-      prisma.charterer.create({
+      prisma.client.create({
         data: {
+          id: 'cseedcharterer000000000008',
+          entityType: 'CHARTERER',
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: 'Rotterdam, Netherlands', sortOrder: 0 }],
+          },
           name: 'Glencore Grain Rotterdam BV',
-          address: 'Rotterdam, Netherlands',
-          contactInfo: 'grains@glencore.com | +31 10 400 5555',
         },
       }),
   );
   await findOrCreate(
-    () => prisma.charterer.findFirst({ where: { name: 'ANCAP Comercial S.A.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedcharterer000000000009' } }),
     () =>
-      prisma.charterer.create({
+      prisma.client.create({
         data: {
+          id: 'cseedcharterer000000000009',
+          entityType: 'CHARTERER',
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: 'Paysandú s/n, Montevideo', sortOrder: 0 }],
+          },
           name: 'ANCAP Comercial S.A.',
-          address: 'Paysandú s/n, Montevideo',
-          contactInfo: 'maritimo@ancap.com.uy | +598 2 1912',
         },
       }),
   );
   await findOrCreate(
-    () => prisma.charterer.findFirst({ where: { name: 'UPM Uruguay S.A.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedcharterer000000000010' } }),
     () =>
-      prisma.charterer.create({
+      prisma.client.create({
         data: {
+          id: 'cseedcharterer000000000010',
+          entityType: 'CHARTERER',
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: 'Ruta 1 Km 84, Fray Bentos', sortOrder: 0 }],
+          },
           name: 'UPM Uruguay S.A.',
-          address: 'Ruta 1 Km 84, Fray Bentos',
-          contactInfo: 'logistics@upm.com | +598 4562 0000',
         },
       }),
   );
@@ -1179,122 +869,168 @@ async function main(): Promise<void> {
   // Shippers (10)
   // ---------------------------------------------------------------------------
   await await findOrCreate(
-    () => prisma.shipper.findFirst({ where: { name: 'ADN Exportaciones S.A.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedshipper000000000001' } }),
     () =>
-      prisma.shipper.create({
+      prisma.client.create({
         data: {
+          id: 'cseedshipper000000000001',
+          entityType: 'SHIPPER',
+          phones: { create: [{ kind: 'BUSINESS', number: '+598 2 410 7700', sortOrder: 0 }] },
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: 'Zonamerica, Montevideo', sortOrder: 0 }],
+          },
           name: 'ADN Exportaciones S.A.',
           emails: ['embarques@adn.com.uy'],
-          businessPhone: '+598 2 410 7700',
-          address: 'Zonamerica, Montevideo',
         },
       }),
   );
   await await findOrCreate(
-    () => prisma.shipper.findFirst({ where: { name: 'Granel Export S.R.L.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedshipper000000000002' } }),
     () =>
-      prisma.shipper.create({
+      prisma.client.create({
         data: {
+          id: 'cseedshipper000000000002',
+          entityType: 'SHIPPER',
+          phones: { create: [{ kind: 'BUSINESS', number: '+598 2 300 4455', sortOrder: 0 }] },
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: 'Av. Millán 4185, Montevideo', sortOrder: 0 }],
+          },
           name: 'Granel Export S.R.L.',
           emails: ['embarques@granelexport.com.uy'],
-          businessPhone: '+598 2 300 4455',
-          address: 'Av. Millán 4185, Montevideo',
         },
       }),
   );
   await await findOrCreate(
-    () => prisma.shipper.findFirst({ where: { name: 'Celulosa Argentina S.A.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedshipper000000000003' } }),
     () =>
-      prisma.shipper.create({
+      prisma.client.create({
         data: {
+          id: 'cseedshipper000000000003',
+          entityType: 'SHIPPER',
+          phones: { create: [{ kind: 'BUSINESS', number: '+54 11 4326 5500', sortOrder: 0 }] },
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: 'Tucumán 738, Buenos Aires', sortOrder: 0 }],
+          },
           name: 'Celulosa Argentina S.A.',
           emails: ['embarques@celulosaar.com.ar'],
-          businessPhone: '+54 11 4326 5500',
-          address: 'Tucumán 738, Buenos Aires',
         },
       }),
   );
   await findOrCreate(
-    () => prisma.shipper.findFirst({ where: { name: 'Fertilizantes del Río S.A.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedshipper000000000004' } }),
     () =>
-      prisma.shipper.create({
+      prisma.client.create({
         data: {
+          id: 'cseedshipper000000000004',
+          entityType: 'SHIPPER',
+          phones: { create: [{ kind: 'BUSINESS', number: '+598 2 208 1100', sortOrder: 0 }] },
+          addresses: {
+            create: [
+              { purpose: 'PHYSICAL', text: 'Bulevar Artigas 2018, Montevideo', sortOrder: 0 },
+            ],
+          },
           name: 'Fertilizantes del Río S.A.',
           emails: ['logistica@fertirio.com.uy'],
-          businessPhone: '+598 2 208 1100',
-          address: 'Bulevar Artigas 2018, Montevideo',
         },
       }),
   );
   await findOrCreate(
-    () => prisma.shipper.findFirst({ where: { name: 'Exportadora Río Grande S.A.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedshipper000000000005' } }),
     () =>
-      prisma.shipper.create({
+      prisma.client.create({
         data: {
+          id: 'cseedshipper000000000005',
+          entityType: 'SHIPPER',
+          phones: { create: [{ kind: 'BUSINESS', number: '+598 2 400 2200', sortOrder: 0 }] },
+          addresses: {
+            create: [
+              { purpose: 'PHYSICAL', text: 'Dr. Luis Bonavita 1294, Montevideo', sortOrder: 0 },
+            ],
+          },
           name: 'Exportadora Río Grande S.A.',
           emails: ['ops@riogrande.com.uy'],
-          businessPhone: '+598 2 400 2200',
-          address: 'Dr. Luis Bonavita 1294, Montevideo',
         },
       }),
   );
   await findOrCreate(
-    () => prisma.shipper.findFirst({ where: { name: 'SugarPlant Uruguay S.A.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedshipper000000000006' } }),
     () =>
-      prisma.shipper.create({
+      prisma.client.create({
         data: {
+          id: 'cseedshipper000000000006',
+          entityType: 'SHIPPER',
+          phones: { create: [{ kind: 'BUSINESS', number: '+598 2 710 8800', sortOrder: 0 }] },
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: 'Ruta 5 km 8, Montevideo', sortOrder: 0 }],
+          },
           name: 'SugarPlant Uruguay S.A.',
           emails: ['embarques@sugarplant.com.uy'],
-          businessPhone: '+598 2 710 8800',
-          address: 'Ruta 5 km 8, Montevideo',
         },
       }),
   );
   await findOrCreate(
-    () => prisma.shipper.findFirst({ where: { name: 'Forestal Oriental S.A.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedshipper000000000007' } }),
     () =>
-      prisma.shipper.create({
+      prisma.client.create({
         data: {
+          id: 'cseedshipper000000000007',
+          entityType: 'SHIPPER',
+          phones: { create: [{ kind: 'BUSINESS', number: '+598 4 773 9900', sortOrder: 0 }] },
+          addresses: { create: [{ purpose: 'PHYSICAL', text: 'Paysandú, Uruguay', sortOrder: 0 }] },
           name: 'Forestal Oriental S.A.',
           emails: ['logistica@forestaloriental.com.uy'],
-          businessPhone: '+598 4 773 9900',
-          address: 'Paysandú, Uruguay',
         },
       }),
   );
   await findOrCreate(
-    () => prisma.shipper.findFirst({ where: { name: 'Agronor Exportaciones S.A.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedshipper000000000008' } }),
     () =>
-      prisma.shipper.create({
+      prisma.client.create({
         data: {
+          id: 'cseedshipper000000000008',
+          entityType: 'SHIPPER',
+          phones: { create: [{ kind: 'BUSINESS', number: '+598 2 619 1234', sortOrder: 0 }] },
+          addresses: {
+            create: [
+              { purpose: 'PHYSICAL', text: 'Av. 8 de Octubre 2801, Montevideo', sortOrder: 0 },
+            ],
+          },
           name: 'Agronor Exportaciones S.A.',
           emails: ['embarques@agronor.com.uy'],
-          businessPhone: '+598 2 619 1234',
-          address: 'Av. 8 de Octubre 2801, Montevideo',
         },
       }),
   );
   await findOrCreate(
-    () => prisma.shipper.findFirst({ where: { name: 'Petrouruguay S.A.' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedshipper000000000009' } }),
     () =>
-      prisma.shipper.create({
+      prisma.client.create({
         data: {
+          id: 'cseedshipper000000000009',
+          entityType: 'SHIPPER',
+          phones: { create: [{ kind: 'BUSINESS', number: '+598 2 915 3300', sortOrder: 0 }] },
+          addresses: {
+            create: [
+              { purpose: 'PHYSICAL', text: 'Rambla 25 de Agosto 400, Montevideo', sortOrder: 0 },
+            ],
+          },
           name: 'Petrouruguay S.A.',
           emails: ['tankers@petrouruguay.com.uy'],
-          businessPhone: '+598 2 915 3300',
-          address: 'Rambla 25 de Agosto 400, Montevideo',
         },
       }),
   );
   await findOrCreate(
-    () => prisma.shipper.findFirst({ where: { name: 'Ence Energía y Celulosa' } }),
+    () => prisma.client.findFirst({ where: { id: 'cseedshipper000000000010' } }),
     () =>
-      prisma.shipper.create({
+      prisma.client.create({
         data: {
+          id: 'cseedshipper000000000010',
+          entityType: 'SHIPPER',
+          phones: { create: [{ kind: 'BUSINESS', number: '+34 91 337 9000', sortOrder: 0 }] },
+          addresses: {
+            create: [{ purpose: 'PHYSICAL', text: 'Pontevedra, España', sortOrder: 0 }],
+          },
           name: 'Ence Energía y Celulosa',
           emails: ['embarques@ence.es'],
-          businessPhone: '+34 91 337 9000',
-          address: 'Pontevedra, España',
         },
       }),
   );
@@ -1492,132 +1228,182 @@ async function main(): Promise<void> {
   // Contacts (10)
   // ---------------------------------------------------------------------------
   await findOrCreate(
-    () => prisma.contact.findFirst({ where: { name: 'Carlos Fernández', operatorId: op1.id } }),
+    () => prisma.contact.findFirst({ where: { id: 'cseedcontact000000000001' } }),
     () =>
       prisma.contact.create({
         data: {
+          id: 'cseedcontact000000000001',
+          phones: {
+            create: [
+              { kind: 'BUSINESS', number: '+598 2 900 1234', sortOrder: 0 },
+              { kind: 'MOBILE', number: '+598 99 201 301', sortOrder: 1 },
+            ],
+          },
           name: 'Carlos Fernández',
           emails: ['cfernandez@granosdelsur.com.uy'],
-          mobile: '+598 99 201 301',
-          businessPhone: '+598 2 900 1234',
-          operatorId: op1.id,
+          clientLinks: { create: [{ clientId: op1.id }] },
         },
       }),
   );
   await findOrCreate(
-    () => prisma.contact.findFirst({ where: { name: 'Lars Eriksen', ownerId: owner1.id } }),
+    () => prisma.contact.findFirst({ where: { id: 'cseedcontact000000000002' } }),
     () =>
       prisma.contact.create({
         data: {
+          id: 'cseedcontact000000000002',
+          phones: {
+            create: [
+              { kind: 'BUSINESS', number: '+47 22 123 456', sortOrder: 0 },
+              { kind: 'MOBILE', number: '+47 97 123 456', sortOrder: 1 },
+            ],
+          },
           name: 'Lars Eriksen',
           emails: ['leriksen@nordicbulk.no'],
-          mobile: '+47 97 123 456',
-          businessPhone: '+47 22 123 456',
           ownerId: owner1.id,
         },
       }),
   );
   await findOrCreate(
-    () => prisma.contact.findFirst({ where: { name: 'Ana Rodríguez', charterId: ch1.id } }),
+    () => prisma.contact.findFirst({ where: { id: 'cseedcontact000000000003' } }),
     () =>
       prisma.contact.create({
         data: {
+          id: 'cseedcontact000000000003',
+          phones: {
+            create: [
+              { kind: 'BUSINESS', number: '+598 2 628 0000', sortOrder: 0 },
+              { kind: 'MOBILE', number: '+598 99 500 600', sortOrder: 1 },
+            ],
+          },
           name: 'Ana Rodríguez',
           emails: ['arodriguez@cargill.com.uy'],
-          mobile: '+598 99 500 600',
-          businessPhone: '+598 2 628 0000',
-          charterId: ch1.id,
+          clientLinks: { create: [{ clientId: ch1.id }] },
         },
       }),
   );
   await findOrCreate(
-    () => prisma.contact.findFirst({ where: { name: 'Pablo Giménez', operatorId: op2.id } }),
+    () => prisma.contact.findFirst({ where: { id: 'cseedcontact000000000004' } }),
     () =>
       prisma.contact.create({
         data: {
+          id: 'cseedcontact000000000004',
+          phones: {
+            create: [
+              { kind: 'BUSINESS', number: '+598 2 711 5678', sortOrder: 0 },
+              { kind: 'MOBILE', number: '+598 99 712 800', sortOrder: 1 },
+            ],
+          },
           name: 'Pablo Giménez',
           emails: ['pgimenez@rioplatense.com'],
-          mobile: '+598 99 712 800',
-          businessPhone: '+598 2 711 5678',
-          operatorId: op2.id,
+          clientLinks: { create: [{ clientId: op2.id }] },
         },
       }),
   );
   await findOrCreate(
-    () => prisma.contact.findFirst({ where: { name: 'Stavros Papadopoulos', ownerId: owner3.id } }),
+    () => prisma.contact.findFirst({ where: { id: 'cseedcontact000000000005' } }),
     () =>
       prisma.contact.create({
         data: {
+          id: 'cseedcontact000000000005',
+          phones: {
+            create: [
+              { kind: 'BUSINESS', number: '+30 210 429 1234', sortOrder: 0 },
+              { kind: 'MOBILE', number: '+30 694 123 4567', sortOrder: 1 },
+            ],
+          },
           name: 'Stavros Papadopoulos',
           emails: ['spapadopoulos@hellas.gr'],
-          mobile: '+30 694 123 4567',
-          businessPhone: '+30 210 429 1234',
           ownerId: owner3.id,
         },
       }),
   );
   await findOrCreate(
-    () => prisma.contact.findFirst({ where: { name: 'María José Suárez', charterId: ch2.id } }),
+    () => prisma.contact.findFirst({ where: { id: 'cseedcontact000000000006' } }),
     () =>
       prisma.contact.create({
         data: {
+          id: 'cseedcontact000000000006',
+          phones: {
+            create: [
+              { kind: 'BUSINESS', number: '+598 2 2000 3300', sortOrder: 0 },
+              { kind: 'MOBILE', number: '+598 99 200 400', sortOrder: 1 },
+            ],
+          },
           name: 'María José Suárez',
           emails: ['mjsuarez@bunge.com.uy'],
-          mobile: '+598 99 200 400',
-          businessPhone: '+598 2 2000 3300',
-          charterId: ch2.id,
+          clientLinks: { create: [{ clientId: ch2.id }] },
         },
       }),
   );
   await findOrCreate(
-    () => prisma.contact.findFirst({ where: { name: 'Roberto Herrera', operatorId: op3.id } }),
+    () => prisma.contact.findFirst({ where: { id: 'cseedcontact000000000007' } }),
     () =>
       prisma.contact.create({
         data: {
+          id: 'cseedcontact000000000007',
+          phones: {
+            create: [
+              { kind: 'BUSINESS', number: '+598 2 916 2200', sortOrder: 0 },
+              { kind: 'MOBILE', number: '+598 99 916 2299', sortOrder: 1 },
+            ],
+          },
           name: 'Roberto Herrera',
           emails: ['rherrera@ultramar.com.uy'],
-          mobile: '+598 99 916 2299',
-          businessPhone: '+598 2 916 2200',
-          operatorId: op3.id,
+          clientLinks: { create: [{ clientId: op3.id }] },
         },
       }),
   );
   await findOrCreate(
-    () => prisma.contact.findFirst({ where: { name: 'Jean-Paul Martin', charterId: ch3.id } }),
+    () => prisma.contact.findFirst({ where: { id: 'cseedcontact000000000008' } }),
     () =>
       prisma.contact.create({
         data: {
+          id: 'cseedcontact000000000008',
+          phones: {
+            create: [
+              { kind: 'BUSINESS', number: '+54 11 4000 8000', sortOrder: 0 },
+              { kind: 'MOBILE', number: '+54 9 11 4000 8001', sortOrder: 1 },
+            ],
+          },
           name: 'Jean-Paul Martin',
           emails: ['jpmartin@ldc.com'],
-          mobile: '+54 9 11 4000 8001',
-          businessPhone: '+54 11 4000 8000',
-          charterId: ch3.id,
+          clientLinks: { create: [{ clientId: ch3.id }] },
         },
       }),
   );
   await findOrCreate(
-    () => prisma.contact.findFirst({ where: { name: 'Gonzalo Ferreiro', ownerId: owner2.id } }),
+    () => prisma.contact.findFirst({ where: { id: 'cseedcontact000000000009' } }),
     () =>
       prisma.contact.create({
         data: {
+          id: 'cseedcontact000000000009',
+          phones: {
+            create: [
+              { kind: 'BUSINESS', number: '+507 340 9900', sortOrder: 0 },
+              { kind: 'MOBILE', number: '+507 6340 9911', sortOrder: 1 },
+            ],
+          },
           name: 'Gonzalo Ferreiro',
           emails: ['gferreiro@patagoniamarine.com'],
-          mobile: '+507 6340 9911',
-          businessPhone: '+507 340 9900',
           ownerId: owner2.id,
         },
       }),
   );
   await findOrCreate(
-    () => prisma.contact.findFirst({ where: { name: 'Andrea Vieira', operatorId: op4.id } }),
+    () => prisma.contact.findFirst({ where: { id: 'cseedcontact000000000010' } }),
     () =>
       prisma.contact.create({
         data: {
+          id: 'cseedcontact000000000010',
+          phones: {
+            create: [
+              { kind: 'BUSINESS', number: '+54 11 4311 7890', sortOrder: 0 },
+              { kind: 'MOBILE', number: '+54 9 11 4311 7891', sortOrder: 1 },
+            ],
+          },
           name: 'Andrea Vieira',
           emails: ['avieira@sudatlantic.com'],
-          mobile: '+54 9 11 4311 7891',
-          businessPhone: '+54 11 4311 7890',
-          operatorId: op4.id,
+          clientLinks: { create: [{ clientId: op4.id }] },
         },
       }),
   );
@@ -2218,7 +2004,9 @@ async function main(): Promise<void> {
       status: NominationStatus.NOMINATED,
       nominatedById: opsUser.id,
       master: 'Capt. John Anderson',
-      parcels: [{ product: 'Soja', quantity: 25000, unit: 'MT', operation: 'Carga' }],
+      parcels: [
+        { product: seedCargo.name, quantity: 25000, unit: seedCargo.bblUnit, operation: 'Carga' },
+      ],
       createdById: opsUser.id,
       statusHistory: {
         create: { fromStatus: null, toStatus: NominationStatus.NOMINATED, changedById: opsUser.id },
@@ -2243,7 +2031,14 @@ async function main(): Promise<void> {
       status: NominationStatus.NOMINATED,
       nominatedById: opsUser.id,
       master: 'Capt. María García',
-      parcels: [{ product: 'Trigo', quantity: 60000, unit: 'MT', operation: 'Descarga' }],
+      parcels: [
+        {
+          product: seedCargo.name,
+          quantity: 60000,
+          unit: seedCargo.bblUnit,
+          operation: 'Descarga',
+        },
+      ],
       createdById: adminUser.id,
       statusHistory: {
         create: [
@@ -2278,7 +2073,9 @@ async function main(): Promise<void> {
       nominationType: NominationType.OWNERS_AGENTS_ONLY,
       status: NominationStatus.NOMINATED,
       master: 'Capt. Roberto Silva',
-      parcels: [{ product: 'Celulosa', quantity: 10000, unit: 'MT', operation: 'Carga' }],
+      parcels: [
+        { product: seedCargo.name, quantity: 10000, unit: seedCargo.bblUnit, operation: 'Carga' },
+      ],
       createdById: opsUser.id,
       statusHistory: {
         create: [
@@ -2310,7 +2107,14 @@ async function main(): Promise<void> {
       status: NominationStatus.NOMINATED,
       nominatedById: user3.id,
       master: 'Capt. Nikos Papadakis',
-      parcels: [{ product: 'Maíz', quantity: 45000, unit: 'MT', operation: 'Descarga' }],
+      parcels: [
+        {
+          product: seedCargo.name,
+          quantity: 45000,
+          unit: seedCargo.bblUnit,
+          operation: 'Descarga',
+        },
+      ],
       createdById: user3.id,
       statusHistory: {
         create: [
@@ -2343,8 +2147,8 @@ async function main(): Promise<void> {
       nominatedById: user4.id,
       master: 'Capt. Igor Volkov',
       parcels: [
-        { product: 'Soja', quantity: 28000, unit: 'MT', operation: 'Carga' },
-        { product: 'Maíz', quantity: 5000, unit: 'MT', operation: 'Carga' },
+        { product: seedCargo.name, quantity: 28000, unit: seedCargo.bblUnit, operation: 'Carga' },
+        { product: seedCargo.name, quantity: 5000, unit: seedCargo.bblUnit, operation: 'Carga' },
       ],
       createdById: user4.id,
       statusHistory: {
@@ -2380,7 +2184,14 @@ async function main(): Promise<void> {
       nominationType: NominationType.CHARTERERS_AGENTS_ONLY,
       status: NominationStatus.NOMINATED,
       master: 'Capt. James Morrison',
-      parcels: [{ product: 'Fertilizantes', quantity: 32000, unit: 'MT', operation: 'Descarga' }],
+      parcels: [
+        {
+          product: seedCargo.name,
+          quantity: 32000,
+          unit: seedCargo.bblUnit,
+          operation: 'Descarga',
+        },
+      ],
       createdById: opsUser.id,
       statusHistory: {
         create: { fromStatus: null, toStatus: NominationStatus.NOMINATED, changedById: opsUser.id },
@@ -2404,7 +2215,9 @@ async function main(): Promise<void> {
       nominationType: NominationType.FULL_AGENCY,
       status: NominationStatus.NOMINATED,
       master: 'Capt. Anastasios Dimas',
-      parcels: [{ product: 'Celulosa', quantity: 55000, unit: 'MT', operation: 'Carga' }],
+      parcels: [
+        { product: seedCargo.name, quantity: 55000, unit: seedCargo.bblUnit, operation: 'Carga' },
+      ],
       createdById: adminUser.id,
       statusHistory: {
         create: [
@@ -2444,7 +2257,9 @@ async function main(): Promise<void> {
       nominationType: NominationType.OWNERS_AGENTS_ONLY,
       status: NominationStatus.NOMINATED,
       master: 'Capt. Ole Hansen',
-      parcels: [{ product: 'Carga General', quantity: 8000, unit: 'MT', operation: 'Carga' }],
+      parcels: [
+        { product: seedCargo.name, quantity: 8000, unit: seedCargo.bblUnit, operation: 'Carga' },
+      ],
       createdById: user3.id,
       statusHistory: {
         create: { fromStatus: null, toStatus: NominationStatus.NOMINATED, changedById: user3.id },
@@ -2469,7 +2284,9 @@ async function main(): Promise<void> {
       status: NominationStatus.NOMINATED,
       nominatedById: user4.id,
       master: 'Capt. Wei Zhang',
-      parcels: [{ product: 'Soja', quantity: 72000, unit: 'MT', operation: 'Carga' }],
+      parcels: [
+        { product: seedCargo.name, quantity: 72000, unit: seedCargo.bblUnit, operation: 'Carga' },
+      ],
       createdById: user4.id,
       statusHistory: {
         create: [
@@ -2500,7 +2317,9 @@ async function main(): Promise<void> {
       nominationType: NominationType.FULL_AGENCY,
       status: NominationStatus.CANCELLED,
       master: 'Capt. Fernando Lima',
-      parcels: [{ product: 'Trigo', quantity: 24000, unit: 'MT', operation: 'Carga' }],
+      parcels: [
+        { product: seedCargo.name, quantity: 24000, unit: seedCargo.bblUnit, operation: 'Carga' },
+      ],
       createdById: opsUser.id,
       statusHistory: {
         create: [
@@ -2740,6 +2559,74 @@ async function main(): Promise<void> {
   // ---------------------------------------------------------------------------
   // Nomination Client Default Types (4 per nomination).
   // These represent the standard client-type slots for every nomination.
+  const instructionClient = await prisma.client.upsert({
+    where: { id: 'cseedclient000000000001' },
+    update: {},
+    create: {
+      id: 'cseedclient000000000001',
+      name: 'Example Shipping',
+      entityType: 'CLIENT',
+      emails: ['operations@example.test'],
+      instructions:
+        'Send daily position and cargo updates. Confirm receipt of nomination instructions.',
+      phones: {
+        create: [
+          { kind: 'BUSINESS', number: '+598 2000 0100', sortOrder: 0 },
+          { kind: 'MOBILE', number: '+598 9000 0100', sortOrder: 1 },
+        ],
+      },
+      addresses: {
+        create: [
+          { purpose: 'PHYSICAL', text: 'Port office, Montevideo', sortOrder: 0 },
+          { purpose: 'BILLING', text: 'Accounts department, Montevideo', sortOrder: 1 },
+        ],
+      },
+      tariffItems: {
+        create: [
+          {
+            item: 'Agency attendance',
+            amountText: 'As agreed',
+            information: 'Per port call',
+            sortOrder: 0,
+          },
+        ],
+      },
+    },
+  });
+  const slots = ['FIRST_MESSAGE', 'SECOND_MESSAGE', 'THIRD_MESSAGE', 'CC_MESSAGE'] as const;
+  for (const [index, slot] of slots.entries()) {
+    const groupId = `cseedmessagegroup${String(index + 1).padStart(8, '0')}`;
+    await prisma.emailGroup.upsert({
+      where: { id: groupId },
+      update: {},
+      create: {
+        id: groupId,
+        name: `Example Shipping — ${slot.toLowerCase().replaceAll('_', ' ')}`,
+        members: { create: [{ email: `message${index + 1}@example.test`, order: 0 }] },
+      },
+    });
+    await prisma.clientEmailGroup.upsert({
+      where: { clientId_slot: { clientId: instructionClient.id, slot } },
+      update: {},
+      create: { clientId: instructionClient.id, slot, emailGroupId: groupId },
+    });
+  }
+  const sharedContact = await prisma.contact.upsert({
+    where: { id: 'cseedcontactshared000001' },
+    update: {},
+    create: {
+      id: 'cseedcontactshared000001',
+      name: 'Operations desk',
+      emails: ['desk@example.test'],
+    },
+  });
+  for (const clientId of [instructionClient.id, op1.id])
+    await prisma.clientContact.upsert({
+      where: { clientId_contactId: { clientId, contactId: sharedContact.id } },
+      update: {},
+      create: { clientId, contactId: sharedContact.id },
+    });
+
   // Each row seeds with an empty name so operators can fill them in later, and
   // any further types can be added per-nomination via the client roster UI.
   // ---------------------------------------------------------------------------
@@ -2759,16 +2646,26 @@ async function main(): Promise<void> {
   ];
 
   for (const nominationId of allNominationIds) {
+    await prisma.nomination.update({
+      where: { id: nominationId },
+      data: { clientId: instructionClient.id, chartererId: ch1.id },
+    });
     for (let i = 0; i < defaultClientTypes.length; i++) {
       const type = defaultClientTypes[i]!;
       await findOrCreate(
         () =>
           prisma.nominationClient.findFirst({
-            where: { nominationId, type, name: '' },
+            where: { nominationId, type },
           }),
         () =>
           prisma.nominationClient.create({
-            data: { nominationId, type, name: '', sortOrder: i },
+            data: {
+              nominationId,
+              type,
+              name: instructionClient.name,
+              clientId: instructionClient.id,
+              sortOrder: i,
+            },
           }),
       );
     }
@@ -2952,7 +2849,11 @@ async function main(): Promise<void> {
       type: 'CARGO_UPDATE' as const,
       status: 'SENT' as const,
       stage: PedrStage.ATTENDING,
-      payload: { updatedQty: '58500', unit: 'MT', note: 'Ajuste de cantidad por humedad' },
+      payload: {
+        updatedQty: '58500',
+        unit: seedCargo.bblUnit,
+        note: 'Ajuste de cantidad por humedad',
+      },
     },
   ];
   for (const s of subDocSeeds) {

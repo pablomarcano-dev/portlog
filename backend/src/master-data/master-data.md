@@ -1,13 +1,13 @@
 # master-data
 
 CRUD for the reference tables every other module points at — vessels, ports, and the contact book
-of owners, operators, shippers, charterers, agents, suppliers, clients and email groups.
+of owners, agents, suppliers, clients and email groups. Client covers the CLIENT, CHARTERER, SHIPPER and OPERATOR entity types.
 
 ## Scope
 
 - **Roles:** OPS reads and edits; ADM additionally may delete (enforced in `ButtonBar`).
 - **Key entities:** `ship_particulars`, `ports`, `piers`, `flags`, `activities`, `cargoes`, `crew`,
-  `owners`, `operators`, `shippers`, `charterers`, `agents`, `contacts`, `suppliers`, `clients`,
+  `owners`, `agents`, `contacts`, `suppliers`, `clients`,
   `services`, `branches`, `email_groups`
 - **External deps:** Datalastic (vessel lookup on Ship Particulars); every other module reads these
   tables as foreign keys.
@@ -18,10 +18,16 @@ of owners, operators, shippers, charterers, agents, suppliers, clients and email
 1. `npm install` at the repo root.
 2. Start Postgres (`docker compose up -d postgres`) and set `DATABASE_URL` in `backend/.env`.
 3. `cd backend && npx prisma migrate deploy` — migrations also auto-apply on backend start.
-4. `npx prisma db seed` for the reference rows.
+4. `npx prisma db seed` requires verified Activities/Cargoes fixtures. For an existing database, follow [the catalog-preserving reset runbook](../../../docs/CLIENT_CONSOLIDATION_IMPLEMENTATION.md).
 
 Verify: `npm run dev` at the root, then open `/master-data/ports` → the left rail lists ports
 grouped by country.
+
+## Client directory (September 2026)
+
+All four company types use `/master-data/clients` and the Clients screen. Old company screens redirect there; the old company APIs have been removed. Entity type is independent of nomination role. Clients and Contacts use typed phone/address collections, one email array, and internal notes. Contacts may belong to multiple clients through ClientContact, with an optional separate Owner link.
+
+Client has standing `instructions`, structured tariff rows and four email-group assignments: FIRST_MESSAGE, SECOND_MESSAGE, THIRD_MESSAGE and CC_MESSAGE. Collection updates replace the collection atomically; omitted fields remain unchanged, empty arrays clear, and null clears nullable text/links. Legacy field names and child IDs are rejected.
 
 ## Major changes — repro log
 

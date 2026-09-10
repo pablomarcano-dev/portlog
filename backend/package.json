@@ -16,7 +16,11 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "cleanup:test-data": "ts-node --project tsconfig.seed.json prisma/cleanup-confirmed-test-data.ts"
+    "cleanup:test-data": "ts-node --project tsconfig.seed.json prisma/cleanup-confirmed-test-data.ts",
+    "catalogs:export": "node prisma/catalogs.cjs export",
+    "catalogs:verify": "node prisma/catalogs.cjs verify",
+    "db:reset:catalogs": "node prisma/reset-with-catalogs.cjs",
+    "test:catalogs": "node --test prisma/catalogs.test.cjs"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

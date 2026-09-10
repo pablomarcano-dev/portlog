@@ -168,6 +168,7 @@ export function SendShDocumentDrawer({
             />
 
             <EmailGroupPicker
+              nominationId={nominationId}
               targets={[
                 {
                   key: 'to',
