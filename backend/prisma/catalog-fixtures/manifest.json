@@ -1,12 +1,12 @@
 {
   "version": 1,
   "source": {
-    "host": "localhost",
+    "host": "postgres",
     "port": "5432",
     "database": "portlog",
     "schema": "public"
   },
-  "capturedAt": "2026-09-10T14:28:22.345Z",
+  "capturedAt": "2026-09-10T18:35:38.447Z",
   "migrations": [
     "20260510213302_init",
     "20260510215528_add_audit_log",
@@ -61,12 +61,12 @@
   ],
   "tables": {
     "activities": {
-      "count": 361,
-      "sha256": "91c5852be9c5661fc48568aced3015f4b56730646c2005efb9c13aed341dc616"
+      "count": 181,
+      "sha256": "dcac0b6891c341e96c0394b79dfd08abf7ec7dfe4e3c5c88239678813e397d06"
     },
     "cargoes": {
-      "count": 11,
-      "sha256": "b64fb7e7a4fd200a61fee8b279bdb39f0dc5432e486689287036ba15b66f3132"
+      "count": 38,
+      "sha256": "9a064432bdc598fc854c481dc86a54458b8be70c8ab3ad68af4f81ca55ef0b1a"
     }
   }
 }

@@ -1,101 +1,344 @@
 [
   {
-    "id": "cmppofpn4000humtgvxlb9st1",
-    "name": "Soja",
-    "comments": null,
-    "createdAt": "2026-05-28T15:57:46.769+00:00",
-    "updatedAt": "2026-05-28T15:57:46.769+00:00",
-    "bblUnit": "MT",
-    "category": "SN"
-  },
-  {
-    "id": "cmppofpn6000iumtgeqg7p3ey",
-    "name": "Trigo",
-    "comments": null,
-    "createdAt": "2026-05-28T15:57:46.77+00:00",
-    "updatedAt": "2026-05-28T15:57:46.77+00:00",
-    "bblUnit": "MT",
-    "category": "SN"
-  },
-  {
-    "id": "cmppofpn6000jumtg0cfefc4k",
+    "id": "cmq7hl49m00adl53laft0z82q",
     "name": "Maíz",
     "comments": null,
-    "createdAt": "2026-05-28T15:57:46.771+00:00",
-    "updatedAt": "2026-05-28T15:57:46.771+00:00",
+    "createdAt": "2026-06-10T03:05:52.859+00:00",
+    "updatedAt": "2026-06-10T03:05:52.859+00:00",
     "bblUnit": "MT",
     "category": "SN"
   },
   {
-    "id": "cmppofpn7000kumtgxhywzogh",
-    "name": "Celulosa",
-    "comments": null,
-    "createdAt": "2026-05-28T15:57:46.772+00:00",
-    "updatedAt": "2026-05-28T15:57:46.772+00:00",
-    "bblUnit": "MT",
-    "category": "SN"
-  },
-  {
-    "id": "cmppofpn8000lumtgo5r11yur",
+    "id": "cmq7hl49q00afl53l50mfipgs",
     "name": "Fertilizantes",
     "comments": null,
-    "createdAt": "2026-05-28T15:57:46.773+00:00",
-    "updatedAt": "2026-05-28T15:57:46.773+00:00",
+    "createdAt": "2026-06-10T03:05:52.862+00:00",
+    "updatedAt": "2026-06-10T03:05:52.862+00:00",
     "bblUnit": "MT",
     "category": "SN"
   },
   {
-    "id": "cmppofpn9000mumtgq5wc3s3b",
+    "id": "cmq7hl49s00agl53lsz7e9s57",
     "name": "Combustible",
     "comments": null,
-    "createdAt": "2026-05-28T15:57:46.773+00:00",
-    "updatedAt": "2026-05-28T15:57:46.773+00:00",
+    "createdAt": "2026-06-10T03:05:52.864+00:00",
+    "updatedAt": "2026-06-10T03:05:52.864+00:00",
     "bblUnit": "BBL",
     "category": "SN"
   },
   {
-    "id": "cmppofpna000numtglxt2wox3",
+    "id": "cmq7hl49t00ahl53lph67rstw",
     "name": "Carga General",
     "comments": null,
-    "createdAt": "2026-05-28T15:57:46.774+00:00",
-    "updatedAt": "2026-05-28T15:57:46.774+00:00",
+    "createdAt": "2026-06-10T03:05:52.866+00:00",
+    "updatedAt": "2026-06-10T03:05:52.866+00:00",
     "bblUnit": "MT",
     "category": "SN"
   },
   {
-    "id": "cmppofpna000oumtgmz06dqqy",
+    "id": "cmq7hl49v00ail53llz1qbj9j",
     "name": "Contenedores",
     "comments": null,
-    "createdAt": "2026-05-28T15:57:46.775+00:00",
-    "updatedAt": "2026-05-28T15:57:46.775+00:00",
+    "createdAt": "2026-06-10T03:05:52.868+00:00",
+    "updatedAt": "2026-06-10T03:05:52.868+00:00",
     "bblUnit": "TEU",
     "category": "SN"
   },
   {
-    "id": "cmpppal29000mum73r2nknm5n",
-    "name": "Aceite Vegetal",
-    "comments": null,
-    "createdAt": "2026-05-28T16:21:47.17+00:00",
-    "updatedAt": "2026-05-28T16:21:47.17+00:00",
-    "bblUnit": "MT",
-    "category": "SN"
-  },
-  {
-    "id": "cmpppal2b000num73zzw3pktw",
-    "name": "Carne Refrigerada",
-    "comments": null,
-    "createdAt": "2026-05-28T16:21:47.171+00:00",
-    "updatedAt": "2026-05-28T16:21:47.171+00:00",
-    "bblUnit": "MT",
-    "category": "SN"
-  },
-  {
-    "id": "cmszcd55t00abum8asuhkh52z",
+    "id": "cmq7hl49x00ajl53lxhbg0ya9",
     "name": "Pellets de Madera",
     "comments": null,
-    "createdAt": "2026-08-19T00:16:40.289+00:00",
-    "updatedAt": "2026-08-19T00:16:40.289+00:00",
+    "createdAt": "2026-06-10T03:05:52.869+00:00",
+    "updatedAt": "2026-06-10T03:05:52.869+00:00",
     "bblUnit": "MT",
+    "category": "SN"
+  },
+  {
+    "id": "cmq7hl49z00akl53lrumtdbu1",
+    "name": "Aceite Vegetal",
+    "comments": null,
+    "createdAt": "2026-06-10T03:05:52.871+00:00",
+    "updatedAt": "2026-06-10T03:05:52.871+00:00",
+    "bblUnit": "MT",
+    "category": "SN"
+  },
+  {
+    "id": "cmrv2mel9000an2014trmehel",
+    "name": "MEREY 16 CRUDE OIL",
+    "comments": "",
+    "createdAt": "2026-07-21T19:53:09.213+00:00",
+    "updatedAt": "2026-07-21T19:53:09.213+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cmrv47hqg000kn201emu3m1i9",
+    "name": "FUEL OIL CARDON 3.5 PCT S (200-450)",
+    "comments": "",
+    "createdAt": "2026-07-21T20:37:32.68+00:00",
+    "updatedAt": "2026-07-21T20:37:32.68+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cmrv4a4qi000mn201cyl5vbff",
+    "name": "ASPHALT CEMENT (AC-30) AMUAY",
+    "comments": "",
+    "createdAt": "2026-07-21T20:39:35.802+00:00",
+    "updatedAt": "2026-07-21T20:39:35.802+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms519k20001as101gtue59sg",
+    "name": "FUEL OIL AMUAY 4.0 PCT S +/- 10%",
+    "comments": "",
+    "createdAt": "2026-07-28T19:12:51.912+00:00",
+    "updatedAt": "2026-07-28T19:12:51.912+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms51d3i2001bs101ir5w7gb5",
+    "name": "Anaco Wax Crude Oil",
+    "comments": "",
+    "createdAt": "2026-07-28T19:15:37.082+00:00",
+    "updatedAt": "2026-07-28T19:15:37.082+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms51dm64001cs101evojthpx",
+    "name": "Bachaquero Crude Oil",
+    "comments": "",
+    "createdAt": "2026-07-28T19:16:01.276+00:00",
+    "updatedAt": "2026-07-28T19:16:01.276+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms51e736001ds101mz0i5a6k",
+    "name": "BLEND 16 Crude Oil",
+    "comments": "",
+    "createdAt": "2026-07-28T19:16:28.386+00:00",
+    "updatedAt": "2026-07-28T19:16:28.386+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms51ei0a001es101yy8aasu8",
+    "name": "BLEND 22 Crude Oil",
+    "comments": "",
+    "createdAt": "2026-07-28T19:16:42.538+00:00",
+    "updatedAt": "2026-07-28T19:16:42.538+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms51ez8o001fs101cm51g24u",
+    "name": "BLEND 17 Crude Oil",
+    "comments": "",
+    "createdAt": "2026-07-28T19:17:04.872+00:00",
+    "updatedAt": "2026-07-28T19:17:04.872+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms51ff9m001gs101iwr0jm2y",
+    "name": "Boscan Crude Oil",
+    "comments": "",
+    "createdAt": "2026-07-28T19:17:25.642+00:00",
+    "updatedAt": "2026-07-28T19:17:25.642+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms51h6nt001hs101fsucqa3x",
+    "name": "Caustic Soda",
+    "comments": "",
+    "createdAt": "2026-07-28T19:18:47.801+00:00",
+    "updatedAt": "2026-07-28T19:18:47.801+00:00",
+    "bblUnit": "MT",
+    "category": "SN"
+  },
+  {
+    "id": "cms51hwaj001is101ldsxo749",
+    "name": "Cerro Negro Crude Oil",
+    "comments": "",
+    "createdAt": "2026-07-28T19:19:21.019+00:00",
+    "updatedAt": "2026-07-28T19:19:21.019+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms51inkk001js101fsohcc8k",
+    "name": "PetCoke",
+    "comments": "",
+    "createdAt": "2026-07-28T19:19:56.372+00:00",
+    "updatedAt": "2026-07-28T19:19:56.372+00:00",
+    "bblUnit": "MT",
+    "category": "SN"
+  },
+  {
+    "id": "cms51jcrk001ks101d5c4b0a8",
+    "name": "Urea",
+    "comments": "",
+    "createdAt": "2026-07-28T19:20:29.024+00:00",
+    "updatedAt": "2026-07-28T19:20:29.024+00:00",
+    "bblUnit": "MT",
+    "category": "SN"
+  },
+  {
+    "id": "cms51jya8001ls101stfb5fri",
+    "name": "Propane HD-5",
+    "comments": "",
+    "createdAt": "2026-07-28T19:20:56.912+00:00",
+    "updatedAt": "2026-07-28T19:20:56.912+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms51l7z3001ms101hve6atgd",
+    "name": "Iso-Butane",
+    "comments": "",
+    "createdAt": "2026-07-28T19:21:56.127+00:00",
+    "updatedAt": "2026-07-28T19:21:56.127+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms51m13r001ns1016wztjjiz",
+    "name": "Normal Butane",
+    "comments": "",
+    "createdAt": "2026-07-28T19:22:33.879+00:00",
+    "updatedAt": "2026-07-28T19:22:33.879+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms51mi2o001os1011pxx8agy",
+    "name": "Corocoro Crude Oil",
+    "comments": "",
+    "createdAt": "2026-07-28T19:22:55.871+00:00",
+    "updatedAt": "2026-07-28T19:22:55.871+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms51mzq6001ps101oiel32oz",
+    "name": "Diluted Crude Oil (DCO)",
+    "comments": "",
+    "createdAt": "2026-07-28T19:23:18.75+00:00",
+    "updatedAt": "2026-07-28T19:23:18.75+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms51nfnc001qs10108zwmc0u",
+    "name": "FCC Naphtha",
+    "comments": "",
+    "createdAt": "2026-07-28T19:23:39.383+00:00",
+    "updatedAt": "2026-07-28T19:23:39.383+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms51omqx001rs101atyej6gl",
+    "name": "Heavy Virgin Naphtha",
+    "comments": "",
+    "createdAt": "2026-07-28T19:24:35.241+00:00",
+    "updatedAt": "2026-07-28T19:24:35.241+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms51qyis001us101ajuquyt6",
+    "name": "Light Virgin Naphtha",
+    "comments": "",
+    "createdAt": "2026-07-28T19:26:23.812+00:00",
+    "updatedAt": "2026-07-28T19:26:23.812+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms51ridi001vs101fcxe4fhi",
+    "name": "Fuel Oil (380 CST)",
+    "comments": "",
+    "createdAt": "2026-07-28T19:26:49.542+00:00",
+    "updatedAt": "2026-07-28T19:26:49.542+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms51srpa001ws101ontw1kqx",
+    "name": "Fuel Oil 0.3 % Sulphur",
+    "comments": "",
+    "createdAt": "2026-07-28T19:27:48.271+00:00",
+    "updatedAt": "2026-07-28T19:27:48.271+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms51tz81001xs1014n7bpe7n",
+    "name": "Gasoleo Automotriz",
+    "comments": "",
+    "createdAt": "2026-07-28T19:28:44.689+00:00",
+    "updatedAt": "2026-07-28T19:28:44.689+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms51vxn6001ys101idun3il4",
+    "name": "Gasolina Natural",
+    "comments": "",
+    "createdAt": "2026-07-28T19:30:15.954+00:00",
+    "updatedAt": "2026-07-28T19:30:15.954+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms52ox410021s101jptquck3",
+    "name": "Nuevo Producto",
+    "comments": "",
+    "createdAt": "2026-07-28T19:52:48.289+00:00",
+    "updatedAt": "2026-07-28T19:52:48.289+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms52xuid0026s101g2rengci",
+    "name": "Special Hamaca Blend",
+    "comments": "",
+    "createdAt": "2026-07-28T19:59:44.821+00:00",
+    "updatedAt": "2026-07-28T19:59:44.821+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms52ye740027s101yonxctz2",
+    "name": "Hamaca Blend Crude Oil",
+    "comments": "",
+    "createdAt": "2026-07-28T20:00:10.336+00:00",
+    "updatedAt": "2026-07-28T20:00:10.336+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cms52zw0f0028s101mmjt4ye6",
+    "name": "Jet A1",
+    "comments": "",
+    "createdAt": "2026-07-28T20:01:20.079+00:00",
+    "updatedAt": "2026-07-28T20:01:20.079+00:00",
+    "bblUnit": "BBL",
+    "category": "SN"
+  },
+  {
+    "id": "cmtt27532000uo1017c07hske",
+    "name": "NAPHTHA ",
+    "comments": "",
+    "createdAt": "2026-09-08T19:25:09.363+00:00",
+    "updatedAt": "2026-09-08T19:25:09.363+00:00",
+    "bblUnit": "BBL",
     "category": "SN"
   }
 ]
