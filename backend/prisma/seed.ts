@@ -3549,8 +3549,14 @@ async function main(): Promise<void> {
     fields: BranchDocField[];
   };
 
-  // Resolve path to branch HBS templates on disk
-  const BRANCH_TEMPLATES_DIR = path.join(__dirname, '../src/pdf/templates/branch');
+  // Source files live under src during development, while the production image
+  // copies runtime templates into dist. Support both layouts so running the seed
+  // inside Docker can upload the templates to MinIO as instructed.
+  const sourceBranchTemplatesDirectory = path.join(__dirname, '../src/pdf/templates/branch');
+  const builtBranchTemplatesDirectory = path.join(__dirname, '../dist/pdf/templates/branch');
+  const BRANCH_TEMPLATES_DIR = fs.existsSync(sourceBranchTemplatesDirectory)
+    ? sourceBranchTemplatesDirectory
+    : builtBranchTemplatesDirectory;
 
   const lgrBranch = await prisma.branch.findUnique({ where: { code: 'LGR' } });
   if (lgrBranch) {
