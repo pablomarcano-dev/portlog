@@ -1,6 +1,6 @@
 # Live catalog seed fixtures
 
-Current capture: 361 Activities and 11 Cargoes from configured
+Current **local** capture: 361 Activities and 11 Cargoes from configured
 `localhost:5432/portlog`, 2026-09-10 14:28 UTC. No source database reset has
 been performed. Re-export with writers stopped immediately before reset if
 any source rows have changed.
@@ -16,3 +16,8 @@ It refuses a missing, modified, or stale capture. There is no sample fallback.
 
 Do not regenerate these files from an empty or partially reseeded database.
 Use separate synthetic fixtures only in isolated automated tests.
+
+Production at `167.233.48.84.sslip.io` differs: its API lists 181 Activities and
+38 Cargoes. These local fixtures must be replaced by a complete production
+database capture before the production reset. SSH access for that capture is
+pending. No production reset has been performed.

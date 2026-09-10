@@ -14,7 +14,11 @@ Implemented on `codex/unify-clients`, based on the [research plan](CLIENT_CONSOL
 
 ## Live catalog preservation
 
-**Captured 361 Activities and 11 Cargoes from the repository-configured database `localhost:5432/portlog` on 10 September 2026 at 14:28 UTC. No live database has been reset.** The repository seed fixtures contain this capture, verified against their manifest. The source became available during implementation after the initial connection failure. Confirmation that this is the intended reset target remains pending. The reset command rechecks the capture against current source data, so any edits after capture require a fresh export with writers stopped.
+**Production is `https://167.233.48.84.sslip.io`. Its authenticated API currently lists 181 Activities and 38 Cargoes.** These differ from the local database capture (361 Activities and 11 Cargoes from `localhost:5432/portlog`, 2026-09-10 14:28 UTC) currently in the fixture directory. The local fixtures are not the production preservation set.
+
+No production reset or refactor deployment has been performed. A read-only API snapshot confirmed the difference, but the API omits database timestamps; a full database capture is still required. The normal deployment runs migrations on startup and cannot perform this reset automatically. SSH access to the production host is pending: the available local key was rejected, and the GitHub deployment key is restricted to the existing deploy command.
+
+Before merging to `main`, obtain server access, capture production catalogs with writers stopped, replace all three fixture files with that capture, and execute the guarded reset/reseed as part of the rollout. The reset command must recheck the production source immediately before reset.
 
 The seed requires `backend/prisma/catalog-fixtures/activities.json`, `cargoes.json` and `manifest.json`; it fails before making writes when these are absent or fail validation. The old sample catalog arrays have been removed. Capture includes all current table fields, stable IDs, comments, units, SN/OT categories and PostgreSQL timestamp precision. Duplicate names remain separate records.
 
@@ -33,7 +37,7 @@ If seeding or verification fails after reset, preserve the captured fixtures. Fi
 ## Verification completed
 
 - Production build of shared schemas, backend and frontend.
-- Shared schemas: 220 tests; backend: 346 tests; frontend: 83 tests; catalog capture/reset checks: 4 tests.
+- Clean committed checkout: shared schemas 216 tests; backend 341 tests; frontend 83 tests; catalog checks 4 tests (644 total). Build and typechecks pass without the separate uncommitted service-request work.
 - Full migration history and rewritten seed on isolated PostgreSQL databases; guarded reset restored exact synthetic catalog records. Duplicate cargo names and microsecond timestamps were included. A separate fresh database was seeded with the actual 361 Activities and 11 Cargoes and verified against the capture. Rerunning the seed retained one company per seeded entity and exactly four email assignments.
 - Real HTTP integration: create/update all four types, select each in a nomination role, retain ID on role change, share one contact across four clients, reject legacy fields/duplicate addresses, roll back invalid links, clear collections, collect contextual groups and generate DOCX using a SHIPPER instruction client.
 - Browser verification: unified directory loads, client instructions save/reopen, New clears the form, four groups load, legacy company routes redirect, directory selection retains IDs through role changes, and all four groups can be added to recipients with deduplication.

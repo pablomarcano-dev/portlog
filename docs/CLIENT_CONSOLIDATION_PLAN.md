@@ -4,7 +4,7 @@ Consolidate Clients, Charterers, Shippers, and Operators into the existing `Clie
 
 The user has confirmed that existing database contents are disposable **except the currently live Activities and Cargoes catalogs, which must be captured and restored through the seed**. Client-data preservation, backfills, legacy Client ID mappings, dual writes, compatibility APIs, and staged retention of old company tables are not required. Four client email-group selections are required: the current first-message concept plus 2nd Message, 3rd Message, and CC Message.
 
-Implementation is on `codex/unify-clients`. See [implementation and reset runbook](CLIENT_CONSOLIDATION_IMPLEMENTATION.md) for verification and remaining rollout work. Captured 361 Activities and 11 Cargoes from configured `localhost:5432/portlog` into verified seed fixtures. No live database has been reset; the reset-target clarification remains pending.
+Implementation is on `codex/unify-clients`. See [implementation and reset runbook](CLIENT_CONSOLIDATION_IMPLEMENTATION.md) for verification and remaining rollout work. The local capture contains 361 Activities and 11 Cargoes. Production was subsequently identified at `167.233.48.84.sslip.io`, and its API lists 181 Activities and 38 Cargoes. A separate production database capture is required before deploying; SSH access is pending. No production database has been reset.
 
 Research baseline: 10 September 2026, Portlog working tree on `main`, commit `04c889c`, including the pre-existing service-request changes. Application repository: `/Users/pablomarcano/Freelance/Portlog`. Findings come from source code, migration history, and inspection of both pages of the retained instruction DOCX. This revision supersedes the earlier data-preserving approach.
 
