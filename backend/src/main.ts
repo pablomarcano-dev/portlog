@@ -23,7 +23,7 @@ async function bootstrap() {
   // The double-cast (as unknown as Parameters<typeof app.register>[0]) is safe here
   // because fastifyCookie is a valid Fastify plugin at runtime.
 
-  await app.register(fastifyCookie as unknown as Parameters<typeof app.register>[0]);
+  await app.register(fastifyCookie);
 
   // Security headers. The API serves JSON and streams attachments — it renders
   // no HTML — so the useful headers here are the sniffing and framing ones

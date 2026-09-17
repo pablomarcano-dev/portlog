@@ -161,7 +161,7 @@ function BranchFields({
         render={({ field, fieldState }) => (
           <EmailChipsInput
             label="Central / Supervisory Emails"
-            description="Head-office oversight. Blind-copied (BCC) on notices for this branch, so counterparties do not see them."
+            description="Head-office oversight addresses. Copied (CC) on every nomination email for this branch."
             value={field.value ?? []}
             onChange={field.onChange}
             error={fieldState.error?.message}
@@ -174,7 +174,7 @@ function BranchFields({
         render={({ field, fieldState }) => (
           <EmailChipsInput
             label="Contact Person Emails"
-            description="The named contact below. Used in documents, not added to outgoing recipients."
+            description="The named contact below. Copied (CC) on every nomination email for this branch."
             value={field.value ?? []}
             onChange={field.onChange}
             error={fieldState.error?.message}

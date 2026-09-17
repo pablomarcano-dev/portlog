@@ -476,9 +476,12 @@ function EditUserModal({ user, onClose }: { user: AdminUser; onClose: () => void
                 endpoint="/master-data/branches"
                 label="Default Branch (Sucursal)"
                 placeholder="No default branch"
-                // Pre-fills the Sucursal field on every service request this
-                // user creates; they can still override it per request.
+                // The backend assigns this branch to new service requests.
+                // Keep the saved choice visible even when it is not on page one.
                 value={field.value ?? null}
+                selectedOption={
+                  user.branch ? { value: user.branch.id, label: user.branch.name } : null
+                }
                 onChange={field.onChange}
                 searchValue={branchSearch}
                 onSearchChange={setBranchSearch}

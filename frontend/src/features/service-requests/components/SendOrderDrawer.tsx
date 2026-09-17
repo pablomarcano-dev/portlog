@@ -53,6 +53,7 @@ function defaultBody(request: ServiceRequestRead): string {
     '',
     'Se adjunta la Orden de Compra y la documentación de respaldo.',
     '',
+    'Favor acompañar su factura con esta Orden de Compra e indicar su número de control.',
     'Agradecemos confirmar recepción.',
   ].join('\n');
 }
@@ -86,6 +87,8 @@ export function SendOrderDrawer({ opened, onClose, request }: Props) {
     supplierId: request.supplierId,
     details: request.details,
     documentCount: request.documents.length,
+    requestedByAuthority: request.requestedByAuthority,
+    requestingAuthority: request.requestingAuthority,
   });
   const blockers = readiness.success ? [] : readiness.error.issues.map((i) => i.message);
   const canSend = blockers.length === 0 && to.length > 0 && !send.isPending;

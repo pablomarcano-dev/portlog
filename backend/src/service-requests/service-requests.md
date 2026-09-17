@@ -14,6 +14,12 @@ templates (`antidrogas.hbs`, `solicitud-zarpe.hbs`) are Spanish. Every enum
 label in `@portlog/schemas` therefore carries both: the UI reads `.en`,
 `order-context.ts` reads `.es`.
 
+The saved request also offers a downloadable operational Word order using the
+retained `SNCA-RG-AGN-005` form. Drafts render the latest saved values. On send,
+the Word copy is archived alongside the emailed PDF and each dispatch keeps
+both object keys. Approval name and date appear only after a branch manager or
+administrator records approval; signature and provider stamp lines remain blank.
+
 ## Scope
 
 Six request types, driven by the agency's five Spanish specs plus a catch-all:
@@ -47,9 +53,14 @@ DRAFT ──send──▶ SENT ──transition──▶ COMPLETED
 
 - `DRAFT` — everything editable; the only state that can be deleted.
 - `SENT` — the purchase order was generated and emailed. Operational fields
-  freeze; `physicalVoucherNo`, `actualCost`, `completedAt` and `notes` stay open
-  because they are filled in after the boat comes back
+  freeze; `physicalVoucherNo`, `supplierInvoiceNo`, `actualCost`, `completedAt`
+  and `reconciliationNotes` stay open because they are filled in after service
   (`POST_SEND_EDITABLE_FIELDS` in the service).
+- Draft changes clear recorded approval and invalidate any generated PDF preview.
+- An active branch manager assigned to the request branch, or an administrator,
+  may record approval on a draft. Approval is recorded but is not a send gate.
+- Provider receipt metadata is recorded after issue. It cannot be rewritten;
+  a signed scan can be added later if the receipt was first filed without one.
 - The status flips to `SENT` **before** SMTP is attempted and is deliberately
   **not** rolled back on failure — the dispatch row carries the error and the
   operator re-sends by hand. Same contract as `SHDocumentsService.send`.
@@ -89,8 +100,13 @@ POST   /api/service-requests/:id/documents          file uploaded attachments
 DELETE /api/service-requests/:id/documents/:attId
 POST   /api/service-requests/:id/generate           render the order without sending
 GET    /api/service-requests/:id/order.pdf
+GET    /api/service-requests/:id/order.docx           fill the retained Word form
+POST   /api/service-requests/:id/approve             record actual approver
+POST   /api/service-requests/:id/receipt             record provider receipt
 POST   /api/service-requests/:id/send               generate + email the order
 GET    /api/service-requests/:id/dispatches         append-only send log
+GET    /api/service-requests/:id/dispatches/:dispatchId/order.pdf
+GET    /api/service-requests/:id/dispatches/:dispatchId/order.docx
 ```
 
 Both roles (`OPS`, `ADM`), matching the Sales flow this replaces.

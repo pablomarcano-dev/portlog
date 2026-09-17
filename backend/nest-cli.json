@@ -6,7 +6,8 @@
     "deleteOutDir": false,
     "assets": [
       { "include": "pdf/templates/**/*.hbs", "watchAssets": true },
-      { "include": "nominations/templates/**/*.docx", "watchAssets": true }
+      { "include": "nominations/templates/**/*.docx", "watchAssets": true },
+      { "include": "service-requests/templates/**/*.docx", "watchAssets": true }
     ],
     "watchAssets": true
   }

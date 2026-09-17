@@ -25,6 +25,7 @@ const makeRow = (overrides: Record<string, unknown> = {}) => ({
 });
 
 let prismaMock: {
+  serviceRequest: { findFirst: jest.Mock };
   emailAttachment: {
     create: jest.Mock;
     findUnique: jest.Mock;
@@ -43,6 +44,7 @@ let service: AttachmentsService;
 
 beforeEach(() => {
   prismaMock = {
+    serviceRequest: { findFirst: jest.fn().mockResolvedValue(null) },
     emailAttachment: {
       create: jest.fn(),
       findUnique: jest.fn(),
@@ -179,6 +181,13 @@ describe('AttachmentsService.delete', () => {
     await service.delete('att-1', 'user-1');
     expect(storageMock.deleteFile).toHaveBeenCalledWith('email-attachments/uuid/report.pdf');
     expect(prismaMock.emailAttachment.delete).toHaveBeenCalledWith({ where: { id: 'att-1' } });
+  });
+
+  it('keeps a scan once it is filed as a provider receipt', async () => {
+    prismaMock.emailAttachment.findUnique.mockResolvedValue(makeRow());
+    prismaMock.serviceRequest.findFirst.mockResolvedValue({ id: 'request-1' });
+    await expect(service.delete('att-1', 'user-1')).rejects.toBeInstanceOf(ConflictException);
+    expect(prismaMock.emailAttachment.delete).not.toHaveBeenCalled();
   });
 });
 

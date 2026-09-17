@@ -13,6 +13,10 @@ export const CurrentUserSchema = z.object({
   id: z.string(),
   email: z.string().email(),
   role: RoleSchema,
+  operationalRole: z
+    .enum(['BRANCH_MANAGER', 'SUPERVISOR', 'SHIPPING_AGENT'])
+    .nullable()
+    .default(null),
   isActive: z.boolean(),
   permissions: z.array(z.string()).default([]),
   /**

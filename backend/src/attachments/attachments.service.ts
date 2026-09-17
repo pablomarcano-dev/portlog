@@ -102,6 +102,11 @@ export class AttachmentsService {
         'Attachment belongs to a service request — delete it from that request',
       );
     }
+    const receiptOwner = await this.prisma.serviceRequest.findFirst({
+      where: { receiptAttachmentId: id },
+      select: { id: true },
+    });
+    if (receiptOwner) throw new ConflictException('Attachment is a recorded provider receipt');
 
     // Best-effort object removal; the row delete is authoritative.
     try {
@@ -131,7 +136,7 @@ export class AttachmentsService {
     const uniqueIds = [...new Set(ids)];
 
     const rows = await this.prisma.emailAttachment.findMany({
-      where: { id: { in: uniqueIds } },
+      where: { id: { in: uniqueIds }, serviceRequestReceipt: { is: null } },
     });
     if (rows.length !== uniqueIds.length) {
       throw new BadRequestException('One or more attachments no longer exist');
@@ -205,6 +210,7 @@ export class AttachmentsService {
         shDocumentDispatchId: true,
         serviceRequestDispatchId: true,
         serviceRequestId: true,
+        serviceRequestReceipt: { select: { id: true } },
       },
     });
     if (rows.length !== uniqueIds.length) {
@@ -218,6 +224,11 @@ export class AttachmentsService {
       }
       if (row.serviceRequestId && row.serviceRequestId !== serviceRequestId) {
         throw new ConflictException('Attachment already belongs to another service request');
+      }
+      if (row.serviceRequestReceipt) {
+        throw new ConflictException(
+          'A recorded provider receipt cannot be filed as an authorisation document',
+        );
       }
     }
 

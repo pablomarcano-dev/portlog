@@ -69,6 +69,6 @@ export function resolveServiceLabel(details: unknown, locale: 'en' | 'es' = 'en'
     case 'STS':
       return `${STS_ROLE_LABELS[value.ourRole][locale]} — ${value.targetVesselName}`;
     case 'GENERAL':
-      return value.route ?? SERVICE_REQUEST_TYPE_LABELS.GENERAL[locale];
+      return value.serviceName ?? value.route ?? SERVICE_REQUEST_TYPE_LABELS.GENERAL[locale];
   }
 }

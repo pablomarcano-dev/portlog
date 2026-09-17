@@ -75,6 +75,10 @@ model ServiceRequest {
   // `Ubicación` + the port/berth it resolves to. The tug form's
   // "Muelle / Terminal" picker writes portId + pierId.
   location ServiceLocation?
+  originPoint String?
+  destinationPoint String?
+  contactPersonName String?
+  operationDescription String?
   portId   String?
   port     Port?            @relation(fields: [portId], references: [id], onDelete: Restrict)
   pierId   String?
@@ -93,8 +97,13 @@ model ServiceRequest {
   // Stays editable after SENT, because it only exists once the job is done.
   physicalVoucherNo String?
 
+  requestedByAuthority Boolean?
+  requestingAuthority String?
+  supplierInvoiceNo String?
+
   // `Observaciones`
   notes String? @db.Text
+  reconciliationNotes String? @db.Text
 
   // Per-type payload — ServiceRequestDetailsSchema.
   details Json @default("{}")
@@ -112,8 +121,24 @@ model ServiceRequest {
 
   // Generated Orden de Compra (PDF in MinIO — Golden Rule 7).
   minioKey       String?   @unique
+  issuedDocxKey String?   @unique
   pdfGeneratedAt DateTime? @db.Timestamptz(6)
   sentAt         DateTime? @db.Timestamptz(6)
+
+  approvedById String?
+  approvedBy   User?     @relation("ServiceRequestApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  approvedAt   DateTime? @db.Timestamptz(6)
+  issuedById String?
+  issuedBy   User? @relation("ServiceRequestIssuedBy", fields: [issuedById], references: [id], onDelete: Restrict)
+  issuedAt   DateTime? @db.Timestamptz(6)
+  receiptName  String?
+  receiptTitle String?
+  receivedAt   DateTime? @db.Timestamptz(6)
+  receiptRecordedById String?
+  receiptRecordedBy User? @relation("ServiceRequestReceiptRecordedBy", fields: [receiptRecordedById], references: [id], onDelete: Restrict)
+  receiptRecordedAt DateTime? @db.Timestamptz(6)
+  receiptAttachmentId String? @unique
+  receiptAttachment EmailAttachment? @relation("ServiceRequestReceipt", fields: [receiptAttachmentId], references: [id], onDelete: Restrict)
 
   cancelledAt  DateTime? @db.Timestamptz(6)
   cancelReason String?   @db.Text
@@ -152,6 +177,7 @@ model ServiceRequestDispatch {
   subject          String
   bodyHtml         String?        @db.Text
   pdfStorageKey    String
+  docxStorageKey   String?
   sentAt           DateTime?      @db.Timestamptz(6)
   sentById         String
   sentBy           User           @relation("ServiceRequestDispatchSentBy", fields: [sentById], references: [id], onDelete: Restrict)

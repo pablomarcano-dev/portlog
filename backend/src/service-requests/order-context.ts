@@ -43,8 +43,17 @@ export interface OrderContext extends Record<string, unknown> {
   location: string | null;
   place: string | null;
   scheduledAt: string;
+  operation: string;
+  originPoint: string | null;
+  destinationPoint: string | null;
+  contactPersonName: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  generatedAt: string;
   physicalVoucherNo: string | null;
   notes: string | null;
+  requestedByAuthority?: boolean | null;
+  requestingAuthority?: string | null;
   breakdown: OrderBreakdownRow[];
   documents: string[];
   billing: { client: string | null; estimated: string | null; currency: string } | null;
@@ -58,8 +67,14 @@ interface OrderSource {
   details: unknown;
   scheduledAt: Date;
   location: string | null;
+  originPoint?: string | null;
+  destinationPoint?: string | null;
+  contactPersonName?: string | null;
+  operationDescription?: string | null;
   physicalVoucherNo: string | null;
   notes: string | null;
+  requestedByAuthority?: boolean | null;
+  requestingAuthority?: string | null;
   currency: string;
   estimatedCost: { toNumber(): number } | null;
   shipParticular: { name: string; imoNumber: string | null } | null;
@@ -69,6 +84,12 @@ interface OrderSource {
   pier: { name: string } | null;
   billToClient: { name: string } | null;
   documents: Array<{ filename: string }>;
+  nomination?: { correlative: number; dateNominated: Date; kind: 'SN' | 'OT' } | null;
+  createdBy?: { email: string; displayName: string | null };
+  approvedBy?: { email: string; displayName: string | null } | null;
+  approvedAt?: Date | null;
+  issuedBy?: { email: string; displayName: string | null } | null;
+  issuedAt?: Date | null;
 }
 
 /** The order is read in Spanish by the provider. */
@@ -99,9 +120,6 @@ function buildBreakdown(details: ServiceRequestDetails): OrderBreakdownRow[] {
       return [
         { label: 'Tipo de Servicio', value: LAUNCH_SERVICE_TYPE_LABELS[details.serviceType].es },
         { label: 'Cantidad de Lanchas', value: String(details.boatCount) },
-        ...(details.departurePoint
-          ? [{ label: 'Punto de Salida', value: details.departurePoint }]
-          : []),
       ];
 
     case 'UNDERWATER_INSPECTION':
@@ -177,7 +195,10 @@ function buildBreakdown(details: ServiceRequestDetails): OrderBreakdownRow[] {
       ];
 
     case 'GENERAL':
-      return details.route ? [{ label: 'Servicio Recorrido', value: details.route }] : [];
+      return [
+        { label: 'Servicio', value: details.serviceName ?? 'Transporte / Otros servicios' },
+        ...(details.route ? [{ label: 'Servicio Recorrido', value: details.route }] : []),
+      ];
   }
 }
 
@@ -205,8 +226,21 @@ export function buildOrderContext(row: OrderSource): OrderContext {
     // The concrete berth, when one is known — "Muelle 3, Puerto La Cruz".
     place: [row.pier?.name, row.port?.name].filter(Boolean).join(', ') || null,
     scheduledAt: formatDateTime(row.scheduledAt),
+    operation: row.operationDescription?.trim() || resolveServiceLabel(row.details, 'es'),
+    originPoint:
+      row.originPoint ??
+      (parsed.success && parsed.data.type === 'LAUNCH'
+        ? (parsed.data.departurePoint ?? null)
+        : null),
+    destinationPoint: row.destinationPoint ?? null,
+    contactPersonName: row.contactPersonName ?? null,
+    approvedBy: row.approvedBy ? row.approvedBy.displayName?.trim() || row.approvedBy.email : null,
+    approvedAt: row.approvedAt ? formatDateTime(row.approvedAt) : null,
+    generatedAt: formatDateTime(new Date()),
     physicalVoucherNo: row.physicalVoucherNo,
     notes: row.notes,
+    requestedByAuthority: row.requestedByAuthority,
+    requestingAuthority: row.requestingAuthority,
     breakdown: parsed.success
       ? buildBreakdown(parsed.data)
       : [{ label: 'Servicio', value: resolveServiceLabel(row.details) }],
@@ -220,4 +254,76 @@ export function buildOrderContext(row: OrderSource): OrderContext {
           }
         : null,
   };
+}
+
+/** Values for the retained SNCA-RG-AGN-005 Word form. Signature and receipt
+ * fields remain on the form for the people who actually sign it. */
+export function buildOperationalOrderData(
+  row: OrderSource,
+  issuer?: { name: string; at: Date },
+): Record<string, string> {
+  const context = buildOrderContext(row);
+  const parsed = ServiceRequestDetailsSchema.safeParse(row.details);
+  const details = parsed.success ? parsed.data : null;
+  const quantity =
+    details?.type === 'LAUNCH'
+      ? details.boatCount
+      : details?.type === 'TUG'
+        ? details.tugCount
+        : details?.type === 'BALLAST_WATER'
+          ? details.tankCount
+          : 1;
+  const items = [{ description: context.operation, quantity: String(quantity) }];
+  const observations = [
+    ...context.breakdown
+      .filter(
+        ({ label }) =>
+          ![
+            'Cantidad de Lanchas',
+            'Cantidad de Remolcadores',
+            'Número de Tanques a Inspeccionar',
+            'Punto de Salida',
+          ].includes(label),
+      )
+      .map(({ label, value }) => `${label}: ${value}`),
+    ...(row.requestedByAuthority && row.requestingAuthority
+      ? [`Solicitado por: ${row.requestingAuthority}`]
+      : []),
+    ...(row.notes ? [row.notes] : []),
+  ].join(' · ');
+  const date = (value: Date) =>
+    `${String(value.getUTCDate()).padStart(2, '0')}/${String(value.getUTCMonth() + 1).padStart(2, '0')}/${value.getUTCFullYear()}`;
+
+  const data: Record<string, string> = {
+    snOt: row.nomination
+      ? `${row.nomination.kind}-${String(row.nomination.dateNominated.getUTCFullYear()).slice(-2)}/${String(row.nomination.correlative).padStart(4, '0')}`
+      : '',
+    orderNumber: context.control,
+    vessel: context.vessel.name,
+    supplier: context.supplier?.name ?? '',
+    branch: context.branch.name,
+    executionDate: date(row.scheduledAt),
+    operation: context.operation,
+    terminal: [context.location, context.place].filter(Boolean).join(' — '),
+    departure: context.originPoint ?? '',
+    destination: context.destinationPoint ?? '',
+    startTime: `${String(row.scheduledAt.getUTCHours()).padStart(2, '0')}:${String(row.scheduledAt.getUTCMinutes()).padStart(2, '0')} UTC`,
+    contact: context.contactPersonName ?? '',
+    observations,
+    agent:
+      issuer?.name ||
+      row.issuedBy?.displayName?.trim() ||
+      row.issuedBy?.email ||
+      row.createdBy?.displayName?.trim() ||
+      row.createdBy?.email ||
+      '',
+    preparationDate: date(issuer?.at ?? row.issuedAt ?? new Date()),
+    approver: context.approvedBy ?? '',
+    approvalDate: row.approvedAt ? date(row.approvedAt) : '',
+  };
+  for (let index = 0; index < 5; index += 1) {
+    data[`item${index + 1}Description`] = items[index]?.description ?? '';
+    data[`item${index + 1}Quantity`] = items[index]?.quantity ?? '';
+  }
+  return data;
 }

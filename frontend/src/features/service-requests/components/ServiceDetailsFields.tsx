@@ -84,13 +84,6 @@ export function ServiceDetailsFields({ type, disabled = false }: Props) {
                 />
               )}
             />
-            <TextInput
-              label="Departure Point"
-              placeholder="e.g. Pilot jetty"
-              disabled={disabled}
-              error={errorFor('departurePoint')}
-              {...register('details.departurePoint')}
-            />
           </Group>
         </Stack>
       );
@@ -465,13 +458,21 @@ export function ServiceDetailsFields({ type, disabled = false }: Props) {
 
     case 'GENERAL':
       return (
-        <TextInput
-          label="Route Covered"
-          placeholder="e.g. Guaraguao - Berth 3"
-          disabled={disabled}
-          error={errorFor('route')}
-          {...register('details.route')}
-        />
+        <Stack>
+          <TextInput
+            label="Service"
+            placeholder="Transport, anti-drug inspection, other..."
+            disabled={disabled}
+            {...register('details.serviceName')}
+          />
+          <TextInput
+            label="Route Covered"
+            placeholder="e.g. Guaraguao - Berth 3"
+            disabled={disabled}
+            error={errorFor('route')}
+            {...register('details.route')}
+          />
+        </Stack>
       );
   }
 }

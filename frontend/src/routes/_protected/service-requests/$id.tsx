@@ -1,8 +1,9 @@
+import { ServiceReconciliation } from '../../../features/service-requests/components/ServiceReconciliation';
+import { ServiceOrderReceipt } from '../../../features/service-requests/components/ServiceOrderReceipt';
 import { useState } from 'react';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import {
   Alert,
-  Anchor,
   Badge,
   Button,
   Card,
@@ -20,12 +21,18 @@ import { ServiceRequestSendReadinessSchema, type ServiceRequestStatus } from '@p
 import { ServiceRequestStepper } from '../../../features/service-requests/components/ServiceRequestStepper';
 import { SendOrderDrawer } from '../../../features/service-requests/components/SendOrderDrawer';
 import {
+  downloadServiceRequestDispatchOrder,
+  downloadServiceRequestOrder,
+} from '../../../features/service-requests/api';
+import {
   useServiceRequest,
+  useApproveServiceRequest,
   useServiceRequestDispatches,
   useTransitionServiceRequest,
   useUpdateServiceRequest,
 } from '../../../features/service-requests/hooks';
 import { formatDateTime } from '../../../lib/format/datetime';
+import { useCurrentUser } from '../../../lib/auth/queries';
 
 export const Route = createFileRoute('/_protected/service-requests/$id')({
   validateSearch: z.object({
@@ -46,10 +53,14 @@ function ServiceRequestDetailPage() {
   const { step } = Route.useSearch();
   const navigate = useNavigate();
   const [sendOpen, setSendOpen] = useState(false);
+  const [downloading, setDownloading] = useState<'pdf' | 'docx' | null>(null);
+  const [dispatchDownloading, setDispatchDownloading] = useState<string | null>(null);
 
   const { data: request, isLoading, isError } = useServiceRequest(id);
   const { data: dispatches } = useServiceRequestDispatches(id);
   const update = useUpdateServiceRequest(id);
+  const approve = useApproveServiceRequest(id);
+  const { data: currentUser } = useCurrentUser({ refetchOnMount: 'always' });
   const transition = useTransitionServiceRequest(id);
 
   if (isLoading) {
@@ -70,17 +81,66 @@ function ServiceRequestDetailPage() {
     );
   }
 
-  const apiBase = import.meta.env.VITE_API_URL as string;
+  async function downloadOrder(format: 'pdf' | 'docx') {
+    setDownloading(format);
+    try {
+      const blob = await downloadServiceRequestOrder(id, format);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `OC-${request!.controlNumber.replaceAll('/', '-')}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      notifications.show({
+        color: 'red',
+        title: 'Could not download the purchase order',
+        message: error instanceof Error ? error.message : 'Please try again.',
+      });
+    } finally {
+      setDownloading(null);
+    }
+  }
+
+  async function downloadDispatch(dispatchId: string, format: 'pdf' | 'docx') {
+    setDispatchDownloading(`${dispatchId}-${format}`);
+    try {
+      const blob = await downloadServiceRequestDispatchOrder(id, dispatchId, format);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `OC-${request!.controlNumber.replaceAll('/', '-')}-${dispatchId}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      notifications.show({
+        color: 'red',
+        message: error instanceof Error ? error.message : 'Could not download this dispatch',
+      });
+    } finally {
+      setDispatchDownloading(null);
+    }
+  }
   const sendReadiness = ServiceRequestSendReadinessSchema.safeParse({
     supplierId: request.supplierId,
     details: request.details,
     documentCount: request.documents.length,
+    requestedByAuthority: request.requestedByAuthority,
+    requestingAuthority: request.requestingAuthority,
   });
   const sendBlockers = sendReadiness.success
     ? []
     : sendReadiness.error.issues.map((issue) => issue.message);
   const sendDisabled = request.status === 'CANCELLED' || sendBlockers.length > 0;
   const isResend = request.sentAt !== null;
+  const canApprove =
+    currentUser?.role === 'ADM' ||
+    (currentUser?.operationalRole === 'BRANCH_MANAGER' &&
+      currentUser.branchId === request.branchId);
 
   return (
     <Stack p="xl" gap="md">
@@ -106,14 +166,22 @@ function ServiceRequestDetailPage() {
         </div>
 
         <Group>
+          <Button
+            variant="default"
+            loading={downloading === 'docx'}
+            disabled={request.status !== 'DRAFT' && !request.issuedDocxKey}
+            onClick={() => void downloadOrder('docx')}
+          >
+            Download Word order
+          </Button>
           {request.minioKey && (
-            <Anchor
-              href={`${apiBase}/service-requests/${id}/order.pdf`}
-              target="_blank"
-              rel="noreferrer"
+            <Button
+              variant="default"
+              loading={downloading === 'pdf'}
+              onClick={() => void downloadOrder('pdf')}
             >
-              <Button variant="default">View purchase order</Button>
-            </Anchor>
+              Download purchase order PDF
+            </Button>
           )}
           <Stack gap={2} align="flex-end">
             <Button onClick={() => setSendOpen(true)} disabled={sendDisabled}>
@@ -201,39 +269,101 @@ function ServiceRequestDetailPage() {
         </Alert>
       )}
 
+      <Card withBorder>
+        <Group justify="space-between" align="center">
+          <div>
+            <Title order={4}>Branch approval</Title>
+            <Text size="sm" c="dimmed">
+              {request.approvedBy && request.approvedAt
+                ? `Approved by ${request.approvedBy.displayName?.trim() || request.approvedBy.email} on ${formatDateTime(request.approvedAt)}. Saving draft changes will clear this approval.`
+                : 'No approval has been recorded. The Word signature line remains blank until signed.'}
+            </Text>
+          </div>
+          {request.status === 'DRAFT' && canApprove && !request.approvedAt && (
+            <Button
+              variant="light"
+              loading={approve.isPending}
+              disabled={sendBlockers.length > 0}
+              onClick={() =>
+                approve.mutate(undefined, {
+                  onSuccess: () =>
+                    notifications.show({ color: 'green', message: 'Approval recorded' }),
+                  onError: (error) =>
+                    notifications.show({
+                      color: 'red',
+                      message: error instanceof Error ? error.message : 'Could not record approval',
+                    }),
+                })
+              }
+            >
+              Record approval
+            </Button>
+          )}
+        </Group>
+      </Card>
+
       {request.status !== 'DRAFT' && (
         <Alert color="gray" variant="light">
-          The order has already been issued. Only the voucher number, actual cost, completion date
-          and observations can still be changed.
+          The order has already been issued. Operational instructions are locked. Voucher, invoice,
+          actual cost, completion date and internal reconciliation notes can still be changed.
+        </Alert>
+      )}
+      {request.sentAt && !request.issuedDocxKey && (
+        <Alert color="yellow" variant="light">
+          This order predates Word archiving. Its issued PDF is available in the dispatch history; a
+          Word file cannot reliably reconstruct the original terms.
         </Alert>
       )}
 
-      <ServiceRequestStepper
-        request={request}
-        type={request.type}
-        initialStep={step === 'documents' ? 2 : 0}
-        defaultBranchId={request.branchId}
-        isSaving={update.isPending}
-        onCancel={() =>
-          void navigate({ to: '/service-requests', search: { page: 1, pageSize: 25 } })
-        }
-        onSubmit={(values) =>
-          update.mutate(values, {
-            onSuccess: () =>
-              notifications.show({
-                color: 'green',
-                title: 'Changes saved',
-                message: request.controlNumber,
-              }),
-            onError: (err) =>
-              notifications.show({
-                color: 'red',
-                title: 'Could not save the changes',
-                message: err instanceof Error ? err.message : 'Please try again',
-              }),
-          })
-        }
-      />
+      {request.status !== 'DRAFT' ? (
+        <>
+          <ServiceReconciliation
+            request={request}
+            saving={update.isPending}
+            onSave={(values) =>
+              update.mutate(values, {
+                onSuccess: () =>
+                  notifications.show({ message: 'Reconciliation saved', color: 'green' }),
+                onError: (error) =>
+                  notifications.show({
+                    message: error instanceof Error ? error.message : 'Could not save',
+                    color: 'red',
+                  }),
+              })
+            }
+          />
+          {(request.status === 'SENT' || request.status === 'COMPLETED') && (
+            <ServiceOrderReceipt key={request.updatedAt.toISOString()} request={request} />
+          )}
+        </>
+      ) : (
+        <ServiceRequestStepper
+          request={request}
+          type={request.type}
+          initialStep={step === 'documents' ? 2 : 0}
+          defaultBranchId={request.branchId}
+          isSaving={update.isPending}
+          onCancel={() =>
+            void navigate({ to: '/service-requests', search: { page: 1, pageSize: 25 } })
+          }
+          onSubmit={(values) =>
+            update.mutate(values, {
+              onSuccess: () =>
+                notifications.show({
+                  color: 'green',
+                  title: 'Changes saved',
+                  message: request.controlNumber,
+                }),
+              onError: (err) =>
+                notifications.show({
+                  color: 'red',
+                  title: 'Could not save the changes',
+                  message: err instanceof Error ? err.message : 'Please try again',
+                }),
+            })
+          }
+        />
+      )}
 
       {dispatches && dispatches.length > 0 && (
         <Card withBorder padding="md">
@@ -248,6 +378,7 @@ function ServiceRequestDetailPage() {
                 <Table.Th>Subject</Table.Th>
                 <Table.Th>Sent by</Table.Th>
                 <Table.Th>Result</Table.Th>
+                <Table.Th>Issued copies</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -271,6 +402,28 @@ function ServiceRequestDetailPage() {
                         Failed
                       </Badge>
                     )}
+                  </Table.Td>
+                  <Table.Td>
+                    <Group gap="xs">
+                      <Button
+                        size="xs"
+                        variant="subtle"
+                        loading={dispatchDownloading === `${dispatch.id}-pdf`}
+                        onClick={() => void downloadDispatch(dispatch.id, 'pdf')}
+                      >
+                        PDF
+                      </Button>
+                      {dispatch.hasWord && (
+                        <Button
+                          size="xs"
+                          variant="subtle"
+                          loading={dispatchDownloading === `${dispatch.id}-docx`}
+                          onClick={() => void downloadDispatch(dispatch.id, 'docx')}
+                        >
+                          Word
+                        </Button>
+                      )}
+                    </Group>
                   </Table.Td>
                 </Table.Tr>
               ))}

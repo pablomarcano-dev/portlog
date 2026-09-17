@@ -18,12 +18,14 @@ import { z } from 'zod';
 import {
   ServiceRequestCreateSchema,
   ServiceRequestListQuerySchema,
+  ServiceRequestReceiptSchema,
   ServiceRequestSendSchema,
   ServiceRequestTransitionSchema,
   ServiceRequestUpdateSchema,
   attachmentIdsSchema,
   type ServiceRequestCreate,
   type ServiceRequestListQuery,
+  type ServiceRequestReceipt,
   type ServiceRequestSend,
   type ServiceRequestTransition,
   type ServiceRequestUpdate,
@@ -56,6 +58,13 @@ export class ServiceRequestsController {
     return this.service.list(query);
   }
 
+  @Get('report')
+  report(
+    @Query(new ZodValidationPipe(ServiceRequestListQuerySchema)) query: ServiceRequestListQuery,
+  ) {
+    return this.service.report(query);
+  }
+
   @Post()
   create(
     @Body(new ZodValidationPipe(ServiceRequestCreateSchema)) dto: ServiceRequestCreate,
@@ -78,14 +87,29 @@ export class ServiceRequestsController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(ServiceRequestUpdateSchema)) dto: ServiceRequestUpdate,
+    @Req() req: { user: RequestUser },
   ) {
-    return this.service.update(id, dto);
+    return this.service.update(id, dto, req.user.sub);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.remove(id);
+  }
+
+  @Post(':id/approve')
+  approve(@Param('id', ParseUUIDPipe) id: string, @Req() req: { user: RequestUser }) {
+    return this.service.approve(id, req.user.sub);
+  }
+
+  @Post(':id/receipt')
+  receipt(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(ServiceRequestReceiptSchema)) dto: ServiceRequestReceipt,
+    @Req() req: { user: RequestUser },
+  ) {
+    return this.service.recordReceipt(id, dto, req.user.sub);
   }
 
   /** Mark COMPLETED or CANCELLED. */
@@ -137,6 +161,18 @@ export class ServiceRequestsController {
       .send(file.buffer);
   }
 
+  @Get(':id/order.docx')
+  async downloadWordOrder(@Param('id', ParseUUIDPipe) id: string, @Res() reply: FastifyReply) {
+    const file = await this.service.downloadOperationalOrderDocx(id);
+    await reply
+      .header(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      )
+      .header('Content-Disposition', `attachment; filename="${file.filename}"`)
+      .send(file.buffer);
+  }
+
   /** Generate the purchase order and email it to the provider. */
   @Post(':id/send')
   send(
@@ -150,5 +186,34 @@ export class ServiceRequestsController {
   @Get(':id/dispatches')
   dispatches(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.listDispatches(id);
+  }
+
+  @Get(':id/dispatches/:dispatchId/order.pdf')
+  async dispatchPdf(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('dispatchId') dispatchId: string,
+    @Res() reply: FastifyReply,
+  ) {
+    const file = await this.service.downloadDispatchOrder(id, dispatchId, 'pdf');
+    await reply
+      .header('Content-Type', 'application/pdf')
+      .header('Content-Disposition', `attachment; filename="${file.filename}"`)
+      .send(file.buffer);
+  }
+
+  @Get(':id/dispatches/:dispatchId/order.docx')
+  async dispatchWord(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('dispatchId') dispatchId: string,
+    @Res() reply: FastifyReply,
+  ) {
+    const file = await this.service.downloadDispatchOrder(id, dispatchId, 'docx');
+    await reply
+      .header(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      )
+      .header('Content-Disposition', `attachment; filename="${file.filename}"`)
+      .send(file.buffer);
   }
 }

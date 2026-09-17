@@ -7,7 +7,7 @@ import { accessTokenStore } from './accessTokenStore';
 // Re-export for consumers that need the type
 export type { CurrentUser };
 
-export function useCurrentUser() {
+export function useCurrentUser(options?: { refetchOnMount?: 'always' }) {
   return useQuery({
     queryKey: ['auth', 'me'],
     queryFn: async () => {
@@ -15,6 +15,7 @@ export function useCurrentUser() {
       return CurrentUserSchema.parse(raw);
     },
     staleTime: 5 * 60_000, // treat the current user as fresh for 5 min — avoids stampede on mount
+    refetchOnMount: options?.refetchOnMount,
     retry: false, // don't retry on 401; the silent-refresh in main.tsx handles that
   });
 }

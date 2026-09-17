@@ -66,6 +66,10 @@
       {{#if location}}<tr><th>Ubicación del Buque</th><td>{{location}}{{#if place}} — {{place}}{{/if}}</td></tr>{{/if}}
       {{#unless location}}{{#if place}}<tr><th>Muelle / Terminal</th><td>{{place}}</td></tr>{{/if}}{{/unless}}
       <tr><th>Fecha y Hora Programada</th><td>{{scheduledAt}}</td></tr>
+      <tr><th>Maniobra / Operación</th><td>{{operation}}</td></tr>
+      {{#if originPoint}}<tr><th>Punto de Salida / Entrega</th><td>{{originPoint}}</td></tr>{{/if}}
+      {{#if destinationPoint}}<tr><th>Punto Destino</th><td>{{destinationPoint}}</td></tr>{{/if}}
+      {{#if contactPersonName}}<tr><th>Persona Contacto</th><td>{{contactPersonName}}</td></tr>{{/if}}
     </table>
   </section>
 
@@ -104,10 +108,13 @@
     <div class="sig"><div class="sig-line">Solicitado por — Servicios Navieramar, C.A.</div></div>
     <div class="sig"><div class="sig-line">Recibido / Conforme — Proveedor</div></div>
   </div>
+  {{#if approvedBy}}<p>Aprobado por: {{approvedBy}}{{#if approvedAt}} · {{approvedAt}}{{/if}}</p>{{/if}}
 
   <div class="footer">
     <span>{{control}}</span>
     <span>Generado: {{generatedAt}}</span>
   </div>
+<p>Favor adjuntar esta orden de compra a su factura e indicar su número de control.</p>
+{{#if requestedByAuthority}}<p><strong>Solicitado por ente:</strong> {{requestingAuthority}}</p>{{/if}}
 </body>
 </html>

@@ -1,12 +1,14 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import {
   ServiceRequestDetailsSchema,
   ServiceRequestSendReadinessSchema,
@@ -19,6 +21,7 @@ import {
   type ServiceRequestListQuery,
   type ServiceRequestListResponse,
   type ServiceRequestRead,
+  type ServiceRequestReceipt,
   type ServiceRequestSend,
   type ServiceRequestTransition,
   type ServiceRequestUpdate,
@@ -30,7 +33,8 @@ import { EmailService } from '../email/email.service.js';
 import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
 import { AttachmentsService } from '../attachments/attachments.service.js';
 import { appendBranchCc } from '../email/email-address.util.js';
-import { buildOrderContext } from './order-context.js';
+import { buildOperationalOrderData, buildOrderContext } from './order-context.js';
+import { OperationalOrderDocxService } from './operational-order-docx.service.js';
 
 /**
  * Everything the read DTO needs, in one round trip. Declared once so the
@@ -53,6 +57,13 @@ const DETAIL_INCLUDE = {
   pier: { select: { id: true, name: true } },
   billToClient: { select: { id: true, name: true } },
   createdBy: { select: { id: true, email: true, displayName: true } },
+  approvedBy: { select: { id: true, email: true, displayName: true } },
+  issuedBy: { select: { id: true, email: true, displayName: true } },
+  receiptRecordedBy: { select: { id: true, email: true, displayName: true } },
+  receiptAttachment: {
+    select: { id: true, filename: true, mimeType: true, sizeBytes: true, createdAt: true },
+  },
+  nomination: { select: { correlative: true, dateNominated: true, kind: true } },
   documents: {
     select: { id: true, filename: true, mimeType: true, sizeBytes: true, createdAt: true },
     orderBy: { createdAt: 'asc' },
@@ -79,7 +90,8 @@ const POST_SEND_EDITABLE_FIELDS = [
   'physicalVoucherNo',
   'actualCost',
   'completedAt',
-  'notes',
+  'reconciliationNotes',
+  'supplierInvoiceNo',
 ] as const;
 
 @Injectable()
@@ -92,6 +104,7 @@ export class ServiceRequestsService {
     private readonly storage: StorageService,
     private readonly email: EmailService,
     private readonly attachments: AttachmentsService,
+    private readonly operationalOrderDocx: OperationalOrderDocxService,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -100,10 +113,11 @@ export class ServiceRequestsService {
 
   async create(dto: ServiceRequestCreate, userId: string): Promise<ServiceRequestRead> {
     this.assertDetailsMatchType(dto.type, dto.details);
-    const assignment =
-      dto.type === 'GENERAL'
-        ? await this.resolveAdministrationForUser(userId)
-        : await this.resolveNominationForUser(dto.nominationId, userId);
+    if (!dto.shipParticularId && !dto.nominationId)
+      throw new BadRequestException('Select a vessel for the service');
+    const assignment = dto.shipParticularId
+      ? await this.resolveVesselForUser(dto.shipParticularId, dto.nominationId, userId)
+      : await this.resolveNominationForUser(dto.nominationId, userId);
 
     const created = await this.prisma.serviceRequest.create({
       data: {
@@ -113,13 +127,22 @@ export class ServiceRequestsService {
         nominationId: assignment.nominationId,
         supplierId: dto.supplierId ?? null,
         location: dto.location ?? null,
+        originPoint:
+          dto.originPoint ??
+          (dto.details.type === 'LAUNCH' ? (dto.details.departurePoint ?? null) : null),
+        destinationPoint: dto.destinationPoint ?? null,
+        contactPersonName: dto.contactPersonName ?? null,
+        operationDescription: dto.operationDescription ?? null,
         portId: dto.portId ?? null,
         pierId: dto.pierId ?? null,
         scheduledAt: dto.scheduledAt,
         completedAt: dto.completedAt ?? null,
         physicalVoucherNo: dto.physicalVoucherNo ?? null,
         notes: dto.notes ?? null,
-        details: dto.details as unknown as Prisma.InputJsonValue,
+        requestedByAuthority: dto.requestedByAuthority ?? false,
+        requestingAuthority: dto.requestedByAuthority ? (dto.requestingAuthority ?? null) : null,
+        supplierInvoiceNo: dto.supplierInvoiceNo ?? null,
+        details: dto.details,
         billToClientId: dto.billToClientId ?? null,
         estimatedCost: dto.estimatedCost ?? null,
         actualCost: dto.actualCost ?? null,
@@ -199,7 +222,11 @@ export class ServiceRequestsService {
       .slice(0, 100);
   }
 
-  async update(id: string, dto: ServiceRequestUpdate): Promise<ServiceRequestRead> {
+  async update(
+    id: string,
+    dto: ServiceRequestUpdate,
+    userId?: string,
+  ): Promise<ServiceRequestRead> {
     const existing = await this.getOrThrow(id);
 
     if ((LOCKED_STATUSES as readonly string[]).includes(existing.status)) {
@@ -225,30 +252,82 @@ export class ServiceRequestsService {
       throw new BadRequestException('Completion time must be on or after the scheduled time');
     }
 
-    const updated = await this.prisma.serviceRequest.update({
-      where: { id },
-      data: {
-        ...(dto.shipParticularId !== undefined && { shipParticularId: dto.shipParticularId }),
-        ...(dto.branchId !== undefined && { branchId: dto.branchId }),
-        ...(dto.nominationId !== undefined && { nominationId: dto.nominationId }),
-        ...(dto.supplierId !== undefined && { supplierId: dto.supplierId }),
-        ...(dto.location !== undefined && { location: dto.location }),
-        ...(dto.portId !== undefined && { portId: dto.portId }),
-        ...(dto.pierId !== undefined && { pierId: dto.pierId }),
-        ...(dto.scheduledAt !== undefined && { scheduledAt: dto.scheduledAt }),
-        ...(dto.completedAt !== undefined && { completedAt: dto.completedAt }),
-        ...(dto.physicalVoucherNo !== undefined && { physicalVoucherNo: dto.physicalVoucherNo }),
-        ...(dto.notes !== undefined && { notes: dto.notes }),
-        ...(dto.details !== undefined && {
-          details: dto.details as unknown as Prisma.InputJsonValue,
-        }),
-        ...(dto.billToClientId !== undefined && { billToClientId: dto.billToClientId }),
-        ...(dto.estimatedCost !== undefined && { estimatedCost: dto.estimatedCost }),
-        ...(dto.actualCost !== undefined && { actualCost: dto.actualCost }),
-        ...(dto.currency !== undefined && { currency: dto.currency }),
-      },
-      include: DETAIL_INCLUDE,
-    });
+    if (
+      dto.shipParticularId !== undefined ||
+      dto.nominationId !== undefined ||
+      dto.branchId !== undefined
+    ) {
+      const vesselId =
+        dto.shipParticularId === undefined ? existing.shipParticularId : dto.shipParticularId;
+      const nominationId =
+        dto.nominationId === undefined ? existing.nominationId : dto.nominationId;
+      if (userId) {
+        const assignment = vesselId
+          ? await this.resolveVesselForUser(vesselId, nominationId, userId)
+          : existing.type === 'GENERAL'
+            ? await this.resolveAdministrationForUser(userId)
+            : await this.resolveNominationForUser(nominationId, userId);
+        dto = { ...dto, ...assignment };
+      }
+    }
+
+    const updated = await this.prisma.serviceRequest
+      .update({
+        where: { id, status: existing.status, updatedAt: existing.updatedAt },
+        data: {
+          ...(dto.shipParticularId !== undefined && { shipParticularId: dto.shipParticularId }),
+          ...(dto.branchId !== undefined && { branchId: dto.branchId }),
+          ...(dto.nominationId !== undefined && { nominationId: dto.nominationId }),
+          ...(dto.supplierId !== undefined && { supplierId: dto.supplierId }),
+          ...(dto.location !== undefined && { location: dto.location }),
+          ...(dto.originPoint !== undefined && { originPoint: dto.originPoint }),
+          ...(dto.destinationPoint !== undefined && { destinationPoint: dto.destinationPoint }),
+          ...(dto.contactPersonName !== undefined && { contactPersonName: dto.contactPersonName }),
+          ...(dto.operationDescription !== undefined && {
+            operationDescription: dto.operationDescription,
+          }),
+          ...(dto.portId !== undefined && { portId: dto.portId }),
+          ...(dto.pierId !== undefined && { pierId: dto.pierId }),
+          ...(dto.scheduledAt !== undefined && { scheduledAt: dto.scheduledAt }),
+          ...(dto.completedAt !== undefined && { completedAt: dto.completedAt }),
+          ...(dto.physicalVoucherNo !== undefined && { physicalVoucherNo: dto.physicalVoucherNo }),
+          ...(dto.requestedByAuthority !== undefined && {
+            requestedByAuthority: dto.requestedByAuthority,
+          }),
+          ...(dto.requestingAuthority !== undefined && {
+            requestingAuthority: dto.requestingAuthority,
+          }),
+          ...(dto.supplierInvoiceNo !== undefined && { supplierInvoiceNo: dto.supplierInvoiceNo }),
+          ...(dto.notes !== undefined && { notes: dto.notes }),
+          ...(dto.reconciliationNotes !== undefined && {
+            reconciliationNotes: dto.reconciliationNotes,
+          }),
+          ...(dto.details !== undefined && {
+            details: dto.details,
+          }),
+          ...(dto.billToClientId !== undefined && { billToClientId: dto.billToClientId }),
+          ...(dto.estimatedCost !== undefined && { estimatedCost: dto.estimatedCost }),
+          ...(dto.actualCost !== undefined && { actualCost: dto.actualCost }),
+          ...(dto.currency !== undefined && { currency: dto.currency }),
+          // Any draft save can change the terms the manager approved.
+          ...(existing.approvedAt && { approvedById: null, approvedAt: null }),
+          ...(existing.status === 'DRAFT' && { minioKey: null, pdfGeneratedAt: null }),
+        },
+        include: DETAIL_INCLUDE,
+      })
+      .catch((error: unknown) => {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+          throw new ConflictException('The request changed while saving; reload it and try again');
+        }
+        throw error;
+      });
+    if (existing.status === 'DRAFT' && existing.minioKey) {
+      try {
+        await this.storage.deleteFile(existing.minioKey);
+      } catch (err) {
+        this.logger.warn({ event: 'service-request.pdf.invalidate.warn', id, err });
+      }
+    }
     return this.toDto(updated);
   }
 
@@ -298,6 +377,20 @@ export class ServiceRequestsService {
   // List
   // -------------------------------------------------------------------------
 
+  async report(query: ServiceRequestListQuery) {
+    const items: ServiceRequestListItem[] = [];
+    let page = 1;
+    let total = 0;
+    do {
+      const result = await this.list({ ...query, page, pageSize: 100 });
+      items.push(...result.items);
+      total = result.total;
+      if (!result.items.length) break;
+      page += 1;
+    } while (items.length < total);
+    return { items, total: items.length, page: 1, pageSize: Math.max(1, items.length) };
+  }
+
   async list(query: ServiceRequestListQuery): Promise<ServiceRequestListResponse> {
     const where: Prisma.ServiceRequestWhereInput = {
       ...(query.type && { type: query.type }),
@@ -309,7 +402,10 @@ export class ServiceRequestsService {
       ...((query.dateFrom || query.dateTo) && {
         scheduledAt: {
           ...(query.dateFrom && { gte: query.dateFrom }),
-          ...(query.dateTo && { lte: query.dateTo }),
+          ...(query.dateTo &&
+            (query.dateTo.toISOString().endsWith('T00:00:00.000Z')
+              ? { lt: new Date(query.dateTo.getTime() + 86400000) }
+              : { lte: query.dateTo })),
         },
       }),
     };
@@ -356,10 +452,12 @@ export class ServiceRequestsService {
       vesselName: row.shipParticular?.name ?? null,
       branchCode: row.branch.code,
       supplierName: row.supplier?.name ?? null,
+      supplierId: row.supplierId,
       serviceLabel: resolveServiceLabel(row.details),
       location: row.location,
       scheduledAt: row.scheduledAt,
       physicalVoucherNo: row.physicalVoucherNo,
+      supplierInvoiceNo: row.supplierInvoiceNo,
       actualCost: row.actualCost == null ? null : row.actualCost.toNumber(),
       currency: row.currency,
       sentAt: row.sentAt,
@@ -379,13 +477,151 @@ export class ServiceRequestsService {
       throw new ConflictException('Cannot add documents to a cancelled request');
     }
     await this.attachments.attachToServiceRequest(attachmentIds, id);
+    await this.invalidateDraftOrder(existing);
     return this.toDto(await this.getOrThrow(id));
   }
 
   async removeDocument(id: string, attachmentId: string): Promise<ServiceRequestRead> {
-    await this.getOrThrow(id);
+    const existing = await this.getOrThrow(id);
     await this.attachments.removeFromServiceRequest(attachmentId, id);
+    await this.invalidateDraftOrder(existing);
     return this.toDto(await this.getOrThrow(id));
+  }
+
+  async approve(id: string, userId: string): Promise<ServiceRequestRead> {
+    const request = await this.getOrThrow(id);
+    if (request.status !== 'DRAFT') throw new ConflictException('Only a draft can be approved');
+    const readiness = ServiceRequestSendReadinessSchema.safeParse({
+      supplierId: request.supplierId,
+      details: request.details,
+      documentCount: request.documents.length,
+      requestedByAuthority: request.requestedByAuthority,
+      requestingAuthority: request.requestingAuthority,
+    });
+    if (!readiness.success) {
+      throw new BadRequestException(
+        readiness.error.issues.map((issue) => issue.message).join('; '),
+      );
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, operationalRole: true, branchId: true, isActive: true },
+    });
+    if (
+      !user?.isActive ||
+      (user.role !== 'ADM' &&
+        (user.operationalRole !== 'BRANCH_MANAGER' || user.branchId !== request.branchId))
+    ) {
+      throw new ForbiddenException(
+        'Only an active branch manager for this branch or an administrator can approve',
+      );
+    }
+    const updated = await this.prisma.serviceRequest
+      .update({
+        where: { id, status: 'DRAFT', updatedAt: request.updatedAt },
+        data: {
+          approvedById: userId,
+          approvedAt: new Date(),
+          minioKey: null,
+          pdfGeneratedAt: null,
+        },
+        include: DETAIL_INCLUDE,
+      })
+      .catch((error: unknown) => {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+          throw new ConflictException(
+            'The request changed before approval; reload it and try again',
+          );
+        }
+        throw error;
+      });
+    if (request.minioKey) {
+      try {
+        await this.storage.deleteFile(request.minioKey);
+      } catch (err) {
+        this.logger.warn({ event: 'service-request.pdf.invalidate.warn', id, err });
+      }
+    }
+    this.logger.log({ event: 'service-request.approved', id, userId });
+    return this.toDto(updated);
+  }
+
+  async recordReceipt(
+    id: string,
+    dto: ServiceRequestReceipt,
+    userId: string,
+  ): Promise<ServiceRequestRead> {
+    const request = await this.getOrThrow(id);
+    if (request.status !== 'SENT' && request.status !== 'COMPLETED') {
+      throw new ConflictException('A provider receipt can be recorded only after issue');
+    }
+    if (
+      request.receivedAt &&
+      (dto.receiptName !== request.receiptName ||
+        (dto.receiptTitle ?? null) !== request.receiptTitle ||
+        dto.receivedAt.getTime() !== request.receivedAt.getTime() ||
+        (request.receiptAttachmentId !== null &&
+          dto.receiptAttachmentId !== request.receiptAttachmentId))
+    ) {
+      throw new ConflictException(
+        'A recorded receipt cannot be changed; only a missing signed scan may be attached',
+      );
+    }
+    if (dto.receiptAttachmentId && dto.receiptAttachmentId !== request.receiptAttachmentId) {
+      const attachment = await this.prisma.emailAttachment.findUnique({
+        where: { id: dto.receiptAttachmentId },
+        select: {
+          emailDispatchId: true,
+          shDocumentDispatchId: true,
+          serviceRequestDispatchId: true,
+          serviceRequestId: true,
+          uploadedById: true,
+          serviceRequestReceipt: { select: { id: true } },
+        },
+      });
+      if (
+        !attachment ||
+        attachment.uploadedById !== userId ||
+        attachment.emailDispatchId ||
+        attachment.shDocumentDispatchId ||
+        attachment.serviceRequestDispatchId ||
+        attachment.serviceRequestId ||
+        (attachment.serviceRequestReceipt && attachment.serviceRequestReceipt.id !== id)
+      ) {
+        throw new BadRequestException('Select an unused receipt scan uploaded for this request');
+      }
+    }
+    const updated = await this.prisma.serviceRequest
+      .update({
+        where: { id, updatedAt: request.updatedAt, status: { in: ['SENT', 'COMPLETED'] } },
+        data: {
+          receiptName: dto.receiptName,
+          receiptTitle: dto.receiptTitle ?? null,
+          receivedAt: dto.receivedAt,
+          ...(!request.receivedAt && {
+            receiptRecordedById: userId,
+            receiptRecordedAt: new Date(),
+          }),
+          ...(dto.receiptAttachmentId !== undefined && {
+            receiptAttachmentId: dto.receiptAttachmentId,
+          }),
+        },
+        include: DETAIL_INCLUDE,
+      })
+      .catch((error: unknown) => {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+          throw new ConflictException(
+            'The request changed before recording receipt; reload it and try again',
+          );
+        }
+        throw error;
+      });
+    this.logger.log({
+      event: 'service-request.receipt',
+      id,
+      receiptAttachmentId: dto.receiptAttachmentId ?? null,
+    });
+    return this.toDto(updated);
   }
 
   // -------------------------------------------------------------------------
@@ -397,32 +633,68 @@ export class ServiceRequestsService {
    * regenerate replaces the previous object, which matters while the operator
    * is still tweaking a draft.
    */
-  async generateOrderPdf(id: string): Promise<{ minioKey: string }> {
+  async generateOrderPdf(
+    id: string,
+    forSend = false,
+  ): Promise<{ minioKey: string; generatedUpdatedAt: Date }> {
     const request = await this.getOrThrow(id);
     if (request.status === 'CANCELLED') {
       throw new ConflictException('Cannot generate an order for a cancelled request');
     }
+    if (request.status !== 'DRAFT' && !forSend) {
+      throw new ConflictException('Issued orders can only be regenerated as part of a resend');
+    }
 
+    const readiness = ServiceRequestSendReadinessSchema.safeParse({
+      supplierId: request.supplierId,
+      details: request.details,
+      documentCount: request.documents.length,
+      requestedByAuthority: request.requestedByAuthority,
+      requestingAuthority: request.requestingAuthority,
+    });
+    if (!readiness.success)
+      throw new BadRequestException(
+        readiness.error.issues.map((issue) => issue.message).join('; '),
+      );
     const buffer = await this.pdf.renderTemplate('orden-de-compra.hbs', buildOrderContext(request));
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const newKey = `service-requests/${id}/orden-de-compra-${timestamp}.pdf`;
 
-    if (request.minioKey) {
+    const oldPdfWasDispatched = request.minioKey
+      ? (await this.prisma.serviceRequestDispatch.count({
+          where: { pdfStorageKey: request.minioKey },
+        })) > 0
+      : false;
+    await this.storage.uploadFile(newKey, buffer, 'application/pdf');
+    let updated: { updatedAt: Date };
+    try {
+      updated = await this.prisma.serviceRequest.update({
+        where: { id, status: request.status, updatedAt: request.updatedAt },
+        data: { minioKey: newKey, pdfGeneratedAt: new Date() },
+        select: { updatedAt: true },
+      });
+    } catch (error) {
+      try {
+        await this.storage.deleteFile(newKey);
+      } catch (cleanupError) {
+        this.logger.warn({ event: 'service-request.pdf.cleanup.warn', id, err: cleanupError });
+      }
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        throw new ConflictException(
+          'The request changed while generating the order; reload it and try again',
+        );
+      }
+      throw error;
+    }
+    if (request.minioKey && !oldPdfWasDispatched) {
       try {
         await this.storage.deleteFile(request.minioKey);
       } catch (err) {
         this.logger.warn({ event: 'service-request.pdf.replace.warn', id, err });
       }
     }
-
-    await this.storage.uploadFile(newKey, buffer, 'application/pdf');
-    await this.prisma.serviceRequest.update({
-      where: { id },
-      data: { minioKey: newKey, pdfGeneratedAt: new Date() },
-    });
-
-    return { minioKey: newKey };
+    return { minioKey: newKey, generatedUpdatedAt: updated.updatedAt };
   }
 
   async downloadOrderPdf(id: string): Promise<{ buffer: Buffer; filename: string }> {
@@ -437,6 +709,52 @@ export class ServiceRequestsService {
       request.branch.code,
     );
     return { buffer, filename: `OC-${control.replace(/\//g, '-')}.pdf` };
+  }
+
+  async downloadDispatchOrder(
+    id: string,
+    dispatchId: string,
+    format: 'pdf' | 'docx',
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const request = await this.getOrThrow(id);
+    const dispatch = await this.prisma.serviceRequestDispatch.findFirst({
+      where: { id: dispatchId, serviceRequestId: id },
+      select: { pdfStorageKey: true, docxStorageKey: true },
+    });
+    if (!dispatch) throw new NotFoundException('Order dispatch not found');
+    const key = format === 'pdf' ? dispatch.pdfStorageKey : dispatch.docxStorageKey;
+    if (!key) throw new ConflictException('This dispatch has no archived Word copy');
+    const control = formatControlNumber(
+      request.correlative,
+      request.createdAt,
+      request.branch.code,
+    );
+    return {
+      buffer: await this.storage.getFileBuffer(key),
+      filename: `OC-${control.replace(/\//g, '-')}-${dispatchId}.${format}`,
+    };
+  }
+
+  /** Drafts preview live values; issued orders return the stored Word copy. */
+  async downloadOperationalOrderDocx(id: string): Promise<{ buffer: Buffer; filename: string }> {
+    const request = await this.getOrThrow(id);
+    const control = formatControlNumber(
+      request.correlative,
+      request.createdAt,
+      request.branch.code,
+    );
+    if (request.status !== 'DRAFT' && !request.issuedDocxKey) {
+      throw new ConflictException(
+        'This older issued order has no archived Word copy; use its issued PDF',
+      );
+    }
+    return {
+      buffer:
+        request.status === 'DRAFT'
+          ? this.operationalOrderDocx.render(buildOperationalOrderData(request))
+          : await this.storage.getFileBuffer(request.issuedDocxKey!),
+      filename: `OC-${control.replace(/\//g, '-')}.docx`,
+    };
   }
 
   /**
@@ -458,7 +776,7 @@ export class ServiceRequestsService {
     dto: ServiceRequestSend,
     userId: string,
   ): Promise<{ request: ServiceRequestRead; dispatch: { id: string; sentAt: string | null } }> {
-    const request = await this.getOrThrow(id);
+    let request = await this.getOrThrow(id);
 
     if (request.status === 'CANCELLED') {
       throw new ConflictException('Cannot send a cancelled request');
@@ -470,6 +788,8 @@ export class ServiceRequestsService {
       supplierId: request.supplierId,
       details: request.details,
       documentCount: request.documents.length,
+      requestedByAuthority: request.requestedByAuthority,
+      requestingAuthority: request.requestingAuthority,
     });
     if (!readiness.success) {
       throw new BadRequestException(
@@ -477,9 +797,37 @@ export class ServiceRequestsService {
       );
     }
 
+    // Validate attachments before generating archived files.
+    const extraAttachments = await this.attachments.resolveForSend(dto.attachmentIds ?? []);
+    const requestDocuments = await this.attachments.resolveServiceRequestDocuments(id);
+
     // Regenerate rather than reuse: the operator may have edited the request
     // since the last preview, and the provider must receive what is on screen.
-    const { minioKey } = await this.generateOrderPdf(id);
+    const { minioKey, generatedUpdatedAt } = await this.generateOrderPdf(id, true);
+    request = await this.getOrThrow(id);
+    if (request.updatedAt.getTime() !== generatedUpdatedAt.getTime()) {
+      throw new ConflictException(
+        'The request changed while generating the order; reload it and try again',
+      );
+    }
+    const issuer = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, displayName: true },
+    });
+    if (!issuer) throw new NotFoundException('Issuing user no longer exists');
+    const issueAt = new Date();
+    const wordBuffer = this.operationalOrderDocx.render(
+      buildOperationalOrderData(request, {
+        name: issuer.displayName?.trim() || issuer.email,
+        at: issueAt,
+      }),
+    );
+    const docxStorageKey = `service-requests/${id}/orden-operativa-${issueAt.toISOString().replace(/[:.]/g, '-')}-${randomUUID()}.docx`;
+    await this.storage.uploadFile(
+      docxStorageKey,
+      wordBuffer,
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    );
 
     const control = formatControlNumber(
       request.correlative,
@@ -490,41 +838,54 @@ export class ServiceRequestsService {
       dto.subject ??
       `Purchase Order ${control} — ${request.shipParticular?.name ?? 'Administration'} — ${resolveServiceLabel(request.details)}`;
 
-    // Resolve every attachment up front so a bad id or an oversize payload
-    // aborts before the request is flipped to SENT.
-    const extraAttachments = await this.attachments.resolveForSend(dto.attachmentIds ?? []);
-    const requestDocuments = await this.attachments.resolveServiceRequestDocuments(id);
-
     const bodyHtml = dto.bodyText ? wrapPlainTextEmailBody(dto.bodyText) : null;
     const ccAddresses = appendBranchCc(dto.ccAddresses, request.branch);
 
-    const { dispatch } = await this.prisma.$transaction(async (tx) => {
-      const dispatch = await tx.serviceRequestDispatch.create({
-        data: {
-          serviceRequestId: id,
-          toAddresses: dto.toAddresses,
-          ccAddresses,
-          bccAddresses: dto.bccAddresses,
-          subject,
-          bodyHtml,
-          pdfStorageKey: minioKey,
-          sentById: userId,
-          sentAt: null,
-          error: null,
-        },
+    const { dispatch } = await this.prisma
+      .$transaction(async (tx) => {
+        const dispatch = await tx.serviceRequestDispatch.create({
+          data: {
+            serviceRequestId: id,
+            toAddresses: dto.toAddresses,
+            ccAddresses,
+            bccAddresses: dto.bccAddresses,
+            subject,
+            bodyHtml,
+            pdfStorageKey: minioKey,
+            docxStorageKey,
+            sentById: userId,
+            sentAt: null,
+            error: null,
+          },
+        });
+        await tx.serviceRequest.update({
+          where: { id, status: request.status, updatedAt: generatedUpdatedAt },
+          data: {
+            status: 'SENT',
+            sentAt: new Date(),
+            // Snapshot where the order went, so a later edit of the supplier's
+            // contact list cannot rewrite history.
+            providerEmails: dto.toAddresses,
+            issuedDocxKey: docxStorageKey,
+            issuedById: userId,
+            issuedAt: issueAt,
+          },
+        });
+        return { dispatch };
+      })
+      .catch(async (error: unknown) => {
+        try {
+          await this.storage.deleteFile(docxStorageKey);
+        } catch (cleanupError) {
+          this.logger.warn({ event: 'service-request.docx.cleanup.warn', id, err: cleanupError });
+        }
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+          throw new ConflictException(
+            'The request changed before dispatch; reload it and try again',
+          );
+        }
+        throw error;
       });
-      await tx.serviceRequest.update({
-        where: { id },
-        data: {
-          status: 'SENT',
-          sentAt: new Date(),
-          // Snapshot where the order went, so a later edit of the supplier's
-          // contact list cannot rewrite history.
-          providerEmails: dto.toAddresses,
-        },
-      });
-      return { dispatch };
-    });
 
     let pdfBuffer: Buffer;
     try {
@@ -596,6 +957,7 @@ export class ServiceRequestsService {
       subject: row.subject,
       sentAt: row.sentAt,
       error: row.error,
+      hasWord: row.docxStorageKey != null,
       sentBy: row.sentBy,
       createdAt: row.createdAt,
     }));
@@ -612,6 +974,30 @@ export class ServiceRequestsService {
     });
     if (!row) throw new NotFoundException(`Service request ${id} not found`);
     return row;
+  }
+
+  private async invalidateDraftOrder(request: ServiceRequestWithRelations): Promise<void> {
+    if (request.status !== 'DRAFT') return;
+    await this.prisma.serviceRequest
+      .update({
+        where: { id: request.id, status: 'DRAFT', updatedAt: request.updatedAt },
+        data: { approvedById: null, approvedAt: null, minioKey: null, pdfGeneratedAt: null },
+      })
+      .catch((error: unknown) => {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+          throw new ConflictException(
+            'The request changed while filing documents; reload it and try again',
+          );
+        }
+        throw error;
+      });
+    if (request.minioKey) {
+      try {
+        await this.storage.deleteFile(request.minioKey);
+      } catch (err) {
+        this.logger.warn({ event: 'service-request.pdf.invalidate.warn', id: request.id, err });
+      }
+    }
   }
 
   /**
@@ -649,6 +1035,18 @@ export class ServiceRequestsService {
       providerEmails: row.providerEmails,
 
       location: row.location,
+      originPoint:
+        row.originPoint ??
+        (row.details &&
+        typeof row.details === 'object' &&
+        !Array.isArray(row.details) &&
+        'departurePoint' in row.details &&
+        typeof row.details.departurePoint === 'string'
+          ? row.details.departurePoint
+          : null),
+      destinationPoint: row.destinationPoint,
+      contactPersonName: row.contactPersonName,
+      operationDescription: row.operationDescription,
       portId: row.portId,
       port: row.port,
       pierId: row.pierId,
@@ -658,6 +1056,10 @@ export class ServiceRequestsService {
       completedAt: row.completedAt,
       physicalVoucherNo: row.physicalVoucherNo,
       notes: row.notes,
+      reconciliationNotes: row.reconciliationNotes,
+      requestedByAuthority: row.requestedByAuthority,
+      requestingAuthority: row.requestingAuthority,
+      supplierInvoiceNo: row.supplierInvoiceNo,
       // Parsed rather than passed through, so defaults added to the union since
       // the row was written (a new checklist flag, say) are filled in on read.
       details: ServiceRequestDetailsSchema.parse(row.details),
@@ -668,10 +1070,21 @@ export class ServiceRequestsService {
       actualCost: row.actualCost == null ? null : row.actualCost.toNumber(),
       currency: row.currency,
 
-      authorizationRequired: requiresAuthorizationDocument(row.details),
+      authorizationRequired: requiresAuthorizationDocument(row.details, row.requestedByAuthority),
       documents: row.documents,
 
       minioKey: row.minioKey,
+      issuedDocxKey: row.issuedDocxKey,
+      approvedBy: row.approvedBy,
+      approvedAt: row.approvedAt,
+      issuedBy: row.issuedBy,
+      issuedAt: row.issuedAt,
+      receiptName: row.receiptName,
+      receiptTitle: row.receiptTitle,
+      receivedAt: row.receivedAt,
+      receiptRecordedBy: row.receiptRecordedBy,
+      receiptRecordedAt: row.receiptRecordedAt,
+      receiptAttachment: row.receiptAttachment,
       pdfGeneratedAt: row.pdfGeneratedAt,
       sentAt: row.sentAt,
       cancelledAt: row.cancelledAt,
@@ -709,6 +1122,25 @@ export class ServiceRequestsService {
       shipParticularId: nomination.shipParticularId,
       branchId: nomination.branchId,
     };
+  }
+
+  private async resolveVesselForUser(
+    shipParticularId: string,
+    nominationId: string | null,
+    userId: string,
+  ) {
+    const assignment = await this.resolveAdministrationForUser(userId);
+    const vessel = await this.prisma.shipParticular.findUnique({
+      where: { id: shipParticularId },
+      select: { id: true },
+    });
+    if (!vessel) throw new BadRequestException('Select a registered vessel');
+    if (nominationId) {
+      const nomination = await this.resolveNominationForUser(nominationId, userId);
+      if (nomination.shipParticularId !== shipParticularId)
+        throw new BadRequestException('The nomination belongs to another vessel');
+    }
+    return { branchId: assignment.branchId, shipParticularId, nominationId };
   }
 
   private async resolveAdministrationForUser(userId: string): Promise<{

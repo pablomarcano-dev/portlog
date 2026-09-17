@@ -39,7 +39,12 @@ export function useUpdateUser(id: string) {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: QUERY_KEY }),
+        qc.invalidateQueries({ queryKey: ['auth', 'me'] }),
+      ]);
+    },
   });
 }
 

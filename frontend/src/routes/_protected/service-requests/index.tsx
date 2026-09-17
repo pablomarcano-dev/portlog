@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import { EntityPicker } from '../../../components/master-data/EntityPicker';
+import { ServiceReport } from '../../../features/service-requests/components/ServiceReport';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import {
   Alert,
@@ -38,8 +41,17 @@ const STATUS_OPTIONS = toSelectOptions(SERVICE_REQUEST_STATUS_LABELS);
  */
 function ServiceRequestListPage() {
   const navigate = useNavigate();
+  const [branchSearch, setBranchSearch] = useState('');
+  const [supplierSearch, setSupplierSearch] = useState('');
+  const [vesselSearch, setVesselSearch] = useState('');
   const search = Route.useSearch();
-  const { data: user } = useCurrentUser();
+  const {
+    data: user,
+    refetch: refetchUser,
+    isFetching: isRefreshingUser,
+  } = useCurrentUser({
+    refetchOnMount: 'always',
+  });
 
   const { data, isLoading, isError, refetch } = useServiceRequestList(search);
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
@@ -90,6 +102,15 @@ function ServiceRequestListPage() {
                 Manage users
               </Button>
             )}
+            <Button
+              variant="subtle"
+              color="yellow"
+              size="xs"
+              loading={isRefreshingUser}
+              onClick={() => void refetchUser()}
+            >
+              Refresh assignment
+            </Button>
           </Group>
         </Alert>
       )}
@@ -148,6 +169,51 @@ function ServiceRequestListPage() {
           </Group>
         </Alert>
       )}
+
+      <Group align="flex-end">
+        <EntityPicker
+          endpoint="/master-data/branches"
+          label="Branch"
+          placeholder="National — all branches"
+          value={search.branchId ?? null}
+          searchValue={branchSearch}
+          onSearchChange={setBranchSearch}
+          onChange={(value) => setSearch({ branchId: value ?? undefined, page: 1 })}
+        />
+        <EntityPicker
+          endpoint="/master-data/suppliers"
+          label="Provider"
+          value={search.supplierId ?? null}
+          searchValue={supplierSearch}
+          onSearchChange={setSupplierSearch}
+          onChange={(value) => setSearch({ supplierId: value ?? undefined, page: 1 })}
+        />
+        <EntityPicker
+          endpoint="/master-data/ship-particulars"
+          label="Vessel"
+          value={search.shipParticularId ?? null}
+          searchValue={vesselSearch}
+          onSearchChange={setVesselSearch}
+          onChange={(value) => setSearch({ shipParticularId: value ?? undefined, page: 1 })}
+        />
+        <TextInput
+          type="date"
+          label="From"
+          value={search.dateFrom ?? ''}
+          onChange={(event) =>
+            setSearch({ dateFrom: event.currentTarget.value || undefined, page: 1 })
+          }
+        />
+        <TextInput
+          type="date"
+          label="To"
+          value={search.dateTo ?? ''}
+          onChange={(event) =>
+            setSearch({ dateTo: event.currentTarget.value || undefined, page: 1 })
+          }
+        />
+      </Group>
+      <ServiceReport filters={search} />
 
       <ServiceRequestTable
         items={data?.items ?? []}

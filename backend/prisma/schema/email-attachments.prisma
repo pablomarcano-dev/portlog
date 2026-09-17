@@ -39,6 +39,7 @@ model EmailAttachment {
   // every OC resend. Cascade, because a deleted draft's uploads are orphans.
   serviceRequestId String?         @db.Uuid
   serviceRequest   ServiceRequest? @relation("ServiceRequestDocuments", fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  serviceRequestReceipt ServiceRequest? @relation("ServiceRequestReceipt")
 
   @@index([emailDispatchId])
   @@index([shDocumentDispatchId])

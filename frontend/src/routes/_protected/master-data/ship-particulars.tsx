@@ -1,3 +1,4 @@
+import { VesselServices } from '../../../features/service-requests/components/VesselServices';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState, useCallback } from 'react';
 import { Grid, NumberInput, Stack, Textarea, TextInput } from '@mantine/core';
@@ -90,7 +91,12 @@ function ShipParticularsScreen() {
       onDelete={onDelete}
       searchFn={searchFn}
     >
-      {(form) => <ShipParticularFields form={form} />}
+      {(form) => (
+        <>
+          <ShipParticularFields form={form} />
+          {selectedId && <VesselServices vesselId={selectedId} />}
+        </>
+      )}
     </MasterDetailShell>
   );
 }

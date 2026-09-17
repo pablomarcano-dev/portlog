@@ -1,3 +1,6 @@
+import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '../../../lib/api/client';
+import { VesselServices } from '../../../features/service-requests/components/VesselServices';
 import { lazy, Suspense, useState } from 'react';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useColumnResize } from '../../../components/table/useColumnResize';
@@ -163,6 +166,15 @@ function VesselDetailPage() {
   const { imo } = Route.useParams();
   const navigate = useNavigate();
   const enabled = /^\d{7}$/.test(imo);
+  const { data: registered } = useQuery({
+    queryKey: ['registered-vessel', imo],
+    enabled,
+    queryFn: () =>
+      apiRequest<{ items: { id: string; imoNumber: string | null }[] }>(
+        `/master-data/ship-particulars?q=${encodeURIComponent(imo)}`,
+      ),
+  });
+  const registeredVessel = registered?.items.find((item) => item.imoNumber === imo);
 
   const {
     data: infoRes,
@@ -289,6 +301,13 @@ function VesselDetailPage() {
 
   return (
     <Container size="lg" py="lg">
+      {registeredVessel ? (
+        <VesselServices vesselId={registeredVessel.id} />
+      ) : (
+        <Alert mb="md">
+          Register this vessel in Master Data → Ship Particulars to request services.
+        </Alert>
+      )}
       <Stack gap="lg">
         <Group>
           <Anchor

@@ -180,6 +180,7 @@ export const StsDetailsSchema = z.object({
 // ---------------------------------------------------------------------------
 export const GeneralDetailsSchema = z.object({
   type: z.literal('GENERAL'),
+  serviceName: optionalTextField(200, 'Service'),
   /** The route covered, e.g. "Guaraguao - Muelle 3". */
   route: optionalTextField(500, 'Route'),
   /** Reference into the `Service` catalogue. */
@@ -205,16 +206,15 @@ export const ServiceRequestDetailsSchema = z.discriminatedUnion(
 export type ServiceRequestDetails = z.infer<typeof ServiceRequestDetailsSchema>;
 
 /**
- * Does this request need an authority authorisation letter before the purchase
- * order may be sent?
- *
- * Three of the forms make the upload unconditionally mandatory. Launch services
- * make it conditional on the service type. Tugs and the general voucher never
- * need one. Callers pass whatever they have — an unparsed `details` blob is
- * treated as "not required" rather than throwing, because this is also
- * consulted while a half-filled draft is being edited.
+ * New requests explicitly record whether an authority requested the service.
+ * Legacy records with no answer retain their previous type-based requirement
+ * until an operator reviews them. No external authority rules are inferred.
  */
-export function requiresAuthorizationDocument(details: unknown): boolean {
+export function requiresAuthorizationDocument(
+  details: unknown,
+  requestedByAuthority?: boolean | null,
+): boolean {
+  if (requestedByAuthority != null) return requestedByAuthority;
   const parsed = ServiceRequestDetailsSchema.safeParse(details);
   if (!parsed.success) return false;
   const value = parsed.data;

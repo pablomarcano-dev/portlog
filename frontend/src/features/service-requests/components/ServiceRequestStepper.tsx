@@ -1,9 +1,11 @@
+import { shipParticularsApi } from '../../../lib/api/master-data/ship-particulars';
 import { useMemo, useState } from 'react';
 import {
   Alert,
   Badge,
   Button,
   Card,
+  Checkbox,
   Divider,
   Group,
   NumberInput,
@@ -90,6 +92,7 @@ interface Props {
   onCancel: () => void;
   /** Opens a specific step after navigation, for example Documents after draft creation. */
   initialStep?: number;
+  vesselId?: string;
 }
 
 export function ServiceRequestStepper({
@@ -100,12 +103,14 @@ export function ServiceRequestStepper({
   onSubmit,
   onCancel,
   initialStep = 0,
+  vesselId,
 }: Props) {
   const [active, setActive] = useState(() => Math.min(Math.max(initialStep, 0), 4));
 
   // Picker search boxes are local UI state, not form state.
   const [nominationSearch, setNominationSearch] = useState('');
   const [debouncedNominationSearch] = useDebouncedValue(nominationSearch, 300);
+  const [vesselSearch, setVesselSearch] = useState('');
   const [supplierSearch, setSupplierSearch] = useState('');
   const [portSearch, setPortSearch] = useState('');
   const [pierSearch, setPierSearch] = useState('');
@@ -119,7 +124,9 @@ export function ServiceRequestStepper({
 
   const form = useForm<ServiceRequestFormValues>({
     resolver: zodResolver(ServiceRequestCreateSchema),
-    defaultValues: request ? toFormValues(request) : blankServiceRequest(type, defaultBranchId),
+    defaultValues: request
+      ? toFormValues(request)
+      : { ...blankServiceRequest(type, defaultBranchId), shipParticularId: vesselId ?? '' },
     mode: 'onBlur',
   });
   const { control, register, handleSubmit, formState, watch, setValue } = form;
@@ -128,6 +135,12 @@ export function ServiceRequestStepper({
   const portId = watch('portId');
   const supplierId = watch('supplierId');
   const nominationId = watch('nominationId');
+  const selectedVesselId = asId(watch('shipParticularId'));
+  const vesselQuery = useQuery({
+    queryKey: ['service-vessel', selectedVesselId],
+    enabled: !!selectedVesselId,
+    queryFn: () => shipParticularsApi.get(selectedVesselId!),
+  });
   const scheduledAt = watch('scheduledAt');
   const nominationOptions = useQuery({
     queryKey: ['service-requests', 'nomination-options', debouncedNominationSearch],
@@ -135,12 +148,15 @@ export function ServiceRequestStepper({
     staleTime: 30_000,
   });
   const selectedNomination = nominationOptions.data?.find((item) => item.id === nominationId);
-  const authorizationRequired = requiresAuthorizationDocument(details);
+  const requestedByAuthority = watch('requestedByAuthority');
+  const authorizationRequired = requiresAuthorizationDocument(details, requestedByAuthority);
   const documentCount = request?.documents.length ?? 0;
   const sendReadiness = ServiceRequestSendReadinessSchema.safeParse({
     supplierId,
     details,
     documentCount,
+    requestedByAuthority,
+    requestingAuthority: watch('requestingAuthority'),
   });
   const sendBlockers = sendReadiness.success
     ? []
@@ -156,8 +172,18 @@ export function ServiceRequestStepper({
   const stepFields = useMemo(
     () =>
       [
-        type === 'GENERAL' ? ['branchId'] : ['shipParticularId', 'branchId', 'nominationId'],
-        ['details', 'location', 'portId', 'pierId', 'scheduledAt'],
+        ['shipParticularId', 'branchId'],
+        [
+          'details',
+          'location',
+          'portId',
+          'pierId',
+          'scheduledAt',
+          'originPoint',
+          'destinationPoint',
+          'contactPersonName',
+          'operationDescription',
+        ],
         [],
         [],
         [],
@@ -166,6 +192,10 @@ export function ServiceRequestStepper({
   );
 
   async function next() {
+    if (active === 0 && !watch('shipParticularId')) {
+      form.setError('shipParticularId', { message: 'Select a vessel' });
+      return;
+    }
     const fields = stepFields[active] ?? [];
     const valid = fields.length === 0 || (await form.trigger(fields));
     if (valid) setActive((s) => Math.min(s + 1, 4));
@@ -188,69 +218,86 @@ export function ServiceRequestStepper({
             {/* ------------------------------------------------------------- */}
             <Stepper.Step label="Identification" description="Vessel and branch">
               <Stack gap="sm" mt="md">
-                {type === 'GENERAL' ? (
-                  <Alert variant="light" color="blue" title="Administrative service">
-                    This request is assigned to Administration in your branch. It does not require a
-                    vessel, SN or OT.
-                  </Alert>
-                ) : (
-                  <>
-                    <Controller
-                      name="nominationId"
-                      control={control}
-                      render={({ field, fieldState }) => (
-                        <Select
-                          label="SN / OT and vessel"
-                          description="Only active nominations from your assigned branch are shown"
-                          placeholder="Search or select an SN, OT or vessel"
-                          required
-                          searchable
-                          filter={({ options }) => options}
-                          clearable
-                          searchValue={nominationSearch}
-                          onSearchChange={setNominationSearch}
-                          value={asId(field.value)}
-                          data={(nominationOptions.data ?? []).map((item) => ({
-                            value: item.id,
-                            label: item.label,
-                          }))}
-                          onChange={(value) => {
-                            field.onChange(value);
-                            const selected = nominationOptions.data?.find(
-                              (item) => item.id === value,
-                            );
-                            setValue('shipParticularId', selected?.shipParticularId ?? '', {
-                              shouldValidate: true,
-                            });
-                            setValue('branchId', selected?.branchId ?? '', {
-                              shouldValidate: true,
-                            });
-                          }}
-                          error={fieldState.error?.message}
-                          nothingFoundMessage={
-                            nominationOptions.isLoading
-                              ? 'Loading...'
-                              : 'No branch nominations found'
-                          }
-                        />
-                      )}
+                <Controller
+                  name="shipParticularId"
+                  control={control}
+                  render={({ field, fieldState }) => (
+                    <EntityPicker
+                      endpoint="/master-data/ship-particulars"
+                      label="Vessel / Tanker"
+                      placeholder="Search vessel"
+                      required
+                      value={asId(field.value)}
+                      searchValue={vesselSearch}
+                      onSearchChange={setVesselSearch}
+                      selectedOption={
+                        vesselQuery.data
+                          ? { value: vesselQuery.data.id, label: vesselQuery.data.name }
+                          : request?.shipParticular
+                            ? {
+                                value: request.shipParticular.id,
+                                label: request.shipParticular.name,
+                              }
+                            : null
+                      }
+                      onChange={(value) => {
+                        field.onChange(value);
+                        setValue('nominationId', null);
+                      }}
+                      error={fieldState.error?.message}
                     />
-
-                    <Group grow>
-                      <TextInput
-                        label="Vessel / Tanker"
-                        value={
-                          selectedNomination?.vesselName ?? request?.shipParticular?.name ?? ''
-                        }
-                        readOnly
-                      />
-                      <TextInput
-                        label="Branch"
-                        value={selectedNomination?.branchName ?? request?.branch.name ?? ''}
-                        readOnly
-                      />
-                    </Group>
-                  </>
+                  )}
+                />
+                <Text size="xs" c="dimmed">
+                  Every new service is linked to a vessel. An SN / OT is optional.
+                </Text>
+                <Controller
+                  name="nominationId"
+                  control={control}
+                  render={({ field, fieldState }) => (
+                    <Select
+                      label="SN / OT (optional)"
+                      searchable
+                      clearable
+                      filter={({ options }) => options}
+                      searchValue={nominationSearch}
+                      onSearchChange={setNominationSearch}
+                      value={asId(field.value)}
+                      data={(nominationOptions.data ?? [])
+                        .filter(
+                          (item) =>
+                            !watch('shipParticularId') ||
+                            item.shipParticularId === watch('shipParticularId'),
+                        )
+                        .map((item) => ({ value: item.id, label: item.label }))}
+                      onChange={(value) => {
+                        field.onChange(value);
+                        const selected = nominationOptions.data?.find((item) => item.id === value);
+                        if (selected) setValue('shipParticularId', selected.shipParticularId);
+                      }}
+                      error={fieldState.error?.message}
+                      nothingFoundMessage="No branch nominations found"
+                    />
+                  )}
+                />
+                <Controller
+                  name="requestedByAuthority"
+                  control={control}
+                  render={({ field }) => (
+                    <Checkbox
+                      label="Requested by an authority (INEA or another entity)"
+                      checked={field.value ?? authorizationRequired}
+                      onChange={(event) => field.onChange(event.currentTarget.checked)}
+                    />
+                  )}
+                />
+                {authorizationRequired && (
+                  <TextInput
+                    label="Requesting authority"
+                    placeholder="INEA, Capitanía, ..."
+                    required
+                    {...register('requestingAuthority')}
+                  />
                 )}
 
                 <Controller
@@ -304,6 +351,39 @@ export function ServiceRequestStepper({
             <Stepper.Step label="Service" description="Details and scheduling">
               <Stack gap="sm" mt="md">
                 <ServiceDetailsFields type={type} />
+                <Divider label="Operational order" labelPosition="left" />
+                <Text size="xs" c="dimmed">
+                  These details appear on the Word order. Leave fields blank when they do not apply
+                  to this service.
+                </Text>
+                <TextInput
+                  label="Maneuver / operation"
+                  description={`Defaults to: ${previewLabel}`}
+                  placeholder={previewLabel}
+                  error={formState.errors.operationDescription?.message}
+                  {...register('operationDescription')}
+                />
+                <Group grow align="flex-start">
+                  <TextInput
+                    label="Departure / delivery point"
+                    placeholder="e.g. Pilot jetty"
+                    error={formState.errors.originPoint?.message}
+                    {...register('originPoint')}
+                  />
+                  <TextInput
+                    label="Destination"
+                    placeholder="e.g. Vessel at anchorage"
+                    error={formState.errors.destinationPoint?.message}
+                    {...register('destinationPoint')}
+                  />
+                </Group>
+                <TextInput
+                  label="Contact person"
+                  description="Person the provider should ask for on this order"
+                  error={formState.errors.contactPersonName?.message}
+                  {...register('contactPersonName')}
+                />
+                <TextInput label="Supplier invoice number" {...register('supplierInvoiceNo')} />
 
                 <Divider my="xs" />
 
@@ -557,7 +637,7 @@ export function ServiceRequestStepper({
                       label="Control No."
                       value={request?.controlNumber ?? 'Generated when saved'}
                     />
-                    {type !== 'GENERAL' && (
+                    {Boolean(watch('shipParticularId')) && (
                       <>
                         <SummaryRow
                           label="Nomination"
@@ -566,7 +646,10 @@ export function ServiceRequestStepper({
                         <SummaryRow
                           label="Vessel"
                           value={
-                            selectedNomination?.vesselName ?? request?.shipParticular?.name ?? '—'
+                            vesselQuery.data?.name ??
+                            selectedNomination?.vesselName ??
+                            request?.shipParticular?.name ??
+                            '—'
                           }
                         />
                       </>
@@ -587,6 +670,22 @@ export function ServiceRequestStepper({
                     </Text>
                     <SummaryRow label="Type" value={SERVICE_REQUEST_TYPE_LABELS[type].en} />
                     <SummaryRow label="Service" value={previewLabel} />
+                    <SummaryRow
+                      label="Maneuver / operation"
+                      value={String(watch('operationDescription') ?? '').trim() || previewLabel}
+                    />
+                    <SummaryRow
+                      label="Departure / delivery point"
+                      value={displayText(watch('originPoint'))}
+                    />
+                    <SummaryRow
+                      label="Destination"
+                      value={displayText(watch('destinationPoint'))}
+                    />
+                    <SummaryRow
+                      label="Contact person"
+                      value={displayText(watch('contactPersonName'))}
+                    />
                     {detailSummaryRows(details).map((row) => (
                       <SummaryRow key={row.label} label={row.label} value={row.value} />
                     ))}
@@ -672,9 +771,11 @@ export function ServiceRequestStepper({
                 </Button>
               )}
               {active < 4 ? (
-                <Button onClick={() => void next()}>Next</Button>
+                <Button key="next" type="button" onClick={() => void next()}>
+                  Next
+                </Button>
               ) : (
-                <Button type="submit" loading={isSaving}>
+                <Button key="save" type="submit" loading={isSaving}>
                   {request
                     ? 'Save changes'
                     : authorizationRequired
@@ -760,10 +861,7 @@ function detailSummaryRows(details: unknown): Array<{ label: string; value: stri
 
   switch (value.type) {
     case 'LAUNCH':
-      return [
-        { label: 'Boats', value: String(value.boatCount ?? '—') },
-        { label: 'Departure Point', value: String(value.departurePoint || '—') },
-      ];
+      return [{ label: 'Boats', value: String(value.boatCount ?? '—') }];
     case 'UNDERWATER_INSPECTION':
       return [
         { label: 'Method', value: humanize(value.method) },

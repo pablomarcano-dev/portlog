@@ -4,16 +4,19 @@ import type {
   ServiceRequestSend,
   ServiceRequestTransition,
   ServiceRequestUpdate,
+  ServiceRequestReceipt,
 } from '@portlog/schemas';
 import type { ServiceRequestListFilters } from './api';
 import {
   addServiceRequestDocuments,
+  approveServiceRequest,
   createServiceRequest,
   deleteServiceRequest,
   getServiceRequest,
   listServiceRequestDispatches,
   listServiceRequests,
   removeServiceRequestDocument,
+  recordServiceRequestReceipt,
   sendServiceRequestOrder,
   serviceRequestKeys,
   transitionServiceRequest,
@@ -65,6 +68,22 @@ export function useUpdateServiceRequest(id: string) {
       qc.setQueryData(serviceRequestKeys.detail(id), updated);
       void qc.invalidateQueries({ queryKey: serviceRequestKeys.all });
     },
+  });
+}
+
+export function useApproveServiceRequest(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => approveServiceRequest(id),
+    onSuccess: (updated) => qc.setQueryData(serviceRequestKeys.detail(id), updated),
+  });
+}
+
+export function useRecordServiceRequestReceipt(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ServiceRequestReceipt) => recordServiceRequestReceipt(id, body),
+    onSuccess: (updated) => qc.setQueryData(serviceRequestKeys.detail(id), updated),
   });
 }
 

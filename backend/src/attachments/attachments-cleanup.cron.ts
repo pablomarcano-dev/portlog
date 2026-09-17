@@ -25,6 +25,9 @@ export class AttachmentsCleanupCron {
       where: {
         emailDispatchId: null,
         shDocumentDispatchId: null,
+        serviceRequestDispatchId: null,
+        serviceRequestId: null,
+        serviceRequestReceipt: { is: null },
         createdAt: { lt: cutoff },
       },
       select: { id: true, minioKey: true },
@@ -36,7 +39,14 @@ export class AttachmentsCleanupCron {
       // Re-check the null links inside the delete so we never remove an
       // attachment that got linked to a dispatch between the read and now.
       const { count } = await this.prisma.emailAttachment.deleteMany({
-        where: { id: row.id, emailDispatchId: null, shDocumentDispatchId: null },
+        where: {
+          id: row.id,
+          emailDispatchId: null,
+          shDocumentDispatchId: null,
+          serviceRequestDispatchId: null,
+          serviceRequestId: null,
+          serviceRequestReceipt: { is: null },
+        },
       });
       if (count !== 1) continue;
       purged += 1;

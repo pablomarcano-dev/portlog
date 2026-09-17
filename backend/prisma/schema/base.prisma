@@ -78,6 +78,9 @@ model User {
 
   // Service Requests (M6)
   serviceRequestsCreated   ServiceRequest[]         @relation("ServiceRequestCreatedBy")
+  serviceRequestsApproved  ServiceRequest[]         @relation("ServiceRequestApprovedBy")
+  serviceRequestsIssued    ServiceRequest[]         @relation("ServiceRequestIssuedBy")
+  serviceReceiptsRecorded  ServiceRequest[]         @relation("ServiceRequestReceiptRecordedBy")
   serviceRequestDispatches ServiceRequestDispatch[] @relation("ServiceRequestDispatchSentBy")
 
   @@index([branchId])

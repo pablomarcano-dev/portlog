@@ -46,7 +46,7 @@ export const ServiceRequestCreateSchema = z.object({
   shipParticularId: clearableRef('vessel'),
   /** Pre-filled from the signed-in user's branch, still editable. */
   branchId: requiredRef('branch'),
-  /** Null for an administrative service. */
+  /** Optional port-call link; vessel services do not require a nomination. */
   nominationId: z.preprocess(
     (value) => (value === '' || value === undefined ? null : value),
     z.string().uuid('Select an SN/OT nomination from your branch').nullable(),
@@ -56,6 +56,10 @@ export const ServiceRequestCreateSchema = z.object({
   supplierId: clearableRef('provider'),
 
   location: choice(ServiceLocationSchema, 'Select where the vessel is').nullish(),
+  originPoint: optionalTextField(200, 'Departure or delivery point'),
+  destinationPoint: optionalTextField(200, 'Destination'),
+  contactPersonName: optionalTextField(200, 'Contact person'),
+  operationDescription: optionalTextField(300, 'Maneuver or operation'),
   portId: clearableRef('port'),
   /** The berth, for the tug form's terminal picker. */
   pierId: clearableRef('berth'),
@@ -74,6 +78,10 @@ export const ServiceRequestCreateSchema = z.object({
    * accounting reconciliation.
    */
   physicalVoucherNo: optionalTextField(50, 'Voucher number'),
+
+  requestedByAuthority: z.boolean().nullable().optional(),
+  requestingAuthority: optionalTextField(200, 'Requesting authority'),
+  supplierInvoiceNo: optionalTextField(100, 'Supplier invoice number'),
 
   /** Free-text instructions to the provider. */
   notes: optionalTextField(10_000, 'Observations'),
@@ -108,8 +116,20 @@ export type ServiceRequestCreate = z.infer<typeof ServiceRequestCreateSchema>;
  * PATCH body. `type` is immutable after creation — switching type would orphan
  * the whole `details` payload, so the caller deletes and re-creates instead.
  */
-export const ServiceRequestUpdateSchema = ServiceRequestCreateSchema.omit({ type: true }).partial();
+export const ServiceRequestUpdateSchema = ServiceRequestCreateSchema.omit({ type: true })
+  .partial()
+  .extend({
+    reconciliationNotes: optionalTextField(10_000, 'Reconciliation notes'),
+  });
 export type ServiceRequestUpdate = z.infer<typeof ServiceRequestUpdateSchema>;
+
+export const ServiceRequestReceiptSchema = z.object({
+  receiptName: z.string().trim().min(1, 'Enter the recipient name').max(200),
+  receiptTitle: optionalTextField(200, 'Recipient role'),
+  receivedAt: requiredDate('Enter the receipt date and time'),
+  receiptAttachmentId: z.string().cuid().nullish(),
+});
+export type ServiceRequestReceipt = z.infer<typeof ServiceRequestReceiptSchema>;
 
 // ---------------------------------------------------------------------------
 // Send — generate the purchase order and email it
@@ -144,12 +164,26 @@ export const ServiceRequestSendReadinessSchema = z
   .object({
     supplierId: z.string().nullish(),
     details: ServiceRequestDetailsSchema,
+    requestedByAuthority: z.boolean().nullish(),
+    requestingAuthority: z.string().nullish(),
     documentCount: z
       .number({ invalid_type_error: 'Document count must be a number' })
       .int()
       .nonnegative(),
   })
   .superRefine((data, ctx) => {
+    if (
+      data.details.type === 'GENERAL' &&
+      !data.details.serviceName &&
+      !data.details.serviceId &&
+      !data.details.route
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['details'],
+        message: 'Describe the service before generating the order',
+      });
+    }
     if (data.supplierId == null || data.supplierId === '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -157,7 +191,17 @@ export const ServiceRequestSendReadinessSchema = z
         path: ['supplierId'],
       });
     }
-    if (requiresAuthorizationDocument(data.details) && data.documentCount === 0) {
+    if (data.requestedByAuthority && !data.requestingAuthority?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['requestingAuthority'],
+        message: 'Enter the requesting authority',
+      });
+    }
+    if (
+      requiresAuthorizationDocument(data.details, data.requestedByAuthority) &&
+      data.documentCount === 0
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'This service type requires an authority authorisation letter to be uploaded',
@@ -262,11 +306,13 @@ export const ServiceRequestListItemSchema = z.object({
   vesselName: z.string().nullable(),
   branchCode: z.string(),
   supplierName: z.string().nullable(),
+  supplierId: z.string().nullish(),
   /** Human label for the type-specific service, resolved from `details`. */
   serviceLabel: z.string(),
   location: ServiceLocationSchema.nullable(),
   scheduledAt: z.coerce.date(),
   physicalVoucherNo: z.string().nullable(),
+  supplierInvoiceNo: z.string().nullish(),
   actualCost: z.coerce.number().nullable(),
   currency: z.string(),
   sentAt: z.coerce.date().nullable(),
@@ -310,6 +356,10 @@ export const ServiceRequestReadSchema = z.object({
   providerEmails: z.array(z.string()),
 
   location: ServiceLocationSchema.nullable(),
+  originPoint: z.string().nullable(),
+  destinationPoint: z.string().nullable(),
+  contactPersonName: z.string().nullable(),
+  operationDescription: z.string().nullable(),
   portId: z.string().nullable(),
   port: NamedRefSchema.nullable(),
   pierId: z.string().nullable(),
@@ -319,6 +369,10 @@ export const ServiceRequestReadSchema = z.object({
   completedAt: z.coerce.date().nullable(),
   physicalVoucherNo: z.string().nullable(),
   notes: z.string().nullable(),
+  reconciliationNotes: z.string().nullable(),
+  requestedByAuthority: z.boolean().nullish(),
+  requestingAuthority: z.string().nullish(),
+  supplierInvoiceNo: z.string().nullish(),
   details: ServiceRequestDetailsSchema,
 
   billToClientId: z.string().nullable(),
@@ -332,6 +386,23 @@ export const ServiceRequestReadSchema = z.object({
   documents: z.array(ServiceRequestDocumentSchema),
 
   minioKey: z.string().nullable(),
+  issuedDocxKey: z.string().nullable(),
+  approvedBy: z
+    .object({ id: z.string(), email: z.string(), displayName: z.string().nullable() })
+    .nullable(),
+  approvedAt: z.coerce.date().nullable(),
+  issuedBy: z
+    .object({ id: z.string(), email: z.string(), displayName: z.string().nullable() })
+    .nullable(),
+  issuedAt: z.coerce.date().nullable(),
+  receiptName: z.string().nullable(),
+  receiptTitle: z.string().nullable(),
+  receivedAt: z.coerce.date().nullable(),
+  receiptRecordedBy: z
+    .object({ id: z.string(), email: z.string(), displayName: z.string().nullable() })
+    .nullable(),
+  receiptRecordedAt: z.coerce.date().nullable(),
+  receiptAttachment: ServiceRequestDocumentSchema.nullable(),
   pdfGeneratedAt: z.coerce.date().nullable(),
   sentAt: z.coerce.date().nullable(),
   cancelledAt: z.coerce.date().nullable(),
@@ -345,6 +416,7 @@ export type ServiceRequestRead = z.infer<typeof ServiceRequestReadSchema>;
 
 export const ServiceRequestDispatchSchema = z.object({
   id: z.string(),
+  hasWord: z.boolean(),
   toAddresses: z.array(z.string()),
   ccAddresses: z.array(z.string()),
   bccAddresses: z.array(z.string()),

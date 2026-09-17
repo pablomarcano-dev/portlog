@@ -11,6 +11,7 @@ import { useCurrentUser } from '../../../lib/auth/queries';
 const NewSearchSchema = z.object({
   /** Which of the six forms to show; picked from the list screen's menu. */
   type: ServiceRequestTypeSchema.default('LAUNCH'),
+  vesselId: z.string().cuid().optional(),
 });
 
 export const Route = createFileRoute('/_protected/service-requests/new')({
@@ -20,8 +21,14 @@ export const Route = createFileRoute('/_protected/service-requests/new')({
 
 function NewServiceRequestPage() {
   const navigate = useNavigate();
-  const { type } = Route.useSearch();
-  const { data: user } = useCurrentUser();
+  const { type, vesselId } = Route.useSearch();
+  const {
+    data: user,
+    refetch: refetchUser,
+    isFetching: isRefreshingUser,
+  } = useCurrentUser({
+    refetchOnMount: 'always',
+  });
   const create = useCreateServiceRequest();
 
   if (user?.branchId === null) {
@@ -45,6 +52,13 @@ function NewServiceRequestPage() {
               {guidance.canManageUsers && (
                 <Button onClick={() => void navigate({ to: '/admin/users' })}>Manage users</Button>
               )}
+              <Button
+                variant="subtle"
+                loading={isRefreshingUser}
+                onClick={() => void refetchUser()}
+              >
+                Refresh assignment
+              </Button>
             </Group>
           </Stack>
         </Alert>
@@ -56,6 +70,7 @@ function NewServiceRequestPage() {
     <Stack p="xl" gap="md">
       <ServiceRequestStepper
         type={type}
+        vesselId={vesselId}
         defaultBranchId={user?.branchId ?? null}
         isSaving={create.isPending}
         onCancel={() =>
@@ -72,7 +87,9 @@ function NewServiceRequestPage() {
               void navigate({
                 to: '/service-requests/$id',
                 params: { id: created.id },
-                search: requiresAuthorizationDocument(values.details) ? { step: 'documents' } : {},
+                search: requiresAuthorizationDocument(values.details, values.requestedByAuthority)
+                  ? { step: 'documents' }
+                  : {},
               });
             },
             onError: (err) =>

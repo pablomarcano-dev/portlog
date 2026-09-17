@@ -8,15 +8,28 @@ import {
   type ServiceRequestListQuery,
   type ServiceRequestListResponse,
   type ServiceRequestRead,
+  type ServiceRequestReceipt,
   type ServiceRequestSend,
   type ServiceRequestTransition,
   type ServiceRequestUpdate,
   type ServiceRequestNominationOption,
 } from '@portlog/schemas';
 import { z } from 'zod';
-import { apiRequest } from '../../lib/api/client';
+import { apiRequest, apiRequestBlob } from '../../lib/api/client';
 
 const BASE = '/service-requests';
+
+export function downloadServiceRequestOrder(id: string, format: 'pdf' | 'docx'): Promise<Blob> {
+  return apiRequestBlob(`${BASE}/${id}/order.${format}`);
+}
+
+export function downloadServiceRequestDispatchOrder(
+  id: string,
+  dispatchId: string,
+  format: 'pdf' | 'docx',
+): Promise<Blob> {
+  return apiRequestBlob(`${BASE}/${id}/dispatches/${dispatchId}/order.${format}`);
+}
 
 /**
  * What the list screen actually holds. `ServiceRequestListQuery` coerces the
@@ -81,6 +94,24 @@ export async function updateServiceRequest(
     body: JSON.stringify(body),
   });
   return ServiceRequestReadSchema.parse(raw);
+}
+
+export async function approveServiceRequest(id: string): Promise<ServiceRequestRead> {
+  return ServiceRequestReadSchema.parse(
+    await apiRequest<unknown>(`${BASE}/${id}/approve`, { method: 'POST' }),
+  );
+}
+
+export async function recordServiceRequestReceipt(
+  id: string,
+  body: ServiceRequestReceipt,
+): Promise<ServiceRequestRead> {
+  return ServiceRequestReadSchema.parse(
+    await apiRequest<unknown>(`${BASE}/${id}/receipt`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  );
 }
 
 export async function deleteServiceRequest(id: string): Promise<void> {
