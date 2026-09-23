@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { OPERATIONAL_SENT_DISPATCH_WHERE } from '../common/operational-dispatch.js';
 
 // Nominations are considered stale for ETA/ETB when either:
 // - No ETA_ETB dispatch has ever been sent for their PEDR, or
@@ -25,7 +26,9 @@ export class EtaAlertCron {
     const activePedrs = await this.prisma.pedr.findMany({
       where: {
         nomination: { status: { not: 'CANCELLED' } },
-        emailDispatches: { none: { subDocType: 'SOF', sentAt: { not: null } } },
+        emailDispatches: {
+          none: { ...OPERATIONAL_SENT_DISPATCH_WHERE, subDocType: 'SOF' },
+        },
       },
       select: {
         id: true,

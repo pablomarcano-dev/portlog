@@ -14,6 +14,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import { AttachmentsService } from '../attachments/attachments.service.js';
 import { appendBranchCc, dedupeEmails } from '../email/email-address.util.js';
+import { OPERATIONAL_SENT_DISPATCH_WHERE } from '../common/operational-dispatch.js';
 import { EmailTemplateService } from '../email-templates/email-template.service.js';
 import { NominationInstructionsDocxService } from './nomination-instructions-docx.service.js';
 import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
@@ -315,7 +316,10 @@ const STATUS_FACTS_INCLUDE = {
   pedr: {
     select: {
       emailDispatches: {
-        where: { subDocType: { in: ['PREARRIVAL', 'SOF'] as const }, sentAt: { not: null } },
+        where: {
+          ...OPERATIONAL_SENT_DISPATCH_WHERE,
+          subDocType: { in: ['PREARRIVAL', 'SOF'] as const },
+        },
         select: { subDocType: true },
       },
     },
@@ -352,10 +356,18 @@ function present<T extends StatusFacts>(n: T, now: Date = new Date()) {
 // and pagination stay correct without a stored column for IN_PORT / FULL_AWAY.
 function statusWhere(status: NominationStatus, now: Date): Prisma.NominationWhereInput {
   const prearrivalSent: Prisma.NominationWhereInput = {
-    pedr: { emailDispatches: { some: { subDocType: 'PREARRIVAL', sentAt: { not: null } } } },
+    pedr: {
+      emailDispatches: {
+        some: { ...OPERATIONAL_SENT_DISPATCH_WHERE, subDocType: 'PREARRIVAL' },
+      },
+    },
   };
   const sofSent: Prisma.NominationWhereInput = {
-    pedr: { emailDispatches: { some: { subDocType: 'SOF', sentAt: { not: null } } } },
+    pedr: {
+      emailDispatches: {
+        some: { ...OPERATIONAL_SENT_DISPATCH_WHERE, subDocType: 'SOF' },
+      },
+    },
   };
   const inPort: Prisma.NominationWhereInput = {
     AND: [prearrivalSent, { layDaysFirst: { lt: now } }],

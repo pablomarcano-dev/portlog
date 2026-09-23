@@ -821,6 +821,65 @@ describe('NominationsService', () => {
     });
   });
 
+  describe('list — derived status dispatches', () => {
+    beforeEach(() => {
+      mockPrisma.nomination.findMany.mockResolvedValue([]);
+      mockPrisma.nomination.count.mockResolvedValue(0);
+    });
+
+    it('does not derive FULL_AWAY from a sent test SOF', async () => {
+      await service.list({ page: 1, pageSize: 25, status: 'FULL_AWAY' } as never);
+
+      const call = mockPrisma.nomination.findMany.mock.calls.at(-1) as [
+        { where: Record<string, unknown> },
+      ];
+      const statusFilter = (call[0].where.AND as Array<Record<string, unknown>>)[0];
+      const fullAway = (statusFilter.AND as Array<Record<string, unknown>>)[1];
+      const sofSent = (fullAway.AND as Array<Record<string, unknown>>)[0] as {
+        pedr: { emailDispatches: { some: Record<string, unknown> } };
+      };
+
+      expect(sofSent.pedr.emailDispatches.some).toEqual(
+        expect.objectContaining({
+          subDocType: 'SOF',
+          sentAt: { not: null },
+          NOT: {
+            subject: {
+              startsWith: '***PRUEBA***',
+              mode: 'insensitive',
+            },
+          },
+        }),
+      );
+    });
+
+    it('does not present sent test messages as lifecycle facts', async () => {
+      await service.list({ page: 1, pageSize: 25 } as never);
+
+      const call = mockPrisma.nomination.findMany.mock.calls.at(-1) as [
+        {
+          include: {
+            pedr: {
+              select: { emailDispatches: { where: Record<string, unknown> } };
+            };
+          };
+        },
+      ];
+
+      expect(call[0].include.pedr.select.emailDispatches.where).toEqual(
+        expect.objectContaining({
+          sentAt: { not: null },
+          NOT: {
+            subject: {
+              startsWith: '***PRUEBA***',
+              mode: 'insensitive',
+            },
+          },
+        }),
+      );
+    });
+  });
+
   // -------------------------------------------------------------------------
   // list — date range
   //

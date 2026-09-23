@@ -7,7 +7,7 @@ Nomination lifecycle with SN/OT correlative numbering, email compose/dispatch, a
 - `FULL_AWAY` — the final SOF was sent **and** now is past `layDaysLast`
 - `CANCELLED` — a persisted manual override (requires a reason) that wins over the above
 
-Only `NOMINATED`/`CANCELLED` are ever stored in the `status` column; `IN_PORT`/`FULL_AWAY` are computed at read time from the sent PREARRIVAL/SOF dispatches + laydays. The only manual `/transition` is to `CANCELLED`.
+Only `NOMINATED`/`CANCELLED` are ever stored in the `status` column; `IN_PORT`/`FULL_AWAY` are computed at read time from the sent PREARRIVAL/SOF dispatches + laydays. Live-system trial messages whose subject begins with `***PRUEBA***` stay in dispatch history but do not count as lifecycle facts. The only manual `/transition` is to `CANCELLED`.
 
 ## Scope
 

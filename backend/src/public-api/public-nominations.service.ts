@@ -10,12 +10,16 @@ import {
   type PublicNominationListQuery,
 } from '@portlog/schemas';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { OPERATIONAL_SENT_DISPATCH_WHERE } from '../common/operational-dispatch.js';
 
 const STATUS_INCLUDE = {
   pedr: {
     select: {
       emailDispatches: {
-        where: { subDocType: { in: ['PREARRIVAL', 'SOF'] as const }, sentAt: { not: null } },
+        where: {
+          ...OPERATIONAL_SENT_DISPATCH_WHERE,
+          subDocType: { in: ['PREARRIVAL', 'SOF'] as const },
+        },
         select: { subDocType: true },
       },
     },
@@ -76,10 +80,18 @@ function reference(correlative: number, nominatedAt: Date, kind: NominationKind)
 
 function statusWhere(status: NominationStatus, now: Date): Prisma.NominationWhereInput {
   const prearrivalSent: Prisma.NominationWhereInput = {
-    pedr: { emailDispatches: { some: { subDocType: 'PREARRIVAL', sentAt: { not: null } } } },
+    pedr: {
+      emailDispatches: {
+        some: { ...OPERATIONAL_SENT_DISPATCH_WHERE, subDocType: 'PREARRIVAL' },
+      },
+    },
   };
   const sofSent: Prisma.NominationWhereInput = {
-    pedr: { emailDispatches: { some: { subDocType: 'SOF', sentAt: { not: null } } } },
+    pedr: {
+      emailDispatches: {
+        some: { ...OPERATIONAL_SENT_DISPATCH_WHERE, subDocType: 'SOF' },
+      },
+    },
   };
   const inPort: Prisma.NominationWhereInput = {
     AND: [prearrivalSent, { layDaysFirst: { lt: now } }],
