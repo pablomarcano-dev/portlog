@@ -1,5 +1,7 @@
+import { openEmailPrintWindow, printSentReceipt } from '../../../lib/printEmail';
 import {
   Alert,
+  Checkbox,
   Button,
   Drawer,
   Group,
@@ -31,6 +33,7 @@ const sendSchema = z.object({
   // time — nothing here composes HTML.
   bodyText: z.string().default(''),
   attachmentIds: z.array(z.string()).default([]),
+  printAfterSending: z.boolean().default(false),
 });
 type SendForm = z.infer<typeof sendSchema>;
 
@@ -75,22 +78,29 @@ export function SendShDocumentDrawer({
       subject: defaultSubject,
       bodyText: '',
       attachmentIds: [],
+      printAfterSending: false,
     },
   });
 
   // Bumped on close so EmailAttachmentsField remounts fresh (clears its file list).
   const [attachKey, setAttachKey] = useState(0);
+  const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
+  const [uploadsPending, setUploadsPending] = useState(false);
 
   function handleClose() {
+    if (uploadsPending || sendDoc.isPending) return;
+    setAttachmentPreviewOpen(false);
     reset();
     setAttachKey((k) => k + 1);
     onClose();
   }
 
   async function onSubmit(values: SendForm) {
+    if (uploadsPending || sendDoc.isPending) return;
     const toAddresses = values.toAddresses.map((e) => e.trim()).filter(Boolean);
     const ccAddresses = values.ccAddresses.map((e) => e.trim()).filter(Boolean);
 
+    const printWindow = values.printAfterSending ? openEmailPrintWindow() : null;
     sendDoc.mutate(
       {
         shId: doc.id,
@@ -103,9 +113,11 @@ export function SendShDocumentDrawer({
         },
       },
       {
-        onSuccess: () => {
+        onSuccess: (result) => {
+          if (values.printAfterSending) printSentReceipt(printWindow, result.dispatch);
           handleClose();
         },
+        onError: () => printWindow?.close(),
       },
     );
   }
@@ -115,6 +127,9 @@ export function SendShDocumentDrawer({
   return (
     <Drawer
       opened={opened}
+      closeOnEscape={!attachmentPreviewOpen && !uploadsPending && !sendDoc.isPending}
+      closeOnClickOutside={!attachmentPreviewOpen && !uploadsPending && !sendDoc.isPending}
+      trapFocus={!attachmentPreviewOpen}
       onClose={handleClose}
       title={
         <Text fw={600} size="sm">
@@ -168,6 +183,7 @@ export function SendShDocumentDrawer({
             />
 
             <EmailGroupPicker
+              nominationOnly
               nominationId={nominationId}
               targets={[
                 {
@@ -206,6 +222,8 @@ export function SendShDocumentDrawer({
               control={control}
               render={({ field }) => (
                 <EmailAttachmentsField
+                  onPreviewOpenChange={setAttachmentPreviewOpen}
+                  onPendingChange={setUploadsPending}
                   key={attachKey}
                   label="Adjuntos"
                   value={field.value}
@@ -223,11 +241,21 @@ export function SendShDocumentDrawer({
               </Alert>
             )}
 
+            <Checkbox label="Print after sending" {...register('printAfterSending')} />
             <Group justify="flex-end" mt="sm">
-              <Button variant="default" onClick={handleClose} disabled={sendDoc.isPending}>
+              <Button
+                variant="default"
+                onClick={handleClose}
+                disabled={sendDoc.isPending || uploadsPending}
+              >
                 Cancelar
               </Button>
-              <Button type="submit" loading={sendDoc.isPending} data-cy="sh-send-submit">
+              <Button
+                type="submit"
+                disabled={uploadsPending}
+                loading={sendDoc.isPending}
+                data-cy="sh-send-submit"
+              >
                 Enviar
               </Button>
             </Group>

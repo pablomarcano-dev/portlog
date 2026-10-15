@@ -300,14 +300,16 @@ export class DispatchService {
         ccAddresses: resolvedCcAddresses,
         bccAddresses: bccAddresses ?? [],
         subject,
-        bodyHtml: bodyText ? emailBody : null,
+        bodyHtml: emailBody,
         pdfStorageKey,
+        generatedPdfExpected: true,
         sentById: userId,
       },
     });
 
     // 6. Send email
     try {
+      await this.attachmentsService.linkToEmailDispatch(attachmentIds ?? [], dispatch.id);
       await this.emailService.send({
         to: toAddresses,
         cc: resolvedCcAddresses,
@@ -329,7 +331,6 @@ export class DispatchService {
         where: { id: dispatch.id },
         data: { sentAt: new Date() },
       });
-      await this.attachmentsService.linkToEmailDispatch(attachmentIds ?? [], dispatch.id);
 
       this.logger.log({
         event: 'dispatch.sent',

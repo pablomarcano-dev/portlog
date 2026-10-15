@@ -1,3 +1,4 @@
+import { EmailDeliveryService } from '../email/email-delivery.service.js';
 import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -18,6 +19,7 @@ describe('Document downloads over Fastify', () => {
     const module = await Test.createTestingModule({
       controllers: [SHDocumentsController, BranchDocumentsController],
       providers: [
+        { provide: EmailDeliveryService, useValue: {} },
         { provide: SHDocumentsService, useValue: { downloadPdf } },
         { provide: BranchDocumentsService, useValue: { downloadPdf } },
       ],

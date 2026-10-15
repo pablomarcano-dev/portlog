@@ -11,6 +11,7 @@ export const subDocTypeSchema = z.enum([
   'ETA_REQUEST',
   'ETA_TERMINAL',
   'ETA_REPLY',
+  'ETA_RECAP',
   'NOR',
   'SOF',
   'CARGO_UPDATE',
@@ -74,6 +75,12 @@ export const sendNominationEmailSchema = z.object({
   attachmentIds: attachmentIdsSchema,
 });
 export type SendNominationEmailInput = z.infer<typeof sendNominationEmailSchema>;
+
+/** Legacy send callers receive 204; callers requesting a receipt receive 200. */
+export const sendEmailReceiptQuerySchema = z.object({
+  receipt: z.enum(['true', 'false']).optional(),
+});
+export type SendEmailReceiptQuery = z.infer<typeof sendEmailReceiptQuerySchema>;
 
 // ---------------------------------------------------------------------------
 // Response shapes

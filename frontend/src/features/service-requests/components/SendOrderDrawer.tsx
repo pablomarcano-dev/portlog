@@ -1,6 +1,8 @@
+import { openEmailPrintWindow, printSentReceipt } from '../../../lib/printEmail';
 import { useEffect, useState } from 'react';
 import {
   Alert,
+  Checkbox,
   Button,
   Divider,
   Drawer,
@@ -65,7 +67,11 @@ export function SendOrderDrawer({ opened, onClose, request }: Props) {
   const [cc, setCc] = useState<string[]>([]);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const [printAfterSending, setPrintAfterSending] = useState(false);
+  const [attachKey, setAttachKey] = useState(0);
   const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
+  const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
+  const [uploadsPending, setUploadsPending] = useState(false);
 
   // Reset every time the drawer opens so a previous failed attempt's edits do
   // not leak into the next send, and the provider's current addresses are
@@ -81,6 +87,9 @@ export function SendOrderDrawer({ opened, onClose, request }: Props) {
     );
     setBody(defaultBody(request));
     setAttachmentIds([]);
+    setPrintAfterSending(false);
+    setUploadsPending(false);
+    setAttachKey((key) => key + 1);
   }, [opened, request]);
 
   const readiness = ServiceRequestSendReadinessSchema.safeParse({
@@ -91,9 +100,11 @@ export function SendOrderDrawer({ opened, onClose, request }: Props) {
     requestingAuthority: request.requestingAuthority,
   });
   const blockers = readiness.success ? [] : readiness.error.issues.map((i) => i.message);
-  const canSend = blockers.length === 0 && to.length > 0 && !send.isPending;
+  const canSend = blockers.length === 0 && to.length > 0 && !send.isPending && !uploadsPending;
 
   function handleSend() {
+    if (!canSend) return;
+    const printWindow = printAfterSending ? openEmailPrintWindow() : null;
     send.mutate(
       {
         toAddresses: to,
@@ -105,6 +116,7 @@ export function SendOrderDrawer({ opened, onClose, request }: Props) {
       },
       {
         onSuccess: (result) => {
+          if (printAfterSending) printSentReceipt(printWindow, result.dispatch);
           if (result.dispatch.sentAt === null) {
             // The request is SENT either way; the dispatch row carries the SMTP
             // error and the operator re-sends from the dispatch log.
@@ -123,6 +135,7 @@ export function SendOrderDrawer({ opened, onClose, request }: Props) {
           onClose();
         },
         onError: (err) => {
+          printWindow?.close();
           notifications.show({
             color: 'red',
             title: 'Could not send the order',
@@ -136,7 +149,12 @@ export function SendOrderDrawer({ opened, onClose, request }: Props) {
   return (
     <Drawer
       opened={opened}
-      onClose={onClose}
+      closeOnEscape={!attachmentPreviewOpen && !uploadsPending && !send.isPending}
+      closeOnClickOutside={!attachmentPreviewOpen && !uploadsPending && !send.isPending}
+      trapFocus={!attachmentPreviewOpen}
+      onClose={() => {
+        if (!uploadsPending && !send.isPending) onClose();
+      }}
       position="right"
       size="lg"
       title={`Generate & Send Order — ${request.controlNumber}`}
@@ -174,6 +192,7 @@ export function SendOrderDrawer({ opened, onClose, request }: Props) {
         <EmailChipsInput label="CC" value={cc} onChange={setCc} />
 
         <EmailGroupPicker
+          nominationOnly={!!request.nominationId}
           nominationId={request.nominationId ?? undefined}
           targets={[
             {
@@ -213,13 +232,22 @@ export function SendOrderDrawer({ opened, onClose, request }: Props) {
             : ' is attached automatically.'}
         </Text>
         <EmailAttachmentsField
+          key={attachKey}
+          onPreviewOpenChange={setAttachmentPreviewOpen}
+          onPendingChange={setUploadsPending}
           value={attachmentIds}
           onChange={setAttachmentIds}
           label="Additional attachments"
+          disabled={send.isPending}
         />
 
+        <Checkbox
+          label="Print after sending"
+          checked={printAfterSending}
+          onChange={(event) => setPrintAfterSending(event.currentTarget.checked)}
+        />
         <Group justify="flex-end" mt="md">
-          <Button variant="default" onClick={onClose} disabled={send.isPending}>
+          <Button variant="default" onClick={onClose} disabled={send.isPending || uploadsPending}>
             Cancel
           </Button>
           <Button onClick={handleSend} disabled={!canSend} loading={send.isPending}>

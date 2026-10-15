@@ -1,3 +1,5 @@
+import { UseInterceptors } from '@nestjs/common';
+import { EmailSendInterceptor } from '../email/email-send.interceptor.js';
 import {
   Body,
   Controller,
@@ -26,6 +28,10 @@ import {
   etaRecordSaveSchema,
   SofTimesheetInputSchema,
   sendNominationEmailSchema,
+  sendEmailReceiptQuerySchema,
+  NominationMessageSourceSchema,
+  type NominationMessageSource,
+  type SendEmailReceiptQuery,
   type NominationCreateInput,
   type NominationUpdateInput,
   type NominationStatusTransition,
@@ -111,13 +117,34 @@ export class NominationsController {
   }
 
   @Post(':id/send-email')
+  @UseInterceptors(EmailSendInterceptor)
   @HttpCode(HttpStatus.NO_CONTENT)
-  sendEmail(
+  async sendEmail(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(sendNominationEmailSchema)) body: SendNominationEmailInput,
     @Req() req: { user: RequestUser },
+    @Query(new ZodValidationPipe(sendEmailReceiptQuerySchema)) query: SendEmailReceiptQuery,
+    @Res({ passthrough: true }) reply: FastifyReply,
   ) {
-    return this.svc.sendEmail(id, body, req.user.sub);
+    const receipt = await this.svc.sendEmail(id, body, req.user.sub);
+    if (query.receipt === 'true') {
+      reply.code(HttpStatus.OK);
+      return receipt;
+    }
+    // Preserve the existing empty 204 response for clients without the opt-in.
+    return undefined;
+  }
+
+  @Post(':id/messages/:source/:messageId/resend')
+  @UseInterceptors(EmailSendInterceptor)
+  resendMessage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('source', new ZodValidationPipe(NominationMessageSourceSchema))
+    source: NominationMessageSource,
+    @Param('messageId') messageId: string,
+    @Req() req: { user: RequestUser },
+  ) {
+    return this.svc.resendMessage(id, source, messageId, req.user.sub);
   }
 
   @Get(':id/eta')

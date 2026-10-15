@@ -1,4 +1,10 @@
-import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  queryOptions,
+  type QueryClient,
+} from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { apiRequest } from '../client';
 import type { PortCreateInput, PortUpdateInput } from '@portlog/schemas';
@@ -139,6 +145,15 @@ export function usePortCountries() {
   });
 }
 
+/** Port edits also change branch-scoped nomination choices and subject lookups. */
+export async function invalidatePortQueries(qc: QueryClient): Promise<void> {
+  await Promise.all([
+    qc.invalidateQueries({ queryKey: ['ports'] }),
+    qc.invalidateQueries({ queryKey: ['entity-picker', '/master-data/ports'] }),
+    qc.invalidateQueries({ queryKey: ['ports-for-vessel-fetch'] }),
+  ]);
+}
+
 export function useSavePort(selectedId: string | null) {
   const qc = useQueryClient();
   return useMutation({
@@ -149,7 +164,7 @@ export function useSavePort(selectedId: string | null) {
       return portsApi.create(values);
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['ports'] });
+      void invalidatePortQueries(qc);
     },
     onError: (err) => {
       notifications.show({
@@ -166,7 +181,7 @@ export function useDeletePort() {
   return useMutation({
     mutationFn: (id: string) => portsApi.delete(id),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['ports'] });
+      void invalidatePortQueries(qc);
     },
   });
 }

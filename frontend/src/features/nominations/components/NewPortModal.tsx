@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { PortCreateSchema } from '@portlog/schemas';
 import type { PortCreateInput } from '@portlog/schemas';
 import { apiRequest } from '../../../lib/api/client';
+import { invalidatePortQueries } from '../../../lib/api/master-data/ports';
 import { useEmailGroups } from '../../../lib/api/master-data/email-groups';
 import { NewEmailGroupModal } from './NewEmailGroupModal';
 
@@ -46,8 +47,7 @@ export function NewPortModal({ opened, onClose, onCreated, branchId }: Props) {
         body: JSON.stringify(data),
       }),
     onSuccess: (port) => {
-      void qc.invalidateQueries({ queryKey: ['entity-picker', '/master-data/ports'] });
-      void qc.invalidateQueries({ queryKey: ['ports-for-vessel-fetch'] });
+      void invalidatePortQueries(qc);
       onCreated(port.id, port.name);
       reset();
       onClose();

@@ -203,12 +203,27 @@ describe('EmailTemplateService', () => {
         'ETA_REQUEST',
         'ETA_TERMINAL',
         'ETA_REPLY',
+        'ETA_RECAP',
         'NOR',
         'SOF',
         'CARGO_UPDATE',
       ];
 
       expect(composable.filter((type) => !COMPOSE_TEMPLATE_PATHS[type])).toEqual([]);
+    });
+
+    it('renders the supplied ETA recap template with the nomination reference', async () => {
+      const rendered = await service.render(COMPOSE_TEMPLATE_PATHS['ETA_RECAP']!, {
+        ...VARS,
+        ref_line: 'MV Test - Calling to Jose SN1/26/JSE',
+        vessel_name: 'MV Test',
+        oper_port: 'Jose',
+      });
+      expect(rendered.subject).toBe(
+        "MV Test - Calling to Jose SN1/26/JSE - E.T.A's Recaps & N.O.R. Tendered",
+      );
+      expect(rendered.bodyText).toContain("Please find attached the E.T.A's Recaps & N.O.R.");
+      expect(rendered.bodyText).not.toContain('{{');
     });
 
     it('renders a subject and a body for the NOR tendered to the terminal', async () => {

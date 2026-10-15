@@ -33,6 +33,7 @@ let prismaMock: {
     delete: jest.Mock;
     deleteMany: jest.Mock;
     updateMany: jest.Mock;
+    upsert: jest.Mock;
   };
 };
 let storageMock: {
@@ -52,6 +53,7 @@ beforeEach(() => {
       delete: jest.fn(),
       deleteMany: jest.fn(),
       updateMany: jest.fn(),
+      upsert: jest.fn(),
     },
   };
   storageMock = {
@@ -67,6 +69,49 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('AttachmentsService.upload', () => {
+  it.each(['', 'application/octet-stream', 'application/x-pdf'])(
+    'accepts a PDF with browser MIME %j only after checking its header',
+    async (mimeType) => {
+      prismaMock.emailAttachment.create.mockResolvedValue(makeRow());
+      await service.upload(
+        { filename: 'REPORT.PDF', mimeType, buffer: Buffer.from('%PDF-1.7\ncontents') },
+        'user-1',
+      );
+      expect(storageMock.uploadFile).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(Buffer),
+        'application/pdf',
+      );
+      expect(prismaMock.emailAttachment.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ mimeType: 'application/pdf' }),
+      });
+    },
+  );
+
+  it.each(['', 'application/octet-stream', 'application/x-pdf'])(
+    'rejects a renamed non-PDF with browser MIME %j',
+    async (mimeType) => {
+      await expect(
+        service.upload(
+          { filename: 'fake.pdf', mimeType, buffer: Buffer.from('<html>not a PDF</html>') },
+          'user-1',
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(storageMock.uploadFile).not.toHaveBeenCalled();
+      expect(prismaMock.emailAttachment.create).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps the size limit for a PDF with missing MIME', async () => {
+    await expect(
+      service.upload(
+        { filename: 'large.pdf', mimeType: '', buffer: Buffer.alloc(25 * 1024 * 1024 + 1) },
+        'user-1',
+      ),
+    ).rejects.toBeInstanceOf(PayloadTooLargeException);
+    expect(storageMock.uploadFile).not.toHaveBeenCalled();
+  });
+
   it('rejects an unsupported MIME type before touching storage', async () => {
     await expect(
       service.upload(
@@ -196,13 +241,27 @@ describe('AttachmentsService.delete', () => {
 // ---------------------------------------------------------------------------
 
 describe('AttachmentsService linking', () => {
-  it('links ids to an email dispatch', async () => {
-    prismaMock.emailAttachment.updateMany.mockResolvedValue({ count: 2 });
-    await service.linkToEmailDispatch(['a', 'b'], 'disp-1');
-    expect(prismaMock.emailAttachment.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ['a', 'b'] } },
-      data: { emailDispatchId: 'disp-1' },
-    });
+  it('copies bytes and metadata for each dispatch without moving the source history', async () => {
+    prismaMock.emailAttachment.findUnique.mockResolvedValue(makeRow({ emailDispatchId: 'old' }));
+    storageMock.getFileBuffer.mockResolvedValue(Buffer.from('original bytes'));
+    await service.linkToEmailDispatch(['att-1', 'att-1'], 'new-1');
+    await service.linkToEmailDispatch(['att-1'], 'new-2');
+    expect(prismaMock.emailAttachment.updateMany).not.toHaveBeenCalled();
+    expect(storageMock.uploadFile).toHaveBeenCalledTimes(2);
+    const writes = prismaMock.emailAttachment.upsert.mock.calls.map(([arg]) => arg);
+    expect(writes.map((arg) => arg.create.emailDispatchId)).toEqual(['new-1', 'new-2']);
+    expect(writes[0].create.minioKey).not.toEqual(writes[1].create.minioKey);
+    expect(writes[0].create.sizeBytes).toBe(14);
+    expect(writes[0].update).toEqual({});
+  });
+
+  it('does not create history when the storage copy fails', async () => {
+    prismaMock.emailAttachment.findUnique.mockResolvedValue(makeRow());
+    storageMock.getFileBuffer.mockRejectedValue(new Error('storage unavailable'));
+    await expect(service.linkToEmailDispatch(['att-1'], 'new')).rejects.toThrow(
+      'storage unavailable',
+    );
+    expect(prismaMock.emailAttachment.upsert).not.toHaveBeenCalled();
   });
 
   it('no-ops on an empty id list', async () => {

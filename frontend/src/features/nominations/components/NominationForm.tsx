@@ -33,6 +33,7 @@ import { apiRequest } from '../../../lib/api/client';
 import { EntityPicker } from '../../../components/master-data/EntityPicker';
 import { EmailGroupPicker } from '../../../components/master-data/EmailGroupPicker';
 import { ContactNamePicker } from '../../../components/master-data/ContactNamePicker';
+import { NewClientModal } from './NewClientModal';
 import { ClientNamePicker } from '../../../components/master-data/ClientNamePicker';
 import { ParcelsFieldArray } from './ParcelsFieldArray';
 import { NewShipParticularModal } from './NewShipParticularModal';
@@ -215,6 +216,16 @@ export function NominationForm({
     seed('loa', ship.loa);
     previousShipParticularId.current = shipParticularId;
   }, [shipParticularId, shipQuery.data, setValue]);
+
+  const operatingPortQuery = useQuery({
+    queryKey: ['ports', opPortId],
+    queryFn: () => apiRequest<{ branchId: string | null }>(`/master-data/ports/${opPortId}`),
+    enabled: !!opPortId,
+    staleTime: 30_000,
+  });
+  const operatingPortBranchMismatch = Boolean(
+    branchId && operatingPortQuery.data && operatingPortQuery.data.branchId !== branchId,
+  );
 
   // Fetch branch details for subject generation (code field)
   const branchQuery = useQuery({
@@ -453,6 +464,10 @@ export function NominationForm({
   const [shipSearch, setShipSearch] = useState('');
   const [branchSearch, setBranchSearch] = useState('');
   const [chartererSearch, setChartererSearch] = useState('');
+  const [newChartererOpen, setNewChartererOpen] = useState(false);
+  const [createdCharterer, setCreatedCharterer] = useState<{ value: string; label: string } | null>(
+    null,
+  );
   const [opPortSearch, setOpPortSearch] = useState('');
   const [pierSearch, setPierSearch] = useState('');
   const [lastPortSearch, setLastPortSearch] = useState('');
@@ -516,6 +531,16 @@ export function NominationForm({
 
   return (
     <>
+      <NewClientModal
+        opened={newChartererOpen}
+        initialName={chartererSearch}
+        onClose={() => setNewChartererOpen(false)}
+        onCreated={(client) => {
+          setValue('chartererId', client.id, { shouldDirty: true, shouldValidate: true });
+          setCreatedCharterer({ value: client.id, label: client.name });
+          setChartererSearch('');
+        }}
+      />
       <NewShipParticularModal
         opened={newShipModalOpen}
         onClose={() => setNewShipModalOpen(false)}
@@ -790,23 +815,39 @@ export function NominationForm({
           {/* Row 3 — Charterer / Op. Port / Berth */}
           <Grid gutter="xs" align="flex-end">
             <Grid.Col span={4}>
-              <Controller
-                name="chartererId"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <EntityPicker
-                    endpoint="/master-data/clients"
-                    label="Charterers"
-                    value={field.value ?? null}
-                    onChange={field.onChange}
-                    searchValue={chartererSearch}
-                    onSearchChange={setChartererSearch}
-                    selectedOption={chartererOption}
-                    disabled={isReadOnly}
-                    error={fieldState.error?.message}
+              <Group gap={4} align="flex-end" wrap="nowrap">
+                <div style={{ flex: 1 }}>
+                  <Controller
+                    name="chartererId"
+                    control={control}
+                    render={({ field, fieldState }) => (
+                      <EntityPicker
+                        endpoint="/master-data/clients"
+                        label="Charterers"
+                        value={field.value ?? null}
+                        onChange={field.onChange}
+                        searchValue={chartererSearch}
+                        onSearchChange={setChartererSearch}
+                        selectedOption={createdCharterer ?? chartererOption}
+                        disabled={isReadOnly}
+                        error={fieldState.error?.message}
+                      />
+                    )}
                   />
+                </div>
+                {!isReadOnly && (
+                  <Tooltip label="Create charterer">
+                    <ActionIcon
+                      variant="default"
+                      size="lg"
+                      aria-label="Create charterer"
+                      onClick={() => setNewChartererOpen(true)}
+                    >
+                      +
+                    </ActionIcon>
+                  </Tooltip>
                 )}
-              />
+              </Group>
             </Grid.Col>
             <Grid.Col span={4}>
               <Group gap={4} align="flex-end" wrap="nowrap">
@@ -818,6 +859,7 @@ export function NominationForm({
                       <EntityPicker
                         endpoint="/master-data/ports"
                         label="Oper. Port"
+                        extraParams={branchId ? { branchId } : undefined}
                         value={field.value ?? null}
                         onChange={field.onChange}
                         searchValue={opPortSearch}
@@ -844,6 +886,12 @@ export function NominationForm({
                   </Tooltip>
                 )}
               </Group>
+              {operatingPortBranchMismatch && (
+                <Text size="xs" c="orange" mt={4}>
+                  The saved operating port is not assigned to this branch. Review the port or branch
+                  before saving.
+                </Text>
+              )}
             </Grid.Col>
             <Grid.Col span={4}>
               <Group gap={4} align="flex-end" wrap="nowrap">
@@ -1092,6 +1140,7 @@ export function NominationForm({
                     <Table.Th>Name</Table.Th>
                     <Table.Th style={{ width: 100 }}>Voy.</Table.Th>
                     <Table.Th style={{ width: 120 }}>Ref. No.</Table.Th>
+                    <Table.Th style={{ width: 145 }}>Message</Table.Th>
                     <Table.Th style={{ width: 40 }} />
                   </Table.Tr>
                 </Table.Thead>
@@ -1159,6 +1208,29 @@ export function NominationForm({
                             size="xs"
                             placeholder="Ref. No."
                             {...register(`nominationClients.${index}.referenceNo`)}
+                          />
+                        </Table.Td>
+                        <Table.Td>
+                          <Controller
+                            control={control}
+                            name={`nominationClients.${index}.messageOrder`}
+                            render={({ field }) => (
+                              <Select
+                                aria-label={`Message order for client ${index + 1}`}
+                                size="xs"
+                                data={[
+                                  { value: '1', label: '1st message' },
+                                  { value: '2', label: '2nd message' },
+                                  { value: '3', label: '3rd message' },
+                                ]}
+                                value={field.value == null ? null : String(field.value)}
+                                onChange={(value) =>
+                                  field.onChange(value == null ? null : Number(value))
+                                }
+                                placeholder="Not assigned"
+                                clearable
+                              />
+                            )}
                           />
                         </Table.Td>
                         <Table.Td>

@@ -1,0 +1,17 @@
+.git
+node_modules
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+.env
+.env.*
+*.dump
+**/*.dump
+qa-evidence
+output
+tmp
+**/coverage
+**/*.log
+.DS_Store
+**/*.tsbuildinfo

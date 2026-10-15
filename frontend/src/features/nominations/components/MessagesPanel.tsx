@@ -19,10 +19,19 @@ import {
   Checkbox,
 } from '@mantine/core';
 import { useNominationMessages } from '../api/useNominationMessages';
-import { useNominationSendEmail } from '../api/useNominationSendEmail';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiSend } from '../../../lib/api/sendRequest';
 import type { NominationMessageItem } from '@portlog/schemas';
 import { useColumnResize } from '../../../components/table/useColumnResize';
 import { ResizableTh } from '../../../components/table/ResizableTh';
+import { AttachmentPreviewButton } from '../../../components/master-data/AttachmentPreviewButton';
+import {
+  printStoredEmail,
+  openEmailPrintWindow,
+  printSentReceipt,
+  parseStoredEmailReceipt,
+  type StoredEmailReceipt,
+} from '../../../lib/printEmail';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -73,25 +82,32 @@ interface EmailViewerProps {
 }
 
 function EmailViewer({ item, nominationId, onClose }: EmailViewerProps) {
+  const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const resend = useNominationSendEmail(nominationId);
+  const [printAfterSending, setPrintAfterSending] = useState(false);
+  const qc = useQueryClient();
+  const resend = useMutation({
+    mutationFn: (message: NominationMessageItem) =>
+      apiSend<StoredEmailReceipt>(
+        `/nominations/${nominationId}/messages/${message.source}/${message.id}/resend`,
+        {},
+        parseStoredEmailReceipt,
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['nomination', nominationId] });
+    },
+  });
 
   function handleResend() {
-    if (!item) return;
-    resend.mutate(
-      {
-        subDocType: item.type,
-        toAddresses: item.toAddresses,
-        ccAddresses: item.ccAddresses,
-        bccAddresses: [],
-        subject: item.subject,
-        // A re-send replays what was archived, which is the already-wrapped
-        // HTML. The send-time wrapper leaves HTML alone, so the copy that goes
-        // out is identical to the original.
-        bodyText: item.bodyHtml ?? '',
+    if (!item?.sentAt || resend.isPending) return;
+    const printWindow = printAfterSending ? openEmailPrintWindow() : null;
+    resend.mutate(item, {
+      onSuccess: (receipt) => {
+        if (printAfterSending) printSentReceipt(printWindow, receipt);
+        onClose();
       },
-      { onSuccess: onClose },
-    );
+      onError: () => printWindow?.close(),
+    });
   }
 
   function handleIframeLoad() {
@@ -106,7 +122,12 @@ function EmailViewer({ item, nominationId, onClose }: EmailViewerProps) {
   return (
     <Modal
       opened={!!item}
-      onClose={onClose}
+      closeOnEscape={!attachmentPreviewOpen && !resend.isPending}
+      closeOnClickOutside={!attachmentPreviewOpen && !resend.isPending}
+      trapFocus={!attachmentPreviewOpen}
+      onClose={() => {
+        if (!resend.isPending) onClose();
+      }}
       title={
         <Text fw={600} size="sm">
           {item.subject}
@@ -154,6 +175,23 @@ function EmailViewer({ item, nominationId, onClose }: EmailViewerProps) {
 
         <Divider />
 
+        {item.attachments.length > 0 && (
+          <Stack gap={4}>
+            <Text size="sm" fw={600}>
+              Uploaded attachments ({item.attachments.length})
+            </Text>
+            {item.attachments.map((attachment) => (
+              <Group key={attachment.id} justify="space-between">
+                <Text size="sm">{attachment.filename}</Text>
+                <AttachmentPreviewButton
+                  attachment={attachment}
+                  onPreviewOpenChange={setAttachmentPreviewOpen}
+                />
+              </Group>
+            ))}
+          </Stack>
+        )}
+
         {/* Body */}
         {item.bodyHtml ? (
           <Box
@@ -183,11 +221,21 @@ function EmailViewer({ item, nominationId, onClose }: EmailViewerProps) {
           </Alert>
         )}
 
+        <Checkbox
+          label="Print after re-sending"
+          checked={printAfterSending}
+          onChange={(event) => setPrintAfterSending(event.currentTarget.checked)}
+        />
         <Group justify="flex-end" mt="xs">
-          <Button variant="default" onClick={onClose}>
+          <Button variant="default" disabled={resend.isPending} onClick={onClose}>
             Close
           </Button>
-          <Button variant="light" loading={resend.isPending} onClick={handleResend}>
+          <Button
+            variant="light"
+            disabled={!item.sentAt}
+            loading={resend.isPending}
+            onClick={handleResend}
+          >
             Re-send
           </Button>
         </Group>
@@ -205,30 +253,14 @@ interface MessagesPanelProps {
 }
 
 function printMessage(item: NominationMessageItem): void {
-  const win = window.open('', '_blank', 'width=700,height=600');
-  if (!win) return;
-  const body = item.bodyHtml
-    ? item.bodyHtml
-    : '<p style="color:#666;font-style:italic">No message body available.</p>';
-  win.document.write(`<!DOCTYPE html>
-<html><head><meta charset="utf-8" /><title>${item.subject}</title>
-<style>
-  body { font-family: Arial, sans-serif; font-size: 13px; margin: 32px; }
-  .meta { display: grid; grid-template-columns: 80px 1fr; gap: 4px 8px; font-size: 12px; margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 12px; }
-  .label { font-weight: bold; color: #555; }
-</style></head>
-<body>
-  <div class="meta">
-    <span class="label">Subject:</span><span>${item.subject}</span>
-    <span class="label">Type:</span><span>${formatType(item.type)}</span>
-    <span class="label">Date:</span><span>${formatDate(item.sentAt ?? item.createdAt)}</span>
-    <span class="label">To:</span><span>${item.toAddresses.join(', ')}</span>
-    ${item.ccAddresses.length ? `<span class="label">CC:</span><span>${item.ccAddresses.join(', ')}</span>` : ''}
-  </div>
-  <div>${body}</div>
-  <script>window.onload = function() { window.print(); }</script>
-</body></html>`);
-  win.document.close();
+  printStoredEmail({
+    subject: item.subject,
+    type: formatType(item.type),
+    toAddresses: item.toAddresses,
+    ccAddresses: item.ccAddresses,
+    sentAt: item.sentAt ?? item.createdAt,
+    bodyHtml: item.bodyHtml,
+  });
 }
 
 type ColKey = 'checkbox' | 'type' | 'date' | 'subject' | 'to' | 'status';

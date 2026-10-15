@@ -43,6 +43,21 @@ export function isAllowedAttachmentMimeType(mimeType: string): boolean {
   return (ALLOWED_ATTACHMENT_MIME_TYPES as readonly string[]).includes(mimeType);
 }
 
+/** Browser MIME metadata can be absent or generic for PDFs. The server must
+ * verify the PDF signature before accepting this fallback. Never infer other
+ * allowed types from a filename alone. */
+export function resolveAttachmentMimeType(filename: string, mimeType: string): string | null {
+  const normalized = mimeType.trim().toLowerCase();
+  if (isAllowedAttachmentMimeType(normalized)) return normalized;
+  if (
+    /\.pdf$/i.test(filename) &&
+    ['', 'application/octet-stream', 'application/x-pdf'].includes(normalized)
+  ) {
+    return 'application/pdf';
+  }
+  return null;
+}
+
 /**
  * Reference to a stored attachment object (mirrors the EmailAttachment row and
  * the underlying MinIO object). This is the persisted/audit shape.

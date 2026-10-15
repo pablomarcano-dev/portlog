@@ -1,3 +1,5 @@
+import { UseInterceptors } from '@nestjs/common';
+import { EmailSendInterceptor } from '../email/email-send.interceptor.js';
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Req } from '@nestjs/common';
 import { DispatchService } from './dispatch.service.js';
 import { Roles } from '../auth/roles.decorator.js';
@@ -15,6 +17,7 @@ export class DispatchController {
    * Send a sub-document email for a PEDR.
    */
   @Post('pedr/:pedrId/sub-document')
+  @UseInterceptors(EmailSendInterceptor)
   sendSubDocument(
     @Param('pedrId', ParseUUIDPipe) pedrId: string,
     @Body(new ZodValidationPipe(sendSubDocumentSchema)) body: SendSubDocumentInput,

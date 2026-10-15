@@ -1,3 +1,4 @@
+import { apiSend } from '../../lib/api/sendRequest';
 import {
   ServiceRequestListResponseSchema,
   ServiceRequestReadSchema,
@@ -153,7 +154,14 @@ export async function removeServiceRequestDocument(
 
 const SendResultSchema = z.object({
   request: ServiceRequestReadSchema,
-  dispatch: z.object({ id: z.string(), sentAt: z.string().nullable() }),
+  dispatch: z.object({
+    id: z.string(),
+    sentAt: z.string().nullable(),
+    subject: z.string(),
+    toAddresses: z.array(z.string()),
+    ccAddresses: z.array(z.string()),
+    bodyHtml: z.string().nullable(),
+  }),
 });
 export type SendResult = z.infer<typeof SendResultSchema>;
 
@@ -162,11 +170,7 @@ export async function sendServiceRequestOrder(
   id: string,
   body: ServiceRequestSend,
 ): Promise<SendResult> {
-  const raw = await apiRequest<unknown>(`${BASE}/${id}/send`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
-  return SendResultSchema.parse(raw);
+  return apiSend(`${BASE}/${id}/send`, body, (raw) => SendResultSchema.parse(raw));
 }
 
 export async function generateServiceRequestOrder(id: string): Promise<{ minioKey: string }> {

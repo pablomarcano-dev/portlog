@@ -775,7 +775,17 @@ export class ServiceRequestsService {
     id: string,
     dto: ServiceRequestSend,
     userId: string,
-  ): Promise<{ request: ServiceRequestRead; dispatch: { id: string; sentAt: string | null } }> {
+  ): Promise<{
+    request: ServiceRequestRead;
+    dispatch: {
+      id: string;
+      sentAt: string | null;
+      subject: string;
+      toAddresses: string[];
+      ccAddresses: string[];
+      bodyHtml: string | null;
+    };
+  }> {
     let request = await this.getOrThrow(id);
 
     if (request.status === 'CANCELLED') {
@@ -901,6 +911,10 @@ export class ServiceRequestsService {
 
     let sentAt: Date | null = null;
     try {
+      await this.attachments.linkToServiceRequestDispatch(
+        [...(dto.attachmentIds ?? []), ...request.documents.map((file) => file.id)],
+        dispatch.id,
+      );
       await this.email.send({
         to: dto.toAddresses,
         cc: ccAddresses,
@@ -924,7 +938,6 @@ export class ServiceRequestsService {
         where: { id: dispatch.id },
         data: { sentAt },
       });
-      await this.attachments.linkToServiceRequestDispatch(dto.attachmentIds ?? [], dispatch.id);
       this.logger.log({ event: 'service-request.sent', id, control, dispatchId: dispatch.id });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -933,12 +946,19 @@ export class ServiceRequestsService {
         data: { error: message },
       });
       this.logger.error({ event: 'service-request.send.failed', id, err: message });
-      // Status is already SENT — deliberately not reverted. See the doc comment.
+      throw err; // Delivery may be uncertain; the durable claim prevents a duplicate retry.
     }
 
     return {
       request: this.toDto(await this.getOrThrow(id)),
-      dispatch: { id: dispatch.id, sentAt: sentAt?.toISOString() ?? null },
+      dispatch: {
+        id: dispatch.id,
+        sentAt: sentAt?.toISOString() ?? null,
+        subject: dispatch.subject,
+        toAddresses: dispatch.toAddresses,
+        ccAddresses: dispatch.ccAddresses,
+        bodyHtml: dispatch.bodyHtml,
+      },
     };
   }
 

@@ -54,3 +54,23 @@ describe('unified nomination clients', () => {
       clientId: null,
     }));
 });
+
+describe('nomination-specific message order', () => {
+  it('accepts the three slots and clearing an assignment, without assigning legacy rows', () => {
+    for (const messageOrder of [1, 2, 3, null]) {
+      expect(
+        NominationClientCreateSchema.parse({ type: 'Charterer', name: 'Company', messageOrder })
+          .messageOrder,
+      ).toBe(messageOrder);
+      expect(NominationClientUpdateSchema.parse({ messageOrder }).messageOrder).toBe(messageOrder);
+    }
+    expect(
+      NominationClientCreateSchema.parse({ type: 'Charterer', name: 'Legacy' }).messageOrder,
+    ).toBeUndefined();
+  });
+  it('rejects invalid and fractional slots', () => {
+    for (const messageOrder of [0, 4, 1.5, '1']) {
+      expect(NominationClientUpdateSchema.safeParse({ messageOrder }).success).toBe(false);
+    }
+  });
+});

@@ -20,12 +20,23 @@ export const NominationMessageItemSchema = z.object({
   subject: z.string(),
   toAddresses: z.array(z.string()),
   ccAddresses: z.array(z.string()),
+  bccAddresses: z.array(z.string()).default([]),
   sentAt: z.string().nullable(),
   status: NominationMessageStatusSchema,
   error: z.string().nullable(),
   createdAt: z.string(),
   sentBy: z.object({ id: z.string(), email: z.string() }),
   bodyHtml: z.string().nullable(),
+  attachments: z
+    .array(
+      z.object({
+        id: z.string(),
+        filename: z.string(),
+        mimeType: z.string(),
+        sizeBytes: z.number().int().nonnegative(),
+      }),
+    )
+    .default([]),
 });
 export type NominationMessageItem = z.infer<typeof NominationMessageItemSchema>;
 

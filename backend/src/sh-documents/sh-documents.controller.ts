@@ -1,3 +1,5 @@
+import { UseInterceptors } from '@nestjs/common';
+import { EmailSendInterceptor } from '../email/email-send.interceptor.js';
 import {
   Body,
   Controller,
@@ -62,6 +64,7 @@ export class SHDocumentsController {
   }
 
   @Post(':shId/send')
+  @UseInterceptors(EmailSendInterceptor)
   send(
     @Param('nominationId', ParseUUIDPipe) nominationId: string,
     @Param('shId', ParseUUIDPipe) shId: string,

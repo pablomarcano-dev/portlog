@@ -1,4 +1,4 @@
-import { useState, type DragEvent } from 'react';
+import { useEffect, useRef, useState, type DragEvent } from 'react';
 import {
   Alert,
   Button,
@@ -16,9 +16,10 @@ import {
   MAX_ATTACHMENT_SIZE_BYTES,
   MAX_ATTACHMENTS_PER_EMAIL,
   MAX_TOTAL_ATTACHMENTS_BYTES,
-  isAllowedAttachmentMimeType,
+  resolveAttachmentMimeType,
 } from '@portlog/schemas';
 import { uploadAttachment, deleteAttachment } from '../../lib/api/attachments';
+import { AttachmentPreviewButton } from './AttachmentPreviewButton';
 
 // ---------------------------------------------------------------------------
 // EmailAttachmentsField — reusable upload widget for email compose surfaces.
@@ -33,6 +34,7 @@ interface UploadedItem {
   id: string;
   filename: string;
   sizeBytes: number;
+  mimeType: string;
 }
 
 interface PendingItem {
@@ -46,6 +48,9 @@ export interface EmailAttachmentsFieldProps {
   value: string[];
   /** Called whenever the set of uploaded attachment IDs changes. */
   onChange: (ids: string[]) => void;
+  onPendingChange: (pending: boolean) => void;
+  /** Suspend the containing modal's Escape handler/focus trap during preview. */
+  onPreviewOpenChange: (opened: boolean) => void;
   disabled?: boolean;
   label?: string;
 }
@@ -62,6 +67,8 @@ const MAX_TOTAL_MB = Math.round(MAX_TOTAL_ATTACHMENTS_BYTES / (1024 * 1024));
 export function EmailAttachmentsField({
   value,
   onChange,
+  onPendingChange,
+  onPreviewOpenChange,
   disabled = false,
   label = 'Attachments',
 }: EmailAttachmentsFieldProps) {
@@ -70,21 +77,29 @@ export function EmailAttachmentsField({
   const [pending, setPending] = useState<PendingItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
 
-  const uploadedTotal = items.reduce((sum, it) => sum + it.sizeBytes, 0);
+  const ids = useRef(value);
+  ids.current = value;
+  const reservations = useRef(new Map<string, number>());
+  const uploadedSizes = useRef(new Map<string, number>());
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
 
   async function handleSelect(files: File[]) {
-    if (!files.length) return;
-
-    let remainingSlots = MAX_ATTACHMENTS_PER_EMAIL - value.length - pending.length;
-    let runningTotal = uploadedTotal + pending.reduce((s, p) => s + p.sizeBytes, 0);
-
-    // `value` is the prop as of the render that started this loop: it does not
-    // update while we await each upload. Accumulate the ids here and hand the
-    // parent the whole list every time — rebuilding from the stale prop on each
-    // iteration meant a multi-file selection submitted only the last upload.
-    const nextIds = [...value];
+    if (!files.length || disabled) return;
 
     for (const file of files) {
+      if (!alive.current) break;
+      const remainingSlots =
+        MAX_ATTACHMENTS_PER_EMAIL - ids.current.length - reservations.current.size;
+      const runningTotal = [
+        ...uploadedSizes.current.values(),
+        ...reservations.current.values(),
+      ].reduce((sum, bytes) => sum + bytes, 0);
       if (remainingSlots <= 0) {
         notifications.show({
           color: 'red',
@@ -93,7 +108,7 @@ export function EmailAttachmentsField({
         });
         break;
       }
-      if (!isAllowedAttachmentMimeType(file.type)) {
+      if (!resolveAttachmentMimeType(file.name, file.type)) {
         notifications.show({
           color: 'red',
           title: 'Unsupported file type',
@@ -118,28 +133,42 @@ export function EmailAttachmentsField({
         break;
       }
 
-      remainingSlots -= 1;
-      runningTotal += file.size;
-
-      const key = `${file.name}-${file.size}-${file.lastModified}`;
+      const key = crypto.randomUUID();
+      reservations.current.set(key, file.size);
+      onPendingChange(true);
       setPending((prev) => [...prev, { key, filename: file.name, sizeBytes: file.size }]);
 
       try {
         const uploaded = await uploadAttachment(file);
+        if (!alive.current) {
+          void deleteAttachment(uploaded.id).catch(() => undefined);
+          continue;
+        }
         setItems((prev) => [
           ...prev,
-          { id: uploaded.id, filename: uploaded.filename, sizeBytes: uploaded.sizeBytes },
+          {
+            id: uploaded.id,
+            filename: uploaded.filename,
+            sizeBytes: uploaded.sizeBytes,
+            mimeType: uploaded.mimeType,
+          },
         ]);
-        nextIds.push(uploaded.id);
-        onChange([...nextIds]);
+        uploadedSizes.current.set(uploaded.id, uploaded.sizeBytes);
+        ids.current = [...ids.current, uploaded.id];
+        onChange(ids.current);
       } catch (err) {
+        if (!alive.current) continue;
         notifications.show({
           color: 'red',
           title: 'Upload failed',
           message: err instanceof Error ? err.message : `Could not upload ${file.name}.`,
         });
       } finally {
-        setPending((prev) => prev.filter((p) => p.key !== key));
+        reservations.current.delete(key);
+        if (alive.current) {
+          setPending((prev) => prev.filter((p) => p.key !== key));
+          onPendingChange(reservations.current.size > 0);
+        }
       }
     }
   }
@@ -147,7 +176,9 @@ export function EmailAttachmentsField({
   function handleRemove(id: string) {
     // Optimistically drop from the UI + value; best-effort delete on the server.
     setItems((prev) => prev.filter((it) => it.id !== id));
-    onChange(value.filter((v) => v !== id));
+    uploadedSizes.current.delete(id);
+    ids.current = ids.current.filter((v) => v !== id);
+    onChange(ids.current);
     void deleteAttachment(id).catch(() => {
       /* staged-object cleanup is best-effort; ignore */
     });
@@ -239,6 +270,10 @@ export function EmailAttachmentsField({
                 <Text size="xs" c="dimmed">
                   {formatBytes(it.sizeBytes)}
                 </Text>
+                <AttachmentPreviewButton
+                  attachment={it}
+                  onPreviewOpenChange={onPreviewOpenChange}
+                />
                 <CloseButton
                   size="sm"
                   aria-label={`Remove ${it.filename}`}

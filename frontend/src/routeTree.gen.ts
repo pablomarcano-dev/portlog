@@ -14,6 +14,7 @@ import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
 import { Route as ProtectedNominationsRouteImport } from './routes/_protected/nominations'
 import { Route as ProtectedMasterDataRouteImport } from './routes/_protected/master-data'
+import { Route as ProtectedChangelogRouteImport } from './routes/_protected/changelog'
 import { Route as ProtectedVesselsIndexRouteImport } from './routes/_protected/vessels/index'
 import { Route as ProtectedServiceRequestsIndexRouteImport } from './routes/_protected/service-requests/index'
 import { Route as ProtectedNominationsIndexRouteImport } from './routes/_protected/nominations/index'
@@ -65,6 +66,11 @@ const ProtectedNominationsRoute = ProtectedNominationsRouteImport.update({
 const ProtectedMasterDataRoute = ProtectedMasterDataRouteImport.update({
   id: '/master-data',
   path: '/master-data',
+  getParentRoute: () => ProtectedRoute,
+} as any)
+const ProtectedChangelogRoute = ProtectedChangelogRouteImport.update({
+  id: '/changelog',
+  path: '/changelog',
   getParentRoute: () => ProtectedRoute,
 } as any)
 const ProtectedVesselsIndexRoute = ProtectedVesselsIndexRouteImport.update({
@@ -232,6 +238,7 @@ const ProtectedAdminUsersRoute = ProtectedAdminUsersRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof ProtectedIndexRoute
   '/login': typeof LoginRoute
+  '/changelog': typeof ProtectedChangelogRoute
   '/master-data': typeof ProtectedMasterData_demoRoute
   '/nominations': typeof ProtectedNominationsRouteWithChildren
   '/admin/users': typeof ProtectedAdminUsersRoute
@@ -264,6 +271,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
+  '/changelog': typeof ProtectedChangelogRoute
   '/master-data': typeof ProtectedMasterData_demoRoute
   '/': typeof ProtectedIndexRoute
   '/admin/users': typeof ProtectedAdminUsersRoute
@@ -298,6 +306,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_protected': typeof ProtectedRouteWithChildren
   '/login': typeof LoginRoute
+  '/_protected/changelog': typeof ProtectedChangelogRoute
   '/_protected/master-data': typeof ProtectedMasterDataRouteWithChildren
   '/_protected/nominations': typeof ProtectedNominationsRouteWithChildren
   '/_protected/': typeof ProtectedIndexRoute
@@ -335,6 +344,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/changelog'
     | '/master-data'
     | '/nominations'
     | '/admin/users'
@@ -367,6 +377,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
+    | '/changelog'
     | '/master-data'
     | '/'
     | '/admin/users'
@@ -400,6 +411,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_protected'
     | '/login'
+    | '/_protected/changelog'
     | '/_protected/master-data'
     | '/_protected/nominations'
     | '/_protected/'
@@ -473,6 +485,13 @@ declare module '@tanstack/react-router' {
       path: '/master-data'
       fullPath: '/master-data'
       preLoaderRoute: typeof ProtectedMasterDataRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
+    '/_protected/changelog': {
+      id: '/_protected/changelog'
+      path: '/changelog'
+      fullPath: '/changelog'
+      preLoaderRoute: typeof ProtectedChangelogRouteImport
       parentRoute: typeof ProtectedRoute
     }
     '/_protected/vessels/': {
@@ -738,6 +757,7 @@ const ProtectedNominationsRouteWithChildren =
   ProtectedNominationsRoute._addFileChildren(ProtectedNominationsRouteChildren)
 
 interface ProtectedRouteChildren {
+  ProtectedChangelogRoute: typeof ProtectedChangelogRoute
   ProtectedMasterDataRoute: typeof ProtectedMasterDataRouteWithChildren
   ProtectedNominationsRoute: typeof ProtectedNominationsRouteWithChildren
   ProtectedIndexRoute: typeof ProtectedIndexRoute
@@ -750,6 +770,7 @@ interface ProtectedRouteChildren {
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
+  ProtectedChangelogRoute: ProtectedChangelogRoute,
   ProtectedMasterDataRoute: ProtectedMasterDataRouteWithChildren,
   ProtectedNominationsRoute: ProtectedNominationsRouteWithChildren,
   ProtectedIndexRoute: ProtectedIndexRoute,

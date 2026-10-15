@@ -724,7 +724,102 @@ describe('NominationsService', () => {
     });
   });
 
+  describe('nomination action message groups', () => {
+    it('includes only the matching group for explicitly assigned nomination clients', async () => {
+      const group = (id: string) => ({ id, name: id, members: [{ email: `${id}@example.test` }] });
+      mockPrisma.nomination.findUnique.mockResolvedValue({
+        clientId: 'instruction-client',
+        chartererId: 'charterer',
+        shipParticular: { operatorId: 'operator' },
+        nominationClients: [
+          {
+            clientId: 'first',
+            name: 'First Client',
+            messageOrder: 1,
+            client: {
+              emailGroups: [
+                { slot: 'FIRST_MESSAGE', emailGroup: group('first-group') },
+                { slot: 'SECOND_MESSAGE', emailGroup: group('unassigned-second') },
+              ],
+            },
+          },
+          {
+            clientId: 'unassigned',
+            name: 'Unassigned Client',
+            messageOrder: null,
+            client: {
+              emailGroups: [
+                { slot: 'FIRST_MESSAGE', emailGroup: group('unassigned-client-group') },
+              ],
+            },
+          },
+          { clientId: null, name: 'Manual client', messageOrder: 3, client: null },
+        ],
+      });
+      const context = await service.clientEmailContext(NOM_ID);
+      expect(context.messageGroups).toEqual([
+        {
+          id: 'first-group',
+          name: 'first-group',
+          memberCount: 1,
+          clientName: 'First Client',
+          messageOrder: 1,
+        },
+      ]);
+      expect(context.clientIds).toContain('instruction-client');
+    });
+    it('does not fall back to global or standing groups when no nomination slots are assigned', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue({
+        clientId: 'instruction-client',
+        chartererId: null,
+        shipParticular: { operatorId: null },
+        nominationClients: [],
+      });
+      expect((await service.clientEmailContext(NOM_ID)).messageGroups).toEqual([]);
+    });
+  });
+
   describe('instruction group slots', () => {
+    it('uses explicit nomination message assignments and leaves unassigned slots empty', async () => {
+      const fixture = nominationInstructionsFixture();
+      mockPrisma.nomination.findUnique.mockResolvedValue({
+        ...fixture,
+        client: {
+          ...fixture.client,
+          emailGroups: [
+            { slot: 'SECOND_MESSAGE', emailGroup: { name: 'Legacy second', members: [] } },
+          ],
+        },
+        nominationClients: [
+          {
+            name: 'First recipient',
+            type: 'Charterer',
+            messageOrder: 1,
+            client: {
+              emailGroups: [
+                {
+                  slot: 'FIRST_MESSAGE',
+                  emailGroup: {
+                    name: 'Assigned first',
+                    members: [{ email: 'first@example.test', displayName: null }],
+                  },
+                },
+              ],
+            },
+          },
+          { name: 'Third recipient', type: 'Owner', messageOrder: 3, client: null },
+        ],
+      });
+      await service.generateNominationInstructions(NOM_ID);
+      expect(mockNominationInstructionsDocx.render).toHaveBeenCalledWith(
+        expect.objectContaining({
+          firstMessage: 'Client: First recipient\nGroup: Assigned first\nfirst@example.test',
+          secondMessage: '—',
+          thirdMessage: 'Client: Third recipient\nNo email group assigned for this message.',
+        }),
+      );
+    });
+
     it('prints the four Client groups independently of nomination recipients', async () => {
       const fixture = nominationInstructionsFixture();
       mockPrisma.nomination.findUnique.mockResolvedValue({
@@ -1110,6 +1205,34 @@ describe('NominationsService', () => {
       expect(html).toContain('Ref: MT Maran Leo\nLaydays: Jul. 06th-10th, 2026');
     });
 
+    it('returns the persisted sent receipt including enforced recipients and actual HTML', async () => {
+      mockPrisma.pedr.findUnique.mockResolvedValue({
+        id: 'pedr-1',
+        nomination: {
+          branch: { emails: ['branch@example.test'], contactEmails: [], centralEmails: [] },
+        },
+      });
+      const sentAt = new Date('2026-10-15T16:00:00Z');
+      let recorded: Record<string, unknown> = {};
+      mockPrisma.emailDispatch.create.mockImplementation(
+        async ({ data }: { data: Record<string, unknown> }) => {
+          recorded = { ...data, id: 'persisted-dispatch' };
+          return recorded;
+        },
+      );
+      mockPrisma.emailDispatch.update.mockImplementation(async () => ({ ...recorded, sentAt }));
+      const receipt = await service.sendEmail('nom-1', input(BODY), 'user-1');
+      expect(receipt).toEqual(
+        expect.objectContaining({
+          id: 'persisted-dispatch',
+          generatedPdfExpected: false,
+          sentAt,
+          ccAddresses: ['branch@example.test'],
+          bodyHtml: mockEmailService.send.mock.calls[0][0].html,
+        }),
+      );
+    });
+
     it('archives exactly what was mailed', async () => {
       await service.sendEmail('nom-1', input(BODY), 'user-1');
 
@@ -1470,6 +1593,24 @@ describe('NominationsService', () => {
         bodyText: 'body',
         bodyHtml: '<pre>body</pre>',
       });
+    });
+
+    it('keeps the nomination fallback ETA date and hours together when no ETA record exists', async () => {
+      const etaDate = new Date(2026, 9, 16, 13, 45);
+      mockPrisma.nomination.findUnique.mockResolvedValue(composeNomination({ etaDate }));
+      await service.getComposeData(NOM_ID, 'ETA_TERMINAL', 'agent@navieramar.com');
+      expect(lastTemplateVars()['eta_date']).toBeTruthy();
+      expect(lastTemplateVars()['eta_time']).toBe('13:45');
+    });
+
+    it('composes ETA recaps from the supplied template with client recipients', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(composeNomination());
+      const result = await service.getComposeData(NOM_ID, 'ETA_RECAP', 'agent@navieramar.com');
+      expect(mockEmailTemplateService.render).toHaveBeenCalledWith(
+        '01_prearrival/07_eta_recaps_and_nor.hbs',
+        expect.objectContaining({ vessel_name: 'HAKKAISAN' }),
+      );
+      expect(result.toAddresses).toEqual(composeNomination().emailTo);
     });
 
     it('addresses the To line to the vessel, with the master in a fixed column', async () => {

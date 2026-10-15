@@ -43,7 +43,6 @@ function ShipParticularsScreen() {
     return {
       name: ship.name,
       callSign: ship.callSign ?? undefined,
-      abbreviation: ship.abbreviation ?? undefined,
       loa: ship.loa ?? undefined,
       dwt: ship.dwt ?? undefined,
       grt: ship.grt ?? undefined,
@@ -112,26 +111,13 @@ function ShipParticularFields({
 
   return (
     <Stack gap="sm">
-      {/* Row 1: Name + Abbreviation */}
-      <Grid>
-        <Grid.Col span={8}>
-          <TextInput
-            label="Name"
-            placeholder="e.g. MV Atlantic Star"
-            required
-            error={form.formState.errors.name?.message}
-            {...form.register('name')}
-          />
-        </Grid.Col>
-        <Grid.Col span={4}>
-          <TextInput
-            label="Abbreviation"
-            placeholder="e.g. MVAS"
-            error={form.formState.errors.abbreviation?.message}
-            {...form.register('abbreviation')}
-          />
-        </Grid.Col>
-      </Grid>
+      <TextInput
+        label="Name"
+        placeholder="e.g. MV Atlantic Star"
+        required
+        error={form.formState.errors.name?.message}
+        {...form.register('name')}
+      />
 
       {/* Row 2: Call Sign + IMO Number */}
       <Grid>

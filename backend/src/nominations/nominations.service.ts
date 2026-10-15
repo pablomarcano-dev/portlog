@@ -181,6 +181,7 @@ export const COMPOSE_TEMPLATE_PATHS: Record<string, string> = {
   ETA_REQUEST: '01_prearrival/01_eta_request_to_master.hbs',
   ETA_TERMINAL: '01_prearrival/03_eta_forwarded_to_terminal.hbs',
   ETA_REPLY: '01_prearrival/02_reply_to_master_eta_notice.hbs',
+  ETA_RECAP: '01_prearrival/07_eta_recaps_and_nor.hbs',
   NOR: '01_prearrival/06_nor_tendered_to_terminal.hbs',
   CARGO_UPDATE: '02_statement_of_facts/07_cargo_update.hbs',
   SOF: '02_statement_of_facts/15_final_sof.hbs',
@@ -842,11 +843,38 @@ export class NominationsService {
         clientId: true,
         chartererId: true,
         shipParticular: { select: { operatorId: true } },
-        nominationClients: { select: { clientId: true } },
+        nominationClients: {
+          orderBy: [{ messageOrder: 'asc' }, { sortOrder: 'asc' }],
+          select: {
+            clientId: true,
+            name: true,
+            messageOrder: true,
+            client: { select: { emailGroups: CLIENT_SELECT.emailGroups } },
+          },
+        },
       },
     });
     if (!nomination) throw new NotFoundException('Nomination not found.');
+    const slots = ['FIRST_MESSAGE', 'SECOND_MESSAGE', 'THIRD_MESSAGE'];
+    const messageGroups = nomination.nominationClients.flatMap((row) => {
+      if (row.messageOrder == null) return [];
+      const group = row.client?.emailGroups.find(
+        (assignment) => assignment.slot === slots[row.messageOrder! - 1],
+      )?.emailGroup;
+      return group
+        ? [
+            {
+              id: group.id,
+              name: group.name,
+              memberCount: group.members.length,
+              clientName: row.name,
+              messageOrder: row.messageOrder,
+            },
+          ]
+        : [];
+    });
     return {
+      messageGroups,
       clientIds: [
         ...new Set(
           [
@@ -911,6 +939,8 @@ export class NominationsService {
             voyageRef: true,
             referenceNo: true,
             proforma: true,
+            messageOrder: true,
+            client: { select: { name: true, emailGroups: CLIENT_SELECT.emailGroups } },
           },
         },
       },
@@ -932,15 +962,41 @@ export class NominationsService {
       );
       return [channels ? `${contact.name}: ${channels}` : contact.name];
     });
+    const hasMessageAssignments = nomination.nominationClients.some(
+      (row) => row.messageOrder != null,
+    );
     const groupText = (slot: ClientEmailSlot) => {
-      const group = client.emailGroups.find((assignment) => assignment.slot === slot)?.emailGroup;
-      if (!group) return '—';
-      return [
-        `Group: ${group.name}`,
-        ...group.members.map((member) =>
-          member.displayName ? `${member.displayName} <${member.email}>` : member.email,
-        ),
-      ].join('\n');
+      const order = { FIRST_MESSAGE: 1, SECOND_MESSAGE: 2, THIRD_MESSAGE: 3, CC_MESSAGE: null }[
+        slot
+      ];
+      const assignedRows = nomination.nominationClients.filter((row) => row.messageOrder === order);
+      // Preserve the standing instruction groups for legacy nominations until
+      // the operator explicitly assigns clients to this nomination's messages.
+      const sources =
+        hasMessageAssignments && order !== null
+          ? assignedRows.map((row) => ({ name: row.name, groups: row.client?.emailGroups ?? [] }))
+          : [{ name: '', groups: client.emailGroups }];
+      return (
+        sources
+          .map(({ name, groups }) => {
+            const group = groups.find((assignment) => assignment.slot === slot)?.emailGroup;
+            return [
+              ...(name ? [`Client: ${name}`] : []),
+              ...(group
+                ? [
+                    `Group: ${group.name}`,
+                    ...group.members.map((member) =>
+                      member.displayName ? `${member.displayName} <${member.email}>` : member.email,
+                    ),
+                  ]
+                : name
+                  ? ['No email group assigned for this message.']
+                  : []),
+            ].join('\n');
+          })
+          .filter(Boolean)
+          .join('\n\n') || '—'
+      );
     };
 
     const rowByType = (patterns: RegExp[]) =>
@@ -1032,10 +1088,15 @@ export class NominationsService {
   async getNominationMessages(nominationId: string) {
     await this.assertNominationExists(nominationId);
 
+    const attachmentSelect = { id: true, filename: true, mimeType: true, sizeBytes: true } as const;
+
     // Query email_dispatches via pedr -> nominationId
     const pedrDispatches = await this.prisma.emailDispatch.findMany({
       where: { pedr: { nominationId } },
-      include: { sentBy: { select: { id: true, email: true } } },
+      include: {
+        sentBy: { select: { id: true, email: true } },
+        attachments: { select: attachmentSelect, orderBy: { createdAt: 'asc' } },
+      },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -1045,6 +1106,7 @@ export class NominationsService {
       include: {
         sentBy: { select: { id: true, email: true } },
         shDocument: { select: { type: true } },
+        attachments: { select: attachmentSelect, orderBy: { createdAt: 'asc' } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -1056,12 +1118,14 @@ export class NominationsService {
       subject: string;
       toAddresses: string[];
       ccAddresses: string[];
+      bccAddresses: string[];
       sentAt: string | null;
       status: 'SENT' | 'FAILED' | 'PENDING';
       error: string | null;
       createdAt: string;
       sentBy: { id: string; email: string };
       bodyHtml: string | null;
+      attachments: { id: string; filename: string; mimeType: string; sizeBytes: number }[];
     };
 
     const pedrItems: MessageItem[] = pedrDispatches.map((d) => ({
@@ -1071,12 +1135,14 @@ export class NominationsService {
       subject: d.subject,
       toAddresses: d.toAddresses,
       ccAddresses: d.ccAddresses,
+      bccAddresses: d.bccAddresses ?? [],
       sentAt: d.sentAt ? d.sentAt.toISOString() : null,
       status: d.sentAt ? 'SENT' : d.error ? 'FAILED' : 'PENDING',
       error: d.error,
       createdAt: d.createdAt.toISOString(),
       sentBy: d.sentBy,
       bodyHtml: d.bodyHtml ?? null,
+      attachments: d.attachments ?? [],
     }));
 
     const shItems: MessageItem[] = shDispatches.map((d) => ({
@@ -1086,12 +1152,14 @@ export class NominationsService {
       subject: d.subject,
       toAddresses: d.toAddresses,
       ccAddresses: d.ccAddresses,
+      bccAddresses: d.bccAddresses ?? [],
       sentAt: d.sentAt ? d.sentAt.toISOString() : null,
       status: d.sentAt ? 'SENT' : d.error ? 'FAILED' : 'PENDING',
       error: d.error,
       createdAt: d.createdAt.toISOString(),
       sentBy: d.sentBy,
       bodyHtml: d.bodyHtml ?? null,
+      attachments: d.attachments ?? [],
     }));
 
     const items = [...pedrItems, ...shItems].sort(
@@ -1360,7 +1428,7 @@ export class NominationsService {
       master_msg_date: fmtDate(etaRecord?.msgEta ?? null),
       nomination_date: fmtDate(nomination.dateNominated),
       eta_date: fmtDate(etaRecord?.etaNotify ?? nomination.etaDate ?? null),
-      eta_time: fmtTime(etaRecord?.etaNotify ?? null),
+      eta_time: fmtTime(etaAnchor),
       distance_to_go: '',
       etpobOn: etaRecord?.etpobOn ?? false,
       etpob_date: fmtDate(etaRecord?.etpob ?? null),
@@ -2138,11 +2206,7 @@ export class NominationsService {
   }
 
   /** Returns the sale's service window so callers can validate partial updates against it. */
-  async sendEmail(
-    nominationId: string,
-    body: SendNominationEmailInput,
-    userId: string,
-  ): Promise<void> {
+  async sendEmail(nominationId: string, body: SendNominationEmailInput, userId: string) {
     const pedr = await this.prisma.pedr.findUnique({
       where: { nominationId },
       select: {
@@ -2175,24 +2239,149 @@ export class NominationsService {
         bccAddresses: body.bccAddresses,
         subject: body.subject,
         bodyHtml,
+        generatedPdfExpected: false,
         sentById: userId,
       },
     });
 
-    await this.emailService.send({
-      to: body.toAddresses,
-      cc: ccAddresses,
-      bcc: body.bccAddresses,
-      subject: body.subject,
-      html: bodyHtml,
-      attachments: userAttachments.length ? userAttachments : undefined,
-    });
+    try {
+      await this.attachmentsService.linkToEmailDispatch(body.attachmentIds ?? [], dispatch.id);
+      await this.emailService.send({
+        to: body.toAddresses,
+        cc: ccAddresses,
+        bcc: body.bccAddresses,
+        subject: body.subject,
+        html: bodyHtml,
+        attachments: userAttachments.length ? userAttachments : undefined,
+      });
 
-    await this.prisma.emailDispatch.update({
-      where: { id: dispatch.id },
-      data: { sentAt: new Date() },
+      const receipt = await this.prisma.emailDispatch.update({
+        where: { id: dispatch.id },
+        data: { sentAt: new Date() },
+      });
+      return receipt;
+    } catch (error) {
+      await this.prisma.emailDispatch
+        .update({
+          where: { id: dispatch.id },
+          data: {
+            error: error instanceof Error ? error.message : String(error),
+          },
+        })
+        .catch(() => undefined);
+      throw error;
+    }
+  }
+
+  /** Replay an archived sent message, including BCC and generated/uploaded files.
+   * Scoped lookup prevents a caller from using another nomination's dispatch. */
+  async resendMessage(
+    nominationId: string,
+    source: 'PEDR_DISPATCH' | 'SH_DISPATCH',
+    messageId: string,
+    userId: string,
+  ) {
+    const original =
+      source === 'PEDR_DISPATCH'
+        ? await this.prisma.emailDispatch.findFirst({
+            where: { id: messageId, pedr: { nominationId } },
+            include: { attachments: true },
+          })
+        : await this.prisma.shDocumentDispatch.findFirst({
+            where: { id: messageId, shDocument: { nominationId } },
+            include: { attachments: true },
+          });
+    if (!original) throw new NotFoundException('Message not found on this nomination.');
+    if (!original.sentAt)
+      throw new ConflictException(
+        'Only confirmed sent messages can be replayed. Reconcile unconfirmed delivery first.',
+      );
+    // A null archive key is ambiguous for historical PEDR messages. Never
+    // infer "no PDF" from type/body: both send paths share document types.
+    // SH dispatches always include a generated PDF.
+    if (
+      !original.pdfStorageKey &&
+      (!('generatedPdfExpected' in original) || original.generatedPdfExpected !== false)
+    ) {
+      throw new ConflictException(
+        'Exact resend blocked: the original generated PDF archive is missing or its presence ' +
+          'cannot be verified. Review the original message before composing a new message.',
+      );
+    }
+    const ids = original.attachments.map((file) => file.id);
+    const files = await this.attachmentsService.resolveForSend(ids);
+    if (original.pdfStorageKey)
+      files.unshift(
+        await this.attachmentsService.storedPdf(original.pdfStorageKey, 'original-document.pdf'),
+      );
+    const data = {
+      toAddresses: original.toAddresses,
+      ccAddresses: original.ccAddresses,
+      bccAddresses: original.bccAddresses,
+      subject: original.subject,
+      bodyHtml: original.bodyHtml,
+      pdfStorageKey: original.pdfStorageKey,
+      sentById: userId,
+    };
+    if ('pedrId' in original) {
+      const dispatch = await this.prisma.emailDispatch.create({
+        data: {
+          ...data,
+          pedrId: original.pedrId,
+          subDocType: original.subDocType,
+          generatedPdfExpected: original.generatedPdfExpected,
+        },
+      });
+      try {
+        await this.attachmentsService.linkToEmailDispatch(ids, dispatch.id);
+        await this.emailService.send({
+          to: data.toAddresses,
+          cc: data.ccAddresses,
+          bcc: data.bccAddresses,
+          subject: data.subject,
+          html: data.bodyHtml ?? '',
+          attachments: files,
+        });
+        return await this.prisma.emailDispatch.update({
+          where: { id: dispatch.id },
+          data: { sentAt: new Date() },
+        });
+      } catch (error) {
+        await this.prisma.emailDispatch
+          .update({
+            where: { id: dispatch.id },
+            data: { error: error instanceof Error ? error.message : String(error) },
+          })
+          .catch(() => undefined);
+        throw error;
+      }
+    }
+    const dispatch = await this.prisma.shDocumentDispatch.create({
+      data: { ...data, pdfStorageKey: original.pdfStorageKey, shDocumentId: original.shDocumentId },
     });
-    await this.attachmentsService.linkToEmailDispatch(body.attachmentIds ?? [], dispatch.id);
+    try {
+      await this.attachmentsService.linkToShDocumentDispatch(ids, dispatch.id);
+      await this.emailService.send({
+        to: data.toAddresses,
+        cc: data.ccAddresses,
+        bcc: data.bccAddresses,
+        subject: data.subject,
+        html: data.bodyHtml ?? '',
+        attachments: files,
+      });
+      return await this.prisma.shDocumentDispatch.update({
+        where: { id: dispatch.id },
+        data: { sentAt: new Date() },
+      });
+    } catch (error) {
+      await this.prisma.shDocumentDispatch
+        .update({
+          where: { id: dispatch.id },
+          data: { error: error instanceof Error ? error.message : String(error) },
+        })
+        .catch(() => undefined);
+      throw error;
+    }
   }
 
   // ---------------------------------------------------------------------------

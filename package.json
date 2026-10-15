@@ -45,5 +45,11 @@
     "@nestjs/throttler": "^6.5.0",
     "bottleneck": "^2.19.5",
     "lru-cache": "^11.3.6"
+  },
+  "allowScripts": {
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "prisma@6.19.3": true,
+    "bcrypt@5.1.1": true
   }
 }

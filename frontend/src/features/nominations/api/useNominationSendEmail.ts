@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
-import { apiRequest } from '../../../lib/api/client';
+import { emailDispatchResponseSchema } from '@portlog/schemas';
+import { apiSend } from '../../../lib/api/sendRequest';
 
 interface SendEmailBody {
   subDocType: string;
@@ -17,14 +18,19 @@ export function useNominationSendEmail(nominationId: string | undefined) {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: (body: SendEmailBody) =>
-      apiRequest<void>(`/nominations/${nominationId}/send-email`, {
-        method: 'POST',
-        body: JSON.stringify(body),
-      }),
+    mutationFn: async (body: SendEmailBody) => {
+      const raw = await apiSend<unknown>(
+        `/nominations/${nominationId}/send-email?receipt=true`,
+        body,
+      );
+      // A successful send remains successful if an older server returns no
+      // receipt. Never encourage a duplicate send just because printing failed.
+      const parsed = emailDispatchResponseSchema.safeParse(raw);
+      return parsed.success ? parsed.data : null;
+    },
     onSuccess: () => {
       if (nominationId) {
-        void qc.invalidateQueries({ queryKey: ['nomination', nominationId, 'messages'] });
+        void qc.invalidateQueries({ queryKey: ['nomination', nominationId] });
       }
       notifications.show({
         title: 'Email sent',

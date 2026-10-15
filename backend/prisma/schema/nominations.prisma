@@ -194,6 +194,7 @@ model NominationClient {
   referenceNo  String?
   proforma     String?
   broker       String?
+  messageOrder Int? // 1st / 2nd / 3rd message for this nomination only
   sortOrder    Int        @default(0)
   createdAt    DateTime   @default(now()) @db.Timestamptz(6)
   updatedAt    DateTime   @updatedAt @db.Timestamptz(6)

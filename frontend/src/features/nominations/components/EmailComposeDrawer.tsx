@@ -13,19 +13,22 @@ import {
   Table,
   Divider,
   NumberInput,
+  Checkbox,
 } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import { DateTimePicker, DatePickerInput } from '@mantine/dates';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { usePedrEvents } from '../api/usePedrEvents';
-import type { SubDocType } from '@portlog/schemas';
+import type { EmailDispatchResponse, SubDocType } from '@portlog/schemas';
 import { useEmailDispatch } from '../api/useEmailDispatch';
 import { useNominationCompose } from '../api/useNominationCompose';
 import { useNominationSendEmail } from '../api/useNominationSendEmail';
 import { EmailGroupPicker } from '../../../components/master-data/EmailGroupPicker';
 import { EmailChipsInput } from '../../../components/master-data/EmailChipsInput';
 import { EmailAttachmentsField } from '../../../components/master-data/EmailAttachmentsField';
+import { openEmailPrintWindow, printStoredEmailInWindow } from '../../../lib/printEmail';
 import { formatDateTime } from '../../../lib/format/datetime';
 
 // ---------------------------------------------------------------------------
@@ -59,6 +62,7 @@ const SUB_DOC_LABELS: Record<SubDocType, string> = {
   ETA_REQUEST: 'ETA Request to Master',
   ETA_TERMINAL: 'ETA — Send to Terminal',
   ETA_REPLY: 'Reply to Master (ETB/ETPOB)',
+  ETA_RECAP: 'ETA’s Recaps & NOR',
   NOR: 'Notice of Readiness',
   SOF: 'Statement of Facts',
   CARGO_UPDATE: 'Cargo Update',
@@ -77,6 +81,7 @@ const composeSchema = z.object({
   // time — nothing here composes HTML.
   bodyText: z.string().default(''),
   attachmentIds: z.array(z.string()).default([]),
+  printAfterSending: z.boolean().default(false),
   etb: z.date().nullable().optional(),
   berthNumber: z.string().optional(),
   etcDate: z.date().nullable().optional(),
@@ -111,6 +116,7 @@ export function EmailComposeDrawer({
     subDocType === 'ETA_REQUEST' ||
     subDocType === 'ETA_TERMINAL' ||
     subDocType === 'ETA_REPLY' ||
+    subDocType === 'ETA_RECAP' ||
     // The NOR forwarded to the terminal is a plain-text letter quoting the
     // master's notice, not a generated form — so it goes out on the
     // nomination-level route (no auto-generated PDF), like the others here.
@@ -135,6 +141,7 @@ export function EmailComposeDrawer({
       subject: subjectOverride || defaultSubject,
       bodyText: defaultBody,
       attachmentIds: [],
+      printAfterSending: false,
       etb: null,
       berthNumber: '',
       etcDate: null,
@@ -173,14 +180,51 @@ export function EmailComposeDrawer({
   // Bumped on close so EmailAttachmentsField remounts fresh (clears its internal
   // file list) — the form value resets, but the widget keeps local UI metadata.
   const [attachKey, setAttachKey] = useState(0);
+  const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
+  const [uploadsPending, setUploadsPending] = useState(false);
 
   function handleClose() {
+    if (uploadsPending || (isNominationLevel ? nominationSend : dispatch).isPending) return;
+    setAttachmentPreviewOpen(false);
     reset();
     setAttachKey((k) => k + 1);
     onClose();
   }
 
   async function onSubmit(values: ComposeForm) {
+    if (uploadsPending || (isNominationLevel ? nominationSend : dispatch).isPending) return;
+    const printWindow = values.printAfterSending ? openEmailPrintWindow() : null;
+    if (values.printAfterSending && !printWindow) {
+      notifications.show({
+        color: 'yellow',
+        title: 'Printing window blocked',
+        message:
+          'Allow pop-ups to print after sending. You can also print this message from Messages.',
+      });
+    }
+    const afterSend = {
+      onSuccess: (receipt: EmailDispatchResponse | null) => {
+        if (values.printAfterSending) {
+          if (receipt?.sentAt) {
+            printStoredEmailInWindow(printWindow, {
+              ...receipt,
+              sentAt: receipt.sentAt,
+              type: receipt.subDocType,
+            });
+          } else {
+            printWindow?.close();
+            notifications.show({
+              color: 'yellow',
+              title: 'Email sent; receipt unavailable',
+              message:
+                'Open the sent message in Messages to print its recorded contents. Do not resend it.',
+            });
+          }
+        }
+        handleClose();
+      },
+      onError: () => printWindow?.close(),
+    };
     const extraData =
       subDocType === 'ETA_ETB'
         ? {
@@ -209,7 +253,7 @@ export function EmailComposeDrawer({
           bodyText: values.bodyText,
           attachmentIds: values.attachmentIds,
         },
-        { onSuccess: () => handleClose() },
+        afterSend,
       );
     } else {
       dispatch.mutate(
@@ -223,7 +267,7 @@ export function EmailComposeDrawer({
           extraData,
           attachmentIds: values.attachmentIds,
         },
-        { onSuccess: () => handleClose() },
+        afterSend,
       );
     }
   }
@@ -233,6 +277,17 @@ export function EmailComposeDrawer({
   return (
     <Modal
       opened={opened}
+      closeOnEscape={
+        !attachmentPreviewOpen &&
+        !uploadsPending &&
+        !(isNominationLevel ? nominationSend : dispatch).isPending
+      }
+      closeOnClickOutside={
+        !attachmentPreviewOpen &&
+        !uploadsPending &&
+        !(isNominationLevel ? nominationSend : dispatch).isPending
+      }
+      trapFocus={!attachmentPreviewOpen}
       onClose={handleClose}
       title={
         <Text fw={600} size="sm">
@@ -249,6 +304,12 @@ export function EmailComposeDrawer({
       ) : (
         <form onSubmit={(e) => void handleSubmit(onSubmit)(e)}>
           <Stack gap="sm">
+            {subDocType === 'ETA_RECAP' && (
+              <Alert color="blue" title="ETA recaps and NOR attachments">
+                Attach the ETA recap and NOR documents referenced in this message, then review the
+                attachments before sending.
+              </Alert>
+            )}
             {/* SOF event log preview */}
             {subDocType === 'SOF' && (
               <Box>
@@ -326,6 +387,7 @@ export function EmailComposeDrawer({
 
             {/* Add from group */}
             <EmailGroupPicker
+              nominationOnly
               nominationId={nominationId}
               targets={[
                 {
@@ -372,6 +434,8 @@ export function EmailComposeDrawer({
             <EmailAttachmentsField
               key={attachKey}
               value={attachmentIds}
+              onPreviewOpenChange={setAttachmentPreviewOpen}
+              onPendingChange={setUploadsPending}
               onChange={(ids) => setValue('attachmentIds', ids)}
               disabled={(isNominationLevel ? nominationSend : dispatch).isPending}
             />
@@ -504,12 +568,26 @@ export function EmailComposeDrawer({
               </Alert>
             )}
 
+            <Controller
+              name="printAfterSending"
+              control={control}
+              render={({ field }) => (
+                <Checkbox
+                  label="Print after sending"
+                  checked={field.value}
+                  onChange={(event) => field.onChange(event.currentTarget.checked)}
+                />
+              )}
+            />
+
             {/* Actions */}
             <Group justify="flex-end" mt="sm">
               <Button
                 variant="default"
                 onClick={handleClose}
-                disabled={(isNominationLevel ? nominationSend : dispatch).isPending}
+                disabled={
+                  (isNominationLevel ? nominationSend : dispatch).isPending || uploadsPending
+                }
               >
                 Close
               </Button>
@@ -520,9 +598,10 @@ export function EmailComposeDrawer({
                 type="submit"
                 loading={(isNominationLevel ? nominationSend : dispatch).isPending}
                 disabled={
-                  subDocType === 'CARGO_UPDATE' &&
-                  !isNominationLevel &&
-                  (blQuantity == null || !blDate)
+                  uploadsPending ||
+                  (subDocType === 'CARGO_UPDATE' &&
+                    !isNominationLevel &&
+                    (blQuantity == null || !blDate))
                 }
               >
                 Send

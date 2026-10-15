@@ -17,6 +17,7 @@ const NAV_LINKS = [
   { label: 'Vessels', to: '/vessels' },
   { label: 'Service Requests', to: '/service-requests' },
   { label: 'Master Data', to: '/master-data/flags' },
+  { label: 'Changelog', to: '/changelog' },
 ] as const;
 
 const ADMIN_NAV_LINKS = [{ label: 'Admin', to: '/admin/users' }] as const;
@@ -48,9 +49,17 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <MantineAppShell header={{ height: 56 }}>
       <MantineAppShell.Header>
-        <Group h="100%" px="md" justify="space-between">
-          <Group gap="lg">
-            <Text fw={600}>Portlog</Text>
+        <Group h="100%" px="md" justify="space-between" wrap="nowrap">
+          <Text fw={600} visibleFrom="md">
+            Portlog
+          </Text>
+          <Group
+            component="nav"
+            aria-label="Main navigation"
+            gap="lg"
+            wrap="nowrap"
+            style={{ flex: 1, minWidth: 0, overflowX: 'auto' }}
+          >
             {[...NAV_LINKS, ...(currentUser?.role === 'ADM' ? ADMIN_NAV_LINKS : [])].map((link) => {
               const isActive = currentPath.startsWith(link.to.split('/').slice(0, 2).join('/'));
               return (
@@ -61,6 +70,8 @@ export function AppShell({ children }: AppShellProps) {
                     color: isActive ? 'var(--mantine-color-blue-7)' : 'var(--mantine-color-gray-7)',
                     fontWeight: isActive ? 600 : 400,
                     fontSize: 'var(--mantine-font-size-sm)',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
                     borderBottom: isActive
                       ? '2px solid var(--mantine-color-blue-6)'
                       : '2px solid transparent',
@@ -73,11 +84,15 @@ export function AppShell({ children }: AppShellProps) {
               );
             })}
           </Group>
-          <Group gap="sm">
+          <Group gap="sm" wrap="nowrap">
             {currentUser !== undefined && (
               <>
-                <Text size="sm">{currentUser.email}</Text>
-                <Badge variant="light">{currentUser.role}</Badge>
+                <Text size="sm" visibleFrom="lg">
+                  {currentUser.email}
+                </Text>
+                <Badge variant="light" visibleFrom="sm">
+                  {currentUser.role}
+                </Badge>
               </>
             )}
             <Button

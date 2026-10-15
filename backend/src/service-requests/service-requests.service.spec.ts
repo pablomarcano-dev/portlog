@@ -715,6 +715,21 @@ describe('ServiceRequestsService', () => {
       );
     });
 
+    it.each(['resolveForSend', 'resolveServiceRequestDocuments', 'linkToServiceRequestDispatch'])(
+      'does not send a partial order resend when %s fails',
+      async (method) => {
+        prisma.serviceRequest.findUnique.mockResolvedValue(
+          makeRequest({ status: 'SENT', minioKey: 'earlier.pdf' }),
+        );
+        const resolver = attachments[method as keyof typeof attachments];
+        resolver.mockRejectedValueOnce(new Error('required attachment unavailable'));
+        await expect(service.sendOrder(REQ_ID, sendDto as never, 'user-1')).rejects.toThrow(
+          'required attachment unavailable',
+        );
+        expect(email.send).not.toHaveBeenCalled();
+      },
+    );
+
     it('keeps a PDF referenced by an earlier dispatch during resend', async () => {
       prisma.serviceRequest.findUnique.mockResolvedValue(
         makeRequest({ status: 'SENT', minioKey: 'earlier.pdf' }),
@@ -802,17 +817,18 @@ describe('ServiceRequestsService', () => {
       );
     });
 
-    it('keeps the request SENT and records the error when SMTP fails', async () => {
+    it('reports failure and records the error without claiming a successful send', async () => {
       prisma.serviceRequest.findUnique.mockResolvedValue(makeRequest());
       email.send.mockRejectedValue(new Error('relay refused'));
 
-      const result = await service.sendOrder(REQ_ID, sendDto as never, 'user-1');
+      await expect(service.sendOrder(REQ_ID, sendDto as never, 'user-1')).rejects.toThrow(
+        'relay refused',
+      );
 
       expect(prisma.serviceRequestDispatch.update).toHaveBeenCalledWith({
         where: { id: 'dispatch-1' },
         data: { error: 'relay refused' },
       });
-      expect(result.dispatch.sentAt).toBeNull();
       // Deliberately NOT reverted to DRAFT — see the sendOrder doc comment.
       expect(prisma.serviceRequest.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ status: 'SENT' }) }),

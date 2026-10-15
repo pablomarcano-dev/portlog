@@ -18,7 +18,6 @@ import type { VesselInfo } from '@portlog/schemas';
 
 const QuickShipSchema = z.object({
   name: z.string().min(1, 'Name is required').max(120),
-  abbreviation: z.string().min(1).max(20).optional().or(z.literal('')),
   imoNumber: z
     .string()
     .regex(/^\d{7}$/, 'Must be exactly 7 digits')
@@ -75,7 +74,7 @@ export function NewShipParticularModal({ opened, onClose, onCreated }: Props) {
 
   const form = useForm<QuickShipInput>({
     resolver: zodResolver(QuickShipSchema),
-    defaultValues: { name: '', abbreviation: '', imoNumber: '', callSign: '', flagId: '' },
+    defaultValues: { name: '', imoNumber: '', callSign: '', flagId: '' },
   });
 
   const { register, handleSubmit, control, formState, reset, watch, setValue } = form;
@@ -155,7 +154,6 @@ export function NewShipParticularModal({ opened, onClose, onCreated }: Props) {
   const create = useMutation({
     mutationFn: (data: QuickShipInput) => {
       const payload: Record<string, unknown> = { name: data.name, flagId: data.flagId };
-      if (data.abbreviation) payload.abbreviation = data.abbreviation;
       if (data.imoNumber) payload.imoNumber = data.imoNumber;
       if (data.callSign) payload.callSign = data.callSign;
       return apiRequest<{ id: string; name: string }>('/master-data/ship-particulars', {
@@ -277,13 +275,6 @@ export function NewShipParticularModal({ opened, onClose, onCreated }: Props) {
                 error={fieldState.error?.message}
               />
             )}
-          />
-
-          <TextInput
-            label="Abbreviation"
-            placeholder="e.g. ALVDR"
-            error={formState.errors.abbreviation?.message}
-            {...register('abbreviation')}
           />
 
           <TextInput

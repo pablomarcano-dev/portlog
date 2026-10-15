@@ -39,6 +39,8 @@ export const NominationClientSchema = z.object({
   referenceNo: z.string().max(100).optional().nullable(),
   proforma: z.string().max(200).optional().nullable(),
   broker: z.string().max(200).optional().nullable(),
+  // Nomination-specific message assignment; independent of row display order.
+  messageOrder: z.number().int().min(1).max(3).optional().nullable(),
   sortOrder: z.number().int().default(0),
 });
 
@@ -53,3 +55,16 @@ export const NominationClientUpdateSchema = NominationClientSchema.omit({ id: tr
 export type NominationClientCreate = z.infer<typeof NominationClientCreateSchema>;
 export type NominationClientUpdate = z.infer<typeof NominationClientUpdateSchema>;
 export type NominationClient = z.infer<typeof NominationClientSchema>;
+
+export const NominationClientEmailContextSchema = z.object({
+  clientIds: z.array(z.string()),
+  messageGroups: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      memberCount: z.number().int().nonnegative(),
+      clientName: z.string(),
+      messageOrder: z.number().int().min(1).max(3),
+    }),
+  ),
+});

@@ -12,7 +12,7 @@ import { StorageService } from '../storage/storage.service.js';
 import {
   MAX_ATTACHMENT_SIZE_BYTES,
   MAX_TOTAL_ATTACHMENTS_BYTES,
-  isAllowedAttachmentMimeType,
+  resolveAttachmentMimeType,
   type AttachmentUploadResponse,
 } from '@portlog/schemas';
 
@@ -46,7 +46,8 @@ export class AttachmentsService {
     const filename = sanitizeFilename(file.filename);
     if (!filename) throw new BadRequestException('Missing or invalid filename');
 
-    if (!isAllowedAttachmentMimeType(file.mimeType)) {
+    const mimeType = resolveAttachmentMimeType(filename, file.mimeType);
+    if (!mimeType) {
       throw new BadRequestException(`Unsupported file type: ${file.mimeType}`);
     }
 
@@ -58,15 +59,23 @@ export class AttachmentsService {
       );
     }
 
+    if (
+      mimeType === 'application/pdf' &&
+      file.mimeType !== 'application/pdf' &&
+      !/^%PDF-\d\.\d/.test(file.buffer.subarray(0, 8).toString('ascii'))
+    ) {
+      throw new BadRequestException('The selected file does not contain a valid PDF header');
+    }
+
     // Random folder prevents key collisions and keeps original filenames intact.
     const key = `email-attachments/${randomUUID()}/${filename}`;
-    await this.storage.uploadFile(key, file.buffer, file.mimeType);
+    await this.storage.uploadFile(key, file.buffer, mimeType);
 
     const row = await this.prisma.emailAttachment.create({
       data: {
         minioKey: key,
         filename,
-        mimeType: file.mimeType,
+        mimeType,
         sizeBytes,
         uploadedById: userId,
       },
@@ -159,34 +168,49 @@ export class AttachmentsService {
     return resolved;
   }
 
-  /** Link staged attachments to a PEDR/nomination EmailDispatch after send. */
-  async linkToEmailDispatch(ids: string[], emailDispatchId: string): Promise<void> {
-    if (!ids.length) return;
-    await this.prisma.emailAttachment.updateMany({
-      where: { id: { in: [...new Set(ids)] } },
-      data: { emailDispatchId },
-    });
-  }
-
-  /** Link staged attachments to a SH-document dispatch after send. */
-  async linkToShDocumentDispatch(ids: string[], shDocumentDispatchId: string): Promise<void> {
-    if (!ids.length) return;
-    await this.prisma.emailAttachment.updateMany({
-      where: { id: { in: [...new Set(ids)] } },
-      data: { shDocumentDispatchId },
-    });
-  }
-
-  /** Link staged attachments to a service-request dispatch after send. */
-  async linkToServiceRequestDispatch(
+  /** Snapshot bytes and metadata per dispatch before SMTP. Never move a source
+   * row: a staged upload or older dispatch may still be needed by another flow. */
+  private async archive(
     ids: string[],
-    serviceRequestDispatchId: string,
+    link: 'emailDispatchId' | 'shDocumentDispatchId' | 'serviceRequestDispatchId',
+    dispatchId: string,
   ): Promise<void> {
-    if (!ids.length) return;
-    await this.prisma.emailAttachment.updateMany({
-      where: { id: { in: [...new Set(ids)] } },
-      data: { serviceRequestDispatchId },
-    });
+    for (const id of [...new Set(ids)]) {
+      const row = await this.prisma.emailAttachment.findUnique({ where: { id } });
+      if (!row) throw new NotFoundException('Attachment not found');
+      const content = await this.storage.getFileBuffer(row.minioKey);
+      const minioKey = `email-attachments/sent/${link}/${dispatchId}/${id}/${sanitizeFilename(row.filename)}`;
+      await this.storage.uploadFile(minioKey, content, row.mimeType);
+      await this.prisma.emailAttachment.upsert({
+        where: { minioKey },
+        update: {},
+        create: {
+          minioKey,
+          filename: row.filename,
+          mimeType: row.mimeType,
+          sizeBytes: content.length,
+          uploadedById: row.uploadedById,
+          [link]: dispatchId,
+        },
+      });
+    }
+  }
+
+  linkToEmailDispatch(ids: string[], dispatchId: string): Promise<void> {
+    return this.archive(ids, 'emailDispatchId', dispatchId);
+  }
+  linkToShDocumentDispatch(ids: string[], dispatchId: string): Promise<void> {
+    return this.archive(ids, 'shDocumentDispatchId', dispatchId);
+  }
+  linkToServiceRequestDispatch(ids: string[], dispatchId: string): Promise<void> {
+    return this.archive(ids, 'serviceRequestDispatchId', dispatchId);
+  }
+  async storedPdf(key: string, filename: string): Promise<ResolvedAttachment> {
+    return {
+      filename,
+      content: await this.storage.getFileBuffer(key),
+      contentType: 'application/pdf',
+    };
   }
 
   /**

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Box, Button, Group, Loader, Table, Text, TextInput, Title } from '@mantine/core';
+import { Box, Button, Group, Loader, Select, Table, Text, TextInput, Title } from '@mantine/core';
 import type { NominationClient, NominationClientUpdate } from '@portlog/schemas';
 import { useColumnResize } from '../../../components/table/useColumnResize';
 import { ResizableTh } from '../../../components/table/ResizableTh';
@@ -11,7 +11,7 @@ import {
 } from '../hooks/useNominationClients';
 import { ClientNamePicker } from '../../../components/master-data/ClientNamePicker';
 
-type ClientColKey = 'type' | 'name' | 'voyageRef' | 'refNo' | 'actions';
+type ClientColKey = 'type' | 'name' | 'voyageRef' | 'refNo' | 'messageOrder' | 'actions';
 
 interface ClientRowProps {
   client: NominationClient;
@@ -118,6 +118,24 @@ function ClientRow({
           }}
         />
       </Table.Td>
+      <Table.Td style={{ width: colWidths.messageOrder }}>
+        <Select
+          aria-label={`Message order for ${client.name || 'client'}`}
+          size="xs"
+          data={[
+            { value: '1', label: '1st message' },
+            { value: '2', label: '2nd message' },
+            { value: '3', label: '3rd message' },
+          ]}
+          value={client.messageOrder == null ? null : String(client.messageOrder)}
+          placeholder="Not assigned"
+          clearable
+          disabled={isBusy}
+          onChange={(value) =>
+            onUpdate(rowId, { messageOrder: value == null ? null : Number(value) })
+          }
+        />
+      </Table.Td>
       <Table.Td style={{ width: colWidths.actions }}>
         <Button
           size="compact-xs"
@@ -154,6 +172,7 @@ export function ClientsSection({ nominationId }: ClientsSectionProps) {
     name: 180,
     voyageRef: 130,
     refNo: 120,
+    messageOrder: 145,
     actions: 60,
   };
   const { colWidths, startResize } = useColumnResize<ClientColKey>(INITIAL_WIDTHS);
@@ -194,6 +213,12 @@ export function ClientsSection({ nominationId }: ClientsSectionProps) {
         {isLoading && <Loader size="xs" />}
       </Group>
 
+      <Text size="xs" c="dimmed" mb="xs">
+        Assign clients to 1st, 2nd or 3rd message for this nomination’s instructions. Each
+        assignment uses that client’s matching email group. Leave all unassigned to use the
+        instruction client’s standing groups.
+      </Text>
+
       {!isLoading && (clients == null || clients.length === 0) && (
         <Text size="sm" c="dimmed" mb="xs">
           No clients added yet.
@@ -218,6 +243,12 @@ export function ClientsSection({ nominationId }: ClientsSectionProps) {
               </ResizableTh>
               <ResizableTh width={colWidths.refNo} onResize={(e) => startResize('refNo', e)}>
                 Ref. No.
+              </ResizableTh>
+              <ResizableTh
+                width={colWidths.messageOrder}
+                onResize={(e) => startResize('messageOrder', e)}
+              >
+                Message
               </ResizableTh>
               <ResizableTh width={colWidths.actions} onResize={(e) => startResize('actions', e)} />
             </Table.Tr>

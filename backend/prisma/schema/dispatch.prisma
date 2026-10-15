@@ -14,6 +14,7 @@ enum SubDocType {
   ETA_REQUEST
   ETA_TERMINAL
   ETA_REPLY
+  ETA_RECAP
   NOR
   SOF
   CARGO_UPDATE
@@ -30,6 +31,7 @@ model EmailDispatch {
   subject       String
   bodyHtml      String?    @db.Text
   pdfStorageKey String?
+  generatedPdfExpected Boolean? // null: historical attachment provenance unknown
   sentAt        DateTime?  @db.Timestamptz
   sentById      String
   sentBy        User       @relation("DispatchSentBy", fields: [sentById], references: [id], onDelete: Restrict)
@@ -39,4 +41,19 @@ model EmailDispatch {
 
   @@index([pedrId, subDocType])
   @@map("email_dispatches")
+}
+
+// Durable send claims survive lost HTTP responses and post-SMTP persistence failures.
+model EmailSendAttempt {
+  id          String   @id @db.Uuid
+  requestHash String
+  userId      String
+  scope       String
+  state       String
+  response    Json?
+  error       String?
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  updatedAt   DateTime @updatedAt @db.Timestamptz
+
+  @@map("email_send_attempts")
 }

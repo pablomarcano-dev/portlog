@@ -220,13 +220,13 @@ function PierListEditor({ portId, pendingDeletes, onMarkDelete }: PierListEditor
 
 function PortsScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [portList, setPortList] = useState<FlatPortItem[]>([]);
-  const [isLoadingList, setIsLoadingList] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingPierDeletes, setPendingPierDeletes] = useState<string[]>([]);
   const [nameFilter, setNameFilter] = useState('');
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
+  const [branchFilter, setBranchFilter] = useState<string | null>(null);
+  const [branchFilterSearch, setBranchFilterSearch] = useState('');
   const [grouped, setGrouped] = useState(true);
 
   const { data: currentUser } = useCurrentUser();
@@ -241,23 +241,15 @@ function PortsScreen() {
 
   const { handleSubmit, reset, formState } = form;
 
-  // Load flat port list on mount
-  useEffect(() => {
-    setIsLoadingList(true);
-    portsApi
-      .list({ limit: 200 })
-      .then((res) => setPortList(res.items))
-      .catch(() => setPortList([]))
-      .finally(() => setIsLoadingList(false));
-  }, []);
-
-  // Reload list helper
+  const portsQuery = useQuery({
+    queryKey: ['ports', 'list', branchFilter],
+    queryFn: () => portsApi.list({ limit: 200, branchId: branchFilter ?? undefined }),
+  });
+  const portList = portsQuery.data?.items ?? [];
+  const isLoadingList = portsQuery.isPending;
   const reloadList = useCallback(() => {
-    portsApi
-      .list({ limit: 200 })
-      .then((res) => setPortList(res.items))
-      .catch(() => null);
-  }, []);
+    void portsQuery.refetch();
+  }, [portsQuery.refetch]);
 
   // Reset pending pier deletes when navigating to a different port
   useEffect(() => {
@@ -421,6 +413,15 @@ function PortsScreen() {
                   onChange={(e) => setGrouped(e.currentTarget.checked)}
                 />
               </Group>
+              <EntityPicker
+                endpoint="/master-data/branches"
+                label="Branch filter"
+                placeholder="All branches"
+                value={branchFilter}
+                onChange={setBranchFilter}
+                searchValue={branchFilterSearch}
+                onSearchChange={setBranchFilterSearch}
+              />
               <TextInput
                 size="xs"
                 placeholder="Filter ports…"
@@ -575,8 +576,7 @@ function PortFields({ form }: { form: ReturnType<typeof useForm<PortCreateInput>
               <EntityPicker
                 endpoint="/master-data/branches"
                 label="Branch"
-                placeholder="Select responsible branch"
-                required
+                placeholder="Select responsible branch (optional)"
                 value={field.value ?? null}
                 onChange={field.onChange}
                 searchValue={branchSearch}

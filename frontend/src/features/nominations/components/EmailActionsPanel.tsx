@@ -53,6 +53,11 @@ const ACTIONS: SubDocAction[] = [
     subjectTemplate: () => '',
   },
   {
+    type: 'ETA_RECAP',
+    label: 'ETA’s Recaps',
+    subjectTemplate: (v) => `${v} — E.T.A's Recaps & N.O.R. Tendered`,
+  },
+  {
     type: 'CARGO_UPDATE',
     label: 'Cargo Update',
     subjectTemplate: (v) => `Cargo Update — ${v}`,

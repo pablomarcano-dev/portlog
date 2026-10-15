@@ -1,3 +1,5 @@
+import { apiSend } from '../../lib/api/sendRequest';
+import { parseStoredEmailReceipt, type StoredEmailReceipt } from '../../lib/printEmail';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { apiRequest, apiRequestBlob } from '../../lib/api/client';
@@ -42,9 +44,13 @@ const shDocumentsApi = {
     apiRequestBlob(`/nominations/${nominationId}/sh-documents/${shId}/download`),
 
   send: (nominationId: string, shId: string, body: SendShDocumentInput) =>
-    apiRequest<{ shDocument: SHDocumentDto; dispatch: unknown }>(
+    apiSend<{ shDocument: SHDocumentDto; dispatch: StoredEmailReceipt }>(
       `/nominations/${nominationId}/sh-documents/${shId}/send`,
-      { method: 'POST', body: JSON.stringify(body) },
+      body,
+      (raw) => {
+        const result = raw as { shDocument: SHDocumentDto; dispatch: StoredEmailReceipt };
+        return { ...result, dispatch: parseStoredEmailReceipt(result?.dispatch) };
+      },
     ),
 
   delete: (nominationId: string, shId: string) =>

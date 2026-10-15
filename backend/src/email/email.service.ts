@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { EmailDeliveryService } from './email-delivery.service.js';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { wrapPlainTextEmailBody } from './email-body.util.js';
@@ -34,7 +35,10 @@ export class EmailService {
    */
   readonly sentEmails: SentEmailRecord[] = [];
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    @Optional() private readonly delivery?: EmailDeliveryService,
+  ) {
     this.isTestMode = process.env['NODE_ENV'] === 'test';
     const smtpUser = this.config.get<string>('SMTP_USER');
     this.from = this.config.get<string>('SMTP_FROM', 'portlog@localhost');
@@ -73,6 +77,7 @@ export class EmailService {
       subject,
     });
 
+    await this.delivery?.beforeSend();
     await this.transporter.sendMail({
       from: this.from,
       to: to.join(', '),
@@ -87,6 +92,7 @@ export class EmailService {
       })),
     });
 
+    this.delivery?.accepted();
     if (this.isTestMode) {
       this.sentEmails.push({
         to,

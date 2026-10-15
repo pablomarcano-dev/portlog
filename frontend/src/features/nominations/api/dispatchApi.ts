@@ -1,3 +1,4 @@
+import { apiSend } from '../../../lib/api/sendRequest';
 import { apiRequest } from '../../../lib/api/client';
 import {
   dispatchLogResponseSchema,
@@ -9,11 +10,9 @@ import {
 
 export const dispatchApi = {
   send: async (pedrId: string, body: SendSubDocumentInput): Promise<EmailDispatchResponse> => {
-    const raw = await apiRequest<unknown>(`/dispatch/pedr/${pedrId}/sub-document`, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
-    return emailDispatchResponseSchema.parse(raw);
+    return apiSend(`/dispatch/pedr/${pedrId}/sub-document`, body, (raw) =>
+      emailDispatchResponseSchema.parse(raw),
+    );
   },
 
   getLog: async (pedrId: string): Promise<DispatchLogResponse> => {

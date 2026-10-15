@@ -10,8 +10,10 @@ export function NewClientModal({
   opened,
   onClose,
   onCreated,
+  initialName = '',
 }: {
   opened: boolean;
+  initialName?: string;
   onClose: () => void;
   onCreated: (client: { id: string; name: string }) => void;
 }) {
@@ -31,8 +33,8 @@ export function NewClientModal({
     },
   });
   useEffect(() => {
-    if (!opened) form.reset(EMPTY_CLIENT);
-  }, [opened, form]);
+    if (opened) form.reset({ ...EMPTY_CLIENT, name: initialName });
+  }, [opened, initialName, form]);
   return (
     <Modal
       opened={opened}
@@ -42,7 +44,12 @@ export function NewClientModal({
       title="Add client"
       size="xl"
     >
-      <form onSubmit={form.handleSubmit((values) => create.mutate(values))}>
+      <form
+        onSubmit={(event) => {
+          event.stopPropagation();
+          void form.handleSubmit((values) => create.mutate(values))(event);
+        }}
+      >
         <Stack>
           <ClientFields form={form} />
           {create.isError && <Alert color="red">{create.error.message}</Alert>}

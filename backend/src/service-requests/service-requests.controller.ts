@@ -1,3 +1,5 @@
+import { UseInterceptors } from '@nestjs/common';
+import { EmailSendInterceptor } from '../email/email-send.interceptor.js';
 import {
   Body,
   Controller,
@@ -175,6 +177,7 @@ export class ServiceRequestsController {
 
   /** Generate the purchase order and email it to the provider. */
   @Post(':id/send')
+  @UseInterceptors(EmailSendInterceptor)
   send(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(ServiceRequestSendSchema)) dto: ServiceRequestSend,

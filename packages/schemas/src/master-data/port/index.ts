@@ -1,12 +1,12 @@
 import { z } from 'zod';
-import { emailList, optionalText } from '../../common/fields';
+import { clearableCuid, emailList, optionalText } from '../../common/fields';
 import { ListQuerySchema } from '../../common/pagination';
 
 export const PortCreateSchema = z.object({
   name: z.string().min(1).max(120),
   abbreviation: z.string().max(20).optional(),
   country: optionalText(120),
-  branchId: z.string().cuid('Select a valid branch'),
+  branchId: clearableCuid(),
   // Addresses for the terminal itself, written to when a notice is addressed to
   // the terminal rather than to the nomination's client list.
   emails: emailList(),

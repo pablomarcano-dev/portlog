@@ -164,6 +164,28 @@ describe('PortsService', () => {
       expect(result.name).toBe('Montevideo Puerto');
     });
 
+    it('leaves the saved branch untouched when a patch omits branchId', async () => {
+      mockPrisma.port.findUnique.mockResolvedValue({ id: 'port-cuid-1' });
+      mockPrisma.port.update.mockResolvedValue(mockPort);
+
+      await service.update('port-cuid-1', { name: 'Updated name' });
+
+      expect(mockPrisma.port.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { name: 'Updated name' } }),
+      );
+    });
+
+    it('clears the branch only when explicitly requested', async () => {
+      mockPrisma.port.findUnique.mockResolvedValue({ id: 'port-cuid-1' });
+      mockPrisma.port.update.mockResolvedValue(mockPort);
+
+      await service.update('port-cuid-1', { branchId: null });
+
+      expect(mockPrisma.port.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { branchId: null } }),
+      );
+    });
+
     it('throws NotFoundException before attempting the update', async () => {
       mockPrisma.port.findUnique.mockResolvedValue(null);
 
