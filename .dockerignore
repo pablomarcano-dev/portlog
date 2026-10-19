@@ -11,6 +11,8 @@ node_modules
 qa-evidence
 output
 tmp
+backups
+certbot
 **/coverage
 **/*.log
 .DS_Store
