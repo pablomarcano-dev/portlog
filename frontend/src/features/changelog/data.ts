@@ -1,7 +1,8 @@
-export type ChangelogStatus = 'verified-local' | 'partial' | 'deferred';
+export type ChangelogStatus = 'verified-local' | 'verified-production' | 'partial' | 'deferred';
 
 export const CHANGELOG_STATUS = {
   'verified-local': { label: 'Implementado · verificado localmente', color: 'blue' },
+  'verified-production': { label: 'Desplegado · conservación verificada', color: 'green' },
   partial: { label: 'Verificación parcial', color: 'yellow' },
   deferred: { label: 'Aplazamiento aprobado', color: 'gray' },
 } as const satisfies Record<ChangelogStatus, { label: string; color: string }>;
@@ -21,7 +22,7 @@ export interface ChangelogEntry {
   readonly dateLabel: string;
   readonly timeZone: 'America/Montevideo';
   readonly title: string;
-  readonly deployment: 'pending';
+  readonly deployment: 'pending' | 'deployed';
   readonly releaseNote: string;
   readonly qaSummary: {
     readonly verified: number;
@@ -40,9 +41,9 @@ export const changelogEntries: readonly ChangelogEntry[] = [
     dateLabel: '15 de octubre de 2026',
     timeZone: 'America/Montevideo',
     title: 'Mejoras en nominaciones, comunicaciones y documentos',
-    deployment: 'pending',
+    deployment: 'deployed',
     releaseNote:
-      'Cambios implementados y comprobados en el entorno local. El despliegue en producción sigue pendiente; esta entrada no confirma su disponibilidad en producción ni la validación completa de todos los flujos.',
+      'Desplegado en producción el 19 de octubre de 2026. Se comprobaron el inicio del servicio y la conservación de los datos y archivos existentes. Las comprobaciones funcionales indicadas conservan el alcance descrito; no equivalen a una validación completa de todos los flujos.',
     qaSummary: { verified: 10, partial: 1, deferred: 2 },
     sections: [
       {
@@ -79,13 +80,13 @@ export const changelogEntries: readonly ChangelogEntry[] = [
       {
         id: 'preservation',
         title: 'Conservación de datos y puesta en producción',
-        status: 'partial',
+        status: 'verified-production',
         items: [
-          'La comparación de dos restauraciones locales de una copia de respaldo confirmó que los cambios previstos conservan los valores originales y sus relaciones. Repetir su aplicación no produjo cambios adicionales.',
-          'La verificación completa sigue pendiente: faltan comprobar los archivos históricos, el entorno de destino y el despliegue real. La revisión local no modificó datos de producción ni los datos operativos locales existentes.',
+          'Antes del despliegue se restauraron copias actuales de la base de datos y del almacenamiento en un entorno aislado. Los cambios conservaron los valores originales y sus relaciones; repetir su aplicación no produjo cambios adicionales.',
+          'Durante la puesta en producción se comprobó la conservación de los datos originales y de todas las versiones existentes de los archivos. No se reiniciaron ni reemplazaron los datos operativos. Los mensajes históricos con archivos faltantes o de origen desconocido conservan las limitaciones de reenvío indicadas arriba.',
         ],
         verification:
-          'Resultado parcial del punto de conservación y despliegue. La comprobación de la base de datos no certifica la disponibilidad de los archivos externos ni todos los flujos de la aplicación.',
+          'Despliegue y conservación verificados en producción el 19 de octubre de 2026. Esto no certifica todos los flujos de la aplicación, la entrega de correo externo ni la impresión física.',
       },
       {
         id: 'deferred',

@@ -21,10 +21,13 @@ describe('changelog editorial contract', () => {
   it('preserves the October 15 evidence boundaries and approved deferrals', () => {
     const entry = changelogEntries.find((item) => item.date === '2026-10-15')!;
     expect(entry.dateLabel).toBe('15 de octubre de 2026');
-    expect(entry.deployment).toBe('pending');
-    expect(entry.releaseNote).toContain('despliegue en producción sigue pendiente');
+    expect(entry.deployment).toBe('deployed');
+    expect(entry.releaseNote).toContain('Desplegado en producción el 19 de octubre de 2026');
+    expect(entry.releaseNote).toContain('no equivalen a una validación completa');
     expect(entry.qaSummary).toEqual({ verified: 10, partial: 1, deferred: 2 });
-    expect(entry.sections.find((section) => section.id === 'preservation')?.status).toBe('partial');
+    expect(entry.sections.find((section) => section.id === 'preservation')?.status).toBe(
+      'verified-production',
+    );
     const deferred = entry.sections.find((section) => section.status === 'deferred');
     expect(deferred?.items).toHaveLength(2);
     expect(deferred?.items.join(' ')).toContain('Pre-Arrival');

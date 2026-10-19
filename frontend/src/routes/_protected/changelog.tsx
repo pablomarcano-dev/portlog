@@ -32,8 +32,13 @@ function ChangelogPage() {
                   <Text component="time" dateTime={entry.date} fw={600} c="blue.7">
                     {entry.dateLabel}
                   </Text>
-                  <Badge color="yellow" variant="light">
-                    Despliegue pendiente
+                  <Badge
+                    color={entry.deployment === 'deployed' ? 'green' : 'yellow'}
+                    variant="light"
+                  >
+                    {entry.deployment === 'deployed'
+                      ? 'Desplegado en producción'
+                      : 'Despliegue pendiente'}
                   </Badge>
                 </Group>
                 <Text size="xs" c="dimmed">
@@ -43,12 +48,15 @@ function ChangelogPage() {
                   {entry.title}
                 </Title>
               </Stack>
-              <Alert color="yellow" title="Estado de esta entrada">
+              <Alert
+                color={entry.deployment === 'deployed' ? 'green' : 'yellow'}
+                title="Estado de esta entrada"
+              >
                 {entry.releaseNote}
               </Alert>
               <Stack gap="xs">
                 <Text fw={600} size="sm">
-                  Revisión de los 13 puntos de la minuta del 5 de octubre
+                  Revisión local original de los 13 puntos de la minuta del 5 de octubre
                 </Text>
                 <Group gap="xs" aria-label="Resumen de verificación local">
                   <Badge color="blue" variant="light">
@@ -61,6 +69,10 @@ function ChangelogPage() {
                     {entry.qaSummary.deferred} aplazamientos aprobados
                   </Badge>
                 </Group>
+                <Text size="xs" c="dimmed">
+                  Este resumen conserva el resultado de la revisión local original. El estado actual
+                  del despliegue se indica por separado.
+                </Text>
               </Stack>
               {entry.sections.map((section) => (
                 <Stack
