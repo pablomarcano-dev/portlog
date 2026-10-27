@@ -48,6 +48,7 @@ export const PublicNominationListItemSchema = z.object({
   operatingPort: nullablePortSchema,
   nominatedAt: z.string().datetime(),
   eta: z.string().datetime().nullable(),
+  sailedAt: z.string().datetime().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -91,6 +92,7 @@ export const PublicNominationSchema = z.object({
     laycanFrom: z.string().datetime().nullable(),
     laycanTo: z.string().datetime().nullable(),
     eta: z.string().datetime().nullable(),
+    sailedAt: z.string().datetime().nullable(),
   }),
   contacts: z.object({
     master: z.string().nullable(),

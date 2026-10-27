@@ -26,10 +26,29 @@ const STATUS_INCLUDE = {
   },
 } satisfies Prisma.NominationInclude;
 
+// Read the last matching SOF row without exposing the rest of the activity log.
+const SAILING_INCLUDE = {
+  sofTimesheet: {
+    select: {
+      entries: {
+        where: { activity: { name: { equals: 'Sailed Full Away', mode: 'insensitive' as const } } },
+        orderBy: [
+          { order: 'desc' as const },
+          { occurredAt: 'desc' as const },
+          { id: 'desc' as const },
+        ],
+        take: 1,
+        select: { occurredAt: true },
+      },
+    },
+  },
+} satisfies Prisma.NominationInclude;
+
 const LIST_INCLUDE = {
   shipParticular: { select: { name: true, callSign: true, imoNumber: true } },
   opPort: { select: { name: true, abbreviation: true } },
   ...STATUS_INCLUDE,
+  ...SAILING_INCLUDE,
 } satisfies Prisma.NominationInclude;
 
 const DETAIL_INCLUDE = {
@@ -52,6 +71,7 @@ const DETAIL_INCLUDE = {
   disPort: { select: { name: true, abbreviation: true } },
   nominationClients: { orderBy: { sortOrder: 'asc' as const } },
   ...STATUS_INCLUDE,
+  ...SAILING_INCLUDE,
 } satisfies Prisma.NominationInclude;
 
 type StatusRow = {
@@ -155,6 +175,7 @@ export class PublicNominationsService {
         operatingPort: row.opPort,
         nominatedAt: row.dateNominated.toISOString(),
         eta: iso(row.etaDate),
+        sailedAt: iso(row.sofTimesheet?.entries[0]?.occurredAt ?? null),
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
       })),
@@ -208,6 +229,7 @@ export class PublicNominationsService {
           laycanFrom: iso(row.layDaysFirst),
           laycanTo: iso(row.layDaysLast),
           eta: iso(row.etaDate),
+          sailedAt: iso(row.sofTimesheet?.entries[0]?.occurredAt ?? null),
         },
         contacts: {
           master: row.master,
