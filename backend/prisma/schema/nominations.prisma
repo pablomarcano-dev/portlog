@@ -58,6 +58,18 @@ model Nomination {
   chartererId String?
   charterer   Client? @relation("NominationCharterer", fields: [chartererId], references: [id], onDelete: SetNull)
 
+  // Optional per-call routing. Null retains the existing directory defaults.
+  masterContactId      String?
+  masterContact        Contact?    @relation("NominationCaptain", fields: [masterContactId], references: [id], onDelete: Restrict)
+  firstMessageGroupId  String?
+  firstMessageGroup    EmailGroup? @relation("NominationFirstMessage", fields: [firstMessageGroupId], references: [id], onDelete: Restrict)
+  secondMessageGroupId String?
+  secondMessageGroup   EmailGroup? @relation("NominationSecondMessage", fields: [secondMessageGroupId], references: [id], onDelete: Restrict)
+  thirdMessageGroupId  String?
+  thirdMessageGroup    EmailGroup? @relation("NominationThirdMessage", fields: [thirdMessageGroupId], references: [id], onDelete: Restrict)
+  alwaysCopyGroupId    String?
+  alwaysCopyGroup      EmailGroup? @relation("NominationAlwaysCopy", fields: [alwaysCopyGroupId], references: [id], onDelete: Restrict)
+
   // Supplementary fields from legacy General Info tab
   nomReply      DateTime? @db.Timestamptz(6) // "Nom. Reply" — date nomination was acknowledged
   mobileOnBoard String? // mobile number for person on board
@@ -150,6 +162,11 @@ model Nomination {
   @@index([status])
   @@index([shipParticularId])
   @@index([clientId])
+  @@index([masterContactId])
+  @@index([firstMessageGroupId])
+  @@index([secondMessageGroupId])
+  @@index([thirdMessageGroupId])
+  @@index([alwaysCopyGroupId])
   @@index([chartererId])
   @@index([dateNominated])
   @@map("nominations")

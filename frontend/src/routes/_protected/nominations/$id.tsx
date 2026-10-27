@@ -97,6 +97,11 @@ function NominationDetailPage() {
     layDaysLast: nomination.layDaysLast ?? undefined,
     etaDate: nomination.etaDate ?? undefined,
     nominatedById: nomination.nominatedById ?? undefined,
+    masterContactId: nomination.masterContactId,
+    firstMessageGroupId: nomination.firstMessageGroupId,
+    secondMessageGroupId: nomination.secondMessageGroupId,
+    thirdMessageGroupId: nomination.thirdMessageGroupId,
+    alwaysCopyGroupId: nomination.alwaysCopyGroupId,
     master: nomination.master ?? undefined,
     mic: nomination.mic ?? undefined,
     broker: nomination.broker ?? undefined,
@@ -182,6 +187,40 @@ function NominationDetailPage() {
                     isSubmitting={updateNomination.isPending}
                     isReadOnly={isReadOnly}
                     correlative={nomination.correlative}
+                    masterContactOption={
+                      nomination.masterContact
+                        ? {
+                            value: nomination.masterContact.id,
+                            label: nomination.masterContact.name,
+                          }
+                        : null
+                    }
+                    routingOptions={{
+                      firstMessageGroupId: nomination.firstMessageGroup
+                        ? {
+                            value: nomination.firstMessageGroup.id,
+                            label: nomination.firstMessageGroup.name,
+                          }
+                        : null,
+                      secondMessageGroupId: nomination.secondMessageGroup
+                        ? {
+                            value: nomination.secondMessageGroup.id,
+                            label: nomination.secondMessageGroup.name,
+                          }
+                        : null,
+                      thirdMessageGroupId: nomination.thirdMessageGroup
+                        ? {
+                            value: nomination.thirdMessageGroup.id,
+                            label: nomination.thirdMessageGroup.name,
+                          }
+                        : null,
+                      alwaysCopyGroupId: nomination.alwaysCopyGroup
+                        ? {
+                            value: nomination.alwaysCopyGroup.id,
+                            label: nomination.alwaysCopyGroup.name,
+                          }
+                        : null,
+                    }}
                     chartererOption={
                       nomination.charterer
                         ? { value: nomination.charterer.id, label: nomination.charterer.name }

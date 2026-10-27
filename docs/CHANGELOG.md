@@ -25,3 +25,7 @@ Verification: frontend and backend typechecks, frontend production build, change
 ## SOF and routing release — 27 October 2026
 
 Seven feedback items (002, 009, 020, 026, 027, 030, 031): canonical saved SOF sections in preview/email/PDF, interim dispatch classification, section switches, parcel figures, complete letters/remarks, retry preservation, Charterers instruction defaults, terminal recipient normalization and Datalastic measurement validation/persistence. Additive migration 20261027183000_interim_sof_dispatch adds SOF_INTERIM only. All 820 tests passed before the changelog entry; full build, typechecks, lint, browser checks and PDF visual review passed. The enum migration was rehearsed on an isolated restored copy with all 1,700 rows unchanged. No historical PDFs or operational records are bulk rewritten.
+
+## Captain and routing defaults release — 27 October 2026
+
+Feedback 014/010/021/023: optional captain Contact link with vessel-inbox fallback, nomination-owned group overrides over live shared defaults, explicit always-copy/branch CC enforcement on new sends, and single-send Reply to Master choices. Existing stored assignments are not backfilled. Archived replays retain their original envelope. Additive migration 20261027230000_nomination_routing_defaults adds five nullable FKs/indexes with deletion protection. The prior 836-test suite, full build/typechecks/lint, fixture-browser checks and isolated preserved-data migration rehearsal passed. Production release evidence is recorded separately.

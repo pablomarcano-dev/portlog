@@ -57,6 +57,9 @@ export type NominationClientUpdate = z.infer<typeof NominationClientUpdateSchema
 export type NominationClient = z.infer<typeof NominationClientSchema>;
 
 export const NominationClientEmailContextSchema = z.object({
+  captainEmails: z.array(z.string().email()).default([]),
+  captainName: z.string().default(''),
+  captainSource: z.enum(['contact', 'vessel', 'none']).default('none'),
   clientIds: z.array(z.string()),
   messageGroups: z.array(
     z.object({

@@ -238,6 +238,7 @@ const mockPrisma = {
   cargo: {
     findMany: jest.fn(),
   },
+  contact: { findUnique: jest.fn() },
   user: {
     findUnique: jest.fn(),
     findMany: jest.fn().mockResolvedValue([]),
@@ -1034,6 +1035,175 @@ describe('NominationsService', () => {
         }),
       }),
     );
+  });
+
+  describe('approved nomination routing defaults', () => {
+    const group = (id: string, email: string) => ({
+      id,
+      name: id,
+      members: [{ email, displayName: null }],
+    });
+    beforeEach(() => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.pedr.findUnique.mockResolvedValue({ etaRecord: null });
+      mockEmailTemplateService.render.mockResolvedValue({ subject: 'QA', bodyText: 'QA body' });
+    });
+    it.each(['ETA_REQUEST', 'ETA_REPLY'])(
+      'uses a linked captain and explicitly assigned always-copy group on %s',
+      async (action) => {
+        mockPrisma.nomination.findUnique.mockResolvedValue(
+          composeNomination({
+            masterContact: {
+              name: 'QA Master',
+              emails: [' captain@example.test ', 'CAPTAIN@example.test'],
+            },
+            shipParticular: {
+              name: 'QA Vessel',
+              emails: ['bridge@example.test'],
+              owner: null,
+              operator: null,
+            },
+            alwaysCopyGroup: {
+              ...group('copy', 'always@example.test'),
+              members: [{ email: 'always@example.test' }, { email: 'CAPTAIN@example.test' }],
+            },
+          }),
+        );
+        const result = await service.getComposeData(NOM_ID, action, 'agent@example.test');
+        expect(result.toAddresses).toEqual(['captain@example.test']);
+        expect(result.ccAddresses).toEqual(['ops@navieramar.com', 'always@example.test']);
+      },
+    );
+    it('falls back to vessel inboxes when the linked contact has no email, without name matching', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          masterContact: { name: 'Captain Without Mail', emails: [] },
+          shipParticular: {
+            name: 'QA Vessel',
+            emails: ['bridge@example.test'],
+            owner: null,
+            operator: null,
+          },
+        }),
+      );
+      expect(
+        (await service.getComposeData(NOM_ID, 'ETA_REPLY', 'agent@example.test')).toAddresses,
+      ).toEqual(['bridge@example.test']);
+    });
+    it('keeps another nomination on shared defaults and restores them when an override is cleared', async () => {
+      const shared = group('shared', 'shared@example.test');
+      const override = group('override', 'override@example.test');
+      const original = {
+        clientId: null,
+        chartererId: null,
+        shipParticular: { operatorId: null, emails: ['bridge@example.test'] },
+        nominationClients: [
+          {
+            clientId: 'client-1',
+            name: 'Shared Client',
+            messageOrder: 1,
+            client: { emailGroups: [{ slot: 'FIRST_MESSAGE', emailGroup: shared }] },
+          },
+        ],
+      };
+      mockPrisma.nomination.findUnique
+        .mockResolvedValueOnce({ ...original, firstMessageGroup: override })
+        .mockResolvedValueOnce(original)
+        .mockResolvedValueOnce({ ...original, firstMessageGroup: null });
+      expect((await service.clientEmailContext('nom-a')).messageGroups.map((g) => g.id)).toEqual([
+        'override',
+      ]);
+      expect((await service.clientEmailContext('nom-b')).messageGroups.map((g) => g.id)).toEqual([
+        'shared',
+      ]);
+      expect((await service.clientEmailContext('nom-a')).messageGroups.map((g) => g.id)).toEqual([
+        'shared',
+      ]);
+      expect(mockPrisma.nomination.update).not.toHaveBeenCalled();
+    });
+    it('prints explicit nomination group overrides in instructions without changing shared groups', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue({
+        ...nominationInstructionsFixture(),
+        firstMessageGroup: group('First override', 'first-override@example.test'),
+        alwaysCopyGroup: group('Copy override', 'copy-override@example.test'),
+      });
+      await service.generateNominationInstructions(NOM_ID);
+      expect(mockNominationInstructionsDocx.render).toHaveBeenCalledWith(
+        expect.objectContaining({
+          firstMessage: 'Group: First override\nfirst-override@example.test',
+          ccMessage: 'Group: Copy override\ncopy-override@example.test',
+        }),
+      );
+    });
+    it('enforces saved always-copy recipients in the delivered and archived envelope', async () => {
+      mockPrisma.pedr.findUnique.mockResolvedValue({
+        id: 'pedr-1',
+        nomination: {
+          branch: { emails: ['branch@example.test', 'captain@example.test'] },
+          alwaysCopyGroup: {
+            ...group('copy', 'always@example.test'),
+            members: [{ email: 'always@example.test' }, { email: 'captain@example.test' }],
+          },
+        },
+      });
+      mockPrisma.emailDispatch.create.mockResolvedValue({ id: 'dispatch-1' });
+      mockPrisma.emailDispatch.update.mockResolvedValue({ id: 'dispatch-1', sentAt: NOW });
+      await service.sendEmail(
+        NOM_ID,
+        {
+          subDocType: 'ETA_REPLY',
+          subject: 'QA',
+          bodyText: 'QA',
+          toAddresses: ['captain@example.test'],
+          ccAddresses: [],
+          bccAddresses: ['ALWAYS@example.test'],
+          attachmentIds: [],
+        },
+        USER_ID,
+      );
+      expect(mockEmailService.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: ['captain@example.test'],
+          cc: ['always@example.test', 'branch@example.test'],
+          bcc: [],
+        }),
+      );
+      expect(mockPrisma.emailDispatch.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            ccAddresses: ['always@example.test', 'branch@example.test'],
+          }),
+        }),
+      );
+    });
+    it('stores the chosen contact name and clears a link when the captain name is manually changed', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue({
+        ...mockNomBase,
+        master: 'Old Captain',
+        masterContactId: 'old-contact',
+      });
+      mockPrisma.nomination.update.mockResolvedValue(mockNomBase);
+      mockPrisma.contact.findUnique.mockResolvedValue({ name: 'Selected Captain' });
+      await service.update(
+        NOM_ID,
+        { masterContactId: 'new-contact', master: 'Untrusted label' },
+        USER_ID,
+      );
+      expect(mockPrisma.nomination.update).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            master: 'Selected Captain',
+            masterContactId: 'new-contact',
+          }),
+        }),
+      );
+      await service.update(NOM_ID, { master: 'Manual Captain' }, USER_ID);
+      expect(mockPrisma.nomination.update).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ master: 'Manual Captain', masterContactId: null }),
+        }),
+      );
+    });
   });
 
   describe('instruction-client defaults and overrides', () => {
@@ -2091,14 +2261,14 @@ describe('NominationsService', () => {
       expect(data.ccAddresses).toContain('ops@molgsm.sg');
     });
 
-    it("falls back to the nomination's list when the vessel has no address", async () => {
+    it('leaves master To empty when no vessel or captain inbox is registered', async () => {
       mockPrisma.nomination.findUnique.mockResolvedValue(
         composeNomination({ shipParticular: { ...VESSEL, emails: [] } }),
       );
 
       const data = await service.getComposeData(NOM_ID, 'ETA_REQUEST', 'agent@navieramar.com');
 
-      expect(data.toAddresses).toEqual(['charterer@ril.com']);
+      expect(data.toAddresses).toEqual([]);
     });
 
     it('keeps the client Cc when no owner or operator address is registered', async () => {

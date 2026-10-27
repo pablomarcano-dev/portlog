@@ -34,6 +34,7 @@ interface EmailGroupPickerProps {
   /** Action dialogs only show the groups explicitly assigned to message slots. */
   nominationOnly?: boolean;
   clientIds?: string[];
+  replyChoices?: boolean;
   disabled?: boolean;
   /** Heading above the control. Defaults to "Add from group". */
   label?: string;
@@ -55,6 +56,7 @@ export function EmailGroupPicker({
   targets,
   nominationId,
   nominationOnly = false,
+  replyChoices = false,
   clientIds = [],
   disabled,
   label = 'Add from group',
@@ -136,7 +138,8 @@ export function EmailGroupPicker({
   const selectionUnavailable = Boolean(
     disabled ||
     isResolving ||
-    (nominationOnly && (!nominationId || context.isLoading || context.isError)),
+    (nominationOnly &&
+      (!nominationId || context.isLoading || context.isFetching || context.isError)),
   );
 
   /**
@@ -146,10 +149,14 @@ export function EmailGroupPicker({
    * charterer's group that has to go to the operator's group instead. Appending
    * would leave the charterer copied in.
    */
-  async function applyGroups(target: EmailRecipientTarget, mode: 'append' | 'replace') {
+  async function applyGroups(
+    target: EmailRecipientTarget,
+    mode: 'append' | 'replace',
+    requestedIds = selectedGroupIds,
+  ) {
     const allowedIds = nominationOnly
-      ? selectedGroupIds.filter((id) => contextual.has(id))
-      : selectedGroupIds;
+      ? requestedIds.filter((id) => contextual.has(id))
+      : requestedIds;
     if (!allowedIds.length || selectionUnavailable) return;
     const version = ++resolutionVersion.current;
     setIsResolving(true);
@@ -233,6 +240,51 @@ export function EmailGroupPicker({
             configure their matching groups in Clients.
           </Text>
         )}
+      {replyChoices && targets.find((target) => target.key === 'to') && (
+        <Box mb="sm">
+          <Text size="xs" fw={600}>
+            Choose the To recipients for this draft
+          </Text>
+          <Text size="xs" c="dimmed">
+            Each Send sends one message. Choosing a recipient changes To only; saved always-copy and
+            branch recipients remain in CC.
+          </Text>
+          <Group gap="xs" mt={6}>
+            <Button
+              size="xs"
+              variant="default"
+              disabled={selectionUnavailable || !context.data?.captainEmails.length}
+              onClick={() => {
+                const target = targets.find((item) => item.key === 'to');
+                const emails = context.data?.captainEmails ?? [];
+                if (target && emails.length) {
+                  target.onChange(parseEmailList(emails.join(';')));
+                  setSelectedGroupIds([]);
+                  setResolveError(null);
+                }
+              }}
+            >
+              {context.data?.captainSource === 'contact'
+                ? 'Use captain contact'
+                : 'Use vessel inboxes'}
+            </Button>
+            {(context.data?.messageGroups ?? []).map((group) => (
+              <Button
+                key={`${group.messageOrder}:${group.id}`}
+                size="xs"
+                variant="default"
+                disabled={selectionUnavailable || group.memberCount === 0}
+                onClick={() => {
+                  const target = targets.find((item) => item.key === 'to');
+                  if (target) void applyGroups(target, 'replace', [group.id]);
+                }}
+              >
+                Use {['1st', '2nd', '3rd'][group.messageOrder - 1]} message · {group.name}
+              </Button>
+            ))}
+          </Group>
+        </Box>
+      )}
       <Group gap="xs" align="flex-end">
         <MultiSelect
           style={{ flex: 1 }}

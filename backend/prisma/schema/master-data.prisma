@@ -430,17 +430,18 @@ model SalesContact {
 // Communication fields use the same normalized shape as Client.
 // ---------------------------------------------------------------------------
 model Contact {
-  id          String           @id @default(cuid())
-  name        String
-  emails      String[]         @default([])
-  phones      ContactPhone[]
-  addresses   ContactAddress[]
-  notes       String?          @db.Text
-  ownerId     String?
-  owner       Owner?           @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  clientLinks ClientContact[]
-  createdAt   DateTime         @default(now()) @db.Timestamptz
-  updatedAt   DateTime         @updatedAt @db.Timestamptz
+  captainNominations Nomination[]     @relation("NominationCaptain")
+  id                 String           @id @default(cuid())
+  name               String
+  emails             String[]         @default([])
+  phones             ContactPhone[]
+  addresses          ContactAddress[]
+  notes              String?          @db.Text
+  ownerId            String?
+  owner              Owner?           @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  clientLinks        ClientContact[]
+  createdAt          DateTime         @default(now()) @db.Timestamptz
+  updatedAt          DateTime         @updatedAt @db.Timestamptz
 
   @@index([name, id])
   @@map("contacts")

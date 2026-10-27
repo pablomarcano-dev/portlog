@@ -11,6 +11,16 @@ import { NominationClientSchema, NominationClientCreateSchema } from './client.j
 
 /** cuid()-keyed foreign key pointing at an M2 master-data entity */
 const cuidFk = z.string().cuid();
+// Routing fields identify directory records, never hand-typed email addresses.
+const routingCuid = () =>
+  z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
+    z
+      .string()
+      .cuid()
+      .regex(/^c[a-z0-9]+$/i, 'Select a directory record.')
+      .nullish(),
+  );
 
 /**
  * Lay days form a range: the last day can never precede the first.
@@ -53,6 +63,12 @@ export const NominationCreateSchema = z
 
     // Operational charterer. Kept separate from the commercial Client record.
     chartererId: clearableCuid(),
+
+    masterContactId: routingCuid(),
+    firstMessageGroupId: routingCuid(),
+    secondMessageGroupId: routingCuid(),
+    thirdMessageGroupId: routingCuid(),
+    alwaysCopyGroupId: routingCuid(),
 
     // Supplementary fields from legacy General Info tab
     nomReply: z.coerce.date().optional(),
@@ -303,6 +319,20 @@ export const NominationSchema = z.object({
   layDaysFirst: z.coerce.date().nullable(),
   layDaysLast: z.coerce.date().nullable(),
   etaDate: z.coerce.date().nullable(),
+
+  masterContactId: cuidFk.nullish().default(null),
+  masterContact: z
+    .object({ id: z.string(), name: z.string(), emails: z.array(z.string()) })
+    .nullish()
+    .default(null),
+  firstMessageGroupId: cuidFk.nullish().default(null),
+  firstMessageGroup: z.object({ id: z.string(), name: z.string() }).nullish().default(null),
+  secondMessageGroupId: cuidFk.nullish().default(null),
+  secondMessageGroup: z.object({ id: z.string(), name: z.string() }).nullish().default(null),
+  thirdMessageGroupId: cuidFk.nullish().default(null),
+  thirdMessageGroup: z.object({ id: z.string(), name: z.string() }).nullish().default(null),
+  alwaysCopyGroupId: cuidFk.nullish().default(null),
+  alwaysCopyGroup: z.object({ id: z.string(), name: z.string() }).nullish().default(null),
 
   // People
   nominatedById: cuidFk.nullable(),

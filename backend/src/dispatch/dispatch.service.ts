@@ -1,3 +1,8 @@
+import {
+  NOMINATION_ROUTING_SELECT,
+  alwaysCopyEmails,
+  uniqueEnvelope,
+} from '../nominations/nomination-routing.js';
 import { NominationsService } from '../nominations/nominations.service.js';
 import {
   Injectable,
@@ -17,6 +22,7 @@ import type { PedrSubDocumentType } from '@portlog/schemas';
 
 // Full nomination include needed to build PDF template data
 const NOMINATION_INCLUDE = {
+  alwaysCopyGroup: NOMINATION_ROUTING_SELECT.alwaysCopyGroup,
   shipParticular: { select: { id: true, name: true, imoNumber: true } },
   branch: { select: { emails: true, contactEmails: true, centralEmails: true } },
   opPort: { select: { id: true, name: true, abbreviation: true } },
@@ -75,7 +81,12 @@ export class DispatchService {
     }
 
     const { nomination } = pedr;
-    const resolvedCcAddresses = appendBranchCc(ccAddresses, nomination.branch);
+    const normalized = uniqueEnvelope(
+      toAddresses,
+      appendBranchCc([...ccAddresses, ...alwaysCopyEmails(nomination)], nomination.branch),
+      bccAddresses ?? [],
+    );
+    const resolvedCcAddresses = normalized.ccAddresses;
 
     // Resolve a client name from the nomination's roster by its Type row
     // (case-insensitive). Returns '' when the type isn't present or is unfilled.
@@ -203,9 +214,9 @@ export class DispatchService {
       data: {
         pedrId,
         subDocType,
-        toAddresses,
+        toAddresses: normalized.toAddresses,
         ccAddresses: resolvedCcAddresses,
-        bccAddresses: bccAddresses ?? [],
+        bccAddresses: normalized.bccAddresses,
         subject,
         bodyHtml: emailBody,
         pdfStorageKey,
@@ -218,9 +229,9 @@ export class DispatchService {
     try {
       await this.attachmentsService.linkToEmailDispatch(attachmentIds ?? [], dispatch.id);
       await this.emailService.send({
-        to: toAddresses,
+        to: normalized.toAddresses,
         cc: resolvedCcAddresses,
-        bcc: bccAddresses,
+        bcc: normalized.bccAddresses,
         subject,
         html: emailBody,
         attachments: [

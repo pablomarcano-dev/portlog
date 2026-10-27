@@ -455,3 +455,11 @@ Send interim SOF prepares a report of saved, selected information while keeping 
 The four Show in final SOF switches control their corresponding support sections in both report versions. Bunkers/Draft/Parcel includes entered parcel pump and offered/requested figures. Letters include From, To and Comment; remarks include the entered date/time spans and text. Calculated time summaries appear in a final SOF only when Include calculated time summary in final SOF is selected under Letters/Remarks. A support dialog remains open after a failed save so you can retry without losing edits. Existing archived documents are unchanged.
 
 Datalastic lookup in New Ship Particular fills editable SDWT, GRT and LOA and saves them with the new vessel. Fetch from vessel reads Datalastic deadweight, gross_tonnage and length for the selected IMO; unrelated provider metadata does not block these fields. Missing measurements do not replace an entered number with zero. Existing vessel records and historical nominations are not refreshed in bulk.
+
+## Captain and message-routing defaults (local, pending deployment)
+
+In Nomination Details, Captain contact selects a person from Contacts. Their email addresses are used for ETA requests and replies to the master; vessel inboxes are the fallback if the contact has no email. If neither source has an address, choose To explicitly before sending. Editing the free Captain name clears the linked contact. The captain text inside SOF is for that document only; set the nomination Captain contact to change email routing.
+
+Message routing for this nomination offers 1st, 2nd and 3rd message overrides. Clear an override to return to the assigned client's group. These choices affect only this nomination; editing a group's members in the shared directory still changes that group for every use. Always-copy group (CC) is optional and must be assigned explicitly. Its current addresses and the branch are included in CC, with addresses already in To removed from CC. Save configuration before composing.
+
+Reply to Master offers Use captain contact (or Use vessel inboxes) and explicit assigned-message choices. Choosing changes the recipients in the current draft; it sends nothing. Send sends one message. Existing archived messages and replay recipients are retained.

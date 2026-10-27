@@ -1,3 +1,10 @@
+import {
+  NOMINATION_ROUTING_SELECT,
+  captainRouting,
+  messageOverride,
+  alwaysCopyEmails,
+  uniqueEnvelope,
+} from './nomination-routing.js';
 import { CLIENT_SELECT } from '../master-data/clients/clients.service.js';
 import { formatPhones, addressFor, type ClientEmailSlot } from '@portlog/schemas';
 import {
@@ -393,6 +400,11 @@ function statusWhere(status: NominationStatus, now: Date): Prisma.NominationWher
 }
 
 const DETAIL_INCLUDE = {
+  masterContact: NOMINATION_ROUTING_SELECT.masterContact,
+  firstMessageGroup: { select: { id: true, name: true } },
+  secondMessageGroup: { select: { id: true, name: true } },
+  thirdMessageGroup: { select: { id: true, name: true } },
+  alwaysCopyGroup: { select: { id: true, name: true } },
   shipParticular: {
     select: {
       id: true,
@@ -447,6 +459,14 @@ export class NominationsService {
     const { nominationClients: clientRows, ...nominationData } = dto;
     const normalizedClientRows = clientRows?.map((row) => normalizeClientDirectoryLinks(row));
     return this.prisma.$transaction(async (tx) => {
+      const captain = nominationData.masterContactId
+        ? await tx.contact.findUnique({
+            where: { id: nominationData.masterContactId },
+            select: { name: true },
+          })
+        : null;
+      if (nominationData.masterContactId && !captain)
+        throw new BadRequestException('Captain contact not found.');
       // OT nominations may only carry OT-category products (no-op for SN).
       await this.assertParcelsMatchKind(tx, nominationData.kind, nominationData.parcels);
       const branchStaff = await tx.agent.findMany({
@@ -682,6 +702,8 @@ export class NominationsService {
         status: true,
         kind: true,
         branchId: true,
+        master: true,
+        masterContactId: true,
         clientId: true,
         chartererId: true,
       },
@@ -719,12 +741,26 @@ export class NominationsService {
           : {}),
       };
     }
+    const captain = dto.masterContactId
+      ? await this.prisma.contact.findUnique({
+          where: { id: dto.masterContactId },
+          select: { name: true },
+        })
+      : null;
+    if (dto.masterContactId && !captain)
+      throw new BadRequestException('Captain contact not found.');
     try {
       const updated = await this.prisma.nomination.update({
         where: { id },
         data: {
           ...(dto as unknown as Prisma.NominationUncheckedUpdateInput),
           ...staffDefaults,
+          ...(captain ? { master: captain.name } : {}),
+          ...(dto.master !== undefined &&
+          dto.masterContactId === undefined &&
+          dto.master !== existing.master
+            ? { masterContactId: null }
+            : {}),
           ...(dto.clientId === undefined &&
           dto.chartererId !== undefined &&
           (!existing.clientId || existing.clientId === existing.chartererId)
@@ -857,9 +893,11 @@ export class NominationsService {
     const nomination = await this.prisma.nomination.findUnique({
       where: { id: nominationId },
       select: {
+        ...NOMINATION_ROUTING_SELECT,
+        master: true,
         clientId: true,
         chartererId: true,
-        shipParticular: { select: { operatorId: true } },
+        shipParticular: { select: { operatorId: true, emails: true } },
         nominationClients: {
           orderBy: [{ messageOrder: 'asc' }, { sortOrder: 'asc' }],
           select: {
@@ -874,7 +912,7 @@ export class NominationsService {
     if (!nomination) throw new NotFoundException('Nomination not found.');
     const slots = ['FIRST_MESSAGE', 'SECOND_MESSAGE', 'THIRD_MESSAGE'];
     const messageGroups = nomination.nominationClients.flatMap((row) => {
-      if (row.messageOrder == null) return [];
+      if (row.messageOrder == null || messageOverride(nomination, row.messageOrder)) return [];
       const group = row.client?.emailGroups.find(
         (assignment) => assignment.slot === slots[row.messageOrder! - 1],
       )?.emailGroup;
@@ -890,7 +928,19 @@ export class NominationsService {
           ]
         : [];
     });
+    for (const order of [1, 2, 3]) {
+      const group = messageOverride(nomination, order);
+      if (group)
+        messageGroups.push({
+          id: group.id,
+          name: group.name,
+          memberCount: group.members.length,
+          clientName: 'Nomination override',
+          messageOrder: order,
+        });
+    }
     return {
+      ...captainRouting(nomination),
       messageGroups,
       clientIds: [
         ...new Set(
@@ -915,6 +965,7 @@ export class NominationsService {
     const nomination = await this.prisma.nomination.findUnique({
       where: { id: nominationId },
       select: {
+        ...NOMINATION_ROUTING_SELECT,
         correlative: true,
         kind: true,
         voyageNumber: true,
@@ -989,8 +1040,19 @@ export class NominationsService {
       const assignedRows = nomination.nominationClients.filter((row) => row.messageOrder === order);
       // Preserve the standing instruction groups for legacy nominations until
       // the operator explicitly assigns clients to this nomination's messages.
-      const sources =
-        hasMessageAssignments && order !== null
+      const override =
+        order === null ? nomination.alwaysCopyGroup : messageOverride(nomination, order);
+      const sources = override
+        ? [
+            {
+              name: assignedRows
+                .map((row) => row.name)
+                .filter(Boolean)
+                .join('; '),
+              groups: [{ slot, emailGroup: override }],
+            },
+          ]
+        : hasMessageAssignments && order !== null
           ? assignedRows.map((row) => ({ name: row.name, groups: row.client?.emailGroups ?? [] }))
           : [{ name: '', groups: client.emailGroups }];
       return (
@@ -1202,6 +1264,7 @@ export class NominationsService {
       this.prisma.nomination.findUnique({
         where: { id: nominationId },
         select: {
+          ...NOMINATION_ROUTING_SELECT,
           emailTo: true,
           emailCc: true,
           emailBcc: true,
@@ -1883,9 +1946,8 @@ export class NominationsService {
     // Every address configured on the branch handling the call is copied on
     // every nomination message.
     //
-    // If nothing is registered there is nothing to address it to, so it falls
-    // back to the nomination's list rather than opening with an empty To that
-    // reads as a bug. The agent can still edit the line before sending.
+    // When no captain or vessel inbox is registered, master-addressed notices
+    // leave To empty so an operator must explicitly choose recipients.
     // ---------------------------------------------------------------------------
     let toAddresses = nomination.emailTo;
     let ccAddresses = nomination.emailCc;
@@ -1902,7 +1964,7 @@ export class NominationsService {
       // emails are the vessel/bridge inboxes used for the master-addressed ETA
       // correspondence above, so append them without replacing the client's
       // existing Cc list.
-      ccAddresses = dedupeEmails([...ccAddresses, ...(nomination.shipParticular?.emails ?? [])]);
+      ccAddresses = dedupeEmails([...ccAddresses, ...captainRouting(nomination).captainEmails]);
     }
 
     if (isTerminalAddressed) {
@@ -1929,8 +1991,8 @@ export class NominationsService {
 
     if (isMasterAddressed) {
       const vessel = nomination.shipParticular;
-      const vesselEmails = dedupeEmails(vessel?.emails ?? []);
-      if (vesselEmails.length > 0) toAddresses = vesselEmails;
+      const vesselEmails = captainRouting(nomination).captainEmails;
+      toAddresses = vesselEmails;
 
       const ownerOperatorEmails = dedupeEmails([
         ...(vessel?.operator?.emails ?? []),
@@ -1947,9 +2009,9 @@ export class NominationsService {
     // master-addressed notices may replace the nomination's original Cc list.
     // `emails`, `contactEmails`, and `centralEmails` are the three address lists
     // exposed by the branch UI; all of them belong in Cc on every message.
-    ccAddresses = appendBranchCc(ccAddresses, branch);
+    ccAddresses = appendBranchCc([...ccAddresses, ...alwaysCopyEmails(nomination)], branch);
 
-    if (isTerminalAddressed) {
+    {
       toAddresses = dedupeEmails(toAddresses);
       const toKeys = new Set(toAddresses.map((email) => email.toLowerCase()));
       ccAddresses = dedupeEmails(ccAddresses).filter((email) => !toKeys.has(email.toLowerCase()));
@@ -2290,6 +2352,7 @@ export class NominationsService {
         id: true,
         nomination: {
           select: {
+            alwaysCopyGroup: { select: NOMINATION_ROUTING_SELECT.alwaysCopyGroup.select },
             branch: { select: { emails: true, contactEmails: true, centralEmails: true } },
           },
         },
@@ -2297,18 +2360,14 @@ export class NominationsService {
     });
     if (!pedr) throw new NotFoundException(`No PEDR found for nomination ${nominationId}.`);
 
-    const terminalMessage = TERMINAL_ADDRESSED_ACTIONS.has(body.subDocType);
-    const toAddresses = terminalMessage ? dedupeEmails(body.toAddresses) : body.toAddresses;
-    const toKeys = new Set(toAddresses.map((email) => email.toLowerCase()));
-    const ccAddresses = appendBranchCc(body.ccAddresses, pedr.nomination?.branch).filter(
-      (email) => !terminalMessage || !toKeys.has(email.toLowerCase()),
+    const { toAddresses, ccAddresses, bccAddresses } = uniqueEnvelope(
+      body.toAddresses,
+      appendBranchCc(
+        [...body.ccAddresses, ...alwaysCopyEmails(pedr.nomination ?? {})],
+        pedr.nomination?.branch,
+      ),
+      body.bccAddresses,
     );
-    const visibleKeys = new Set(
-      [...toAddresses, ...ccAddresses].map((email) => email.toLowerCase()),
-    );
-    const bccAddresses = terminalMessage
-      ? dedupeEmails(body.bccAddresses).filter((email) => !visibleKeys.has(email.toLowerCase()))
-      : body.bccAddresses;
 
     // Resolve user-uploaded attachments up front (fails fast on bad id / oversize).
     const userAttachments = await this.attachmentsService.resolveForSend(body.attachmentIds ?? []);

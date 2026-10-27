@@ -18,18 +18,21 @@ describe('SOF dispatch content and classification', () => {
         'Safe Key Meeting Completed\nQty. Requested (BBLS/HR): 900\nFrom: Surveyor — To: Master — Letter < &\nFm 2026-10-26 10:00 To 2026-10-26 12:00 Awaiting';
       const prisma = {
         pedr: {
-          findUnique: jest
-            .fn()
-            .mockResolvedValue({
-              id: 'pedr-1',
-              nomination: {
-                id: 'nom-1',
-                shipParticular: { name: 'QA Vessel' },
-                branch: null,
-                nominationClients: [],
-                parcels: [],
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'pedr-1',
+            nomination: {
+              id: 'nom-1',
+              shipParticular: { name: 'QA Vessel' },
+              branch: { emails: ['branch@example.test', 'to@example.test'] },
+              alwaysCopyGroup: {
+                id: 'copy',
+                name: 'Always copy',
+                members: [{ email: 'copy@example.test' }, { email: 'TO@example.test' }],
               },
-            }),
+              nominationClients: [],
+              parcels: [],
+            },
+          }),
         },
         user: { findUnique: jest.fn().mockResolvedValue({ email: 'agent@example.test' }) },
         emailDispatch: {
@@ -66,20 +69,18 @@ describe('SOF dispatch content and classification', () => {
           },
         ],
       }).compile();
-      await module
-        .get(DispatchService)
-        .sendSubDocument(
-          'pedr-1',
-          {
-            subDocType,
-            subject: 'QA SOF',
-            toAddresses: ['to@example.test'],
-            ccAddresses: [],
-            bccAddresses: [],
-            attachmentIds: [],
-          },
-          'user-1',
-        );
+      await module.get(DispatchService).sendSubDocument(
+        'pedr-1',
+        {
+          subDocType,
+          subject: 'QA SOF',
+          toAddresses: ['to@example.test'],
+          ccAddresses: [],
+          bccAddresses: [],
+          attachmentIds: [],
+        },
+        'user-1',
+      );
       expect(nominations.getComposeData).toHaveBeenCalledWith(
         'nom-1',
         subDocType,
@@ -95,6 +96,12 @@ describe('SOF dispatch content and classification', () => {
       );
       expect(prisma.emailDispatch.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ subDocType }) }),
+      );
+      expect(email.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: ['to@example.test'],
+          cc: ['copy@example.test', 'branch@example.test'],
+        }),
       );
       expect(prisma.emailDispatch.count).toHaveBeenCalledWith({
         where: { pedrId: 'pedr-1', subDocType, sentAt: { not: null } },

@@ -6,14 +6,18 @@
 // ---------------------------------------------------------------------------
 
 model EmailGroup {
-  id                String             @id @default(cuid())
-  name              String
-  description       String?
-  comments          String?            @db.Text
-  createdAt         DateTime           @default(now()) @db.Timestamptz
-  updatedAt         DateTime           @updatedAt @db.Timestamptz
-  members           EmailGroupMember[]
-  clientAssignments ClientEmailGroup[]
+  id                            String             @id @default(cuid())
+  name                          String
+  description                   String?
+  comments                      String?            @db.Text
+  createdAt                     DateTime           @default(now()) @db.Timestamptz
+  updatedAt                     DateTime           @updatedAt @db.Timestamptz
+  members                       EmailGroupMember[]
+  clientAssignments             ClientEmailGroup[]
+  firstMessageGroupNominations  Nomination[]       @relation("NominationFirstMessage")
+  secondMessageGroupNominations Nomination[]       @relation("NominationSecondMessage")
+  thirdMessageGroupNominations  Nomination[]       @relation("NominationThirdMessage")
+  alwaysCopyGroupNominations    Nomination[]       @relation("NominationAlwaysCopy")
 
   @@index([name])
   @@map("email_groups")

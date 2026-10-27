@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   Modal,
   Stack,
@@ -130,6 +130,7 @@ export function EmailComposeDrawer({
     register,
     handleSubmit,
     setValue,
+    getFieldState,
     watch,
     reset,
     control,
@@ -155,21 +156,38 @@ export function EmailComposeDrawer({
     },
   });
 
-  // Pre-fill form when compose data loads or drawer reopens
+  const initializedDraft = useRef<string | null>(null);
+  // Initialize once per draft; background reads must not replace deliberate recipient choices.
   useEffect(() => {
-    if (opened && composeQuery.data) {
+    if (!opened) {
+      initializedDraft.current = null;
+      return;
+    }
+    const key = `${nominationId ?? pedrId}:${subDocType}`;
+    if (composeQuery.data && initializedDraft.current !== key) {
+      initializedDraft.current = key;
       const d = composeQuery.data;
-      setValue('toAddresses', d.toAddresses);
-      setValue('ccAddresses', d.ccAddresses);
-      setValue('bccAddresses', d.bccAddresses);
+      if (!getFieldState('toAddresses').isDirty) setValue('toAddresses', d.toAddresses);
+      if (!getFieldState('ccAddresses').isDirty) setValue('ccAddresses', d.ccAddresses);
+      if (!getFieldState('bccAddresses').isDirty) setValue('bccAddresses', d.bccAddresses);
       // Prefer a caller-supplied subject and body (the Cargo Update modal
       // builds both from the date/time/ETD typed into it; the ETA dialog
       // re-titles the subject with the countdown the vessel has reached) over
       // the server-composed draft, which is stamped at compose time.
-      setValue('subject', subjectOverride || d.subject);
-      setValue('bodyText', defaultBody || d.bodyText);
+      if (!getFieldState('subject').isDirty) setValue('subject', subjectOverride || d.subject);
+      if (!getFieldState('bodyText').isDirty) setValue('bodyText', defaultBody || d.bodyText);
     }
-  }, [opened, composeQuery.data, defaultBody, subjectOverride, setValue]);
+  }, [
+    opened,
+    nominationId,
+    pedrId,
+    subDocType,
+    composeQuery.data,
+    defaultBody,
+    subjectOverride,
+    setValue,
+    getFieldState,
+  ]);
 
   const toAddresses = watch('toAddresses');
   const ccAddresses = watch('ccAddresses');
@@ -182,6 +200,18 @@ export function EmailComposeDrawer({
   // Bumped on close so EmailAttachmentsField remounts fresh (clears its internal
   // file list) — the form value resets, but the widget keeps local UI metadata.
   const [attachKey, setAttachKey] = useState(0);
+  function updateToRecipients(next: string[]) {
+    const used = new Set(next.map((email) => email.trim().toLowerCase()));
+    const cc = ccAddresses.filter((email) => !used.has(email.trim().toLowerCase()));
+    cc.forEach((email) => used.add(email.trim().toLowerCase()));
+    setValue('toAddresses', next, { shouldValidate: true, shouldDirty: true });
+    setValue('ccAddresses', cc, { shouldDirty: true });
+    setValue(
+      'bccAddresses',
+      bccAddresses.filter((email) => !used.has(email.trim().toLowerCase())),
+      { shouldDirty: true },
+    );
+  }
   const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
   const [uploadsPending, setUploadsPending] = useState(false);
 
@@ -373,7 +403,7 @@ export function EmailComposeDrawer({
               label="To"
               placeholder="Type or paste addresses…"
               value={toAddresses}
-              onChange={(val) => setValue('toAddresses', val, { shouldValidate: true })}
+              onChange={updateToRecipients}
               error={errors.toAddresses?.message}
               minHeight={96}
             />
@@ -394,6 +424,7 @@ export function EmailComposeDrawer({
 
             {/* Add from group */}
             <EmailGroupPicker
+              replyChoices={subDocType === 'ETA_REPLY'}
               nominationOnly
               nominationId={nominationId}
               targets={[
@@ -401,7 +432,7 @@ export function EmailComposeDrawer({
                   key: 'to',
                   label: 'To',
                   value: toAddresses,
-                  onChange: (v) => setValue('toAddresses', v, { shouldValidate: true }),
+                  onChange: updateToRecipients,
                 },
                 {
                   key: 'cc',

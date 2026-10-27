@@ -516,7 +516,11 @@ export function SofTimesheetModal({
                   />
                 </Grid.Col>
                 <Grid.Col span={6}>
-                  <TextInput label="Captain" {...register('captain')} />
+                  <TextInput
+                    label="Captain"
+                    description="SOF name only; email contact is set on the nomination."
+                    {...register('captain')}
+                  />
                 </Grid.Col>
                 <Grid.Col span={6}>
                   <TextInput label="Mobile on Board" {...register('mobileOnBoard')} />

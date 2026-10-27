@@ -1,3 +1,5 @@
+import { allEmailGroupsOptions } from '../../../components/master-data/directoryOptions';
+import { contactsApi } from '../../../lib/api/master-data/contacts';
 import { useState, useEffect, useRef } from 'react';
 import {
   ActionIcon,
@@ -103,6 +105,13 @@ interface NominationFormProps {
   correlative?: number;
   /** Ensures the saved Charterer label remains visible when editing. */
   chartererOption?: { value: string; label: string } | null;
+  masterContactOption?: { value: string; label: string } | null;
+  routingOptions?: Partial<
+    Record<
+      'firstMessageGroupId' | 'secondMessageGroupId' | 'thirdMessageGroupId' | 'alwaysCopyGroupId',
+      { value: string; label: string } | null
+    >
+  >;
   /** Keep saved location labels visible when they are outside the first catalog page. */
   opPortOption?: { value: string; label: string } | null;
   pierOption?: { value: string; label: string } | null;
@@ -119,6 +128,8 @@ export function NominationForm({
   isReadOnly = false,
   correlative,
   chartererOption,
+  masterContactOption,
+  routingOptions,
   opPortOption,
   pierOption,
   lastPortOption,
@@ -164,6 +175,23 @@ export function NominationForm({
     remove: removeClient,
   } = useFieldArray({ control, name: 'nominationClients' });
 
+  const masterContactId = watch('masterContactId');
+  const [captainSearch, setCaptainSearch] = useState('');
+  const routingGroups = useQuery(allEmailGroupsOptions());
+  const routingGroupOptions = new Map(
+    (routingGroups.data ?? []).map((group) => [
+      group.id,
+      { value: group.id, label: `${group.name} (${group.memberCount})` },
+    ]),
+  );
+  for (const option of Object.values(routingOptions ?? {}))
+    if (option && !routingGroupOptions.has(option.value))
+      routingGroupOptions.set(option.value, option);
+  const captainContact = useQuery({
+    queryKey: ['contacts', masterContactId],
+    queryFn: () => contactsApi.get(masterContactId ?? ''),
+    enabled: !!masterContactId,
+  });
   const shipParticularId = watch('shipParticularId');
   const opPortId = watch('opPortId') ?? null;
   const branchId = watch('branchId');
@@ -1115,13 +1143,53 @@ export function NominationForm({
           {/* Row 6 — Captain / Inspector / Reference Nº */}
           <Grid gutter="xs" align="flex-end">
             <Grid.Col span={4}>
-              <TextInput
-                label="Captain"
-                placeholder="Captain name"
-                disabled={isReadOnly}
-                error={formState.errors.master?.message}
-                {...register('master')}
-              />
+              <Stack gap="xs">
+                <Controller
+                  control={control}
+                  name="masterContactId"
+                  render={({ field, fieldState }) => (
+                    <EntityPicker
+                      endpoint="/master-data/contacts"
+                      label="Captain contact"
+                      placeholder="Optional — use vessel inboxes"
+                      value={field.value ?? null}
+                      selectedOption={
+                        captainContact.data
+                          ? { value: captainContact.data.id, label: captainContact.data.name }
+                          : masterContactOption
+                      }
+                      searchValue={captainSearch}
+                      onSearchChange={setCaptainSearch}
+                      disabled={isReadOnly}
+                      error={fieldState.error?.message}
+                      onChange={(id, name) => {
+                        field.onChange(id);
+                        if (id && name) setValue('master', name, { shouldDirty: true });
+                      }}
+                    />
+                  )}
+                />
+                <TextInput
+                  label="Captain"
+                  placeholder="Captain name"
+                  disabled={isReadOnly}
+                  error={formState.errors.master?.message}
+                  {...register('master')}
+                  onChange={(event) => {
+                    void register('master').onChange(event);
+                    setValue('masterContactId', null, { shouldDirty: true });
+                  }}
+                />
+                {masterContactId && (
+                  <Text size="xs" c="dimmed">
+                    {captainContact.isError
+                      ? 'Contact details could not be loaded. The saved selection is kept.'
+                      : captainContact.data?.emails.length
+                        ? `Captain To: ${captainContact.data.emails.join('; ')}`
+                        : 'No captain email loaded; master-facing notices use vessel inboxes when available.'}
+                  </Text>
+                )}
+              </Stack>
             </Grid.Col>
             <Grid.Col span={4}>
               <Controller
@@ -1324,6 +1392,61 @@ export function NominationForm({
               disabled={isReadOnly}
               kind={kind}
             />
+          </Fieldset>
+
+          <Fieldset legend="Message routing for this nomination">
+            <Text size="xs" c="dimmed" mb="sm">
+              Leave a message override empty to use its assigned client's group. Changes here affect
+              this nomination only. Save before composing a message.
+            </Text>
+            {routingGroups.isError && (
+              <Group>
+                <Text size="xs" c="red">
+                  Could not load groups. Saved assignments are retained.
+                </Text>
+                <Button
+                  size="compact-xs"
+                  variant="subtle"
+                  onClick={() => void routingGroups.refetch()}
+                >
+                  Retry routing groups
+                </Button>
+              </Group>
+            )}
+            <Grid>
+              {(
+                [
+                  ['firstMessageGroupId', '1st message override'],
+                  ['secondMessageGroupId', '2nd message override'],
+                  ['thirdMessageGroupId', '3rd message override'],
+                  ['alwaysCopyGroupId', 'Always-copy group (CC)'],
+                ] as const
+              ).map(([name, label]) => (
+                <Grid.Col key={name} span={6}>
+                  <Controller
+                    control={control}
+                    name={name}
+                    render={({ field, fieldState }) => (
+                      <Select
+                        label={label}
+                        placeholder={
+                          name === 'alwaysCopyGroupId'
+                            ? 'No additional always-copy group'
+                            : 'Use assigned client group'
+                        }
+                        value={field.value ?? null}
+                        data={[...routingGroupOptions.values()]}
+                        searchable
+                        clearable
+                        onChange={(id) => field.onChange(id)}
+                        disabled={isReadOnly || routingGroups.isPending || routingGroups.isError}
+                        error={fieldState.error?.message}
+                      />
+                    )}
+                  />
+                </Grid.Col>
+              ))}
+            </Grid>
           </Fieldset>
 
           {/* Email Recipients */}

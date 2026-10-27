@@ -36,6 +36,32 @@ export interface ChangelogEntry {
 // Sources and verification boundaries: docs/CHANGELOG.md.
 export const changelogEntries: readonly ChangelogEntry[] = [
   {
+    id: '2026-10-27-routing-defaults',
+    date: '2026-10-27',
+    dateLabel: '27 de octubre de 2026',
+    timeZone: 'America/Montevideo',
+    title: 'Contacto del capitán y grupos por nominación',
+    deployment: 'deployed',
+    releaseNote:
+      'La nominación permite seleccionar el contacto del capitán, cambiar los grupos de sus mensajes y asignar un grupo de copia permanente. No se asignan contactos ni grupos automáticamente a nominaciones existentes.',
+    qaSummary: { verified: 4, partial: 0, deferred: 0 },
+    sections: [
+      {
+        id: 'routing-defaults',
+        title: 'Contactos y destinatarios',
+        status: 'verified-local',
+        items: [
+          'Capitán: se puede vincular un contacto. Sus correos se usan para las solicitudes y respuestas ETA al capitán; si no tiene correos se utilizan los del buque. Sin ninguna dirección, Para queda vacío para selección expresa. Editar el nombre manualmente desvincula el contacto.',
+          'Grupos: el primer, segundo y tercer mensaje permiten elegir un grupo para esta nominación. Al quitar la selección vuelven los grupos del cliente asignado. La composición del grupo sigue perteneciendo al directorio compartido.',
+          'Copia permanente: el grupo elegido expresamente y los correos de la sucursal se incluyen en CC en los nuevos envíos operativos. Se eliminan duplicados entre Para, CC y CCO. Los reenvíos históricos conservan sus destinatarios archivados.',
+          'Reply to Master: permite elegir el capitán/buque o un grupo asignado para el borrador. Elegir no envía; cada Send envía un solo mensaje. Una actualización de la consulta no sustituye los cambios del remitente.',
+        ],
+        verification:
+          'Pruebas automatizadas y de interfaz con datos simulados; migración aditiva ensayada en una copia aislada. No se enviaron correos reales. Los contactos y grupos vinculados deben desvincularse antes de eliminarlos del directorio.',
+      },
+    ],
+  },
+  {
     id: '2026-10-27-sof-routing',
     date: '2026-10-27',
     dateLabel: '27 de octubre de 2026',

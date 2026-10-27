@@ -8,8 +8,10 @@ export function useUpdateNomination(id: string) {
 
   return useMutation({
     mutationFn: (body: NominationUpdateInput) => nominationsApi.update(id, body),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['nominations', id] });
+    onSuccess: async () => {
+      await qc.cancelQueries({ queryKey: ['nomination', id, 'compose'] });
+      qc.removeQueries({ queryKey: ['nomination', id, 'compose'] });
+      await qc.invalidateQueries({ queryKey: ['nominations', id] });
       void qc.invalidateQueries({ queryKey: ['nominations', 'list'] });
       notifications.show({
         title: 'Nomination saved',
