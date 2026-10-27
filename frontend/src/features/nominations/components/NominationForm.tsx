@@ -580,7 +580,26 @@ export function NominationForm({
         onClose={() => setNewPierModalOpen(false)}
         onCreated={(id) => handlePierCreated(id)}
       />
-      <form id="nomination-form" onSubmit={handleSubmit(onSubmit)} noValidate>
+      <form
+        id="nomination-form"
+        onSubmit={handleSubmit(onSubmit)}
+        onKeyDown={(event) => {
+          // Enter finishes numeric entry; Create/Save remains keyboard-accessible.
+          const target = event.target;
+          if (
+            event.key === 'Enter' &&
+            !event.nativeEvent.isComposing &&
+            target instanceof HTMLInputElement &&
+            event.currentTarget.contains(target) &&
+            (target.type === 'number' ||
+              target.inputMode === 'decimal' ||
+              target.inputMode === 'numeric')
+          ) {
+            event.preventDefault();
+          }
+        }}
+        noValidate
+      >
         <Stack gap="xs">
           {/* Row 1 — Number / Branch / Lay Days */}
           <Grid gutter="xs" align="flex-end">

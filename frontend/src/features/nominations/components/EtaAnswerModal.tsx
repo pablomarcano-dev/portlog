@@ -12,7 +12,7 @@ import {
   Loader,
   Box,
 } from '@mantine/core';
-import { DateTimePicker } from '@mantine/dates';
+import { EtaDateTimeInput } from './EtaDateTimeInput';
 import { useNominationEta } from '../api/useNominationEta';
 import { useNominationEtaSave } from '../api/useNominationEtaSave';
 import { useNominationCompose } from '../api/useNominationCompose';
@@ -62,6 +62,14 @@ export function EtaAnswerModal({
   const [refMessage, setRefMessage] = useState('');
   const [captainMessage, setCaptainMessage] = useState('');
 
+  const [validTimes, setValidTimes] = useState({
+    msgEta: true,
+    etaNotify: true,
+    etpob: true,
+    etb: true,
+  });
+  const timesValid = Object.values(validTimes).every(Boolean);
+
   const [activeSend, setActiveSend] = useState<EtaSendType | null>(null);
   // Countdown the outgoing notice is titled with, frozen when the send button
   // is pressed: the title states how far out the vessel was when the notice was
@@ -77,6 +85,7 @@ export function EtaAnswerModal({
   useEffect(() => {
     if (!etaQuery.data) return;
     const r = etaQuery.data;
+    setValidTimes({ msgEta: true, etaNotify: true, etpob: true, etb: true });
     setMsgEta(r.msgEta ? new Date(r.msgEta) : null);
     setEtaNotify(r.etaNotify ? new Date(r.etaNotify) : null);
     setEtaNotifyOn(r.etaNotifyOn);
@@ -103,10 +112,11 @@ export function EtaAnswerModal({
   }
 
   function handleSave() {
-    etaSave.mutate(buildPayload());
+    if (timesValid) etaSave.mutate(buildPayload());
   }
 
   function handleSendClick(type: EtaSendType) {
+    if (!timesValid) return;
     // Save first, then open compose
     const label = etaCountdownLabel(etaNotify ?? nominationQuery.data?.etaDate, new Date());
     etaSave.mutate(buildPayload(), {
@@ -179,14 +189,14 @@ export function EtaAnswerModal({
         ) : (
           <Stack gap="sm">
             {/* Msg. ETA */}
-            <DateTimePicker
+            <EtaDateTimeInput
               label="Msg. ETA"
               description="When master's ETA message was received"
-              placeholder="Select date and time"
-              valueFormat="DD/MM/YYYY HH:mm"
               value={msgEta}
               onChange={setMsgEta}
-              clearable
+              onValidityChange={(valid) =>
+                setValidTimes((previous) => ({ ...previous, msgEta: valid }))
+              }
             />
 
             <Divider />
@@ -198,15 +208,14 @@ export function EtaAnswerModal({
                 onChange={(e) => setEtaNotifyOn(e.currentTarget.checked)}
                 mt={28}
               />
-              <DateTimePicker
+              <EtaDateTimeInput
                 label="ETA Notify"
                 description="ETA reported by master"
-                placeholder="Select date and time"
-                valueFormat="DD/MM/YYYY HH:mm"
                 value={etaNotify}
                 onChange={setEtaNotify}
-                clearable
-                style={{ flex: 1 }}
+                onValidityChange={(valid) =>
+                  setValidTimes((previous) => ({ ...previous, etaNotify: valid }))
+                }
               />
             </Group>
 
@@ -217,15 +226,14 @@ export function EtaAnswerModal({
                 onChange={(e) => setEtpobOn(e.currentTarget.checked)}
                 mt={28}
               />
-              <DateTimePicker
+              <EtaDateTimeInput
                 label="ETPOB"
                 description="Estimated Time Pilot On Board"
-                placeholder="Select date and time"
-                valueFormat="DD/MM/YYYY HH:mm"
                 value={etpob}
                 onChange={setEtpob}
-                clearable
-                style={{ flex: 1 }}
+                onValidityChange={(valid) =>
+                  setValidTimes((previous) => ({ ...previous, etpob: valid }))
+                }
               />
             </Group>
 
@@ -236,15 +244,14 @@ export function EtaAnswerModal({
                 onChange={(e) => setEtbOn(e.currentTarget.checked)}
                 mt={28}
               />
-              <DateTimePicker
+              <EtaDateTimeInput
                 label="ETB"
                 description="Estimated Time of Berthing"
-                placeholder="Select date and time"
-                valueFormat="DD/MM/YYYY HH:mm"
                 value={etb}
                 onChange={setEtb}
-                clearable
-                style={{ flex: 1 }}
+                onValidityChange={(valid) =>
+                  setValidTimes((previous) => ({ ...previous, etb: valid }))
+                }
               />
             </Group>
 
@@ -275,6 +282,7 @@ export function EtaAnswerModal({
                   variant="light"
                   size="sm"
                   loading={etaSave.isPending && !activeSend}
+                  disabled={!timesValid}
                   onClick={() => handleSendClick('ETA_REQUEST')}
                 >
                   ETA Request
@@ -283,6 +291,7 @@ export function EtaAnswerModal({
                   variant="light"
                   size="sm"
                   loading={etaSave.isPending && !activeSend}
+                  disabled={!timesValid}
                   onClick={() => handleSendClick('ETA_TERMINAL')}
                 >
                   Send to Terminal
@@ -291,6 +300,7 @@ export function EtaAnswerModal({
                   variant="light"
                   size="sm"
                   loading={etaSave.isPending && !activeSend}
+                  disabled={!timesValid}
                   onClick={() => handleSendClick('ETA_REPLY')}
                 >
                   Reply to Master
@@ -303,6 +313,7 @@ export function EtaAnswerModal({
                 <Button
                   variant="default"
                   loading={etaSave.isPending && !activeSend}
+                  disabled={!timesValid}
                   onClick={handleSave}
                 >
                   Save

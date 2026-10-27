@@ -147,6 +147,7 @@ export function ClientFields({ form }: { form: UseFormReturn<ClientCreateInput> 
         render={({ field, fieldState }) => (
           <MultiSelect
             label="Contacts"
+            disabled={contacts.isPending || contacts.isError}
             description="People linked to this client"
             searchable
             clearable
@@ -160,10 +161,28 @@ export function ClientFields({ form }: { form: UseFormReturn<ClientCreateInput> 
           />
         )}
       />
-      {(contacts.isError || groups.isError) && (
-        <Text c="red" size="sm">
-          Could not load contacts or email groups. Refresh before changing these selections.
+      {(contacts.isPending || groups.isPending) && (
+        <Text size="sm" c="dimmed">
+          Loading optional contacts and email groups…
         </Text>
+      )}
+      {(contacts.isError || groups.isError) && (
+        <Stack gap="xs">
+          <Text c="red" size="sm">
+            Could not load optional contacts or email groups. Existing selections were kept.
+          </Text>
+          <Button
+            variant="subtle"
+            size="compact-sm"
+            loading={contacts.isFetching || groups.isFetching}
+            onClick={() => {
+              if (contacts.isError) void contacts.refetch();
+              if (groups.isError) void groups.refetch();
+            }}
+          >
+            Retry contacts and groups
+          </Button>
+        </Stack>
       )}
       <Fieldset legend="Message groups">
         <Controller
@@ -176,7 +195,8 @@ export function ClientFields({ form }: { form: UseFormReturn<ClientCreateInput> 
                   <Select
                     key={slot}
                     label={CLIENT_EMAIL_SLOT_LABELS[slot]}
-                    placeholder="Select group"
+                    placeholder={groups.isPending ? 'Loading groups…' : 'Select group'}
+                    disabled={groups.isPending || groups.isError}
                     searchable
                     clearable
                     data={(groups.data ?? []).map((g) => ({

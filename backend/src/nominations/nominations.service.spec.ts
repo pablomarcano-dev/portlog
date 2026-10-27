@@ -1412,6 +1412,48 @@ describe('NominationsService', () => {
       ]);
     });
 
+    it('uses the newly saved operating terminal without carrying over the previous terminal', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          opPort: {
+            name: 'Terminal A',
+            emails: ['a@terminal.test'],
+            terminalContacts: [
+              { recipientType: 'CC', user: { email: 'cc-a@terminal.test' } },
+              { recipientType: 'BCC', user: { email: 'bcc-a@terminal.test' } },
+            ],
+          },
+        }),
+      );
+      const before = await service.getComposeData(NOM_ID, 'ETA_TERMINAL', 'agent@navieramar.com');
+      expect(before.toAddresses).toContain('a@terminal.test');
+
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          opPort: {
+            name: 'Terminal B',
+            emails: [' b@terminal.test ', 'B@terminal.test'],
+            terminalContacts: [
+              { recipientType: 'TO', user: { email: 'B@terminal.test' } },
+              { recipientType: 'CC', user: { email: 'cc-b@terminal.test' } },
+              { recipientType: 'CC', user: { email: 'CC-B@terminal.test' } },
+              { recipientType: 'BCC', user: { email: 'bcc-b@terminal.test' } },
+              { recipientType: 'BCC', user: { email: 'BCC-B@terminal.test' } },
+            ],
+          },
+        }),
+      );
+      const after = await service.getComposeData(NOM_ID, 'ETA_TERMINAL', 'agent@navieramar.com');
+      expect(after.toAddresses).toEqual(['b@terminal.test', ...SHIPPER_EMAILS]);
+      expect(after.ccAddresses).toEqual(['cc-b@terminal.test', 'b@terminal.test']);
+      expect(after.bccAddresses).toEqual(['bcc-b@terminal.test']);
+      expect([...after.toAddresses, ...after.ccAddresses, ...after.bccAddresses]).not.toEqual(
+        expect.arrayContaining(['a@terminal.test']),
+      );
+      expect(after.ccAddresses).not.toContain('cc-a@terminal.test');
+      expect(after.bccAddresses).not.toContain('bcc-a@terminal.test');
+    });
+
     it('does not copy operating-port emails on the NOR', async () => {
       mockPrisma.nomination.findUnique.mockResolvedValue(composeNomination());
 

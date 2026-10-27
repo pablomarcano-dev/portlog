@@ -36,6 +36,41 @@ export interface ChangelogEntry {
 // Sources and verification boundaries: docs/CHANGELOG.md.
 export const changelogEntries: readonly ChangelogEntry[] = [
   {
+    id: '2026-10-27-followup',
+    date: '2026-10-27',
+    dateLabel: '27 de octubre de 2026',
+    timeZone: 'America/Montevideo',
+    title: 'Entrada de horas y protección al completar nominaciones',
+    deployment: 'deployed',
+    releaseNote:
+      'Segunda actualización del 27 de octubre. Mejora la entrada de horas ETA, evita crear una nominación por Enter al introducir cifras y permite reintentar la carga de los directorios opcionales al dar de alta clientes. No requiere migraciones de datos.',
+    qaSummary: { verified: 2, partial: 2, deferred: 0 },
+    sections: [
+      {
+        id: 'entry-safeguards',
+        title: 'Horas ETA y datos numéricos',
+        status: 'verified-local',
+        items: [
+          'ETA: los cuatro campos de fecha y hora utilizan entrada explícita de 24 horas HH:mm, incluidos 20:00 y 00:00. Una hora incompleta o inválida impide guardar o abrir el mensaje hasta corregirla. Se conserva la conversión de zona horaria existente.',
+          'Nominaciones: Enter dentro de un campo numérico ya no envía el formulario accidentalmente. El botón Crear sigue funcionando mediante clic o Enter cuando tiene el foco; no se añaden campos obligatorios.',
+        ],
+        verification:
+          'Comprobaciones locales con datos de prueba, incluidas las cuatro horas ETA en configuraciones en-US/Caracas y es-VE/Montevideo. No se enviaron correos reales.',
+      },
+      {
+        id: 'client-loading-and-terminal-review',
+        title: 'Carga de directorios y revisión de destinatarios',
+        status: 'partial',
+        items: [
+          'Alta de clientes: se muestran la carga y los fallos de contactos y grupos opcionales, con un botón para reintentar sin borrar lo escrito. Se verificó el alta sin correos ni grupos; el bloqueo original descrito en la revisión no pudo reproducirse.',
+          'Destinatarios del terminal: se comprobaron el cambio de terminal guardado y la eliminación de duplicados dentro de Para, CC y CCO. No se modificaron las reglas de envío: la lista del puerto sigue figurando en Para y CC de ETA; revisar esa repetición entre campos queda pendiente.',
+        ],
+        verification:
+          'Pruebas automatizadas y comprobaciones de interfaz con servicios simulados. Esta revisión no certifica la exactitud del directorio operativo ni la entrega externa de correo.',
+      },
+    ],
+  },
+  {
     id: '2026-10-27',
     date: '2026-10-27',
     dateLabel: '27 de octubre de 2026',

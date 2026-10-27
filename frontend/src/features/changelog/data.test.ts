@@ -19,7 +19,7 @@ describe('changelog editorial contract', () => {
   });
 
   it('records the October 27 focused fixes without claiming live workflow acceptance', () => {
-    const entry = changelogEntries.find((item) => item.date === '2026-10-27')!;
+    const entry = changelogEntries.find((item) => item.id === '2026-10-27')!;
     expect(entry.dateLabel).toBe('27 de octubre de 2026');
     expect(entry.deployment).toBe('deployed');
     expect(entry.qaSummary).toEqual({ verified: 7, partial: 0, deferred: 0 });
@@ -28,6 +28,17 @@ describe('changelog editorial contract', () => {
     expect(entry.sections.map((section) => section.verification).join(' ')).toContain(
       'no se enviaron correos reales',
     );
+  });
+
+  it('distinguishes the follow-up fixes from unresolved symptoms and recipient policy', () => {
+    const entry = changelogEntries.find((item) => item.id === '2026-10-27-followup')!;
+    expect(entry.deployment).toBe('deployed');
+    expect(entry.qaSummary).toEqual({ verified: 2, partial: 2, deferred: 0 });
+    expect(entry.sections.map((section) => section.status)).toEqual(['verified-local', 'partial']);
+    expect(entry.sections.flatMap((section) => section.items).join(' ')).toContain(
+      'no pudo reproducirse',
+    );
+    expect(entry.sections[1]!.items.join(' ')).toContain('No se modificaron las reglas de envío');
   });
 
   it('preserves the October 15 evidence boundaries and approved deferrals', () => {
