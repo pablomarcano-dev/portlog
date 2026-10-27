@@ -36,6 +36,44 @@ export interface ChangelogEntry {
 // Sources and verification boundaries: docs/CHANGELOG.md.
 export const changelogEntries: readonly ChangelogEntry[] = [
   {
+    id: '2026-10-27',
+    date: '2026-10-27',
+    dateLabel: '27 de octubre de 2026',
+    timeZone: 'America/Montevideo',
+    title: 'Ajustes en nominaciones y selección de destinatarios',
+    deployment: 'deployed',
+    releaseNote:
+      'Actualización del 27 de octubre de 2026. Los ajustes se verificaron con pruebas automatizadas y comprobaciones locales de interfaz con datos de prueba. Se conservan las selecciones y los textos introducidos manualmente; no se requieren migraciones de datos.',
+    qaSummary: { verified: 7, partial: 0, deferred: 0 },
+    sections: [
+      {
+        id: 'nomination-details',
+        title: 'Buques, responsables y documentos',
+        status: 'verified-local',
+        items: [
+          'Banderas: la búsqueda por IMO reconoce el código o el nombre del país, muestra la bandera encontrada y conserva una selección manual. Si no encuentra una coincidencia, indica que debe seleccionarse manualmente.',
+          'Responsable M.I.C.: se prioriza al gerente de la sucursal sobre el supervisor. Los valores elegidos manualmente se conservan al cambiar de sucursal.',
+          'Asunto: los asuntos generados de nuevas nominaciones incorporan los cambios de referencia. Un asunto editado manualmente se conserva; Generar permite actualizarlo expresamente.',
+          'Nomination Instructions: los campos Owner y Operator utilizan los participantes indicados en la nominación cuando falta el nombre en la ficha del buque. Los campos sin información quedan en blanco.',
+        ],
+        verification:
+          'Pruebas de servicios, generación de instrucciones y comprobaciones locales de interfaz. El filtro existente de puertos por sucursal también se comprobó con datos de prueba.',
+      },
+      {
+        id: 'message-selection',
+        title: 'Grupos de mensajes y alta de clientes',
+        status: 'verified-local',
+        items: [
+          'Grupos de correo: las opciones destacan el primer, segundo y tercer mensaje de la nominación y explican cómo añadir sus destinatarios a Para, CC o CCO. La selección sigue a cargo del remitente.',
+          'Recuperación: se puede reintentar una carga fallida de grupos. Un grupo sin direcciones no borra los destinatarios ya escritos.',
+          'Alta de clientes: la ventana aclara que crea una empresa en el directorio compartido y que los grupos de correo son opcionales.',
+        ],
+        verification:
+          '266 pruebas automatizadas, comprobación de tipos, compilación y revisión de código satisfactorias. Se comprobaron selección de grupos, destinatarios y recuperación en un navegador con servicios de prueba; no se enviaron correos reales.',
+      },
+    ],
+  },
+  {
     id: '2026-10-15',
     date: '2026-10-15',
     dateLabel: '15 de octubre de 2026',

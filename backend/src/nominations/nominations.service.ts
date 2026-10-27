@@ -128,9 +128,9 @@ function resolveNominationStaff(
   const explicitMic = trimmedOrUndefined(input.mic);
   const explicitBoarding = trimmedOrUndefined(input.boardingClerk);
   const explicitMobile = trimmedOrUndefined(input.mobileOnBoard);
-  const micAgent = branchStaff.find((agent) =>
-    ['BRANCH_MANAGER', 'SUPERVISOR'].includes(agent.operationalRole ?? ''),
-  );
+  const micAgent =
+    branchStaff.find((agent) => agent.operationalRole === 'BRANCH_MANAGER' && agent.name.trim()) ??
+    branchStaff.find((agent) => agent.operationalRole === 'SUPERVISOR' && agent.name.trim());
   const boardingAgent = branchStaff.find((agent) => agent.operationalRole === 'SHIPPING_AGENT');
   const explicitlySelectedAgent = branchStaff.find(
     (agent) =>
@@ -999,16 +999,19 @@ export class NominationsService {
       );
     };
 
-    const rowByType = (patterns: RegExp[]) =>
-      nomination.nominationClients.find((row) =>
-        patterns.some((pattern) => pattern.test(row.type.trim())),
+    const rowByType = (patterns: RegExp[], requireName = false) =>
+      nomination.nominationClients.find(
+        (row) =>
+          (!requireName || Boolean(row.name.trim())) &&
+          patterns.some((pattern) => pattern.test(row.type.trim())),
       );
     const rosterCharterer = rowByType([/charter/i, /fletador/i]);
     const selectedChartererName = nomination.charterer?.name.trim();
     const charterer = selectedChartererName
       ? { ...rosterCharterer, name: selectedChartererName }
       : rosterCharterer;
-    const operator = rowByType([/operator/i, /operador/i]);
+    const operator = rowByType([/operator/i, /operador/i], true);
+    const owner = rowByType([/owner/i, /armador/i], true);
 
     const operationLines = parcels.map((parcel) =>
       uniqueNonBlank([
@@ -1024,8 +1027,8 @@ export class NominationsService {
     const context = {
       snOt: uniqueNonBlank([snOt, nomination.voyageNumber]).join(' / '),
       vessel: nomination.shipParticular.name,
-      owner: nomination.shipParticular.owner?.name ?? '—',
-      operator: nomination.shipParticular.operator?.name ?? operator?.name ?? '—',
+      owner: nomination.shipParticular.owner?.name?.trim() || owner?.name?.trim() || '',
+      operator: nomination.shipParticular.operator?.name?.trim() || operator?.name?.trim() || '',
       charterer: charterer?.name ?? '—',
       lastPort: nomination.lastPort?.name ?? '—',
       nextPort: nomination.nextPort?.name ?? '—',

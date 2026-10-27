@@ -18,6 +18,18 @@ describe('changelog editorial contract', () => {
     }
   });
 
+  it('records the October 27 focused fixes without claiming live workflow acceptance', () => {
+    const entry = changelogEntries.find((item) => item.date === '2026-10-27')!;
+    expect(entry.dateLabel).toBe('27 de octubre de 2026');
+    expect(entry.deployment).toBe('deployed');
+    expect(entry.qaSummary).toEqual({ verified: 7, partial: 0, deferred: 0 });
+    expect(entry.sections.every((section) => section.status === 'verified-local')).toBe(true);
+    expect(entry.sections.flatMap((section) => section.items)).toHaveLength(7);
+    expect(entry.sections.map((section) => section.verification).join(' ')).toContain(
+      'no se enviaron correos reales',
+    );
+  });
+
   it('preserves the October 15 evidence boundaries and approved deferrals', () => {
     const entry = changelogEntries.find((item) => item.date === '2026-10-15')!;
     expect(entry.dateLabel).toBe('15 de octubre de 2026');

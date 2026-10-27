@@ -57,6 +57,26 @@ describe('FlagsService', () => {
       expect(result.nextCursor).toBeNull();
     });
 
+    it('searches country abbreviations as well as names for IMO lookup', async () => {
+      mockPrisma.flag.findMany.mockResolvedValue([
+        { ...mockFlag, name: 'Singapore', abbreviation: 'SG' },
+      ]);
+      const result = await service.list({ q: 'sg', limit: 200, cursor: undefined });
+      expect(mockPrisma.flag.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [
+              { name: { contains: 'sg', mode: 'insensitive' } },
+              { abbreviation: { equals: 'sg', mode: 'insensitive' } },
+            ],
+          },
+        }),
+      );
+      expect(result.items[0]).toEqual(
+        expect.objectContaining({ name: 'Singapore', abbreviation: 'SG' }),
+      );
+    });
+
     it('sets hasMore and nextCursor when results exceed limit', async () => {
       // Return limit+1 rows to trigger pagination
       const manyFlags = Array.from({ length: 51 }, (_, i) => ({

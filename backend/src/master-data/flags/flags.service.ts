@@ -9,7 +9,7 @@ export class FlagsService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Cursor-based list with optional full-text search on `name`.
+   * Cursor-based list with optional name or exact country-code search.
    * Returns `limit + 1` rows so the caller can detect `hasMore`.
    */
   async list(query: FlagListQuery) {
@@ -20,10 +20,10 @@ export class FlagsService {
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       where: q
         ? {
-            name: {
-              contains: q,
-              mode: 'insensitive',
-            },
+            OR: [
+              { name: { contains: q.trim(), mode: 'insensitive' } },
+              { abbreviation: { equals: q.trim(), mode: 'insensitive' } },
+            ],
           }
         : undefined,
       orderBy: { name: 'asc' },

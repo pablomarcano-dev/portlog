@@ -6,7 +6,7 @@ import {
 import { allEmailGroupsOptions } from './directoryOptions';
 import { clientQueryOptions } from '../../lib/api/master-data/clients';
 import { apiRequest } from '../../lib/api/client';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Box, Button, Group, MultiSelect, Text } from '@mantine/core';
 import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
 import { emailGroupQueryOptions } from '../../lib/api/master-data/email-groups';
@@ -60,6 +60,8 @@ export function EmailGroupPicker({
   label = 'Add from group',
 }: EmailGroupPickerProps) {
   const qc = useQueryClient();
+  const resolutionVersion = useRef(0);
+  const currentAllowedIds = useRef(new Set<string>());
   const emailGroupsQuery = useQuery({ ...allEmailGroupsOptions(), enabled: !nominationOnly });
   const context = useQuery({
     queryKey: ['nominations', nominationId, 'client-email-context'],
@@ -76,6 +78,15 @@ export function EmailGroupPicker({
   const [resolveError, setResolveError] = useState<string | null>(null);
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
   const [isResolving, setIsResolving] = useState(false);
+  useEffect(() => {
+    resolutionVersion.current += 1;
+    setSelectedGroupIds([]);
+    setResolveError(null);
+    setIsResolving(false);
+    return () => {
+      resolutionVersion.current += 1;
+    };
+  }, [nominationId]);
 
   const contextual = new Map<string, { value: string; label: string }>();
   for (const query of clients)
@@ -99,7 +110,7 @@ export function EmailGroupPicker({
         value: group.id,
         label: previous
           ? `${previous.label}; ${label}`
-          : `${group.name} (${group.memberCount}) — ${label}`,
+          : `${label} — ${group.name} (${group.memberCount})`,
       });
     }
   }
@@ -107,9 +118,26 @@ export function EmailGroupPicker({
     .filter((g) => !contextual.has(g.id))
     .map((g) => ({ value: g.id, label: `${g.name} (${g.memberCount})` }));
   const groupSelectData = [
-    ...(contextual.size ? [{ group: 'Nomination clients', items: [...contextual.values()] }] : []),
+    ...(contextual.size
+      ? [
+          {
+            group: nominationOnly ? 'Assigned nomination messages' : 'Nomination clients',
+            items: [...contextual.values()],
+          },
+        ]
+      : []),
     ...(!nominationOnly ? [{ group: 'All email groups', items: general }] : []),
   ];
+
+  currentAllowedIds.current = new Set(contextual.keys());
+  const allowedSelection = nominationOnly
+    ? selectedGroupIds.filter((id) => contextual.has(id))
+    : selectedGroupIds;
+  const selectionUnavailable = Boolean(
+    disabled ||
+    isResolving ||
+    (nominationOnly && (!nominationId || context.isLoading || context.isError)),
+  );
 
   /**
    * Resolve selected group IDs → member emails and write them into the target
@@ -122,21 +150,36 @@ export function EmailGroupPicker({
     const allowedIds = nominationOnly
       ? selectedGroupIds.filter((id) => contextual.has(id))
       : selectedGroupIds;
-    if (!allowedIds.length || (nominationOnly && context.isError)) return;
+    if (!allowedIds.length || selectionUnavailable) return;
+    const version = ++resolutionVersion.current;
     setIsResolving(true);
     setResolveError(null);
     try {
       const fullGroups = await Promise.all(
         allowedIds.map((id) => qc.fetchQuery({ ...emailGroupQueryOptions(id), staleTime: 0 })),
       );
-      const groupEmails = fullGroups.flatMap((g) => g.members.map((m) => m.email));
+      if (version !== resolutionVersion.current) return;
+      if (nominationOnly && allowedIds.some((id) => !currentAllowedIds.current.has(id))) {
+        setResolveError('The assigned groups changed. Select a current message group and retry.');
+        return;
+      }
+      const groupEmails = parseEmailList(
+        fullGroups.flatMap((g) => g.members.map((m) => m.email)).join(';'),
+      );
+      if (!groupEmails.length) {
+        setResolveError(
+          'The selected groups have no email addresses. Existing recipients were kept.',
+        );
+        return;
+      }
       const next = mode === 'replace' ? groupEmails : [...target.value, ...groupEmails];
       target.onChange(parseEmailList(next.join(';')));
       setSelectedGroupIds([]);
     } catch (error) {
+      if (version !== resolutionVersion.current) return;
       setResolveError(error instanceof Error ? error.message : 'Could not load group members.');
     } finally {
-      setIsResolving(false);
+      if (version === resolutionVersion.current) setIsResolving(false);
     }
   }
 
@@ -150,8 +193,13 @@ export function EmailGroupPicker({
       }}
     >
       <Text size="xs" c="dimmed" mb={6}>
-        {label}
+        {nominationOnly ? 'Choose a nomination message group' : label}
       </Text>
+      {nominationOnly && (
+        <Text size="xs" c="dimmed" mb={6}>
+          Select 1st, 2nd or 3rd message, then use + To, + CC or + BCC to add its addresses.
+        </Text>
+      )}
       {(resolveError ||
         (!nominationOnly && emailGroupsQuery.isError) ||
         context.isError ||
@@ -160,24 +208,41 @@ export function EmailGroupPicker({
           {resolveError ?? 'Some email groups could not be loaded. Please retry.'}
         </Text>
       )}
-      {nominationOnly && !context.isLoading && !context.isError && contextual.size === 0 && (
+      {nominationOnly && !nominationId && (
         <Text size="xs" c="dimmed" mb={6}>
-          No message groups assigned. Assign nomination clients to 1st, 2nd or 3rd message and
-          configure their matching groups in Clients.
+          Save the nomination before selecting its assigned message groups.
         </Text>
       )}
+      {nominationOnly && context.isError && (
+        <Button
+          size="compact-xs"
+          variant="subtle"
+          loading={context.isFetching}
+          onClick={() => void context.refetch()}
+        >
+          Retry assigned groups
+        </Button>
+      )}
+      {nominationOnly &&
+        nominationId &&
+        !context.isLoading &&
+        !context.isError &&
+        contextual.size === 0 && (
+          <Text size="xs" c="dimmed" mb={6}>
+            No message groups assigned. Assign nomination clients to 1st, 2nd or 3rd message and
+            configure their matching groups in Clients.
+          </Text>
+        )}
       <Group gap="xs" align="flex-end">
         <MultiSelect
           style={{ flex: 1 }}
           placeholder="Search groups…"
           data={groupSelectData}
-          value={
-            nominationOnly ? selectedGroupIds.filter((id) => contextual.has(id)) : selectedGroupIds
-          }
+          value={allowedSelection}
           onChange={setSelectedGroupIds}
           searchable
           clearable
-          disabled={disabled || (nominationOnly && (context.isLoading || context.isError))}
+          disabled={selectionUnavailable}
           size="xs"
           nothingFoundMessage="No groups found"
         />
@@ -186,7 +251,7 @@ export function EmailGroupPicker({
             <Button
               size="xs"
               variant="light"
-              disabled={disabled || !selectedGroupIds.length}
+              disabled={selectionUnavailable || !allowedSelection.length}
               loading={isResolving}
               onClick={() => void applyGroups(target, 'append')}
               title={`Add the selected group(s) to ${target.label}`}
@@ -196,7 +261,7 @@ export function EmailGroupPicker({
             <Button
               size="xs"
               variant="light"
-              disabled={disabled || !selectedGroupIds.length}
+              disabled={selectionUnavailable || !allowedSelection.length}
               loading={isResolving}
               onClick={() => void applyGroups(target, 'replace')}
               title={`Replace ${target.label} with the selected group(s)`}

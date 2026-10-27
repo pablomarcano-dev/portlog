@@ -168,6 +168,9 @@ export function NominationForm({
   const opPortId = watch('opPortId') ?? null;
   const branchId = watch('branchId');
   const previousBranchId = useRef(defaultValues?.branchId);
+  const lastAutoMic = useRef<string | null>(null);
+  const micManuallyEdited = useRef(false);
+  const lastGeneratedSubject = useRef<string | null>(null);
   const previousShipParticularId = useRef(defaultValues?.shipParticularId);
   const previousOpPortId = useRef(defaultValues?.opPortId ?? null);
   const kind = watch('kind') ?? 'SN';
@@ -278,14 +281,22 @@ export function NominationForm({
               candidate.name.trim().localeCompare(name, undefined, { sensitivity: 'accent' }) === 0,
           )
         : undefined;
-    const micDefault = staff.find((candidate) =>
-      ['BRANCH_MANAGER', 'SUPERVISOR'].includes(candidate.operationalRole ?? ''),
-    );
+    const micDefault =
+      staff.find(
+        (candidate) => candidate.operationalRole === 'BRANCH_MANAGER' && candidate.name.trim(),
+      ) ??
+      staff.find(
+        (candidate) => candidate.operationalRole === 'SUPERVISOR' && candidate.name.trim(),
+      );
     const boardingDefault = staff.find(
       (candidate) => candidate.operationalRole === 'SHIPPING_AGENT',
     );
-    if (branchChanged || !currentMic) {
+    if (
+      (!currentMic && !micManuallyEdited.current) ||
+      (branchChanged && !micManuallyEdited.current && currentMic === lastAutoMic.current)
+    ) {
       const value = micDefault?.name.trim() || branchQuery.data?.contactName || '';
+      lastAutoMic.current = value;
       setValue('mic', value, {
         shouldDirty: true,
       });
@@ -348,14 +359,25 @@ export function NominationForm({
     return `${refPrefix}${shipName} - Calling to ${portName} ${kindPrefix}${corrStr}/${yy}/${branchCode}`;
   }
 
-  // Auto-fill subject in create mode when it's still empty and we have enough data
+  // Keep generated subjects in sync, while preserving any operator-authored text.
   useEffect(() => {
     if (mode !== 'create') return;
     if (!shipQuery.data || !branchQuery.data || !portsQuery.data || !opPortId) return;
-    const current = (form.getValues('subject') ?? '').trim();
-    if (current !== '') return;
-    setValue('subject', buildSubject(), { shouldDirty: true });
-  }, [shipQuery.data, branchQuery.data, portsQuery.data, opPortId, referenceNo]);
+    const current = form.getValues('subject') ?? '';
+    if (current.trim() !== '' && current !== lastGeneratedSubject.current) return;
+    const generated = buildSubject();
+    lastGeneratedSubject.current = generated;
+    setValue('subject', generated, { shouldDirty: true });
+  }, [
+    mode,
+    shipQuery.data,
+    branchQuery.data,
+    portsQuery.data,
+    opPortId,
+    referenceNo,
+    kind,
+    correlative,
+  ]);
 
   const [isFetchingVessel, setIsFetchingVessel] = useState(false);
 
@@ -1031,6 +1053,8 @@ export function NominationForm({
                 placeholder={branchId ? 'Select manager or supervisor' : 'Select branch first'}
                 value={micAgentValue}
                 onChange={(value) => {
+                  micManuallyEdited.current = true;
+                  lastAutoMic.current = null;
                   setMicAgentValue(value);
                   const selected = branchAgents.find((agent) => agent.id === value);
                   setValue('mic', selected ? agentName(selected) : '', { shouldDirty: true });
@@ -1114,7 +1138,11 @@ export function NominationForm({
                 <Button
                   size="compact-xs"
                   variant="subtle"
-                  onClick={() => setValue('subject', buildSubject(), { shouldDirty: true })}
+                  onClick={() => {
+                    const generated = buildSubject();
+                    lastGeneratedSubject.current = generated;
+                    setValue('subject', generated, { shouldDirty: true });
+                  }}
                 >
                   Generate
                 </Button>
@@ -1366,6 +1394,10 @@ export function NominationForm({
                 variant="default"
                 onClick={() => {
                   reset();
+                  lastAutoMic.current = null;
+                  micManuallyEdited.current = false;
+                  lastGeneratedSubject.current = null;
+                  previousBranchId.current = defaultValues?.branchId;
                   setMicAgentValue(legacyAgentValue('mic', defaultValues?.mic));
                   setBoardingAgentValue(legacyAgentValue('boarding', defaultValues?.boardingClerk));
                 }}

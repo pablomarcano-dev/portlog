@@ -434,10 +434,10 @@ describe('NominationsService', () => {
       expect(mockPrisma.cargo.findMany).not.toHaveBeenCalled();
     });
 
-    it('uses only the first matching branch agent for each missing staff field', async () => {
+    it('prioritizes the branch manager over a supervisor returned first', async () => {
       mockPrisma.agent.findMany.mockResolvedValue([
-        { name: 'Alicia Manager', mobile: '+58 111', operationalRole: 'BRANCH_MANAGER' },
         { name: 'Bruno Supervisor', mobile: '+58 222', operationalRole: 'SUPERVISOR' },
+        { name: 'Alicia Manager', mobile: '+58 111', operationalRole: 'BRANCH_MANAGER' },
         { name: 'Carla Boarding', mobile: '+58 333', operationalRole: 'SHIPPING_AGENT' },
         { name: 'Diego Boarding', mobile: '+58 444', operationalRole: 'SHIPPING_AGENT' },
       ]);
@@ -852,6 +852,68 @@ describe('NominationsService', () => {
       );
       expect(JSON.stringify(mockNominationInstructionsDocx.render.mock.calls[0])).not.toContain(
         'private@example.test',
+      );
+    });
+  });
+
+  describe('instruction party placeholders', () => {
+    it('uses selected roster parties when registry names are empty', async () => {
+      const fixture = nominationInstructionsFixture();
+      mockPrisma.nomination.findUnique.mockResolvedValue({
+        ...fixture,
+        shipParticular: {
+          ...fixture.shipParticular,
+          owner: { name: '  ' },
+          operator: { name: '' },
+        },
+        nominationClients: [
+          { type: 'Disponent Owner', name: '', messageOrder: null },
+          { type: 'Head Owner', name: 'Selected Owner', messageOrder: null },
+          { type: 'Commercial Operator', name: '', messageOrder: null },
+          { type: 'Technical Operator', name: 'Selected Operator', messageOrder: null },
+        ],
+      });
+      await service.generateNominationInstructions(NOM_ID);
+      expect(mockNominationInstructionsDocx.render).toHaveBeenCalledWith(
+        expect.objectContaining({
+          owner: 'Selected Owner',
+          operator: 'Selected Operator',
+        }),
+      );
+    });
+
+    it('leaves only missing Owner and Operator fields blank without changing other placeholders', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(nominationInstructionsFixture());
+      await service.generateNominationInstructions(NOM_ID);
+      expect(mockNominationInstructionsDocx.render).toHaveBeenCalledWith(
+        expect.objectContaining({
+          owner: '',
+          operator: '',
+          firstMessage: '—',
+        }),
+      );
+    });
+
+    it('preserves registered vessel parties ahead of legacy roster text', async () => {
+      const fixture = nominationInstructionsFixture();
+      mockPrisma.nomination.findUnique.mockResolvedValue({
+        ...fixture,
+        shipParticular: {
+          ...fixture.shipParticular,
+          owner: { name: 'Registered Owner' },
+          operator: { name: 'Registered Operator' },
+        },
+        nominationClients: [
+          { type: 'Disponent Owner', name: 'Legacy Owner' },
+          { type: 'Commercial Operator', name: 'Legacy Operator' },
+        ],
+      });
+      await service.generateNominationInstructions(NOM_ID);
+      expect(mockNominationInstructionsDocx.render).toHaveBeenCalledWith(
+        expect.objectContaining({
+          owner: 'Registered Owner',
+          operator: 'Registered Operator',
+        }),
       );
     });
   });

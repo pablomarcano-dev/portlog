@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Alert, Button, Group, Modal, Stack } from '@mantine/core';
+import { Alert, Button, Group, Modal, Stack, Text } from '@mantine/core';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -51,6 +51,11 @@ export function NewClientModal({
         }}
       >
         <Stack>
+          <Text size="sm" c="dimmed">
+            Create a new company in the shared Clients directory. To use an existing company, cancel
+            and select it from the client list. Email groups are optional and can be configured
+            later.
+          </Text>
           <ClientFields form={form} />
           {create.isError && <Alert color="red">{create.error.message}</Alert>}
           <Group justify="flex-end">

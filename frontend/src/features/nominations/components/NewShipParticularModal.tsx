@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Alert, Badge, Button, Divider, Group, Modal, Stack, Text, TextInput } from '@mantine/core';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,7 +10,7 @@ import { apiRequest } from '../../../lib/api/client';
 import { ApiError } from '../../../lib/api/errors';
 import { shipParticularsApi } from '../../../lib/api/master-data/ship-particulars';
 import { flagsApi } from '../../../lib/api/master-data/flags';
-import type { VesselInfo } from '@portlog/schemas';
+import { vesselInfoSchema } from '@portlog/schemas';
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -43,7 +43,13 @@ type ImoLookupState =
   | { status: 'idle' }
   | { status: 'loading' }
   | { status: 'exists'; id: string; name: string }
-  | { status: 'prefilled'; vesselName: string }
+  | {
+      status: 'prefilled';
+      vesselName: string;
+      fields: string[];
+      flagPreserved: boolean;
+      flagMatched: boolean;
+    }
   | { status: 'not_found' }
   | { status: 'error'; message: string };
 
@@ -69,7 +75,12 @@ interface Props {
 
 export function NewShipParticularModal({ opened, onClose, onCreated }: Props) {
   const qc = useQueryClient();
+  const lookupVersion = useRef(0);
+  const flagManuallySelected = useRef(false);
   const [flagSearch, setFlagSearch] = useState('');
+  const [lookupFlagOption, setLookupFlagOption] = useState<{ value: string; label: string } | null>(
+    null,
+  );
   const [imoLookup, setImoLookup] = useState<ImoLookupState>({ status: 'idle' });
 
   const form = useForm<QuickShipInput>({
@@ -84,14 +95,18 @@ export function NewShipParticularModal({ opened, onClose, onCreated }: Props) {
 
   // Reset lookup state when IMO changes
   useEffect(() => {
+    lookupVersion.current += 1;
     setImoLookup({ status: 'idle' });
   }, [imoValue]);
 
   // Reset everything when modal closes
   useEffect(() => {
     if (!opened) {
+      lookupVersion.current += 1;
+      flagManuallySelected.current = false;
       reset();
       setFlagSearch('');
+      setLookupFlagOption(null);
       setImoLookup({ status: 'idle' });
     }
   }, [opened, reset]);
@@ -100,45 +115,88 @@ export function NewShipParticularModal({ opened, onClose, onCreated }: Props) {
     if (!isValidImo || !imoValue) return;
     setImoLookup({ status: 'loading' });
 
-    // 1. Check our DB first
-    const existing = await shipParticularsApi.getByImo(imoValue);
-    if (existing !== null) {
-      setImoLookup({ status: 'exists', id: existing.id, name: existing.name });
-      return;
-    }
-
-    // 2. Not in DB — try Datalastic
+    const version = ++lookupVersion.current;
     try {
-      const res = await apiRequest<{ data: VesselInfo }>(`/datalastic/vessel_info?imo=${imoValue}`);
-      const info = res.data;
-
-      // Resolve flag from country_iso
-      let resolvedFlagId = '';
-      if (info.country_iso) {
-        try {
-          const flags = await flagsApi.list({ q: info.country_iso, limit: 10 });
-          const match = flags.items.find(
-            (f) => f.abbreviation?.toUpperCase() === info.country_iso.toUpperCase(),
-          );
-          if (match) resolvedFlagId = match.id;
-        } catch {
-          // flag lookup failure is non-fatal
-        }
+      // Check the directory first; failures must leave the loading state too.
+      const existing = await shipParticularsApi.getByImo(imoValue);
+      if (version !== lookupVersion.current) return;
+      if (existing !== null) {
+        setImoLookup({ status: 'exists', id: existing.id, name: existing.name });
+        return;
       }
 
-      // Pre-fill form
-      setValue('name', info.name ?? '', { shouldDirty: true });
-      setValue('callSign', cleanCallSign(info.callsign), { shouldDirty: true });
-      if (resolvedFlagId) setValue('flagId', resolvedFlagId, { shouldDirty: true });
-
-      setImoLookup({ status: 'prefilled', vesselName: info.name ?? imoValue });
+      const res = await apiRequest<{ data: unknown }>(`/datalastic/vessel_info?imo=${imoValue}`);
+      const info = vesselInfoSchema
+        .pick({ name: true, country_iso: true, country_name: true, callsign: true })
+        .partial()
+        .parse(res.data);
+      let resolvedFlagId = '';
+      let resolvedFlagName = '';
+      try {
+        const code = info.country_iso?.trim().toUpperCase();
+        if (code) {
+          const flags = await flagsApi.list({ q: code, limit: 200 });
+          const matches = flags.items.filter(
+            (flag) => flag.abbreviation?.trim().toUpperCase() === code,
+          );
+          if (matches.length === 1 && matches[0]) {
+            resolvedFlagId = matches[0].id;
+            resolvedFlagName = matches[0].name;
+          }
+        }
+        // Locally maintained flags may use a three-letter abbreviation.
+        if (!resolvedFlagId && info.country_name?.trim()) {
+          const countryName = info.country_name.trim();
+          const flags = await flagsApi.list({ q: countryName, limit: 200 });
+          const matches = flags.items.filter(
+            (flag) => flag.name.trim().toLowerCase() === countryName.toLowerCase(),
+          );
+          if (matches.length === 1 && matches[0]) {
+            resolvedFlagId = matches[0].id;
+            resolvedFlagName = matches[0].name;
+          }
+        }
+      } catch {
+        // An unavailable flag catalogue must not prevent manual vessel entry.
+      }
+      if (version !== lookupVersion.current) return;
+      const fields: string[] = [];
+      if (info.name?.trim()) {
+        setValue('name', info.name.trim(), { shouldDirty: true });
+        fields.push('name');
+      }
+      const callSign = cleanCallSign(info.callsign);
+      if (callSign) {
+        setValue('callSign', callSign, { shouldDirty: true });
+        fields.push('call sign');
+      }
+      const flagPreserved = flagManuallySelected.current;
+      if (resolvedFlagId && !flagPreserved) {
+        setValue('flagId', resolvedFlagId, { shouldDirty: true, shouldValidate: true });
+        setLookupFlagOption({ value: resolvedFlagId, label: resolvedFlagName });
+        fields.push('flag');
+      }
+      setImoLookup({
+        status: 'prefilled',
+        vesselName: info.name ?? imoValue,
+        fields,
+        flagPreserved,
+        flagMatched: Boolean(resolvedFlagId),
+      });
     } catch (err) {
+      if (version !== lookupVersion.current) return;
       if (err instanceof ApiError && err.status === 404) {
         setImoLookup({ status: 'not_found' });
       } else if (err instanceof ApiError && err.status === 503) {
-        setImoLookup({ status: 'error', message: 'Datalastic API key not configured on server.' });
+        setImoLookup({
+          status: 'error',
+          message: 'Vessel lookup is not available. You can enter the details manually.',
+        });
       } else {
-        setImoLookup({ status: 'error', message: 'Could not reach Datalastic right now.' });
+        setImoLookup({
+          status: 'error',
+          message: 'Could not complete the lookup. Please retry or enter the details manually.',
+        });
       }
     }
   }
@@ -171,6 +229,8 @@ export function NewShipParticularModal({ opened, onClose, onCreated }: Props) {
   });
 
   function handleClose() {
+    lookupVersion.current += 1;
+    flagManuallySelected.current = false;
     reset();
     setImoLookup({ status: 'idle' });
     onClose();
@@ -232,8 +292,16 @@ export function NewShipParticularModal({ opened, onClose, onCreated }: Props) {
           {imoLookup.status === 'prefilled' && (
             <Alert color="teal" title="Pre-filled from Datalastic">
               <Text size="sm">
-                Found <strong>{imoLookup.vesselName}</strong> in Datalastic. Name, call sign, and
-                flag have been pre-filled below — review and click <strong>Create Ship</strong>.
+                Found <strong>{imoLookup.vesselName}</strong> in Datalastic.{' '}
+                {imoLookup.fields.length
+                  ? `Pre-filled: ${imoLookup.fields.join(', ')}.`
+                  : 'No fields were pre-filled.'}{' '}
+                {imoLookup.flagPreserved
+                  ? 'Your flag selection was kept. '
+                  : !imoLookup.flagMatched
+                    ? 'No matching flag was found; select it manually. '
+                    : ''}
+                Review the details before clicking <strong>Create Ship</strong>.
               </Text>
             </Alert>
           )}
@@ -267,9 +335,13 @@ export function NewShipParticularModal({ opened, onClose, onCreated }: Props) {
               <EntityPicker
                 endpoint="/master-data/flags"
                 label="Flag"
+                selectedOption={lookupFlagOption}
                 required
                 value={field.value || null}
-                onChange={(val) => field.onChange(val ?? '')}
+                onChange={(val) => {
+                  flagManuallySelected.current = true;
+                  field.onChange(val ?? '');
+                }}
                 searchValue={flagSearch}
                 onSearchChange={setFlagSearch}
                 error={fieldState.error?.message}
