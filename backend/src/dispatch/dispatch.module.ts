@@ -1,3 +1,4 @@
+import { NominationsModule } from '../nominations/nominations.module.js';
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { DispatchController } from './dispatch.controller.js';
@@ -13,6 +14,7 @@ import { AttachmentsModule } from '../attachments/attachments.module.js';
   imports: [
     ScheduleModule.forRoot(),
     PrismaModule,
+    NominationsModule,
     EmailModule,
     PdfModule,
     StorageModule,

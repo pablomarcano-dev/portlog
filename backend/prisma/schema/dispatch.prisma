@@ -17,6 +17,7 @@ enum SubDocType {
   ETA_RECAP
   NOR
   SOF
+  SOF_INTERIM
   CARGO_UPDATE
 }
 

@@ -186,7 +186,6 @@ export function SofSlopBunkersReceivedModal({
 
   function handleSave() {
     onSave({ slopDischargedData: slop, bunkersReceivedData: bunkers });
-    onClose();
   }
 
   const inputStyles = { input: { fontSize: 12 } };

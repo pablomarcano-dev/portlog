@@ -445,3 +445,13 @@ Entries are sorted oldest-first. This log is permanent — it cannot be edited o
 ### Default Client Types
 
 Head Owner · Charterer · Disponent Owner · Technical Operator · Commercial Operator · Manning Agents · Catering Agents · Time Charter · Ship Management · Broker · Hub Agents · Administrative Ag. · Inspection · Receivers
+
+## SOF and nomination feedback follow-up (pending deployment)
+
+Charterers supplies the default instruction client. The right-hand Instruction client control can select a different company. Existing distinct overrides are preserved.
+
+Send interim SOF prepares a report of saved, selected information while keeping the call open. Send final SOF uses the existing final-report status rules. Both buttons save current edits before opening the message; complete each activity date and HH:mm time first. The event preview and attached PDF use the saved timesheet, including Safe Key Meeting entries.
+
+The four Show in final SOF switches control their corresponding support sections in both report versions. Bunkers/Draft/Parcel includes entered parcel pump and offered/requested figures. Letters include From, To and Comment; remarks include the entered date/time spans and text. Calculated time summaries appear in a final SOF only when Include calculated time summary in final SOF is selected under Letters/Remarks. A support dialog remains open after a failed save so you can retry without losing edits. Existing archived documents are unchanged.
+
+Datalastic lookup in New Ship Particular fills editable SDWT, GRT and LOA and saves them with the new vessel. Fetch from vessel reads Datalastic deadweight, gross_tonnage and length for the selected IMO; unrelated provider metadata does not block these fields. Missing measurements do not replace an entered number with zero. Existing vessel records and historical nominations are not refreshed in bulk.

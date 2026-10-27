@@ -919,6 +919,22 @@ describe('NominationsService', () => {
   });
 
   describe('generateNominationInstructions — charterer source', () => {
+    it('uses Charterers when no separate instruction client exists', async () => {
+      const fixture = nominationInstructionsFixture();
+      mockPrisma.nomination.findUnique.mockResolvedValue({
+        ...fixture,
+        client: null,
+        charterer: { ...fixture.client, name: 'Default Charterer' },
+      });
+      await service.generateNominationInstructions(NOM_ID);
+      expect(mockNominationInstructionsDocx.render).toHaveBeenCalledWith(
+        expect.objectContaining({
+          portCosts: 'Default Charterer',
+          nominationInstructions: 'Follow the standing instructions.',
+        }),
+      );
+    });
+
     it('uses the charterer selected on the nomination instead of the legacy roster row', async () => {
       mockPrisma.nomination.findUnique.mockResolvedValue(
         nominationInstructionsFixture({
@@ -939,7 +955,11 @@ describe('NominationsService', () => {
 
       expect(mockPrisma.nomination.findUnique).toHaveBeenCalledWith(
         expect.objectContaining({
-          select: expect.objectContaining({ charterer: { select: { name: true } } }),
+          select: expect.objectContaining({
+            charterer: {
+              select: expect.objectContaining({ id: true, name: true, instructions: true }),
+            },
+          }),
         }),
       );
       expect(mockNominationInstructionsDocx.render).toHaveBeenCalledWith(
@@ -978,7 +998,109 @@ describe('NominationsService', () => {
     });
   });
 
+  it('deduplicates terminal delivery and its archived envelope across To, Cc and Bcc', async () => {
+    mockPrisma.pedr.findUnique.mockResolvedValue({
+      id: 'pedr-1',
+      nomination: { branch: { emails: [' TO@example.test ', 'branch@example.test'] } },
+    });
+    mockPrisma.emailDispatch.create.mockResolvedValue({ id: 'dispatch-1' });
+    mockPrisma.emailDispatch.update.mockResolvedValue({ id: 'dispatch-1', sentAt: NOW });
+    await service.sendEmail(
+      NOM_ID,
+      {
+        subDocType: 'ETA_TERMINAL',
+        subject: 'Terminal notice',
+        bodyText: 'Body',
+        toAddresses: ['to@example.test', 'TO@example.test'],
+        ccAddresses: ['to@example.test', 'cc@example.test'],
+        bccAddresses: ['CC@example.test', 'bcc@example.test', 'BCC@example.test'],
+        attachmentIds: [],
+      },
+      USER_ID,
+    );
+    expect(mockEmailService.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: ['to@example.test'],
+        cc: ['cc@example.test', 'branch@example.test'],
+        bcc: ['bcc@example.test'],
+      }),
+    );
+    expect(mockPrisma.emailDispatch.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          toAddresses: ['to@example.test'],
+          ccAddresses: ['cc@example.test', 'branch@example.test'],
+          bccAddresses: ['bcc@example.test'],
+        }),
+      }),
+    );
+  });
+
+  describe('instruction-client defaults and overrides', () => {
+    it.each([undefined, null, 'override-client'])(
+      'defaults new nominations only when an instruction client was not supplied: %s',
+      async (clientId) => {
+        mockPrisma.$transaction.mockImplementation(
+          async (fn: (tx: typeof mockPrisma) => Promise<unknown>) => fn(mockPrisma),
+        );
+        mockPrisma.nomination.create.mockResolvedValue(mockNomBase);
+        mockPrisma.pedr.create.mockResolvedValue({ id: 'pedr-1' });
+        await service.create(
+          {
+            shipParticularId: 'clship0000000001',
+            branchId: 'clbranch000000001',
+            chartererId: 'charterer-client',
+            clientId,
+            dateNominated: NOW,
+            parcels: [],
+            emailTo: [],
+            emailCc: [],
+            emailBcc: [],
+            kind: 'SN',
+            nominationType: 'FULL_AGENCY',
+          },
+          USER_ID,
+        );
+        expect(mockPrisma.nomination.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              clientId: clientId === undefined ? 'charterer-client' : clientId,
+            }),
+          }),
+        );
+      },
+    );
+    it.each([
+      ['old-charterer', 'new-charterer'],
+      ['override-client', 'override-client'],
+    ])(
+      'changing Charterers preserves a distinct right-side override (%s)',
+      async (existingClient, expected) => {
+        mockPrisma.nomination.findUnique.mockResolvedValue({
+          ...mockNomBase,
+          chartererId: 'old-charterer',
+          clientId: existingClient,
+        });
+        mockPrisma.nomination.update.mockResolvedValue(mockNomBase);
+        await service.update(NOM_ID, { chartererId: 'new-charterer' }, USER_ID);
+        const call = mockPrisma.nomination.update.mock.calls.at(-1)![0];
+        if (expected === 'override-client') expect(call.data).not.toHaveProperty('clientId');
+        else expect(call.data.clientId).toBe(expected);
+      },
+    );
+  });
+
   describe('list — derived status dispatches', () => {
+    it('does not consider an interim SOF a final operational departure', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue({
+        ...mockNomBase,
+        pedr: { emailDispatches: [{ subDocType: 'SOF_INTERIM' }] },
+        layDaysLast: new Date('2020-01-01'),
+      });
+      const result = await service.getById(NOM_ID);
+      expect(result.status).not.toBe('FULL_AWAY');
+    });
+
     beforeEach(() => {
       mockPrisma.nomination.findMany.mockResolvedValue([]);
       mockPrisma.nomination.count.mockResolvedValue(0);
@@ -1383,11 +1505,11 @@ describe('NominationsService', () => {
       const data = await service.getComposeData(NOM_ID, 'ETA_TERMINAL', 'agent@navieramar.com');
 
       expect(data.toAddresses).toEqual([...TERMINAL_EMAILS, ...SHIPPER_EMAILS]);
-      // The operating port's distribution list is also copied on ETA forwards.
-      expect(data.ccAddresses).toEqual(['ops@navieramar.com', ...TERMINAL_EMAILS]);
+      // Terminal addresses appear in To only; nomination defaults go to Cc.
+      expect(data.ccAddresses).toEqual(['charterer@ril.com', 'ops@navieramar.com']);
     });
 
-    it('appends operating-port emails to ETA terminal Cc without case duplicates', async () => {
+    it('removes terminal addresses from Cc when they already appear in To', async () => {
       mockPrisma.nomination.findUnique.mockResolvedValue(
         composeNomination({
           emailCc: ['ops@navieramar.com', 'OPS@TAECJAA.COM'],
@@ -1405,11 +1527,7 @@ describe('NominationsService', () => {
         'loadingmaster@taecjaa.com',
         ...SHIPPER_EMAILS,
       ]);
-      expect(data.ccAddresses).toEqual([
-        'ops@navieramar.com',
-        'OPS@TAECJAA.COM',
-        'loadingmaster@taecjaa.com',
-      ]);
+      expect(data.ccAddresses).toEqual(['charterer@ril.com', 'ops@navieramar.com']);
     });
 
     it('uses the newly saved operating terminal without carrying over the previous terminal', async () => {
@@ -1445,7 +1563,11 @@ describe('NominationsService', () => {
       );
       const after = await service.getComposeData(NOM_ID, 'ETA_TERMINAL', 'agent@navieramar.com');
       expect(after.toAddresses).toEqual(['b@terminal.test', ...SHIPPER_EMAILS]);
-      expect(after.ccAddresses).toEqual(['cc-b@terminal.test', 'b@terminal.test']);
+      expect(after.ccAddresses).toEqual([
+        'charterer@ril.com',
+        'ops@navieramar.com',
+        'cc-b@terminal.test',
+      ]);
       expect(after.bccAddresses).toEqual(['bcc-b@terminal.test']);
       expect([...after.toAddresses, ...after.ccAddresses, ...after.bccAddresses]).not.toEqual(
         expect.arrayContaining(['a@terminal.test']),
@@ -1460,7 +1582,7 @@ describe('NominationsService', () => {
       const data = await service.getComposeData(NOM_ID, 'NOR', 'agent@navieramar.com');
 
       expect(data.toAddresses).toEqual([...TERMINAL_EMAILS, ...SHIPPER_EMAILS]);
-      expect(data.ccAddresses).toEqual(['ops@navieramar.com']);
+      expect(data.ccAddresses).toEqual(['charterer@ril.com', 'ops@navieramar.com']);
     });
 
     it('places user-backed terminal contacts in their configured envelope fields', async () => {
@@ -1481,7 +1603,11 @@ describe('NominationsService', () => {
       const data = await service.getComposeData(NOM_ID, 'ETA_TERMINAL', 'agent@navieramar.com');
 
       expect(data.toAddresses).toEqual(['master@terminal.test', ...SHIPPER_EMAILS]);
-      expect(data.ccAddresses).toEqual(['documents@terminal.test']);
+      expect(data.ccAddresses).toEqual([
+        'charterer@ril.com',
+        'ops@navieramar.com',
+        'documents@terminal.test',
+      ]);
       expect(data.bccAddresses).toEqual(['audit@terminal.test']);
     });
 
@@ -1524,7 +1650,7 @@ describe('NominationsService', () => {
       expect(data.toAddresses).toEqual(TERMINAL_EMAILS);
     });
 
-    it("falls back to the nomination's list when neither is registered", async () => {
+    it('keeps defaults in Cc and requires an explicit To when no terminal or shipper is registered', async () => {
       mockPrisma.nomination.findUnique.mockResolvedValue(
         composeNomination({
           opPort: { name: 'PDVSA TAECJAA OFF-SHORE PLATFORM, JOSE', emails: [] },
@@ -1534,8 +1660,8 @@ describe('NominationsService', () => {
 
       const data = await service.getComposeData(NOM_ID, 'ETA_TERMINAL', 'agent@navieramar.com');
 
-      // Better an editable wrong list than an empty To that reads as a bug.
-      expect(data.toAddresses).toEqual(['charterer@ril.com']);
+      expect(data.toAddresses).toEqual([]);
+      expect(data.ccAddresses).toContain('charterer@ril.com');
     });
 
     it('leaves every other notice on the client list', async () => {
@@ -1571,6 +1697,7 @@ describe('NominationsService', () => {
       const data = await service.getComposeData(NOM_ID, 'NOR', 'agent@navieramar.com');
 
       expect(data.ccAddresses).toEqual([
+        'charterer@ril.com',
         'ops@navieramar.com',
         'jse@navieramar.com',
         'manager@navieramar.com',
@@ -1647,7 +1774,7 @@ describe('NominationsService', () => {
 
       const data = await service.getComposeData(NOM_ID, 'NOR', 'agent@navieramar.com');
 
-      expect(data.ccAddresses).toEqual(['ops@navieramar.com']);
+      expect(data.ccAddresses).toEqual(['charterer@ril.com', 'ops@navieramar.com']);
       expect(data.bccAddresses).toEqual([]);
     });
 
@@ -1971,7 +2098,6 @@ describe('NominationsService', () => {
 
       const data = await service.getComposeData(NOM_ID, 'ETA_REQUEST', 'agent@navieramar.com');
 
-      // Better an editable wrong list than an empty To that reads as a bug.
       expect(data.toAddresses).toEqual(['charterer@ril.com']);
     });
 
@@ -2183,6 +2309,142 @@ describe('NominationsService', () => {
       await service.getComposeData(NOM_ID, 'SOF', 'agent@navieramar.com');
 
       expect(lastTemplateVars()['vessel_cargo_figures_section']).toBe('');
+    });
+
+    it.each(Array.from({ length: 16 }, (_, index) => index))(
+      'renders exactly the enabled support sections for mask %s',
+      async (mask) => {
+        const flags = [1, 2, 4, 8].map((bit) => Boolean(mask & bit));
+        mockPrisma.sofTimesheet.findUnique.mockResolvedValue({
+          ...SOF_FIXTURE,
+          bunkersData: { IFO: { arrival: '100', sailing: '80' } },
+          draftData: { FWD: { arrival: '8', sailing: '7' } },
+          includeBunkersDraftParcel: flags[0],
+          includeBillShipFigures: flags[1],
+          includeLettersRemarks: flags[2],
+          includeSlopBunkers: flags[3],
+          sofParcelsData: {
+            columns: ['QA Parcel'],
+            rows: { qtyOfferedBblsHr: ['1200'], qtyRequestedBblsHr: ['900'], numPumps: ['3'] },
+          },
+          lettersData: {
+            items: [
+              { from: '', to: '', comment: '' },
+              { from: 'Surveyor', to: 'Master', comment: 'QA Letter' },
+            ],
+          },
+          remarksData: {
+            items: [
+              {
+                remark: 'QA Delay',
+                beginDate: '2026-10-26',
+                beginTime: '10:00',
+                endDate: '2026-10-26',
+                endTime: '12:00',
+                comment: 'QA Reason',
+              },
+            ],
+          },
+          slopDischargedData: { rows: [{ event: 'QA Slop', date: '2026-10-26', time: '13:00' }] },
+        });
+        await service.getComposeData(NOM_ID, 'SOF', 'agent@navieramar.com');
+        const vars = lastTemplateVars();
+        expect(Boolean(vars['parcel_figures_section'])).toBe(flags[0]);
+        expect(Boolean(vars['arrival_conditions_section'])).toBe(flags[0]);
+        expect(Boolean(vars['sailed_conditions_section'])).toBe(flags[0]);
+        expect(Boolean(vars['vessel_cargo_figures_section'])).toBe(flags[1]);
+        expect(Boolean(vars['bl_figures_section'])).toBe(flags[1]);
+        expect(Boolean(vars['letters_section'])).toBe(flags[2]);
+        expect(Boolean(vars['remarks_section'])).toBe(flags[2]);
+        expect(Boolean(vars['slop_bunkers_section'])).toBe(flags[3]);
+        if (flags[0])
+          expect(vars['parcel_figures_section']).toContain('Qty. Requested (BBLS/HR): 900');
+        if (flags[2]) {
+          expect(vars['letters_section']).toBe('01. From: Surveyor — To: Master — QA Letter');
+          expect(vars['remarks_section']).toContain(
+            'Fm 2026-10-26 10:00 To 2026-10-26 12:00 QA Delay QA Reason',
+          );
+          expect(vars['remarks_section']).not.toContain('Pending data');
+        }
+      },
+    );
+
+    it('renders the real SOF template with selected figures, protest parties and entered remarks', async () => {
+      const realTemplates = new EmailTemplateService();
+      mockEmailTemplateService.render.mockImplementation(
+        (...args: Parameters<EmailTemplateService['render']>) => realTemplates.render(...args),
+      );
+      mockPrisma.sofTimesheet.findUnique.mockResolvedValue({
+        ...SOF_FIXTURE,
+        entries: [
+          {
+            occurredAt: NOW,
+            activity: { name: 'Safe Key Meeting Completed' },
+            comment: 'QA meeting notes',
+          },
+        ],
+        sofParcelsData: {
+          columns: ['QA Cargo'],
+          rows: { qtyOfferedBblsHr: ['1200'], qtyRequestedBblsHr: ['900'] },
+        },
+        lettersData: { items: [{ from: 'Surveyor', to: 'Master', comment: 'QA Letter' }] },
+        remarksData: {
+          items: [
+            {
+              remark: 'Awaiting',
+              beginDate: '2026-10-26',
+              beginTime: '10:00',
+              endDate: '2026-10-26',
+              endTime: '12:00',
+              comment: 'QA delay notes',
+            },
+          ],
+        },
+      });
+      const composed = await service.getComposeData(NOM_ID, 'SOF_INTERIM', 'agent@example.test');
+      expect(composed.subject).toContain('Interim Statement of Facts');
+      for (const value of [
+        'Safe Key Meeting Completed',
+        'Qty. Requested (BBLS/HR): 900',
+        'From: Surveyor — To: Master — QA Letter',
+        'Fm 2026-10-26 10:00 To 2026-10-26 12:00 Awaiting QA delay notes',
+      ])
+        expect(composed.bodyText).toContain(value);
+      expect(composed.bodyText).not.toContain('Pending data');
+    });
+
+    it.each(['SOF', 'SOF_INTERIM'])(
+      'keeps Safe Key Meeting in the saved timeline for %s',
+      async (action) => {
+        mockPrisma.sofTimesheet.findUnique.mockResolvedValue({
+          ...SOF_FIXTURE,
+          entries: [
+            {
+              occurredAt: NOW,
+              activity: { name: 'Safe Key Meeting Completed' },
+              comment: 'Recorded details',
+            },
+          ],
+        });
+        await service.getComposeData(NOM_ID, action, 'agent@navieramar.com');
+        expect(lastTemplateVars()['statement_of_facts_log']).toContain(
+          'Safe Key Meeting Completed Recorded details',
+        );
+        expect(lastTemplateVars()['sof_title']).toBe(
+          action === 'SOF' ? 'Final Statement of Facts' : 'Interim Statement of Facts',
+        );
+      },
+    );
+
+    it('requires an explicit opt-in for calculated summaries and omits them from interim SOF', async () => {
+      mockPrisma.sofTimesheet.findUnique.mockResolvedValue({
+        ...SOF_FIXTURE,
+        remarksData: { includeOperationalSummary: true, items: [] },
+      });
+      await service.getComposeData(NOM_ID, 'SOF', 'agent@navieramar.com');
+      expect(lastTemplateVars()['remarks_section']).toContain('Total Time Turnaround');
+      await service.getComposeData(NOM_ID, 'SOF_INTERIM', 'agent@navieramar.com');
+      expect(lastTemplateVars()['remarks_section']).toBe('');
     });
 
     it('suppresses each optional support block when excluded from the final SOF', async () => {

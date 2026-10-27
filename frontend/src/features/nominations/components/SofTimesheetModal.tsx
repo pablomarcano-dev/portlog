@@ -15,6 +15,7 @@ import {
   Switch,
 } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
+import { notifications } from '@mantine/notifications';
 import { useDisclosure, useDebouncedValue } from '@mantine/hooks';
 import { useForm, Controller, useController, useFieldArray, type Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -38,17 +39,33 @@ import { useNominationCompose } from '../api/useNominationCompose';
 // for the split Date/Time inputs; combined to ISO on save.
 // ---------------------------------------------------------------------------
 
-const sofEntryFormSchema = z.object({
-  date: z.date().nullable(),
-  time: z.string().default(''),
-  activityId: z.string().nullable(),
-  // Display-only companion to activityId, never sent to the API. The activity
-  // catalog is ~350 entries and the picker only ever holds a page of search
-  // results, so the row has to carry its own label for the saved activity to
-  // stay visible — and carrying it *in the row* means it survives re-sorting.
-  activityLabel: z.string().default(''),
-  comment: z.string().default(''),
-});
+const sofEntryFormSchema = z
+  .object({
+    date: z.date().nullable(),
+    time: z.string().default(''),
+    activityId: z.string().nullable(),
+    // Display-only companion to activityId, never sent to the API. The activity
+    // catalog is ~350 entries and the picker only ever holds a page of search
+    // results, so the row has to carry its own label for the saved activity to
+    // stay visible — and carrying it *in the row* means it survives re-sorting.
+    activityLabel: z.string().default(''),
+    comment: z.string().default(''),
+  })
+  .superRefine((entry, context) => {
+    if (!(entry.date || entry.time || entry.activityId || entry.comment)) return;
+    if (!entry.date)
+      context.addIssue({
+        code: 'custom',
+        path: ['date'],
+        message: 'Date is required for an activity.',
+      });
+    if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(entry.time))
+      context.addIssue({
+        code: 'custom',
+        path: ['time'],
+        message: 'Enter HH:mm for this activity.',
+      });
+  });
 
 const sofFormSchema = z.object({
   lastPortId: z.string().nullable(),
@@ -74,7 +91,7 @@ type SofFormValues = z.infer<typeof sofFormSchema>;
  * If date is null, returns null.
  */
 function combineDateTime(date: Date | null, time: string): string | null {
-  if (!date) return null;
+  if (!date || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)) return null;
   const [hh = '00', mm = '00'] = time.split(':');
   const d = new Date(date);
   d.setHours(parseInt(hh, 10), parseInt(mm, 10), 0, 0);
@@ -263,7 +280,12 @@ export function SofTimesheetModal({
 
   // SOF email compose
   const [sofEmailOpen, { open: openSofEmail, close: closeSofEmail }] = useDisclosure(false);
-  const { data: sofComposeData } = useNominationCompose(pedrId ? nominationId : undefined, 'SOF');
+  const [sofSendType, setSofSendType] = useState<'SOF' | 'SOF_INTERIM'>('SOF_INTERIM');
+  const { data: sofComposeData } = useNominationCompose(
+    pedrId ? nominationId : undefined,
+    sofSendType,
+    sofEmailOpen,
+  );
 
   // Dirty check for close confirmation
   const [confirmClose, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
@@ -313,6 +335,30 @@ export function SofTimesheetModal({
       includeLettersRemarks: vals.includeLettersRemarks,
       includeSlopBunkers: vals.includeSlopBunkers,
     };
+  }
+
+  async function prepareSofEmail(type: 'SOF' | 'SOF_INTERIM') {
+    if (!(await form.trigger())) return;
+    const values = form.getValues();
+    if (
+      values.entries.some(
+        (entry) =>
+          (entry.date || entry.time || entry.activityId || entry.comment) &&
+          !combineDateTime(entry.date, entry.time),
+      )
+    ) {
+      notifications.show({
+        color: 'red',
+        message: 'Complete the date and time of each activity before preparing the SOF.',
+      });
+      return;
+    }
+    saveMutation.mutate(buildBasePayload(), {
+      onSuccess: () => {
+        setSofSendType(type);
+        openSofEmail();
+      },
+    });
   }
 
   function handleClose() {
@@ -615,20 +661,34 @@ export function SofTimesheetModal({
                 </Group>
               </Box>
 
+              <Text size="xs" c="dimmed">
+                Section switches apply to both SOF versions. Interim reports keep the call open.
+                Current edits are saved before preparing either message.
+              </Text>
               {/* Footer actions */}
               <Divider />
               <Group justify="space-between" mt="xs">
                 <Group gap="xs">
                   {pedrId && (
-                    <Button
-                      size="xs"
-                      variant="light"
-                      color="blue"
-                      onClick={openSofEmail}
-                      disabled={saveMutation.isPending}
-                    >
-                      Send SOF Email
-                    </Button>
+                    <Group gap="xs">
+                      <Button
+                        size="xs"
+                        variant="light"
+                        color="blue"
+                        onClick={() => void prepareSofEmail('SOF_INTERIM')}
+                        disabled={saveMutation.isPending}
+                      >
+                        Send interim SOF
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="light"
+                        onClick={() => void prepareSofEmail('SOF')}
+                        disabled={saveMutation.isPending}
+                      >
+                        Send final SOF
+                      </Button>
+                    </Group>
                   )}
                   <Stack gap={2} align="center">
                     <Button
@@ -761,7 +821,10 @@ export function SofTimesheetModal({
         sofData={sofData}
         isSaving={saveMutation.isPending}
         onSave={(data) => {
-          saveMutation.mutate({ ...buildBasePayload(), ...data });
+          saveMutation.mutate(
+            { ...buildBasePayload(), ...data },
+            { onSuccess: closeBunkersDraftParcel },
+          );
         }}
       />
 
@@ -772,7 +835,10 @@ export function SofTimesheetModal({
         sofData={sofData}
         isSaving={saveMutation.isPending}
         onSave={(data) => {
-          saveMutation.mutate({ ...buildBasePayload(), ...data });
+          saveMutation.mutate(
+            { ...buildBasePayload(), ...data },
+            { onSuccess: closeBillShipFigures },
+          );
         }}
       />
 
@@ -783,7 +849,10 @@ export function SofTimesheetModal({
         sofData={sofData}
         isSaving={saveMutation.isPending}
         onSave={(data) => {
-          saveMutation.mutate({ ...buildBasePayload(), ...data });
+          saveMutation.mutate(
+            { ...buildBasePayload(), ...data },
+            { onSuccess: closeLettersRemarks },
+          );
         }}
       />
 
@@ -794,7 +863,7 @@ export function SofTimesheetModal({
         sofData={sofData}
         isSaving={saveMutation.isPending}
         onSave={(data) => {
-          saveMutation.mutate({ ...buildBasePayload(), ...data });
+          saveMutation.mutate({ ...buildBasePayload(), ...data }, { onSuccess: closeSlopBunkers });
         }}
       />
 
@@ -804,7 +873,7 @@ export function SofTimesheetModal({
           onClose={closeSofEmail}
           pedrId={pedrId}
           nominationId={nominationId}
-          subDocType="SOF"
+          subDocType={sofSendType}
           defaultSubject={sofComposeData?.subject ?? ''}
           defaultBody={sofComposeData?.bodyText}
         />

@@ -260,7 +260,6 @@ export function SofBillShipFiguresModal({
       blFiguresData: { columns, rows: blRows },
       shipFiguresData: { columns, rows: shipRows },
     });
-    onClose();
   }
 
   return (

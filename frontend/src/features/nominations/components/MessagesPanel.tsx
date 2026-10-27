@@ -42,7 +42,8 @@ const TYPE_LABELS: Record<string, string> = {
   PREARRIVAL: 'Pre-arrival',
   ETA_ETB: 'ETA / ETB',
   NOR: 'NOR',
-  SOF: 'SOF',
+  SOF: 'Final SOF',
+  SOF_INTERIM: 'Interim SOF',
   CARGO_UPDATE: 'Cargo Update',
 };
 

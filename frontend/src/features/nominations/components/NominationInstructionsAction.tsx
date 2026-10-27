@@ -31,13 +31,14 @@ export function NominationInstructionsAction({
     mutationFn: (nextClient: { id: string; name: string } | null) =>
       nominationsApi.update(nominationId, { clientId: nextClient?.id ?? null }),
     onSuccess: (nomination) => {
-      setSelectedClient(nomination.client);
+      const effectiveClient = nomination.client ?? nomination.charterer;
+      setSelectedClient(effectiveClient);
       void queryClient.invalidateQueries({ queryKey: ['nominations', nominationId] });
       void queryClient.invalidateQueries({ queryKey: ['nominations', 'list'] });
       notifications.show({
         title: 'Instruction client saved',
-        message: nomination.client
-          ? `${nomination.client.name} will be used for this document.`
+        message: effectiveClient
+          ? `${effectiveClient.name} will be used for this document.`
           : 'The instruction client was removed.',
         color: 'green',
       });
@@ -89,8 +90,8 @@ export function NominationInstructionsAction({
         Nomination instructions
       </Text>
       <Text size="xs" c="dimmed">
-        Choose the client whose contacts, message groups and standing instructions belong in this
-        document. Clients of every entity type are available.
+        Defaults to the nomination’s Charterers company. You can select a different instruction
+        client here; its contacts, message groups and standing instructions will be used.
       </Text>
       <Group align="flex-end" wrap="nowrap">
         <div style={{ flex: 1 }}>

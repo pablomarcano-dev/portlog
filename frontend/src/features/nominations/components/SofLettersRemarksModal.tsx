@@ -11,6 +11,7 @@ import {
   Text,
   SimpleGrid,
   Paper,
+  Checkbox,
 } from '@mantine/core';
 import { DateTimePicker } from '@mantine/dates';
 import {
@@ -108,6 +109,7 @@ export function SofLettersRemarksModal({
   const [letters, setLetters] = useState<LetterRow[]>([]);
   const [remarks, setRemarks] = useState<RemarkRow[]>([]);
   const [cargoQuantity, setCargoQuantity] = useState('');
+  const [includeOperationalSummary, setIncludeOperationalSummary] = useState(false);
   const [obq, setObq] = useState('');
   const { colWidths: lettersWidths, startResize: startLettersResize } =
     useColumnResize<LettersColKey>(LETTERS_WIDTHS);
@@ -120,6 +122,7 @@ export function SofLettersRemarksModal({
       setRemarks(sofData?.remarksData?.items?.map((i) => ({ ...i })) ?? []);
       setCargoQuantity(sofData?.remarksData?.cargoQuantity ?? '');
       setObq(sofData?.remarksData?.obq ?? '');
+      setIncludeOperationalSummary(sofData?.remarksData?.includeOperationalSummary ?? false);
     }
   }, [opened]);
 
@@ -134,9 +137,8 @@ export function SofLettersRemarksModal({
   function handleSave() {
     onSave({
       lettersData: { items: letters },
-      remarksData: { items: remarks, cargoQuantity, obq },
+      remarksData: { items: remarks, cargoQuantity, obq, includeOperationalSummary },
     });
-    onClose();
   }
 
   const summary = useMemo(() => {
@@ -461,6 +463,11 @@ export function SofLettersRemarksModal({
             <Group justify="space-between" align="flex-end" mb="md">
               <div>
                 <Text fw={700}>Operational Time Calculation</Text>
+                <Checkbox
+                  label="Include calculated time summary in final SOF"
+                  checked={includeOperationalSummary}
+                  onChange={(event) => setIncludeOperationalSummary(event.currentTarget.checked)}
+                />
                 <Text size="xs" c="dimmed">
                   Calculated from Times Sheet activities and classified remarks.
                 </Text>

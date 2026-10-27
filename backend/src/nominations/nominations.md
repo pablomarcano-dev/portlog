@@ -102,3 +102,15 @@ Repro:
 Verify: `npm run test -w @portlog/backend -- nominations.service` passes; `GET /api/nominations/:id/sales` returns `[]` for a fresh nomination; POST with a non-existent `serviceId` (valid cuid shape) returns 400.
 
 Rollback: revert the feature commit; migration `20260715180517_add_services_and_sales` would need a manual down-migration (drops `sales`, `services`, `crew`).
+
+## Feedback decisions — 27 October 2026 (local, pending deployment)
+
+Terminal-addressed ETA/NOR uses the selected operating port plus its configured To contacts and the established shipper To source. Nomination default To addresses supplement Cc; existing Cc and configured terminal Cc contacts are retained. Port distribution addresses are no longer appended to ETA Cc. Deduplication is case-insensitive across To, Cc and Bcc, with To then Cc precedence; terminal send-time normalization also prevents branch defaults from reintroducing a duplicate.
+
+Instruction client defaults to Charterers for new nominations when no explicit instruction client was supplied. A distinct right-side override remains authoritative. Changing Charterers follows the source only while the instruction client is blank or matches the former Charterer; historical records are not bulk rewritten. Document generation can use Charterers when an older nomination has no instruction client.
+
+SOF email, preview and newly generated PDF use saved SofTimesheet entries and the same canonical composed sections. The old PEDR event ledger and archived PDFs are retained, but are not the source of the nomination timesheet output. All four support switches apply to both interim and final reports, including parcel offered/requested figures, letters and remarks. Empty display rows are omitted without deleting stored support data; literal entered text such as “none” is retained. Calculated time summaries require the new includeOperationalSummary opt-in inside remarksData, and are omitted from interim reports.
+
+SOF_INTERIM is an additive dispatch enum value requiring migration 20261027183000_interim_sof_dispatch. Existing SOF remains final, retaining departure-status and ETA-alert semantics; SOF_INTERIM is excluded from those final-SOF facts. Send preparation saves the current editor first and blocks incomplete activity dates/times. Support dialogs close only after a successful save.
+
+Captain storage audit: Nomination.master and SofTimesheet.captain are name strings. ContactNamePicker stores the selected name, not the Contact ID. NominationClient links company/owner directories and has no captain email field. Master-facing defaults currently use ShipParticular.emails, with existing owner/operator and branch copying. No nomination-specific captain contact/email or new routing policy was introduced in this change.

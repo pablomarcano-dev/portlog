@@ -392,7 +392,7 @@ function NominationDetailPage() {
                 <Box pt="xs">
                   <NominationInstructionsAction
                     nominationId={nomination.id}
-                    client={nomination.client}
+                    client={nomination.client ?? nomination.charterer}
                     disabled={isReadOnly}
                   />
                   {pedr && (

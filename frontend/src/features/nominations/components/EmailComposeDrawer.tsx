@@ -20,7 +20,7 @@ import { DateTimePicker, DatePickerInput } from '@mantine/dates';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { usePedrEvents } from '../api/usePedrEvents';
+import { useNominationSof } from '../hooks/useNominationSof';
 import type { EmailDispatchResponse, SubDocType } from '@portlog/schemas';
 import { useEmailDispatch } from '../api/useEmailDispatch';
 import { useNominationCompose } from '../api/useNominationCompose';
@@ -64,7 +64,8 @@ const SUB_DOC_LABELS: Record<SubDocType, string> = {
   ETA_REPLY: 'Reply to Master (ETB/ETPOB)',
   ETA_RECAP: 'ETA’s Recaps & NOR',
   NOR: 'Notice of Readiness',
-  SOF: 'Statement of Facts',
+  SOF: 'Final Statement of Facts',
+  SOF_INTERIM: 'Interim Statement of Facts',
   CARGO_UPDATE: 'Cargo Update',
 };
 
@@ -122,7 +123,8 @@ export function EmailComposeDrawer({
     // nomination-level route (no auto-generated PDF), like the others here.
     subDocType === 'NOR' ||
     subDocType === 'CARGO_UPDATE';
-  const pedrEventsQuery = usePedrEvents(subDocType === 'SOF' ? pedrId : '');
+  const isSof = subDocType === 'SOF' || subDocType === 'SOF_INTERIM';
+  const sofEventsQuery = useNominationSof(isSof ? (nominationId ?? '') : '');
 
   const {
     register,
@@ -311,18 +313,23 @@ export function EmailComposeDrawer({
               </Alert>
             )}
             {/* SOF event log preview */}
-            {subDocType === 'SOF' && (
+            {isSof && (
               <Box>
                 <Text fw={600} size="sm" mb={4}>
                   Event Log
                 </Text>
-                {pedrEventsQuery.isLoading ? (
+                {sofEventsQuery.isLoading ? (
                   <Box ta="center" py="sm">
                     <Loader size="xs" />
                   </Box>
-                ) : pedrEventsQuery.data?.length === 0 ? (
+                ) : sofEventsQuery.isError ? (
+                  <Alert color="red" title="Could not load saved SOF events">
+                    Close this message and retry. Your saved entries have not been changed.
+                  </Alert>
+                ) : sofEventsQuery.data?.entries.length === 0 ? (
                   <Alert color="yellow" title="No events recorded yet">
-                    The SOF will be empty.
+                    The saved SOF has no activity entries. Return to the timesheet to add and save
+                    them.
                   </Alert>
                 ) : (
                   <Table withTableBorder withColumnBorders fz="xs">
@@ -334,11 +341,11 @@ export function EmailComposeDrawer({
                       </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
-                      {pedrEventsQuery.data?.map((ev) => (
+                      {sofEventsQuery.data?.entries.map((ev) => (
                         <Table.Tr key={ev.id}>
                           <Table.Td>{formatDateTime(ev.occurredAt)}</Table.Td>
-                          <Table.Td>{ev.kind.replace(/_/g, ' ')}</Table.Td>
-                          <Table.Td>{ev.note ?? ''}</Table.Td>
+                          <Table.Td>{ev.activity?.name ?? ''}</Table.Td>
+                          <Table.Td>{ev.comment ?? ''}</Table.Td>
                         </Table.Tr>
                       ))}
                     </Table.Tbody>

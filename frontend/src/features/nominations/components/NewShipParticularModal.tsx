@@ -1,5 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
-import { Alert, Badge, Button, Divider, Group, Modal, Stack, Text, TextInput } from '@mantine/core';
+import {
+  Alert,
+  Badge,
+  Button,
+  Divider,
+  Group,
+  Modal,
+  Stack,
+  Text,
+  TextInput,
+  NumberInput,
+} from '@mantine/core';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -10,7 +21,7 @@ import { apiRequest } from '../../../lib/api/client';
 import { ApiError } from '../../../lib/api/errors';
 import { shipParticularsApi } from '../../../lib/api/master-data/ship-particulars';
 import { flagsApi } from '../../../lib/api/master-data/flags';
-import { vesselInfoSchema } from '@portlog/schemas';
+import { vesselInfoSchema, vesselParticularsSchema } from '@portlog/schemas';
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -31,6 +42,9 @@ const QuickShipSchema = z.object({
     .optional()
     .or(z.literal('')),
   flagId: z.string().cuid('Flag is required'),
+  dwt: z.number().nonnegative().nullable().optional(),
+  grt: z.number().nonnegative().nullable().optional(),
+  loa: z.number().nonnegative().nullable().optional(),
 });
 
 type QuickShipInput = z.infer<typeof QuickShipSchema>;
@@ -130,6 +144,7 @@ export function NewShipParticularModal({ opened, onClose, onCreated }: Props) {
         .pick({ name: true, country_iso: true, country_name: true, callsign: true })
         .partial()
         .parse(res.data);
+      const particulars = vesselParticularsSchema.safeParse(res.data);
       let resolvedFlagId = '';
       let resolvedFlagName = '';
       try {
@@ -161,6 +176,18 @@ export function NewShipParticularModal({ opened, onClose, onCreated }: Props) {
       }
       if (version !== lookupVersion.current) return;
       const fields: string[] = [];
+      if (particulars.success && (!particulars.data.imo || particulars.data.imo === imoValue)) {
+        for (const [field, value] of [
+          ['dwt', particulars.data.deadweight],
+          ['grt', particulars.data.gross_tonnage],
+          ['loa', particulars.data.length],
+        ] as const) {
+          if (value != null) {
+            setValue(field, value, { shouldDirty: true });
+            fields.push(field.toUpperCase());
+          }
+        }
+      }
       if (info.name?.trim()) {
         setValue('name', info.name.trim(), { shouldDirty: true });
         fields.push('name');
@@ -214,6 +241,8 @@ export function NewShipParticularModal({ opened, onClose, onCreated }: Props) {
       const payload: Record<string, unknown> = { name: data.name, flagId: data.flagId };
       if (data.imoNumber) payload.imoNumber = data.imoNumber;
       if (data.callSign) payload.callSign = data.callSign;
+      for (const field of ['dwt', 'grt', 'loa'] as const)
+        if (data[field] != null) payload[field] = data[field];
       return apiRequest<{ id: string; name: string }>('/master-data/ship-particulars', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -362,6 +391,23 @@ export function NewShipParticularModal({ opened, onClose, onCreated }: Props) {
             </Badge>
           )}
 
+          <Group grow>
+            {(['dwt', 'grt', 'loa'] as const).map((name) => (
+              <Controller
+                key={name}
+                control={control}
+                name={name}
+                render={({ field }) => (
+                  <NumberInput
+                    label={name === 'dwt' ? 'SDWT' : name === 'loa' ? 'LOA (m)' : 'GRT'}
+                    min={0}
+                    value={field.value ?? ''}
+                    onChange={(value) => field.onChange(value === '' ? null : Number(value))}
+                  />
+                )}
+              />
+            ))}
+          </Group>
           <Group justify="flex-end" mt="xs">
             <Button variant="default" onClick={handleClose} disabled={create.isPending}>
               Cancel

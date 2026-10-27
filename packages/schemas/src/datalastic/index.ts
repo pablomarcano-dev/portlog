@@ -277,3 +277,11 @@ export const vesselInRadiusResponseSchema = z.object({
 });
 
 export type VesselInRadiusResponse = z.infer<typeof vesselInRadiusResponseSchema>;
+
+/** Only fields consumed for nomination/vessel particulars; unrelated provider fields cannot block them. */
+export const vesselParticularsSchema = z.object({
+  imo: z.string().optional(),
+  deadweight: z.number().finite().nonnegative().nullish(),
+  gross_tonnage: z.number().finite().nonnegative().nullish(),
+  length: z.number().finite().nonnegative().nullish(),
+});

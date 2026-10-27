@@ -1,3 +1,4 @@
+import { NominationsService } from '../nominations/nominations.service';
 import { Test } from '@nestjs/testing';
 import { DispatchService } from './dispatch.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -40,6 +41,7 @@ describe('dispatch receipt body', () => {
       const module = await Test.createTestingModule({
         providers: [
           DispatchService,
+          { provide: NominationsService, useValue: { getComposeData: jest.fn() } },
           { provide: PrismaService, useValue: prisma },
           { provide: EmailService, useValue: email },
           {

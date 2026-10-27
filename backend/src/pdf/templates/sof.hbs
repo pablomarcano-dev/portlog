@@ -1,73 +1,17 @@
 <!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<style>
-  body { font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 24px; }
-  h1 { font-size: 16px; border-bottom: 2px solid #333; padding-bottom: 8px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
-  th { background: #f0f0f0; font-weight: bold; }
-  .footer { margin-top: 32px; font-size: 10px; color: #666; border-top: 1px solid #ccc; padding-top: 8px; }
-  .signature { margin-top: 48px; display: flex; justify-content: space-between; }
-  .sig-block { text-align: center; width: 40%; border-top: 1px solid #333; padding-top: 8px; }
-</style>
-</head>
-<body>
-<h1>STATEMENT OF FACTS (SOF)</h1>
-<p><strong>Revision:</strong> {{revisionNumber}} — {{revisionLabel}}</p>
-<table>
-  <tr><th>Vessel</th><td>{{vesselName}}</td></tr>
-  <tr><th>Port / Berth</th><td>{{portName}} / {{berth}}</td></tr>
-  <tr><th>Voyage No.</th><td>{{correlative}}</td></tr>
-  <tr><th>Cargo</th><td>{{cargoName}}</td></tr>
-  <tr><th>B/L Quantity (MT)</th><td>{{blQuantity}}</td></tr>
-  <tr><th>Outturn Quantity (MT)</th><td>{{outturnQuantity}}</td></tr>
-  <tr><th>Agent</th><td>{{agentName}}</td></tr>
-</table>
-<h2 style="font-size:13px; margin-top:20px;">Timeline of Events</h2>
-<table>
-  <thead>
-    <tr><th>Date &amp; Time</th><th>Event</th><th>Notes</th></tr>
-  </thead>
-  <tbody>
-    {{#if events.length}}
-    {{#each events}}
-    <tr>
-      <td>{{this.occurredAt}}</td>
-      <td>{{this.kind}}</td>
-      <td>{{this.note}}</td>
-    </tr>
-    {{/each}}
-    {{else}}
-    <tr><td colspan="3" style="text-align:center; color:#666;">No events recorded.</td></tr>
-    {{/if}}
-  </tbody>
-</table>
-{{#if remarks.length}}
-<h2 style="font-size:13px; margin-top:20px;">Remarks / Delays</h2>
-<table>
-  <thead><tr><th>Category</th><th>From</th><th>To</th><th>Description</th></tr></thead>
-  <tbody>
-    {{#each remarks}}
-    <tr><td>{{this.category}}</td><td>{{this.from}}</td><td>{{this.to}}</td><td>{{this.description}}</td></tr>
-    {{/each}}
-  </tbody>
-</table>
-{{/if}}
-<h2 style="font-size:13px; margin-top:20px;">Operational Time Calculation</h2>
-<table>
-  <thead><tr><th>Metric</th><th>From</th><th>To</th><th>Result</th></tr></thead>
-  <tbody>
-    {{#each operationalSummary}}
-    <tr><th>{{this.label}}</th><td>{{this.from}}</td><td>{{this.to}}</td><td>{{this.value}}</td></tr>
-    {{/each}}
-  </tbody>
-</table>
-<div class="signature">
-  <div class="sig-block">Master / Captain</div>
-  <div class="sig-block">Port Agent</div>
-</div>
-<div class="footer">Generated: {{generatedAt}}</div>
-</body>
-</html>
+<html lang="en"><head><meta charset="UTF-8"><style>
+@page { margin: 24px; }
+.closing { break-inside: avoid; }
+body { font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 0; }
+h1 { font-size: 16px; border-bottom: 2px solid #333; padding-bottom: 8px; }
+pre { font-family: monospace; font-size: 11px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.signature { margin-top: 32px; display: flex; justify-content: space-between; }
+.sig-block { text-align: center; width: 40%; border-top: 1px solid #333; padding-top: 8px; }
+.footer { margin-top: 12px; font-size: 10px; color: #666; }
+</style></head><body>
+<h1>{{sofTitle}}</h1>
+<p><strong>Revision:</strong> {{revisionNumber}} - {{revisionLabel}}</p>
+<pre>{{sofBody}}</pre>
+<div class="closing"><div class="signature"><div class="sig-block">Master / Captain</div><div class="sig-block">Port Agent</div></div>
+<div class="footer">Generated: {{generatedAt}}</div></div>
+</body></html>

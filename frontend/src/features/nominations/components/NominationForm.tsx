@@ -24,7 +24,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import {
   NominationCreateSchema,
-  vesselInfoSchema,
+  vesselParticularsSchema,
   vesselProDataSchema,
   vesselOwnershipSchema,
 } from '@portlog/schemas';
@@ -381,6 +381,8 @@ export function NominationForm({
 
   const [isFetchingVessel, setIsFetchingVessel] = useState(false);
 
+  const currentShipImo = useRef(shipImo);
+  currentShipImo.current = shipImo;
   async function handleFetchFromVessel() {
     if (!shipImo) return;
     setIsFetchingVessel(true);
@@ -391,6 +393,7 @@ export function NominationForm({
         apiRequest<unknown>(`/datalastic/vessel_info?imo=${shipImo}`),
       ]);
 
+      if (currentShipImo.current !== shipImo) return;
       let filled = 0;
       const ports = portsQuery.data?.items ?? [];
 
@@ -420,12 +423,12 @@ export function NominationForm({
       // vessel_info → key particulars. Values remain manually editable.
       if (infoRaw.status === 'fulfilled') {
         const envelope = infoRaw.value as { data: unknown };
-        const parsed = vesselInfoSchema.safeParse(envelope?.data ?? infoRaw.value);
-        if (parsed.success) {
+        const parsed = vesselParticularsSchema.safeParse(envelope?.data ?? infoRaw.value);
+        if (parsed.success && (!parsed.data.imo || parsed.data.imo === shipImo)) {
           const values: Array<['sdwt' | 'grt' | 'loa', number | null]> = [
-            ['sdwt', parsed.data.deadweight],
-            ['grt', parsed.data.gross_tonnage],
-            ['loa', parsed.data.length],
+            ['sdwt', parsed.data.deadweight ?? null],
+            ['grt', parsed.data.gross_tonnage ?? null],
+            ['loa', parsed.data.length ?? null],
           ];
           for (const [field, value] of values) {
             if (value != null) {

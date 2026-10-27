@@ -317,7 +317,6 @@ export function SofBunkersDraftParcelModal({
 
   function onSubmit(vals: FormValues) {
     onSave(assemblePayload(vals));
-    onClose();
   }
 
   return (

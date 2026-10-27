@@ -14,6 +14,7 @@ export const subDocTypeSchema = z.enum([
   'ETA_RECAP',
   'NOR',
   'SOF',
+  'SOF_INTERIM',
   'CARGO_UPDATE',
 ]);
 export type SubDocType = z.infer<typeof subDocTypeSchema>;
@@ -65,7 +66,10 @@ export type SendSubDocumentInput = z.infer<typeof sendSubDocumentSchema>;
 // ETA_TERMINAL, ETA_REPLY, CARGO_UPDATE, re-sends). Unlike sub-document
 // dispatch, there is no generated PDF — only user-supplied attachments.
 export const sendNominationEmailSchema = z.object({
-  subDocType: subDocTypeSchema,
+  subDocType: subDocTypeSchema.refine(
+    (type) => type !== 'SOF_INTERIM',
+    'Interim SOF must use the document dispatch route.',
+  ),
   toAddresses: z.array(z.string().email()).min(1, 'At least one recipient required'),
   ccAddresses: z.array(z.string().email()).default([]),
   bccAddresses: z.array(z.string().email()).default([]),

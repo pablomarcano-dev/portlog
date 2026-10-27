@@ -36,6 +36,44 @@ export interface ChangelogEntry {
 // Sources and verification boundaries: docs/CHANGELOG.md.
 export const changelogEntries: readonly ChangelogEntry[] = [
   {
+    id: '2026-10-27-sof-routing',
+    date: '2026-10-27',
+    dateLabel: '27 de octubre de 2026',
+    timeZone: 'America/Montevideo',
+    title: 'SOF coherente, destinatarios del terminal y datos del buque',
+    deployment: 'deployed',
+    releaseNote:
+      'Actualización de SOF, instrucciones, destinatarios y datos Datalastic. El SOF interino se distingue del final; los documentos históricos y los datos existentes se conservan.',
+    qaSummary: { verified: 7, partial: 0, deferred: 0 },
+    sections: [
+      {
+        id: 'sof',
+        title: 'Estado de hechos',
+        status: 'verified-local',
+        items: [
+          'Eventos: la vista previa, el correo y el nuevo PDF utilizan el Times Sheet guardado. Los cambios actuales se guardan antes de preparar el mensaje y se validan las fechas y horas de las actividades.',
+          'SOF interino y final: cada versión tiene su propia acción. El interino mantiene abierta la escala. Los cuatro controles de inclusión se respetan en el correo y el PDF; los cálculos de tiempo requieren selección expresa y no se incluyen en el interino.',
+          'Contenido: se incluyen las cifras ofrecidas/solicitadas de parcelas, las actividades Safe Key Meeting, las partes y comentarios de las cartas y los períodos y textos de las demoras guardadas.',
+          'Recuperación: una ventana de datos complementarios permanece abierta si falla el guardado para permitir reintentar sin perder lo escrito.',
+        ],
+        verification:
+          'Pruebas automatizadas, comprobaciones de interfaz con datos de prueba y revisión visual de un PDF sintético. No se enviaron correos reales.',
+      },
+      {
+        id: 'defaults-and-vessels',
+        title: 'Instrucciones, destinatarios y buques',
+        status: 'verified-local',
+        items: [
+          'Terminal: su lista figura en Para una sola vez; los destinatarios predeterminados se añaden a CC. Se eliminan duplicados entre Para, CC y CCO, incluso al enviar.',
+          'Instruction client: toma Charterers como predeterminado y permite elegir otra empresa en el panel derecho; se conservan las selecciones diferentes.',
+          'Datalastic: se validan los campos utilizados para SDWT, GRT y LOA sin depender de otros metadatos. Al crear un buque, los valores son revisables y se guardan con su ficha. No se actualizan registros históricos en masa.',
+        ],
+        verification:
+          'Contratos, servicios y comprobaciones de interfaz con respuestas simuladas. El nuevo tipo de envío interino se ensayó en una copia aislada sin modificar los registros existentes.',
+      },
+    ],
+  },
+  {
     id: '2026-10-27-followup',
     date: '2026-10-27',
     dateLabel: '27 de octubre de 2026',

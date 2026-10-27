@@ -1,4 +1,4 @@
-{{!-- Subject: {{ref_line}} - Final Statement of Facts --}}
+{{!-- Subject: {{ref_line}} - {{sof_title}} --}}
 Servicios Navieramar C.A
 
 Vessel   : {{vessel_name}}      Flag: {{flag}}
@@ -23,6 +23,10 @@ Sailed Conditions
 {{sailed_conditions_section}}
 
 {{/if}}
+{{#if parcel_figures_section}}
+{{parcel_figures_section}}
+
+{{/if}}
 {{bl_figures_section}}
 {{vessel_cargo_figures_section}}
 {{#if slop_bunkers_section}}
@@ -32,7 +36,7 @@ Sailed Conditions
 {{/if}}
 {{#if letters_section}}
 -----------------------------------------------
-Letter Of Protest From Master to Shore:
+Letters Of Protest:
 -----------------------------------------------
 {{letters_section}}
 

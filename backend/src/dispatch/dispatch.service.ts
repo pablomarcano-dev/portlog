@@ -1,3 +1,4 @@
+import { NominationsService } from '../nominations/nominations.service.js';
 import {
   Injectable,
   Logger,
@@ -11,14 +12,7 @@ import { PdfService } from '../pdf/pdf.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { AttachmentsService } from '../attachments/attachments.service.js';
 import { appendBranchCc } from '../email/email-address.util.js';
-import {
-  calculateSofOperations,
-  resolveSofCargoInputs,
-  formatSofDuration,
-  formatSofCalculationStamp,
-  type SendSubDocumentInput,
-  type SubDocExtraData,
-} from '@portlog/schemas';
+import { type SendSubDocumentInput, type SubDocExtraData } from '@portlog/schemas';
 import type { PedrSubDocumentType } from '@portlog/schemas';
 
 // Full nomination include needed to build PDF template data
@@ -42,6 +36,7 @@ export class DispatchService {
     private readonly pdfService: PdfService,
     private readonly storageService: StorageService,
     private readonly attachmentsService: AttachmentsService,
+    private readonly nominations: NominationsService,
   ) {}
 
   async sendSubDocument(pedrId: string, dto: SendSubDocumentInput, userId: string) {
@@ -121,125 +116,34 @@ export class DispatchService {
       cargoUpdateNumber = count + 1;
     }
 
-    let sofEvents: Array<{
-      kind: string;
-      occurredAt: Date;
-      note: string | null;
-      recordedBy: { email: string };
-    }> = [];
-    if (subDocType === 'SOF') {
-      sofEvents = await this.prisma.pedrEvent.findMany({
-        where: { pedrId },
-        orderBy: { occurredAt: 'asc' },
-        select: {
-          kind: true,
-          occurredAt: true,
-          note: true,
-          recordedBy: { select: { email: true } },
-        },
+    if (subDocType === 'SOF' || subDocType === 'SOF_INTERIM') {
+      const prior = await this.prisma.emailDispatch.count({
+        where: { pedrId, subDocType, sentAt: { not: null } },
       });
-
-      const [sof, priorSofDispatches] = await Promise.all([
-        this.prisma.sofTimesheet.findUnique({
-          where: { nominationId: nomination.id },
-          include: {
-            entries: {
-              orderBy: { order: 'asc' },
-              include: { activity: { select: { name: true } } },
-            },
-          },
-        }),
-        this.prisma.emailDispatch.count({
-          where: { pedrId, subDocType: 'SOF', sentAt: { not: null } },
-        }),
-      ]);
-      const remarksData = sof?.remarksData as {
-        cargoQuantity?: string;
-        obq?: string;
-        items?: Array<{
-          remark?: string;
-          beginDate?: string;
-          beginTime?: string;
-          endDate?: string;
-          endTime?: string;
-          comment?: string;
-          delayCategory?: 'BEFORE' | 'DURING' | 'AFTER' | null;
-        }>;
-      } | null;
-      const cargoInputs = resolveSofCargoInputs(
-        sof?.shipFiguresData as { rows?: Record<string, string[]> } | null,
-        sof?.blFiguresData as { rows?: Record<string, string[]> } | null,
-        remarksData?.cargoQuantity,
-        remarksData?.obq,
-      );
-      const calculation = calculateSofOperations(
-        sof?.entries ?? [],
-        remarksData?.items ?? [],
-        cargoInputs.cargoQuantity,
-        cargoInputs.obq,
+      const sender = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true },
+      });
+      const composed = await this.nominations.getComposeData(
+        nomination.id,
+        subDocType,
+        sender?.email ?? '',
       );
       Object.assign(baseData, {
-        revisionNumber: priorSofDispatches + 1,
-        revisionLabel: priorSofDispatches === 0 ? 'Original' : `Amendment ${priorSofDispatches}`,
-        remarks: (remarksData?.items ?? []).map((remark) => ({
-          category: remark.delayCategory
-            ? remark.delayCategory[0] + remark.delayCategory.slice(1).toLowerCase()
-            : '',
-          from: [remark.beginDate, remark.beginTime].filter(Boolean).join(' '),
-          to: [remark.endDate, remark.endTime].filter(Boolean).join(' '),
-          description: [remark.remark, remark.comment].filter(Boolean).join(' — '),
-        })),
-        operationalSummary: [
-          {
-            label: 'Total Time Turnaround',
-            from: formatSofCalculationStamp(calculation.turnaroundFrom),
-            to: formatSofCalculationStamp(calculation.turnaroundTo),
-            value: formatSofDuration(calculation.turnaroundMs),
-          },
-          {
-            label: 'Total Laytime',
-            from: formatSofCalculationStamp(calculation.laytimeFrom),
-            to: formatSofCalculationStamp(calculation.laytimeTo),
-            value: formatSofDuration(calculation.laytimeMs),
-          },
-          {
-            label: 'Gross Operation Time',
-            from: formatSofCalculationStamp(calculation.operationFrom),
-            to: formatSofCalculationStamp(calculation.operationTo),
-            value: formatSofDuration(calculation.grossOperationMs),
-          },
-          {
-            label: 'Delays Before Operations',
-            value: formatSofDuration(calculation.delaysBeforeMs),
-          },
-          {
-            label: 'Delays During Operations',
-            value: formatSofDuration(calculation.delaysDuringMs),
-          },
-          { label: 'Delays After Operations', value: formatSofDuration(calculation.delaysAfterMs) },
-          {
-            label: 'Net Operation Time',
-            from: formatSofCalculationStamp(calculation.operationFrom),
-            to: formatSofCalculationStamp(calculation.operationTo),
-            value: `${formatSofDuration(calculation.netOperationMs)} (less delays during operations)`,
-          },
-          {
-            label: 'Average Rate',
-            value:
-              calculation.averageRate == null
-                ? 'Pending data'
-                : `${calculation.averageRate.toFixed(2)} Barrels/hour`,
-          },
-        ],
+        revisionNumber: prior + 1,
+        revisionLabel: prior === 0 ? 'Original' : `Amendment ${prior}`,
+        sofTitle:
+          subDocType === 'SOF_INTERIM' ? 'INTERIM STATEMENT OF FACTS' : 'FINAL STATEMENT OF FACTS',
+        sofBody: composed.bodyText,
       });
     }
+    const pdfType = subDocType === 'SOF_INTERIM' ? 'SOF' : subDocType;
 
     const templateData = this.buildTemplateData(
-      subDocType as PedrSubDocumentType,
+      pdfType as PedrSubDocumentType,
       baseData,
       nomination,
       extraData,
-      sofEvents,
       cargoUpdateNumber,
     );
 
@@ -247,7 +151,7 @@ export class DispatchService {
     let pdfBuffer: Buffer;
     try {
       pdfBuffer = await this.pdfService.renderSubDocument(
-        subDocType as PedrSubDocumentType,
+        pdfType as PedrSubDocumentType,
         templateData,
       );
     } catch (err) {
@@ -288,7 +192,10 @@ export class DispatchService {
     // goes on the wire, and what the dispatch row records as sent. `defaultBody`
     // already emits HTML, so it passes through the wrapper untouched.
     const emailBody = wrapPlainTextEmailBody(
-      bodyText || this.defaultBody(subDocType as PedrSubDocumentType, baseData),
+      bodyText ||
+        (subDocType === 'SOF' || subDocType === 'SOF_INTERIM'
+          ? String(baseData['sofBody'] ?? '')
+          : this.defaultBody(pdfType as PedrSubDocumentType, baseData)),
     );
 
     // 5. Create EmailDispatch record (PENDING — sentAt is null until send succeeds)
@@ -392,12 +299,6 @@ export class DispatchService {
       parcels?: unknown;
     },
     extraData?: SubDocExtraData,
-    sofEvents: Array<{
-      kind: string;
-      occurredAt: Date;
-      note: string | null;
-      recordedBy: { email: string };
-    }> = [],
     cargoUpdateNumber = 1,
   ): Record<string, unknown> {
     switch (type) {
@@ -444,21 +345,7 @@ export class DispatchService {
         };
 
       case 'SOF':
-        return {
-          ...base,
-          cargoName: this.extractCargoName(nomination.parcels),
-          berth: nomination.pier?.name ?? '',
-          blQuantity: '',
-          outturnQuantity: '',
-          generatedAt: new Date().toISOString(),
-          signedOffAt: null,
-          events: sofEvents.map((e) => ({
-            kind: e.kind,
-            occurredAt: e.occurredAt.toISOString(),
-            note: e.note ?? '',
-            recordedBy: e.recordedBy.email,
-          })),
-        };
+        return { ...base, generatedAt: new Date().toISOString() };
 
       case 'CARGO_UPDATE':
         return {

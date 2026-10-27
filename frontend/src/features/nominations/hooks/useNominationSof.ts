@@ -20,9 +20,12 @@ export function useNominationSofSave(nominationId: string) {
 
   return useMutation({
     mutationFn: (body: SofTimesheetInput) => nominationsApi.saveSof(nominationId, body),
-    onSuccess: () => {
+    onSuccess: async (saved) => {
+      qc.setQueryData(['nominations', nominationId, 'sof'], saved);
+      await qc.cancelQueries({ queryKey: ['nomination', nominationId, 'compose'] });
+      qc.removeQueries({ queryKey: ['nomination', nominationId, 'compose'] });
       void qc.invalidateQueries({ queryKey: ['nominations', nominationId, 'sof'] });
-      void qc.invalidateQueries({ queryKey: ['nomination', nominationId, 'compose', 'SOF'] });
+
       notifications.show({
         title: 'Saved',
         message: 'Statement of Facts saved successfully.',

@@ -185,6 +185,7 @@ export const COMPOSE_TEMPLATE_PATHS: Record<string, string> = {
   NOR: '01_prearrival/06_nor_tendered_to_terminal.hbs',
   CARGO_UPDATE: '02_statement_of_facts/07_cargo_update.hbs',
   SOF: '02_statement_of_facts/15_final_sof.hbs',
+  SOF_INTERIM: '02_statement_of_facts/15_final_sof.hbs',
 };
 
 /**
@@ -464,6 +465,10 @@ export class NominationsService {
       const nomination = await tx.nomination.create({
         data: {
           ...(nominationData as unknown as Prisma.NominationUncheckedCreateInput),
+          clientId:
+            nominationData.clientId === undefined
+              ? (nominationData.chartererId ?? null)
+              : nominationData.clientId,
           mic: staff.mic ?? null,
           boardingClerk: staff.boardingClerk ?? null,
           mobileOnBoard: staff.mobileOnBoard ?? null,
@@ -672,7 +677,14 @@ export class NominationsService {
   async update(id: string, dto: NominationUpdateInput, userId: string) {
     const existing = await this.prisma.nomination.findUnique({
       where: { id },
-      select: { id: true, status: true, kind: true, branchId: true },
+      select: {
+        id: true,
+        status: true,
+        kind: true,
+        branchId: true,
+        clientId: true,
+        chartererId: true,
+      },
     });
     if (!existing) {
       throw new NotFoundException(`Nomination ${id} not found.`);
@@ -713,6 +725,11 @@ export class NominationsService {
         data: {
           ...(dto as unknown as Prisma.NominationUncheckedUpdateInput),
           ...staffDefaults,
+          ...(dto.clientId === undefined &&
+          dto.chartererId !== undefined &&
+          (!existing.clientId || existing.clientId === existing.chartererId)
+            ? { clientId: dto.chartererId }
+            : {}),
           updatedAt: new Date(),
         },
         include: DETAIL_INCLUDE,
@@ -917,7 +934,7 @@ export class NominationsService {
         inspector: true,
         parcels: true,
         client: { select: CLIENT_SELECT },
-        charterer: { select: { name: true } },
+        charterer: { select: CLIENT_SELECT },
         shipParticular: {
           select: {
             name: true,
@@ -948,13 +965,13 @@ export class NominationsService {
 
     if (!nomination) throw new NotFoundException(`Nomination ${nominationId} not found.`);
 
-    if (!nomination.client) {
+    const client = nomination.client ?? nomination.charterer;
+    if (!client) {
       throw new BadRequestException(
         'Select a Client on the nomination before generating instructions.',
       );
     }
 
-    const client = nomination.client;
     const parcels = readParcelRows(nomination.parcels);
     const clientContactLines = client.contactLinks.flatMap(({ contact }) => {
       const channels = uniqueNonBlank([...contact.emails, formatPhones(contact.phones)]).join(
@@ -1517,6 +1534,8 @@ export class NominationsService {
       slop_bunkers_section: '',
       letters_section: '',
       remarks_section: '',
+      sof_title: '',
+      parcel_figures_section: '',
     };
 
     // ---------------------------------------------------------------------------
@@ -1556,7 +1575,7 @@ export class NominationsService {
     // ---------------------------------------------------------------------------
     // SOF — fetch timesheet and build log / BL-figures / letters / remarks vars
     // ---------------------------------------------------------------------------
-    if (actionType.toUpperCase() === 'SOF') {
+    if (['SOF', 'SOF_INTERIM'].includes(actionType.toUpperCase())) {
       const sof = await this.prisma.sofTimesheet.findUnique({
         where: { nominationId },
         include: {
@@ -1567,6 +1586,10 @@ export class NominationsService {
         },
       });
 
+      templateVars.sof_title =
+        actionType.toUpperCase() === 'SOF_INTERIM'
+          ? 'Interim Statement of Facts'
+          : 'Final Statement of Facts';
       templateVars.statement_of_facts_log = NominationsService.formatSofEventLog(
         sof?.entries ?? [],
       );
@@ -1583,6 +1606,34 @@ export class NominationsService {
         : '';
       templateVars.sailed_conditions_section = includeBunkersDraftParcel
         ? NominationsService.formatVesselConditions(sof?.bunkersData, sof?.draftData, 'sailing')
+        : '';
+
+      const parcelData = sof?.sofParcelsData as {
+        columns?: string[];
+        rows?: Record<string, string[]>;
+      } | null;
+      const parcelLabels: Record<string, string> = {
+        api: 'API',
+        temp: 'Temperature (Fahrenheit)',
+        numPumps: 'Number of pumps',
+        qtyOfferedBblsHr: 'Qty. Offered (BBLS/HR)',
+        qtyRequestedBblsHr: 'Qty. Requested (BBLS/HR)',
+        qtyOfferedBbls: 'Qty. Offered (BBLS)',
+        qtyRequestedBbls: 'Qty. Requested (BBLS)',
+      };
+      templateVars.parcel_figures_section = includeBunkersDraftParcel
+        ? (parcelData?.columns ?? [])
+            .map((column, index) => {
+              const lines = Object.entries(parcelData?.rows ?? {}).flatMap(([key, values]) => {
+                const value = values[index]?.trim();
+                return value ? [`${parcelLabels[key] ?? key}: ${value}`] : [];
+              });
+              return lines.length
+                ? [`${column || `Parcel ${index + 1}`} — Parcel Figures`, ...lines].join('\n')
+                : '';
+            })
+            .filter(Boolean)
+            .join('\n\n')
         : '';
 
       // Vessel Cargo Figures — the ship's own loaded figures, stated alongside
@@ -1614,6 +1665,7 @@ export class NominationsService {
         ['L/Tons at 60 F.:', 'grossLt', 'netLt', formatTons],
       ];
       const blBlocks = blCols.map((colName, ci) => {
+        if (!Object.values(blRows).some((values) => values[ci]?.trim())) return '';
         // Each column is padded on its integer part so the thousands commas of a
         // barrel figure sit above those of the tonnage under it — the agency's
         // "the commas line up with the commas". Right-aligning the whole cell,
@@ -1650,7 +1702,9 @@ export class NominationsService {
         ];
         return lines.join('\n');
       });
-      templateVars.bl_figures_section = includeBillShipFigures ? blBlocks.join('\n') : '';
+      templateVars.bl_figures_section = includeBillShipFigures
+        ? blBlocks.filter(Boolean).join('\n')
+        : '';
 
       // Slop discharged / bunkers received
       type SlopRow = { event?: string; date?: string; time?: string };
@@ -1685,17 +1739,24 @@ export class NominationsService {
       }
       templateVars.slop_bunkers_section = includeSlopBunkers ? slopBunkersBlocks.join('\n\n') : '';
 
-      // Letters of protest — a zero-padded numbered list of the protests raised,
-      // which is how they are read off the statement. The from/to pair is not
-      // restated per line: the section heading already says who protested to whom.
+      // Render entered parties and text; omit only wholly blank display rows.
       type LetterItem = { from?: string; to?: string; comment?: string };
       const lettersData = sof?.lettersData as { items?: LetterItem[] } | null;
       templateVars.letters_section = includeLettersRemarks
         ? (lettersData?.items ?? [])
-            .map((l, i) => {
-              const subject = (l.comment ?? '').trim() || (l.to ?? '').trim();
-              return `${String(i + 1).padStart(2, '0')}. ${subject}`;
-            })
+            .filter((letter) =>
+              [letter.from, letter.to, letter.comment].some((value) => value?.trim()),
+            )
+            .map(
+              (letter, index) =>
+                `${String(index + 1).padStart(2, '0')}. ${[
+                  letter.from?.trim() ? `From: ${letter.from.trim()}` : '',
+                  letter.to?.trim() ? `To: ${letter.to.trim()}` : '',
+                  letter.comment?.trim(),
+                ]
+                  .filter(Boolean)
+                  .join(' — ')}`,
+            )
             .join('\n')
         : '';
 
@@ -1716,6 +1777,7 @@ export class NominationsService {
         items?: RemarkItem[];
         cargoQuantity?: string;
         obq?: string;
+        includeOperationalSummary?: boolean;
       } | null;
       const remarkLines = (remarksData?.items ?? [])
         .map((r) => {
@@ -1755,7 +1817,14 @@ export class NominationsService {
         `Average Rate: ${calculation.averageRate == null ? 'Pending data' : `${calculation.averageRate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Barrels/hour`}`,
       ].join('\n');
       templateVars.remarks_section = includeLettersRemarks
-        ? [remarkLines, operationalLines].filter(Boolean).join('\n\n')
+        ? [
+            remarkLines,
+            actionType.toUpperCase() === 'SOF' && remarksData?.includeOperationalSummary
+              ? operationalLines
+              : '',
+          ]
+            .filter(Boolean)
+            .join('\n\n')
         : '';
 
       // Operation string
@@ -1845,23 +1914,17 @@ export class NominationsService {
           .map((contact) => contact.user.email),
         ...shipper.emails,
       ]);
-      if (terminalAndShipper.length > 0) toAddresses = terminalAndShipper;
+      toAddresses = terminalAndShipper;
+      // Defaults supplement the terminal in Cc, never replace its To list.
+      ccAddresses = dedupeEmails([...nomination.emailTo, ...ccAddresses]);
       const terminalCc = contacts
         .filter((contact) => contact.recipientType === 'CC')
         .map((contact) => contact.user.email);
       const terminalBcc = contacts
         .filter((contact) => contact.recipientType === 'BCC')
         .map((contact) => contact.user.email);
-      if (terminalCc.length > 0) ccAddresses = dedupeEmails(terminalCc);
-      if (terminalBcc.length > 0) bccAddresses = dedupeEmails(terminalBcc);
-    }
-
-    if (action === 'ETA_TERMINAL') {
-      // Keep the terminal's registered addresses in To (the established
-      // terminal-delivery rule), and also copy the operating-port distribution
-      // list on ETA forwards. Append rather than replace so manually configured
-      // nomination and terminal-contact Cc recipients remain intact.
-      ccAddresses = dedupeEmails([...ccAddresses, ...(nomination.opPort?.emails ?? [])]);
+      if (terminalCc.length > 0) ccAddresses = dedupeEmails([...ccAddresses, ...terminalCc]);
+      if (terminalBcc.length > 0) bccAddresses = dedupeEmails([...bccAddresses, ...terminalBcc]);
     }
 
     if (isMasterAddressed) {
@@ -1886,6 +1949,17 @@ export class NominationsService {
     // exposed by the branch UI; all of them belong in Cc on every message.
     ccAddresses = appendBranchCc(ccAddresses, branch);
 
+    if (isTerminalAddressed) {
+      toAddresses = dedupeEmails(toAddresses);
+      const toKeys = new Set(toAddresses.map((email) => email.toLowerCase()));
+      ccAddresses = dedupeEmails(ccAddresses).filter((email) => !toKeys.has(email.toLowerCase()));
+      const visibleKeys = new Set(
+        [...toAddresses, ...ccAddresses].map((email) => email.toLowerCase()),
+      );
+      bccAddresses = dedupeEmails(bccAddresses).filter(
+        (email) => !visibleKeys.has(email.toLowerCase()),
+      );
+    }
     return {
       subject,
       toAddresses,
@@ -2223,7 +2297,18 @@ export class NominationsService {
     });
     if (!pedr) throw new NotFoundException(`No PEDR found for nomination ${nominationId}.`);
 
-    const ccAddresses = appendBranchCc(body.ccAddresses, pedr.nomination?.branch);
+    const terminalMessage = TERMINAL_ADDRESSED_ACTIONS.has(body.subDocType);
+    const toAddresses = terminalMessage ? dedupeEmails(body.toAddresses) : body.toAddresses;
+    const toKeys = new Set(toAddresses.map((email) => email.toLowerCase()));
+    const ccAddresses = appendBranchCc(body.ccAddresses, pedr.nomination?.branch).filter(
+      (email) => !terminalMessage || !toKeys.has(email.toLowerCase()),
+    );
+    const visibleKeys = new Set(
+      [...toAddresses, ...ccAddresses].map((email) => email.toLowerCase()),
+    );
+    const bccAddresses = terminalMessage
+      ? dedupeEmails(body.bccAddresses).filter((email) => !visibleKeys.has(email.toLowerCase()))
+      : body.bccAddresses;
 
     // Resolve user-uploaded attachments up front (fails fast on bad id / oversize).
     const userAttachments = await this.attachmentsService.resolveForSend(body.attachmentIds ?? []);
@@ -2237,9 +2322,9 @@ export class NominationsService {
       data: {
         pedrId: pedr.id,
         subDocType: body.subDocType,
-        toAddresses: body.toAddresses,
+        toAddresses,
         ccAddresses,
-        bccAddresses: body.bccAddresses,
+        bccAddresses,
         subject: body.subject,
         bodyHtml,
         generatedPdfExpected: false,
@@ -2250,9 +2335,9 @@ export class NominationsService {
     try {
       await this.attachmentsService.linkToEmailDispatch(body.attachmentIds ?? [], dispatch.id);
       await this.emailService.send({
-        to: body.toAddresses,
+        to: toAddresses,
         cc: ccAddresses,
-        bcc: body.bccAddresses,
+        bcc: bccAddresses,
         subject: body.subject,
         html: bodyHtml,
         attachments: userAttachments.length ? userAttachments : undefined,

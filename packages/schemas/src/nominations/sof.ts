@@ -68,6 +68,7 @@ export const SofLettersDataSchema = z.object({
 });
 
 export const SofRemarksDataSchema = z.object({
+  includeOperationalSummary: z.boolean().optional(),
   cargoQuantity: z.string().default(''),
   obq: z.string().default(''),
   items: z
