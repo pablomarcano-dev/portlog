@@ -29,3 +29,15 @@ Seven feedback items (002, 009, 020, 026, 027, 030, 031): canonical saved SOF se
 ## Captain and routing defaults release — 27 October 2026
 
 Feedback 014/010/021/023: optional captain Contact link with vessel-inbox fallback, nomination-owned group overrides over live shared defaults, explicit always-copy/branch CC enforcement on new sends, and single-send Reply to Master choices. Existing stored assignments are not backfilled. Archived replays retain their original envelope. Additive migration 20261027230000_nomination_routing_defaults adds five nullable FKs/indexes with deletion protection. The prior 836-test suite, full build/typechecks/lint, fixture-browser checks and isolated preserved-data migration rehearsal passed. Production release evidence is recorded separately.
+
+## Clarified video requirements — 28 October 2026
+
+Addresses PL-FB-003, 014, 016, 022, 024, 025 and 029. PL-FB-019’s existing confirmed-message print/Save as PDF workflow was exercised, including a five-page archive; clearer guidance is added. No automatic PDF retention policy, system folder writes, historical agency conversion or role restrictions were invented. Full Agency remains valid for existing/API records, but is absent from new UI choices; new default is Charterer’s Agents.
+
+Pre-arrival To now resolves the captain contact/vessel inboxes; explicit CC, always-copy and branch copying remain. Terminal message signature removes only OPERATIONS. Parcel labels identify terminal-offered and vessel-requested figures. Activity aliases query existing entries; 15-second search timeout and visible retry preserve saved values.
+
+Terminal materials use two nullable EmailAttachment columns (terminalPortId, terminalRetiredAt), a restricted Port FK and index. Active files are selected by the nomination’s exact operating terminal. Retiring preserves source bytes; staged cleanup excludes active and retired library records. Filing only accepts the uploader’s unowned unsent files, using a conditional update. Each send uses the existing independent attachment archive. Existing files are not reassigned.
+
+Recap discovers confirmed sent ETA/NOR records on this nomination across both dispatch routes. Operators select archived attachments or create an attachment PDF from the stored original PDF/body, with recorded metadata. Failed/pending sends and unrelated message types are excluded. Missing stored body/PDF is explicit. Archived HTML rendering disables scripts and remote/file resources. PDF staging does not send a message.
+
+Remaining inputs: approved terminal files, agent directory, branch-address confirmation, administrative instruction template/Special Requirements. Add-client symptom remains unconfirmed. Deployment authorized on 28 October; release requires a restored fresh backup, off-server copy, additive migration, and live record/storage preservation verification.

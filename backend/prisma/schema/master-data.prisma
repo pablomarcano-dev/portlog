@@ -99,6 +99,7 @@ model Port {
   // Service Requests back-relation — the `Ubicación` port picker
   serviceRequests  ServiceRequest[]
   terminalContacts TerminalContact[]
+  prearrivalDocuments EmailAttachment[]
 
   @@index([name])
   @@index([branchId])

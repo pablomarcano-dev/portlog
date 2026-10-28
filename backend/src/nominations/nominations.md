@@ -126,3 +126,9 @@ alwaysCopyGroupId is an explicit per-nomination group, appended to actual CC in 
 Reply to Master provides explicit captain/vessel and assigned 1st/2nd/3rd group choices. A choice changes To, does not send, and retains other CC recipients while removing duplicates against To. One Send initiates one dispatch. A compose refetch does not overwrite the operator's draft choices; saving nomination configuration discards cached compose defaults before next preparation.
 
 Migration 20261027230000_nomination_routing_defaults adds five nullable FKs/indexes only. No existing record is assigned automatically. Referenced Contacts/EmailGroups use deletion restriction so removing a directory record cannot silently alter routing. Clear the link before deleting a referenced directory record. The migration was rehearsed on an isolated restored copy; all pre-existing column/row hashes, sequences and ledger rows were unchanged.
+
+## Clarified recording requirements — 28 October 2026 (local)
+
+Supersedes the earlier PREARRIVAL client-To/captain-copy description: pre-arrival is captain-To (selected contact, then vessel inboxes, otherwise empty). Branch/always-copy and explicit nomination copies remain. Historical dispatch replay is unchanged.
+
+Saved-document endpoints are provided by NominationFilesController/Service. Terminal materials are filed against the exact Port record used as operating terminal, retired without deletion and excluded from staged-upload cleanup. Recap lists only sent ETA/NOR records on the current nomination, with archived attachments and optional saved-message PDF preparation. The archive is read only; PDF preparation creates a new staged attachment. Browser print remains a user-directed Save as PDF workflow.

@@ -1,3 +1,4 @@
+import { SavedDocumentsPicker } from './SavedDocumentsPicker';
 import { useEffect, useState, useRef } from 'react';
 import {
   Modal,
@@ -131,6 +132,7 @@ export function EmailComposeDrawer({
     handleSubmit,
     setValue,
     getFieldState,
+    getValues,
     watch,
     reset,
     control,
@@ -187,6 +189,7 @@ export function EmailComposeDrawer({
     subjectOverride,
     setValue,
     getFieldState,
+    getValues,
   ]);
 
   const toAddresses = watch('toAddresses');
@@ -213,7 +216,9 @@ export function EmailComposeDrawer({
     );
   }
   const [attachmentPreviewOpen, setAttachmentPreviewOpen] = useState(false);
-  const [uploadsPending, setUploadsPending] = useState(false);
+  const [fileUploadsPending, setUploadsPending] = useState(false);
+  const [libraryPending, setLibraryPending] = useState(false);
+  const uploadsPending = fileUploadsPending || libraryPending;
 
   function handleClose() {
     if (uploadsPending || (isNominationLevel ? nominationSend : dispatch).isPending) return;
@@ -336,11 +341,24 @@ export function EmailComposeDrawer({
       ) : (
         <form onSubmit={(e) => void handleSubmit(onSubmit)(e)}>
           <Stack gap="sm">
-            {subDocType === 'ETA_RECAP' && (
-              <Alert color="blue" title="ETA recaps and NOR attachments">
-                Attach the ETA recap and NOR documents referenced in this message, then review the
-                attachments before sending.
-              </Alert>
+            {nominationId && (subDocType === 'ETA_RECAP' || subDocType === 'PREARRIVAL') && (
+              <SavedDocumentsPicker
+                key={`${attachKey}:${nominationId}:${subDocType}`}
+                nominationId={nominationId}
+                kind={subDocType}
+                selected={attachmentIds}
+                onAdd={(id) =>
+                  setValue('attachmentIds', [...new Set([...getValues('attachmentIds'), id])])
+                }
+                onRemove={(id) =>
+                  setValue(
+                    'attachmentIds',
+                    getValues('attachmentIds').filter((value) => value !== id),
+                  )
+                }
+                onPendingChange={setLibraryPending}
+                onPreviewOpenChange={setAttachmentPreviewOpen}
+              />
             )}
             {/* SOF event log preview */}
             {isSof && (
@@ -611,7 +629,8 @@ export function EmailComposeDrawer({
               control={control}
               render={({ field }) => (
                 <Checkbox
-                  label="Print after sending"
+                  label="Print / save as PDF after sending"
+                  description="After successful sending, choose Save as PDF in the print dialog and select the vessel’s outgoing folder."
                   checked={field.value}
                   onChange={(event) => field.onChange(event.currentTarget.checked)}
                 />

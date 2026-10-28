@@ -88,13 +88,22 @@ export class ActivitiesService {
 
   async search(q: string) {
     const term = q.trim();
+    // Match familiar operational abbreviations against existing catalog names;
+    // never manufacture a new activity or rename historical entries.
+    const alias = /^(nor|n\.?o\.?r\.?)$/i.test(term)
+      ? 'Notice of Readiness'
+      : /^(arrival|arrive|arrived)$/i.test(term)
+        ? 'Arriv'
+        : null;
     const items = await this.prisma.activity.findMany({
       // The SOF activity picker uses an empty search to populate its dropdown.
       // Return the complete master-data catalog so every configured activity is
       // available; the catalog is small enough to load as picker options.
       where: term
         ? {
-            name: { contains: term, mode: 'insensitive' },
+            OR: [term, ...(alias ? [alias] : [])].map((value) => ({
+              name: { contains: value, mode: 'insensitive' as const },
+            })),
           }
         : undefined,
       orderBy: { name: 'asc' },

@@ -1678,11 +1678,11 @@ export class NominationsService {
       const parcelLabels: Record<string, string> = {
         api: 'API',
         temp: 'Temperature (Fahrenheit)',
-        numPumps: 'Number of pumps',
-        qtyOfferedBblsHr: 'Qty. Offered (BBLS/HR)',
-        qtyRequestedBblsHr: 'Qty. Requested (BBLS/HR)',
-        qtyOfferedBbls: 'Qty. Offered (BBLS)',
-        qtyRequestedBbls: 'Qty. Requested (BBLS)',
+        numPumps: 'Number of pumps (loading/discharging)',
+        qtyOfferedBblsHr: 'Offered by terminal (BBLS/HR)',
+        qtyRequestedBblsHr: 'Requested by vessel (BBLS/HR)',
+        qtyOfferedBbls: 'Offered by terminal (BBLS)',
+        qtyRequestedBbls: 'Requested by vessel (BBLS)',
       };
       templateVars.parcel_figures_section = includeBunkersDraftParcel
         ? (parcelData?.columns ?? [])
@@ -1959,12 +1959,9 @@ export class NominationsService {
     const isMasterAddressed = MASTER_ADDRESSED_ACTIONS.has(action);
 
     if (isPrearrival) {
-      // The pre-arrival notice is addressed to the nomination's client list,
-      // but the vessel's captain must receive a copy as well. ShipParticular
-      // emails are the vessel/bridge inboxes used for the master-addressed ETA
-      // correspondence above, so append them without replacing the client's
-      // existing Cc list.
-      ccAddresses = dedupeEmails([...ccAddresses, ...captainRouting(nomination).captainEmails]);
+      // Pre-arrival instructions are addressed to the bridge. Keep explicit
+      // nomination copies, branch copies and the always-copy group below.
+      toAddresses = captainRouting(nomination).captainEmails;
     }
 
     if (isTerminalAddressed) {

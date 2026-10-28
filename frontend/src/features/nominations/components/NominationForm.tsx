@@ -43,7 +43,6 @@ import { NewPortModal } from './NewPortModal';
 import { NewPierModal } from './NewPierModal';
 
 const NOMINATION_TYPE_OPTIONS = [
-  { value: 'FULL_AGENCY', label: 'Full Agency' },
   { value: 'OWNERS_AGENTS_ONLY', label: "Owner's Agents" },
   { value: 'CHARTERERS_AGENTS_ONLY', label: "Charterer's Agents" },
 ];
@@ -156,7 +155,7 @@ export function NominationForm({
   const form = useForm<NominationCreateInput>({
     resolver: zodResolver(NominationCreateSchema),
     defaultValues: {
-      nominationType: 'FULL_AGENCY',
+      nominationType: 'CHARTERERS_AGENTS_ONLY',
       kind: 'SN',
       mic: '',
       boardingClerk: '',
@@ -811,9 +810,16 @@ export function NominationForm({
                 render={({ field, fieldState }) => (
                   <Select
                     label="Type"
-                    data={NOMINATION_TYPE_OPTIONS}
+                    data={
+                      field.value === 'FULL_AGENCY'
+                        ? [
+                            { value: 'FULL_AGENCY', label: 'Full Agency (legacy)' },
+                            ...NOMINATION_TYPE_OPTIONS,
+                          ]
+                        : NOMINATION_TYPE_OPTIONS
+                    }
                     value={field.value ?? null}
-                    onChange={(val) => field.onChange(val ?? 'FULL_AGENCY')}
+                    onChange={(val) => field.onChange(val ?? field.value)}
                     disabled={isReadOnly}
                     error={fieldState.error?.message}
                   />

@@ -51,12 +51,12 @@ describe('NominationCreateSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('defaults nominationType to FULL_AGENCY when omitted', () => {
+  it('defaults nominationType to Charterer’s Agents when omitted', () => {
     const payload = { ...VALID_CREATE_PAYLOAD, nominationType: undefined };
     const result = NominationCreateSchema.safeParse(payload);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.nominationType).toBe('FULL_AGENCY');
+      expect(result.data.nominationType).toBe('CHARTERERS_AGENTS_ONLY');
     }
   });
 

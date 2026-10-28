@@ -27,6 +27,7 @@ export class AttachmentsCleanupCron {
         shDocumentDispatchId: null,
         serviceRequestDispatchId: null,
         serviceRequestId: null,
+        terminalPortId: null,
         serviceRequestReceipt: { is: null },
         createdAt: { lt: cutoff },
       },
@@ -45,6 +46,7 @@ export class AttachmentsCleanupCron {
           shDocumentDispatchId: null,
           serviceRequestDispatchId: null,
           serviceRequestId: null,
+          terminalPortId: null,
           serviceRequestReceipt: { is: null },
         },
       });

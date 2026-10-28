@@ -1048,7 +1048,7 @@ describe('NominationsService', () => {
       mockPrisma.pedr.findUnique.mockResolvedValue({ etaRecord: null });
       mockEmailTemplateService.render.mockResolvedValue({ subject: 'QA', bodyText: 'QA body' });
     });
-    it.each(['ETA_REQUEST', 'ETA_REPLY'])(
+    it.each(['ETA_REQUEST', 'ETA_REPLY', 'PREARRIVAL'])(
       'uses a linked captain and explicitly assigned always-copy group on %s',
       async (action) => {
         mockPrisma.nomination.findUnique.mockResolvedValue(
@@ -1919,7 +1919,7 @@ describe('NominationsService', () => {
       ]);
     });
 
-    it("copies the vessel's captain on the pre-arrival notice", async () => {
+    it('addresses pre-arrival to the vessel captain', async () => {
       mockPrisma.nomination.findUnique.mockResolvedValue(
         composeNomination({
           shipParticular: {
@@ -1931,8 +1931,8 @@ describe('NominationsService', () => {
 
       const data = await service.getComposeData(NOM_ID, 'PREARRIVAL', 'agent@navieramar.com');
 
-      expect(data.toAddresses).toEqual(['charterer@ril.com']);
-      expect(data.ccAddresses).toEqual(['ops@navieramar.com', 'master@hakkaisan.sat']);
+      expect(data.toAddresses).toEqual(['master@hakkaisan.sat', 'OPS@NAVIERAMAR.COM']);
+      expect(data.ccAddresses).toEqual([]);
     });
 
     it('adds nothing when the branch has no addresses registered', async () => {
@@ -2261,15 +2261,18 @@ describe('NominationsService', () => {
       expect(data.ccAddresses).toContain('ops@molgsm.sg');
     });
 
-    it('leaves master To empty when no vessel or captain inbox is registered', async () => {
-      mockPrisma.nomination.findUnique.mockResolvedValue(
-        composeNomination({ shipParticular: { ...VESSEL, emails: [] } }),
-      );
+    it.each(['ETA_REQUEST', 'PREARRIVAL'])(
+      'leaves %s To empty when no vessel or captain inbox is registered',
+      async (action) => {
+        mockPrisma.nomination.findUnique.mockResolvedValue(
+          composeNomination({ shipParticular: { ...VESSEL, emails: [] } }),
+        );
 
-      const data = await service.getComposeData(NOM_ID, 'ETA_REQUEST', 'agent@navieramar.com');
+        const data = await service.getComposeData(NOM_ID, action, 'agent@navieramar.com');
 
-      expect(data.toAddresses).toEqual([]);
-    });
+        expect(data.toAddresses).toEqual([]);
+      },
+    );
 
     it('keeps the client Cc when no owner or operator address is registered', async () => {
       mockPrisma.nomination.findUnique.mockResolvedValue(
@@ -2528,7 +2531,7 @@ describe('NominationsService', () => {
         expect(Boolean(vars['remarks_section'])).toBe(flags[2]);
         expect(Boolean(vars['slop_bunkers_section'])).toBe(flags[3]);
         if (flags[0])
-          expect(vars['parcel_figures_section']).toContain('Qty. Requested (BBLS/HR): 900');
+          expect(vars['parcel_figures_section']).toContain('Requested by vessel (BBLS/HR): 900');
         if (flags[2]) {
           expect(vars['letters_section']).toBe('01. From: Surveyor — To: Master — QA Letter');
           expect(vars['remarks_section']).toContain(
@@ -2575,7 +2578,7 @@ describe('NominationsService', () => {
       expect(composed.subject).toContain('Interim Statement of Facts');
       for (const value of [
         'Safe Key Meeting Completed',
-        'Qty. Requested (BBLS/HR): 900',
+        'Requested by vessel (BBLS/HR): 900',
         'From: Surveyor — To: Master — QA Letter',
         'Fm 2026-10-26 10:00 To 2026-10-26 12:00 Awaiting QA delay notes',
       ])

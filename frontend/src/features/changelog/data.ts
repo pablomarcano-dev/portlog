@@ -36,6 +36,36 @@ export interface ChangelogEntry {
 // Sources and verification boundaries: docs/CHANGELOG.md.
 export const changelogEntries: readonly ChangelogEntry[] = [
   {
+    id: '2026-10-28-clarified-video',
+    date: '2026-10-28',
+    dateLabel: '28 de octubre de 2026',
+    timeZone: 'America/Montevideo',
+    title: 'Requisitos aclarados en la revisión de los videos',
+    deployment: 'deployed',
+    releaseNote:
+      'Requisitos aclarados en los videos: destinatarios del capitán, documentos de terminal y Recap, búsqueda de actividades y etiquetas. Se conservan las nominaciones y los archivos históricos.',
+    qaSummary: { verified: 8, partial: 0, deferred: 0 },
+    sections: [
+      {
+        id: 'clarified-requirements',
+        title: 'Destinatarios, documentos y formularios',
+        status: 'verified-local',
+        items: [
+          'Pre-arrival se dirige al contacto del capitán o, si no tiene correos, a los buzones del buque. Sin direcciones, Para queda vacío. Se mantienen las copias expresas y de la sucursal.',
+          'Las nuevas nominaciones ofrecen Owner’s Agents y Charterer’s Agents. Full Agency se conserva visible en registros históricos sin reclasificarlos.',
+          'El mensaje ETA al terminal conserva SERVICIOS NAVIERAMAR, C.A. y elimina el sufijo OPERATIONS.',
+          'Las etiquetas de bombas se muestran completas y las cifras distinguen lo ofrecido por el terminal de lo solicitado por el buque.',
+          'La búsqueda de actividades reconoce NOR y arrival, conserva la selección guardada ante errores y permite reintentar.',
+          'Recap permite elegir mensajes ETA/NOR enviados y sus adjuntos guardados. Los PDF nuevos se crean desde el contenido archivado, no desde los datos actuales; los archivos históricos faltantes se indican.',
+          'Cada terminal dispone de una biblioteca de documentos pre-arrival en Master Data → Ports. Se eligen antes de enviar; retirar un documento conserva su archivo y las copias enviadas.',
+          'La opción Print / save as PDF after sending explica cómo guardar el mensaje confirmado en la carpeta digital del buque. También sigue disponible imprimir desde Messages.',
+        ],
+        verification:
+          'Pruebas automatizadas y de navegador con datos simulados; PDF de cinco páginas y migración aditiva ensayada sin alterar datos existentes. Sin correos reales ni cambios en producción. Los documentos oficiales deben cargarse en la biblioteca correspondiente.',
+      },
+    ],
+  },
+  {
     id: '2026-10-27-routing-defaults',
     date: '2026-10-27',
     dateLabel: '27 de octubre de 2026',

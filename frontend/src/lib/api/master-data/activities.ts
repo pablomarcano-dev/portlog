@@ -41,9 +41,14 @@ export const activitiesApi = {
 
   get: (id: string) => apiRequest<ActivityRecord>(`/master-data/activities/${id}`),
 
-  search: (q: string) =>
+  search: (q: string, signal?: AbortSignal) =>
     apiRequest<Array<{ id: string; label: string }>>(
       `/master-data/activities/search?q=${encodeURIComponent(q)}`,
+      {
+        signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(15000)])
+          : AbortSignal.timeout(15000),
+      },
     ),
 
   create: (data: ActivityCreateInput) =>
@@ -107,7 +112,8 @@ export function useActivity(id: string) {
 export function useActivitySearch(q: string) {
   return useQuery({
     queryKey: ['activities', 'search', q],
-    queryFn: () => activitiesApi.search(q),
+    queryFn: ({ signal }) => activitiesApi.search(q, signal),
+    retry: false,
     staleTime: 30_000,
   });
 }

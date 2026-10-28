@@ -1,3 +1,4 @@
+import { TerminalDocumentsPanel } from '../../../features/nominations/components/TerminalDocumentsPanel';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import {
@@ -503,6 +504,7 @@ function PortsScreen() {
                     {selectedId !== null && (
                       <>
                         <Divider />
+                        <TerminalDocumentsPanel key={selectedId} portId={selectedId} />
                         <PierListEditor
                           portId={selectedId}
                           pendingDeletes={pendingPierDeletes}

@@ -103,6 +103,8 @@ export class AttachmentsService {
     if (row.emailDispatchId || row.shDocumentDispatchId || row.serviceRequestDispatchId) {
       throw new ConflictException('Attachment has already been sent and cannot be deleted');
     }
+    if (row.terminalPortId)
+      throw new ConflictException('Terminal material must be retired from its terminal library');
     // A file filed against a service request is that request's document, not a
     // staged upload — it is removed through the request's own endpoint so the
     // ownership check runs.
@@ -234,6 +236,7 @@ export class AttachmentsService {
         shDocumentDispatchId: true,
         serviceRequestDispatchId: true,
         serviceRequestId: true,
+        terminalPortId: true,
         serviceRequestReceipt: { select: { id: true } },
       },
     });
@@ -249,6 +252,8 @@ export class AttachmentsService {
       if (row.serviceRequestId && row.serviceRequestId !== serviceRequestId) {
         throw new ConflictException('Attachment already belongs to another service request');
       }
+      if (row.terminalPortId)
+        throw new ConflictException('Terminal material cannot be moved to a service request');
       if (row.serviceRequestReceipt) {
         throw new ConflictException(
           'A recorded provider receipt cannot be filed as an authorisation document',

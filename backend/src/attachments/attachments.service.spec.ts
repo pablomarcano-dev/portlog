@@ -220,6 +220,18 @@ describe('AttachmentsService.delete', () => {
     expect(prismaMock.emailAttachment.delete).not.toHaveBeenCalled();
   });
 
+  it.each([null, new Date('2026-10-28T12:00:00Z')])(
+    'protects active or retired terminal materials from generic deletion (%s)',
+    async (terminalRetiredAt) => {
+      prismaMock.emailAttachment.findUnique.mockResolvedValue(
+        makeRow({ terminalPortId: 'terminal', terminalRetiredAt }),
+      );
+      await expect(service.delete('att-1', 'user-1')).rejects.toBeInstanceOf(ConflictException);
+      expect(storageMock.deleteFile).not.toHaveBeenCalled();
+      expect(prismaMock.emailAttachment.delete).not.toHaveBeenCalled();
+    },
+  );
+
   it('deletes a staged attachment (object + row)', async () => {
     prismaMock.emailAttachment.findUnique.mockResolvedValue(makeRow());
     prismaMock.emailAttachment.delete.mockResolvedValue(makeRow());

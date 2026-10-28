@@ -110,7 +110,7 @@ export const NominationCreateSchema = z
     inspector: z.string().max(255).optional(),
 
     // Type + subject
-    nominationType: NominationTypeSchema.default('FULL_AGENCY'),
+    nominationType: NominationTypeSchema.default('CHARTERERS_AGENTS_ONLY'),
     // SN or OT series — chosen at creation, then immutable (omitted from update).
     // OT nominations only accept OT-category products (enforced in the service layer).
     kind: NominationKindSchema.default('SN'),

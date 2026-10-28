@@ -100,11 +100,11 @@ const PARCEL_ROW_KEYS = [
 const PARCEL_ROW_LABELS: Record<(typeof PARCEL_ROW_KEYS)[number], string> = {
   api: 'API',
   temp: 'Temp. (Fahrenheit)',
-  numPumps: 'Num. Pumps (Dish. O...)',
-  qtyOfferedBblsHr: 'Qty. Offered (BBLS/HR)',
-  qtyRequestedBblsHr: 'Qty. Requested (BBLS/HR)',
-  qtyOfferedBbls: 'Qty. Offered (BBLS)',
-  qtyRequestedBbls: 'Qty. Requested (BBLS)',
+  numPumps: 'Number of pumps (loading/discharging)',
+  qtyOfferedBblsHr: 'Offered by terminal (BBLS/HR)',
+  qtyRequestedBblsHr: 'Requested by vessel (BBLS/HR)',
+  qtyOfferedBbls: 'Offered by terminal (BBLS)',
+  qtyRequestedBbls: 'Requested by vessel (BBLS)',
 };
 
 // ---------------------------------------------------------------------------

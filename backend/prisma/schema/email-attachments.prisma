@@ -41,6 +41,12 @@ model EmailAttachment {
   serviceRequest   ServiceRequest? @relation("ServiceRequestDocuments", fields: [serviceRequestId], references: [id], onDelete: Cascade)
   serviceRequestReceipt ServiceRequest? @relation("ServiceRequestReceipt")
 
+  // Reusable terminal materials remain stored when retired; each send gets its own snapshot.
+  terminalPortId String?
+  terminalPort Port? @relation(fields: [terminalPortId], references: [id], onDelete: Restrict)
+  terminalRetiredAt DateTime? @db.Timestamptz
+
+  @@index([terminalPortId])
   @@index([emailDispatchId])
   @@index([shDocumentDispatchId])
   @@index([serviceRequestDispatchId])

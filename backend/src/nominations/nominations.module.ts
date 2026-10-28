@@ -1,3 +1,6 @@
+import { PdfModule } from '../pdf/pdf.module.js';
+import { NominationFilesService } from './nomination-files.service.js';
+import { NominationFilesController } from './nomination-files.controller.js';
 import { Module } from '@nestjs/common';
 import { NominationsController } from './nominations.controller.js';
 import { NominationsService } from './nominations.service.js';
@@ -8,9 +11,9 @@ import { EmailTemplatesModule } from '../email-templates/email-templates.module.
 import { NominationInstructionsDocxService } from './nomination-instructions-docx.service.js';
 
 @Module({
-  imports: [PrismaModule, EmailModule, AttachmentsModule, EmailTemplatesModule],
-  controllers: [NominationsController],
-  providers: [NominationsService, NominationInstructionsDocxService],
+  imports: [PdfModule, PrismaModule, EmailModule, AttachmentsModule, EmailTemplatesModule],
+  controllers: [NominationsController, NominationFilesController],
+  providers: [NominationFilesService, NominationsService, NominationInstructionsDocxService],
   exports: [NominationsService],
 })
 export class NominationsModule {}

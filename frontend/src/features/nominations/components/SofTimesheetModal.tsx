@@ -169,7 +169,7 @@ function ActivityCell({ control, index }: { control: Control<SofFormValues>; ind
 
   const [search, setSearch] = useState('');
   const [debouncedSearch] = useDebouncedValue(search, 300);
-  const { data, isLoading } = useActivitySearch(debouncedSearch);
+  const { data, isLoading, isError, refetch } = useActivitySearch(debouncedSearch);
   const results = (data ?? []).map((a) => ({ value: a.id, label: a.label }));
 
   const value = idField.value;
@@ -183,22 +183,32 @@ function ActivityCell({ control, index }: { control: Control<SofFormValues>; ind
       : results;
 
   return (
-    <Select
-      value={value}
-      onChange={(val) => {
-        idField.onChange(val);
-        labelField.onChange(options.find((o) => o.value === val)?.label ?? '');
-      }}
-      data={options}
-      searchable
-      searchValue={search}
-      onSearchChange={setSearch}
-      clearable
-      placeholder="Select..."
-      size="xs"
-      styles={{ input: { fontSize: 12 } }}
-      nothingFoundMessage={isLoading ? 'Loading...' : 'No results found'}
-    />
+    <Stack gap={4}>
+      <Select
+        value={value}
+        onChange={(val) => {
+          idField.onChange(val);
+          labelField.onChange(options.find((o) => o.value === val)?.label ?? '');
+        }}
+        data={options}
+        searchable
+        searchValue={search}
+        onSearchChange={setSearch}
+        clearable
+        placeholder="Select..."
+        size="xs"
+        styles={{ input: { fontSize: 12 } }}
+        nothingFoundMessage={
+          isLoading ? 'Loading...' : isError ? 'Could not load activities' : 'No results found'
+        }
+        error={isError ? 'Activity search failed. Your saved selection is retained.' : undefined}
+      />
+      {isError && (
+        <Button type="button" size="compact-xs" variant="subtle" onClick={() => void refetch()}>
+          Retry activity search
+        </Button>
+      )}
+    </Stack>
   );
 }
 

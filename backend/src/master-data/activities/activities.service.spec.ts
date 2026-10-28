@@ -79,6 +79,21 @@ describe('ActivitiesService', () => {
       ]);
     });
 
+    it('finds the existing full NOR name from its abbreviation without creating activities', async () => {
+      mockPrisma.activity.findMany.mockResolvedValue([]);
+      await service.search('NOR');
+      expect(mockPrisma.activity.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [
+              { name: { contains: 'NOR', mode: 'insensitive' } },
+              { name: { contains: 'Notice of Readiness', mode: 'insensitive' } },
+            ],
+          },
+        }),
+      );
+    });
+
     it('trims and applies a case-insensitive name filter', async () => {
       mockPrisma.activity.findMany.mockResolvedValue([mockActivity]);
 
@@ -86,7 +101,7 @@ describe('ActivitiesService', () => {
 
       expect(mockPrisma.activity.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { name: { contains: 'load', mode: 'insensitive' } },
+          where: { OR: [{ name: { contains: 'load', mode: 'insensitive' } }] },
         }),
       );
     });

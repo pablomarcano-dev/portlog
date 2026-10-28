@@ -59,11 +59,20 @@ export class PdfService implements OnModuleDestroy {
     return this.renderHtml(html);
   }
 
-  async renderHtml(html: string): Promise<Buffer> {
+  async renderHtml(html: string, untrusted = false): Promise<Buffer> {
     const browser = await this.getBrowser();
     let page: Page | null = null;
     try {
       page = await browser.newPage();
+      if (untrusted) {
+        await page.setJavaScriptEnabled(false);
+        await page.setRequestInterception(true);
+        page.on('request', (request) => {
+          if (request.url().startsWith('data:') || request.url() === 'about:blank')
+            void request.continue();
+          else void request.abort();
+        });
+      }
       await page.setContent(html, { waitUntil: 'load' });
       const buffer = await page.pdf({ format: 'A4', printBackground: true });
       return Buffer.from(buffer);
