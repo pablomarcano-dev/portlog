@@ -103,6 +103,37 @@ export class BranchesService {
     }
   }
 
+  async ports(id: string) {
+    await this.assertExists(id);
+    return this.prisma.port.findMany({
+      where: { branchId: id },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, country: true, branchId: true },
+    });
+  }
+
+  async assignPort(id: string, portId: string, previousBranchId: string | null) {
+    await this.assertExists(id);
+    const updated = await this.prisma.port.updateMany({
+      where: { id: portId, branchId: previousBranchId },
+      data: { branchId: id },
+    });
+    if (updated.count !== 1)
+      throw new ConflictException('Port assignment changed. Reload before assigning it.');
+    return this.ports(id);
+  }
+
+  async unassignPort(id: string, portId: string) {
+    await this.assertExists(id);
+    const updated = await this.prisma.port.updateMany({
+      where: { id: portId, branchId: id },
+      data: { branchId: null },
+    });
+    if (updated.count !== 1)
+      throw new ConflictException('Port no longer belongs to this branch. Reload the list.');
+    return this.ports(id);
+  }
+
   async remove(id: string) {
     await this.assertExists(id);
 

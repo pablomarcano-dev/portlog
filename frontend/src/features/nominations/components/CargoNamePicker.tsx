@@ -1,5 +1,5 @@
 import { Autocomplete } from '@mantine/core';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { CargoCategory } from '@portlog/schemas';
 import { cargoesApi, type CargoSuggestion } from '../../../lib/api/master-data/cargoes';
@@ -43,6 +43,22 @@ export function CargoNamePicker({
     staleTime: 30_000,
   });
 
+  const resolved = useRef<string | null>(null);
+  const onResolved = useRef(onCargoSelect);
+  onResolved.current = onCargoSelect;
+  useEffect(() => {
+    const match = (data ?? []).find((c) => c.label === value);
+    if (!match) {
+      resolved.current = null;
+      return;
+    }
+    const key = `${value}:${match.bblUnit}`;
+    if (resolved.current !== key) {
+      resolved.current = key;
+      onResolved.current?.(match);
+    }
+  }, [data, value]);
+
   const suggestions = (data ?? []).map((c) => c.label);
 
   return (
@@ -53,10 +69,6 @@ export function CargoNamePicker({
       onChange={(val) => {
         setSearch(val);
         onChange(val);
-        // Fires both on option click and on a fully typed-out name — either way
-        // the user has landed on a catalog product, so dependent fields can sync.
-        const match = (data ?? []).find((c) => c.label === val);
-        if (match) onCargoSelect?.(match);
       }}
       data={suggestions}
       disabled={disabled}

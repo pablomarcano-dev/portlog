@@ -212,7 +212,10 @@ export function EtaAnswerModal({
                 label="ETA Notify"
                 description="ETA reported by master"
                 value={etaNotify}
-                onChange={setEtaNotify}
+                onChange={(date) => {
+                  setEtaNotify(date);
+                  setEtaNotifyOn(date !== null);
+                }}
                 onValidityChange={(valid) =>
                   setValidTimes((previous) => ({ ...previous, etaNotify: valid }))
                 }
@@ -230,7 +233,10 @@ export function EtaAnswerModal({
                 label="ETPOB"
                 description="Estimated Time Pilot On Board"
                 value={etpob}
-                onChange={setEtpob}
+                onChange={(date) => {
+                  setEtpob(date);
+                  setEtpobOn(date !== null);
+                }}
                 onValidityChange={(valid) =>
                   setValidTimes((previous) => ({ ...previous, etpob: valid }))
                 }
@@ -248,7 +254,10 @@ export function EtaAnswerModal({
                 label="ETB"
                 description="Estimated Time of Berthing"
                 value={etb}
-                onChange={setEtb}
+                onChange={(date) => {
+                  setEtb(date);
+                  setEtbOn(date !== null);
+                }}
                 onValidityChange={(valid) =>
                   setValidTimes((previous) => ({ ...previous, etb: valid }))
                 }

@@ -1,3 +1,5 @@
+import { useCurrentUser } from '../../../lib/auth/queries';
+import { readNominationDraft } from '../../../features/nominations/nominationDraft';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { Stack, Group, Title, Button, Alert, Pagination, Text, Switch } from '@mantine/core';
 import { useState } from 'react';
@@ -18,6 +20,13 @@ export const Route = createFileRoute('/_protected/nominations/')({
 
 function NominationListPage() {
   const navigate = useNavigate();
+  const { data: user } = useCurrentUser();
+  let hasPending = false;
+  try {
+    hasPending = !!user && readNominationDraft(localStorage, user.id) !== null;
+  } catch {
+    /* Storage is optional. */
+  }
   const search = Route.useSearch();
 
   // Default to showing active nominations only; user can toggle to see all
@@ -47,7 +56,9 @@ function NominationListPage() {
     <Stack p="xl" gap="md">
       <Group justify="space-between" align="center">
         <Title order={2}>Nominated Vessels</Title>
-        <Button onClick={() => void navigate({ to: '/nominations/new' })}>New Nomination</Button>
+        <Button onClick={() => void navigate({ to: '/nominations/new' })}>
+          {hasPending ? 'Continue pending nomination' : 'New Nomination'}
+        </Button>
       </Group>
 
       <NominationFilters

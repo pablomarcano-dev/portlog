@@ -62,6 +62,7 @@ interface FormValues {
   };
   parcelsColumns: string[];
   parcelsRows: Record<string, string[]>;
+  parcelsComments: Record<string, string>;
 }
 
 // ---------------------------------------------------------------------------
@@ -155,6 +156,7 @@ function buildDefaultValues(sofData: SofTimesheetResponse | undefined): FormValu
     },
     parcelsColumns: columns,
     parcelsRows,
+    parcelsComments: p?.comments ?? {},
   };
 }
 
@@ -174,6 +176,7 @@ function assemblePayload(vals: FormValues): {
     sofParcelsData: {
       columns: vals.parcelsColumns,
       rows: vals.parcelsRows,
+      comments: vals.parcelsComments,
     },
   };
 }
@@ -274,6 +277,7 @@ export function SofBunkersDraftParcelModal({
   function clearParcels() {
     const cols = getValues('parcelsColumns');
     setValue('parcelsRows', emptyParcelsRows(cols.length));
+    setValue('parcelsComments', {});
   }
 
   function addParcelColumn() {
@@ -519,13 +523,7 @@ export function SofBunkersDraftParcelModal({
                       </Group>
                     </ResizableTh>
                   ))}
-                  {parcelsColumns.length === 0 && (
-                    <Table.Th>
-                      <Text size="xs" c="dimmed">
-                        No columns. Click + to add.
-                      </Text>
-                    </Table.Th>
-                  )}
+                  <Table.Th style={{ minWidth: 200 }}>Key meeting comments / variation</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -552,6 +550,14 @@ export function SofBunkersDraftParcelModal({
                         />
                       </Table.Td>
                     ))}
+                    <Table.Td>
+                      <TextInput
+                        aria-label={`${PARCEL_ROW_LABELS[rowKey]} comment`}
+                        placeholder="Free text, e.g. 2.5% variation"
+                        {...register(`parcelsComments.${rowKey}`)}
+                        size="xs"
+                      />
+                    </Table.Td>
                   </Table.Tr>
                 ))}
               </Table.Tbody>

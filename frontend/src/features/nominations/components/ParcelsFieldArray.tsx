@@ -1,4 +1,4 @@
-import { useFieldArray, Controller } from 'react-hook-form';
+import { useFieldArray, Controller, useWatch } from 'react-hook-form';
 import type { Control, UseFormSetValue } from 'react-hook-form';
 import {
   ActionIcon,
@@ -10,7 +10,7 @@ import {
   Text,
   Tooltip,
 } from '@mantine/core';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { NominationCreateInput, NominationKind } from '@portlog/schemas';
 import { CargoNamePicker } from './CargoNamePicker';
 import { unitSelectData } from '../parcelUnits';
@@ -43,6 +43,15 @@ export function ParcelsFieldArray({
   const { fields, append, remove } = useFieldArray({
     control,
     name: 'parcels',
+  });
+  const parcels = useWatch({ control, name: 'parcels' });
+  const manualUnits = useRef(new Map<string, string>());
+  const initialized = useRef(new Set<string>());
+  fields.forEach((field, index) => {
+    if (!initialized.current.has(field.id)) {
+      initialized.current.add(field.id);
+      if (parcels[index]?.unit) manualUnits.current.set(field.id, parcels[index].product);
+    }
   });
   const productCategory = kind === 'OT' ? 'OT' : undefined;
 
@@ -85,9 +94,10 @@ export function ParcelsFieldArray({
                     error={fieldState.error?.message}
                     value={f.value}
                     onChange={f.onChange}
-                    onCargoSelect={(cargo) =>
-                      setValue(`parcels.${index}.unit`, cargo.bblUnit, { shouldDirty: true })
-                    }
+                    onCargoSelect={(cargo) => {
+                      if (manualUnits.current.get(field.id) !== cargo.label)
+                        setValue(`parcels.${index}.unit`, cargo.bblUnit, { shouldDirty: true });
+                    }}
                   />
                 )}
               />
@@ -132,7 +142,11 @@ export function ParcelsFieldArray({
                   disabled={disabled}
                   error={fieldState.error?.message}
                   value={f.value ?? null}
-                  onChange={(val) => f.onChange(val ?? '')}
+                  onChange={(val) => {
+                    manualUnits.current.set(field.id, parcels[index]?.product ?? '');
+                    f.onChange(val ?? '');
+                  }}
+                  allowDeselect={false}
                   comboboxProps={{ withinPortal: true }}
                 />
               )}

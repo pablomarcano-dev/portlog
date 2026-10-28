@@ -3,13 +3,14 @@ import { useNavigate } from '@tanstack/react-router';
 import type { NominationCreateInput } from '@portlog/schemas';
 import { nominationsApi } from '../api';
 
-export function useCreateNomination() {
+export function useCreateNomination(onCreated?: () => void) {
   const qc = useQueryClient();
   const navigate = useNavigate();
 
   return useMutation({
     mutationFn: (body: NominationCreateInput) => nominationsApi.create(body),
     onSuccess: async (nomination) => {
+      onCreated?.();
       void qc.invalidateQueries({ queryKey: ['nominations'] });
       await navigate({
         to: '/nominations/$id',

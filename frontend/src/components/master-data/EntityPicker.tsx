@@ -42,6 +42,7 @@ interface EntityPickerProps {
   groupByCountry?: boolean;
   /** Page size requested from the list endpoint (max 200). */
   limit?: number;
+  includeSelectedOption?: boolean;
 }
 
 /**
@@ -65,6 +66,7 @@ export function EntityPicker({
   selectedOption,
   groupByCountry = false,
   limit = 50,
+  includeSelectedOption = true,
 }: EntityPickerProps) {
   const [debouncedSearch] = useDebouncedValue(searchValue, 300);
 
@@ -112,7 +114,12 @@ export function EntityPicker({
 
   const selectData = useMemo(() => {
     const options = (() => {
-      if (!value || fetchedOptions.some((option) => option.value === value)) return fetchedOptions;
+      if (
+        !includeSelectedOption ||
+        !value ||
+        fetchedOptions.some((option) => option.value === value)
+      )
+        return fetchedOptions;
       const known =
         selectedOption?.value === value ? selectedOption.label : (labelCache[value] ?? null);
       return known
@@ -131,7 +138,7 @@ export function EntityPicker({
     return [...groups.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([group, items]) => ({ group, items }));
-  }, [fetchedOptions, value, selectedOption, labelCache, groupByCountry]);
+  }, [fetchedOptions, value, selectedOption, labelCache, groupByCountry, includeSelectedOption]);
 
   return (
     <Select

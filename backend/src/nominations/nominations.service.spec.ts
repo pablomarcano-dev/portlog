@@ -2499,6 +2499,7 @@ describe('NominationsService', () => {
           sofParcelsData: {
             columns: ['QA Parcel'],
             rows: { qtyOfferedBblsHr: ['1200'], qtyRequestedBblsHr: ['900'], numPumps: ['3'] },
+            comments: { qtyRequestedBblsHr: '2.5% variation — agreed at key meeting' },
           },
           lettersData: {
             items: [
@@ -2530,8 +2531,12 @@ describe('NominationsService', () => {
         expect(Boolean(vars['letters_section'])).toBe(flags[2]);
         expect(Boolean(vars['remarks_section'])).toBe(flags[2]);
         expect(Boolean(vars['slop_bunkers_section'])).toBe(flags[3]);
-        if (flags[0])
+        if (flags[0]) {
           expect(vars['parcel_figures_section']).toContain('Requested by vessel (BBLS/HR): 900');
+          expect(vars['parcel_figures_section']).toContain(
+            '2.5% variation — agreed at key meeting',
+          );
+        }
         if (flags[2]) {
           expect(vars['letters_section']).toBe('01. From: Surveyor — To: Master — QA Letter');
           expect(vars['remarks_section']).toContain(

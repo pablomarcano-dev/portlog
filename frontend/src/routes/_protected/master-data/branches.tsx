@@ -1,3 +1,4 @@
+import { BranchPortsPanel } from '../../../features/nominations/components/BranchPortsPanel';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState, useCallback } from 'react';
 import { Divider, Stack, Tabs, TextInput, Textarea } from '@mantine/core';
@@ -92,11 +93,17 @@ function BranchesScreen() {
         <Tabs defaultValue="info">
           <Tabs.List mb="md">
             <Tabs.Tab value="info">Branch Info</Tabs.Tab>
+            {selectedId && <Tabs.Tab value="ports">Ports / terminals</Tabs.Tab>}
             {selectedId && <Tabs.Tab value="templates">Document Templates</Tabs.Tab>}
           </Tabs.List>
           <Tabs.Panel value="info">
             <BranchFields form={form} />
           </Tabs.Panel>
+          {selectedId && (
+            <Tabs.Panel value="ports">
+              <BranchPortsPanel key={selectedId} branchId={selectedId} />
+            </Tabs.Panel>
+          )}
           {selectedId && (
             <Tabs.Panel value="templates">
               <BranchDocumentTemplateAdminPanel branchId={selectedId} />

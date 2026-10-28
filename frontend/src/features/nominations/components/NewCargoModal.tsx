@@ -55,6 +55,7 @@ export function NewCargoModal({ opened, category, onClose, onCreated }: Props) {
             name="bblUnit"
             render={({ field, fieldState }) => (
               <Select
+                allowDeselect={false}
                 label="Default unit"
                 placeholder="Select unit"
                 searchable

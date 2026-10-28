@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { EtaDateTimeInput } from './EtaDateTimeInput';
+import { useRef, useState } from 'react';
 import {
   Modal,
   Stack,
@@ -11,7 +12,7 @@ import {
   Table,
   ActionIcon,
 } from '@mantine/core';
-import { DateInput, DateTimePicker } from '@mantine/dates';
+import { DateInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -64,7 +65,7 @@ const INITIAL_WIDTHS: Record<ColKey, number> = {
   product: 150,
   quantity: 100,
   unit: 70,
-  etcDate: 165,
+  etcDate: 300,
   operation: 100,
   qtyOnBoard: 90,
   qtyOnBoardUnit: 70,
@@ -140,8 +141,18 @@ export function CargoUpdateModal({
   const [rows, setRows] = useState<ParcelRow[]>(() =>
     initialParcels.map((p, i) => ({ ...p, _key: String(i) })),
   );
+  const manualUnits = useRef(
+    new Map<string, string>(
+      initialParcels.flatMap((row, index) =>
+        (['unit', 'qtyOnBoardUnit', 'qtyToGoUnit', 'loadingRateUnit'] as const)
+          .filter((field) => row[field])
+          .map((field) => [`${index}:${field}`, row.product] as const),
+      ),
+    ),
+  );
   const [dateUpdate, setDateUpdate] = useState<Date | null>(now);
   const [timeUpdate, setTimeUpdate] = useState(fmtTime(now));
+  const [etcValid, setEtcValid] = useState<Record<string, boolean>>({});
   const [dateEtd, setDateEtd] = useState<Date | null>(null);
   const [timeEtd, setTimeEtd] = useState('');
 
@@ -187,6 +198,11 @@ export function CargoUpdateModal({
   }
 
   function updateRow(key: string, field: keyof ParcelRow, value: unknown) {
+    if (['unit', 'qtyOnBoardUnit', 'qtyToGoUnit', 'loadingRateUnit'].includes(field))
+      manualUnits.current.set(
+        `${key}:${field}`,
+        rows.find((row) => row._key === key)?.product ?? '',
+      );
     patchRow(key, { [field]: value } as Partial<ParcelRow>);
   }
 
@@ -216,12 +232,11 @@ export function CargoUpdateModal({
   function applyProductUnit(key: string, bblUnit: string) {
     const unit = bblUnit.trim();
     if (!unit) return;
-    patchRow(key, {
-      unit,
-      qtyOnBoardUnit: unit,
-      qtyToGoUnit: unit,
-      loadingRateUnit: unit,
-    });
+    const row = rows.find((row) => row._key === key);
+    const patch: Partial<ParcelRow> = {};
+    for (const field of ['unit', 'qtyOnBoardUnit', 'qtyToGoUnit', 'loadingRateUnit'] as const)
+      if (manualUnits.current.get(`${key}:${field}`) !== row?.product) patch[field] = unit;
+    patchRow(key, patch);
   }
 
   function addRow() {
@@ -249,6 +264,7 @@ export function CargoUpdateModal({
   }
 
   async function handleSend() {
+    if (rows.some((row) => etcValid[row._key] === false)) return;
     await saveMutation.mutateAsync();
 
     if (!composeData) {
@@ -434,6 +450,7 @@ export function CargoUpdateModal({
                     <Table.Td style={{ width: colWidths.unit }}>
                       <Select
                         size="xs"
+                        allowDeselect={false}
                         placeholder="Unit"
                         data={unitSelectData(row.unit)}
                         value={row.unit || null}
@@ -442,14 +459,18 @@ export function CargoUpdateModal({
                       />
                     </Table.Td>
                     <Table.Td style={{ width: colWidths.etcDate }}>
-                      <DateTimePicker
-                        size="xs"
-                        valueFormat="DD/MM/YYYY HH:mm"
-                        placeholder="Select date/time"
-                        clearable
-                        styles={{ input: { fontSize: 12 } }}
+                      <EtaDateTimeInput
+                        label="ETC"
+                        description="24-hour time"
                         value={parseEtc(row.etcDate, row.etcTime)}
                         onChange={(d) => patchRow(row._key, toEtcParts(d))}
+                        onValidityChange={(valid) =>
+                          setEtcValid((previous) =>
+                            previous[row._key] === valid
+                              ? previous
+                              : { ...previous, [row._key]: valid },
+                          )
+                        }
                       />
                     </Table.Td>
                     <Table.Td style={{ width: colWidths.operation }}>
@@ -472,6 +493,7 @@ export function CargoUpdateModal({
                     <Table.Td style={{ width: colWidths.qtyOnBoardUnit }}>
                       <Select
                         size="xs"
+                        allowDeselect={false}
                         placeholder="Unit"
                         data={unitSelectData(row.qtyOnBoardUnit, row.unit)}
                         value={row.qtyOnBoardUnit || row.unit || null}
@@ -490,6 +512,7 @@ export function CargoUpdateModal({
                     <Table.Td style={{ width: colWidths.qtyToGoUnit }}>
                       <Select
                         size="xs"
+                        allowDeselect={false}
                         placeholder="Unit"
                         data={unitSelectData(row.qtyToGoUnit, row.unit)}
                         value={row.qtyToGoUnit || row.unit || null}
@@ -508,6 +531,7 @@ export function CargoUpdateModal({
                     <Table.Td style={{ width: colWidths.loadingRateUnit }}>
                       <Select
                         size="xs"
+                        allowDeselect={false}
                         placeholder="Unit"
                         data={unitSelectData(row.loadingRateUnit, row.unit)}
                         value={row.loadingRateUnit || row.unit || null}
@@ -553,6 +577,7 @@ export function CargoUpdateModal({
               <Button
                 variant="default"
                 loading={saveMutation.isPending}
+                disabled={rows.some((row) => etcValid[row._key] === false)}
                 onClick={() => saveMutation.mutate()}
               >
                 Save as Draft

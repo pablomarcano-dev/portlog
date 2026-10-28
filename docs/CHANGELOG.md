@@ -41,3 +41,15 @@ Terminal materials use two nullable EmailAttachment columns (terminalPortId, ter
 Recap discovers confirmed sent ETA/NOR records on this nomination across both dispatch routes. Operators select archived attachments or create an attachment PDF from the stored original PDF/body, with recorded metadata. Failed/pending sends and unrelated message types are excluded. Missing stored body/PDF is explicit. Archived HTML rendering disables scripts and remote/file resources. PDF staging does not send a message.
 
 Remaining inputs: approved terminal files, agent directory, branch-address confirmation, administrative instruction template/Special Requirements. Add-client symptom remains unconfirmed. Deployment authorized on 28 October; release requires a restored fresh backup, off-server copy, additive migration, and live record/storage preservation verification.
+
+## Operational follow-ups — 28 October 2026
+
+Implements the new branch-side port maintenance, strict scoped operating-port choices, ordered port filters, nomination-side captain email maintenance, reliable default/manual parcel units, per-account/browser pending nomination, ETA auto-checkboxes, 24-hour cargo ETC, SOF layout/footer and key-meeting free-text comments.
+
+The branch editor operates on the existing Port.branchId relation, not a second list. Conditional assignment guards against overwriting concurrent changes; detach retains the port. Changing branch in a nomination clears port/pier explicitly; schema accepts null so this can be persisted on edit. Saved mismatches are not rewritten in bulk. Captain email editing explicitly updates a shared Contact; creating a contact links it only after the nomination is saved. Captain-To defaults are retained from 613c492.
+
+Product lookup now handles late exact-name results. Manual unit choices are protected from delayed defaults; selecting the same unit no longer deselects it. Draft storage is keyed by account and version, preserves incomplete fields and date values, offers explicit resume/discard, survives navigation/reload, and clears after confirmed creation. It is one pending new nomination per account/browser, not a server-side draft or cross-device sync. Storage errors are visible; normal Create validation still applies.
+
+Parcel comments are additive JSON data (no database migration), retained with existing figures and included in canonical new email/PDF SOF content under the existing parcel switch. No numeric interpretation of percentages. ETA date interaction selects the checkbox but does not undo a later explicit manual uncheck at save. Cargo ETC uses the explicit 24-hour input, blocking save/send on invalid time.
+
+SOF UI subagent verified desktop/mobile layout and save-before-compose. Branch signature content remains TO BE RECEIVED; no guessed signatures or role changes. Deployment authorized for this branch; fresh restored backup and live data/storage preservation verification required.

@@ -89,8 +89,8 @@ export const NominationCreateSchema = z
     emailBcc: z.array(z.string().email()).default([]),
 
     // Ports — all optional cuid FKs; pierId references Pier (child of opPort)
-    opPortId: cuidFk.optional(),
-    pierId: cuidFk.optional(),
+    opPortId: cuidFk.nullish(),
+    pierId: cuidFk.nullish(),
     lastPortId: cuidFk.optional(),
     nextPortId: cuidFk.optional(),
     disPortId: cuidFk.optional(),

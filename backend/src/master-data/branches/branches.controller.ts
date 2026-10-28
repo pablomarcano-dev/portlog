@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import {
   Body,
   Controller,
@@ -25,6 +26,28 @@ export class BranchesController {
   @Get()
   list(@Query(new ZodValidationPipe(BranchListQuerySchema)) query: BranchListQuery) {
     return this.branchesService.list(query);
+  }
+
+  @Get(':id/ports')
+  ports(@Param('id') id: string) {
+    return this.branchesService.ports(id);
+  }
+
+  @Post(':id/ports/:portId')
+  assignPort(
+    @Param('id') id: string,
+    @Param('portId') portId: string,
+    @Body(
+      new ZodValidationPipe(z.object({ previousBranchId: z.string().cuid().nullable() }).strict()),
+    )
+    body: { previousBranchId: string | null },
+  ) {
+    return this.branchesService.assignPort(id, portId, body.previousBranchId);
+  }
+
+  @Delete(':id/ports/:portId')
+  unassignPort(@Param('id') id: string, @Param('portId') portId: string) {
+    return this.branchesService.unassignPort(id, portId);
   }
 
   @Get(':id')

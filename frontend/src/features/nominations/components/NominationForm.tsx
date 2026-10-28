@@ -1,3 +1,4 @@
+import { CaptainContactModal } from './CaptainContactModal';
 import { allEmailGroupsOptions } from '../../../components/master-data/directoryOptions';
 import { contactsApi } from '../../../lib/api/master-data/contacts';
 import { useState, useEffect, useRef } from 'react';
@@ -98,6 +99,7 @@ interface NominationFormProps {
   nominationId?: string;
   defaultValues?: Partial<NominationCreateInput>;
   onSubmit: (vals: NominationCreateInput) => void;
+  onDraftChange?: (values: Partial<NominationCreateInput>) => void;
   isSubmitting: boolean;
   isReadOnly?: boolean;
   /** Auto-assigned correlative number to show as read-only in edit mode. */
@@ -128,6 +130,7 @@ export function NominationForm({
   correlative,
   chartererOption,
   masterContactOption,
+  onDraftChange,
   routingOptions,
   opPortOption,
   pierOption,
@@ -167,6 +170,11 @@ export function NominationForm({
   });
 
   const { register, handleSubmit, control, reset, formState, watch, setValue } = form;
+  useEffect(() => {
+    if (!onDraftChange) return;
+    const subscription = form.watch(() => onDraftChange(form.getValues()));
+    return () => subscription.unsubscribe();
+  }, [form.watch, form.getValues, onDraftChange]);
 
   const {
     fields: clientFields,
@@ -175,6 +183,7 @@ export function NominationForm({
   } = useFieldArray({ control, name: 'nominationClients' });
 
   const masterContactId = watch('masterContactId');
+  const [captainModalOpen, setCaptainModalOpen] = useState(false);
   const [captainSearch, setCaptainSearch] = useState('');
   const routingGroups = useQuery(allEmailGroupsOptions());
   const routingGroupOptions = new Map(
@@ -670,7 +679,15 @@ export function NominationForm({
                     label="Branch"
                     required
                     value={field.value ?? null}
-                    onChange={field.onChange}
+                    onChange={(next) => {
+                      if (next !== field.value) {
+                        setValue('opPortId', null, { shouldDirty: true });
+                        setValue('pierId', null, { shouldDirty: true });
+                        setOpPortSearch('');
+                        setPierSearch('');
+                      }
+                      field.onChange(next);
+                    }}
                     searchValue={branchSearch}
                     onSearchChange={setBranchSearch}
                     error={fieldState.error?.message}
@@ -937,6 +954,7 @@ export function NominationForm({
                       <EntityPicker
                         endpoint="/master-data/ports"
                         label="Oper. Port"
+                        key={branchId ?? 'no-branch'}
                         extraParams={branchId ? { branchId } : undefined}
                         value={field.value ?? null}
                         onChange={field.onChange}
@@ -945,7 +963,10 @@ export function NominationForm({
                         error={fieldState.error?.message}
                         groupByCountry
                         limit={200}
-                        selectedOption={opPortOption}
+                        selectedOption={operatingPortBranchMismatch ? null : opPortOption}
+                        includeSelectedOption={
+                          !branchId || operatingPortQuery.data?.branchId === branchId
+                        }
                         disabled={isReadOnly}
                         placeholder="Select operating port"
                       />
@@ -1184,6 +1205,27 @@ export function NominationForm({
                   onChange={(event) => {
                     void register('master').onChange(event);
                     setValue('masterContactId', null, { shouldDirty: true });
+                  }}
+                />
+                {!isReadOnly && (
+                  <Button
+                    type="button"
+                    size="compact-xs"
+                    variant="light"
+                    disabled={!!masterContactId && !captainContact.data}
+                    onClick={() => setCaptainModalOpen(true)}
+                  >
+                    {masterContactId ? 'Edit captain emails' : 'Add captain contact / email'}
+                  </Button>
+                )}
+                <CaptainContactModal
+                  opened={captainModalOpen}
+                  onClose={() => setCaptainModalOpen(false)}
+                  contact={captainContact.data}
+                  initialName={watch('master') ?? ''}
+                  onSaved={(contact) => {
+                    setValue('masterContactId', contact.id, { shouldDirty: true });
+                    setValue('master', contact.name, { shouldDirty: true });
                   }}
                 />
                 {masterContactId && (

@@ -36,6 +36,44 @@ export interface ChangelogEntry {
 // Sources and verification boundaries: docs/CHANGELOG.md.
 export const changelogEntries: readonly ChangelogEntry[] = [
   {
+    id: '2026-10-28-operational-followups',
+    date: '2026-10-28',
+    dateLabel: '28 de octubre de 2026',
+    timeZone: 'America/Montevideo',
+    title: 'Puertos por sucursal, borradores y formularios operativos',
+    deployment: 'deployed',
+    releaseNote:
+      'Puertos por sucursal, recuperación de nominaciones pendientes, unidades y formularios operativos. Las firmas por sucursal están pendientes de recibir el contenido aprobado.',
+    qaSummary: { verified: 12, partial: 1, deferred: 0 },
+    sections: [
+      {
+        id: 'operational-followups',
+        title: 'Nominaciones y documentos',
+        status: 'verified-local',
+        items: [
+          'Las sucursales permiten asociar, trasladar y desvincular puertos desde una pestaña propia. Se utiliza la misma relación del catálogo de puertos y se rechazan cambios concurrentes.',
+          'Oper. Port ofrece los puertos de la sucursal elegida. Cambiar de sucursal limpia la selección de puerto y muelle; los registros históricos no se reasignan automáticamente. Los filtros del catálogo se ordenan por nombre de puerto, sucursal y país.',
+          'El contacto del capitán puede crearse o actualizar sus correos desde la nominación. Pre-arrival y ETA Request mantienen al capitán en Para por defecto.',
+          'La unidad predeterminada se aplica aunque el resultado del producto llegue después de escribir su nombre. Se conservan las unidades manuales y volver a seleccionar la unidad actual no la borra.',
+          'Una nominación nueva conserva su progreso en este navegador y cuenta. Continue pending nomination permite recuperarlo, incluida la información incompleta; la creación confirmada elimina el borrador local.',
+          'Al ingresar fechas ETA se marcan sus casillas automáticamente; el usuario puede desmarcarlas. Cargo Update permite ingresar ETC explícitamente en formato de 24 horas.',
+          'SOF tiene campos y controles de inclusión alineados, y acciones de interino/final junto a Close y Save al pie. En pantallas pequeñas los controles se adaptan.',
+          'Parcelas agrega una columna de comentarios de key meeting y variaciones en texto libre. Se guarda y se incluye en los nuevos SOF cuando se selecciona esa sección, sin calcular ni reinterpretar porcentajes.',
+        ],
+        verification:
+          'Pruebas automatizadas y de navegador con datos simulados. No se modificaron datos de producción ni se enviaron correos reales. El borrador es local a este navegador; no se sincroniza entre dispositivos.',
+      },
+      {
+        id: 'branch-signatures-pending',
+        title: 'Contenido pendiente',
+        status: 'partial',
+        items: [
+          'Firmas por sucursal: falta recibir los textos aprobados. No se sustituyeron las firmas actuales.',
+        ],
+      },
+    ],
+  },
+  {
     id: '2026-10-28-clarified-video',
     date: '2026-10-28',
     dateLabel: '28 de octubre de 2026',

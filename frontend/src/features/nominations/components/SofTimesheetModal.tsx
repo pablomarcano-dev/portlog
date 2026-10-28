@@ -13,6 +13,7 @@ import {
   Box,
   Divider,
   Switch,
+  SimpleGrid,
 } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
@@ -348,7 +349,7 @@ export function SofTimesheetModal({
   }
 
   async function prepareSofEmail(type: 'SOF' | 'SOF_INTERIM') {
-    if (!(await form.trigger())) return;
+    if (saveMutation.isPending || !(await form.trigger())) return;
     const values = form.getValues();
     if (
       values.entries.some(
@@ -372,6 +373,7 @@ export function SofTimesheetModal({
   }
 
   function handleClose() {
+    if (saveMutation.isPending) return;
     if (formState.isDirty) {
       openConfirm();
     } else {
@@ -447,13 +449,14 @@ export function SofTimesheetModal({
         onClose={handleClose}
         title="Statement of Facts"
         closeOnClickOutside={false}
-        size="70vw"
+        size="min(1100px, calc(100vw - 32px))"
         styles={{
           content: {
             resize: 'both',
             overflow: 'auto',
             width: '100%',
-            minWidth: 400,
+            minWidth: 'min(400px, calc(100vw - 32px))',
+            maxWidth: 'calc(100vw - 32px)',
           },
         }}
       >
@@ -469,8 +472,8 @@ export function SofTimesheetModal({
                 General Info
               </Text>
 
-              <Grid gutter="xs">
-                <Grid.Col span={4}>
+              <Grid gutter="sm" align="flex-start">
+                <Grid.Col span={{ base: 12, sm: 4 }}>
                   <Controller
                     name="lastPortId"
                     control={control}
@@ -487,7 +490,7 @@ export function SofTimesheetModal({
                     )}
                   />
                 </Grid.Col>
-                <Grid.Col span={4}>
+                <Grid.Col span={{ base: 12, sm: 4 }}>
                   <Controller
                     name="nextPortId"
                     control={control}
@@ -504,7 +507,7 @@ export function SofTimesheetModal({
                     )}
                   />
                 </Grid.Col>
-                <Grid.Col span={4}>
+                <Grid.Col span={{ base: 12, sm: 4 }}>
                   <Controller
                     name="pierId"
                     control={control}
@@ -525,17 +528,16 @@ export function SofTimesheetModal({
                     )}
                   />
                 </Grid.Col>
-                <Grid.Col span={6}>
-                  <TextInput
-                    label="Captain"
-                    description="SOF name only; email contact is set on the nomination."
-                    {...register('captain')}
-                  />
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <TextInput label="Captain" {...register('captain')} />
                 </Grid.Col>
-                <Grid.Col span={6}>
+                <Grid.Col span={{ base: 12, sm: 6 }}>
                   <TextInput label="Mobile on Board" {...register('mobileOnBoard')} />
                 </Grid.Col>
               </Grid>
+              <Text size="xs" c="dimmed" mt={-8}>
+                Captain is the SOF display name. Set the captain’s email contact on the nomination.
+              </Text>
 
               {/* Times Sheet section */}
               <Box>
@@ -558,116 +560,129 @@ export function SofTimesheetModal({
                   </Group>
                 </Box>
 
-                <Table withTableBorder withColumnBorders style={{ tableLayout: 'fixed' }}>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <ResizableTh width={colWidths.date} onResize={(e) => startResize('date', e)}>
-                        Date
-                      </ResizableTh>
-                      <ResizableTh width={colWidths.time} onResize={(e) => startResize('time', e)}>
-                        Time
-                      </ResizableTh>
-                      <ResizableTh
-                        width={colWidths.activity}
-                        onResize={(e) => startResize('activity', e)}
-                      >
-                        Activity
-                      </ResizableTh>
-                      <ResizableTh
-                        width={colWidths.comment}
-                        onResize={(e) => startResize('comment', e)}
-                      >
-                        Comment
-                      </ResizableTh>
-                      <ResizableTh
-                        width={colWidths.actions}
-                        onResize={(e) => startResize('actions', e)}
-                      />
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {fields.length === 0 && (
+                <Table.ScrollContainer minWidth={700}>
+                  <Table
+                    withTableBorder
+                    withColumnBorders
+                    style={{ tableLayout: 'fixed' }}
+                    styles={{ td: { verticalAlign: 'top' } }}
+                  >
+                    <Table.Thead>
                       <Table.Tr>
-                        <Table.Td colSpan={5}>
-                          <Text c="dimmed" size="xs" ta="center" py="xs">
-                            No entries. Use the Insert button below to add a row.
-                          </Text>
-                        </Table.Td>
+                        <ResizableTh
+                          width={colWidths.date}
+                          onResize={(e) => startResize('date', e)}
+                        >
+                          Date
+                        </ResizableTh>
+                        <ResizableTh
+                          width={colWidths.time}
+                          onResize={(e) => startResize('time', e)}
+                        >
+                          Time
+                        </ResizableTh>
+                        <ResizableTh
+                          width={colWidths.activity}
+                          onResize={(e) => startResize('activity', e)}
+                        >
+                          Activity
+                        </ResizableTh>
+                        <ResizableTh
+                          width={colWidths.comment}
+                          onResize={(e) => startResize('comment', e)}
+                        >
+                          Comment
+                        </ResizableTh>
+                        <ResizableTh
+                          width={colWidths.actions}
+                          onResize={(e) => startResize('actions', e)}
+                        />
                       </Table.Tr>
-                    )}
-                    {fields.map((field, index) => (
-                      <Table.Tr key={field.id}>
-                        <Table.Td style={{ width: colWidths.date }}>
-                          <Controller
-                            name={`entries.${index}.date`}
-                            control={control}
-                            render={({ field: f }) => (
-                              <DatePickerInput
-                                value={f.value}
-                                onChange={(val) => {
-                                  f.onChange(val);
-                                  sortEntries();
-                                }}
-                                placeholder="Date"
-                                size="xs"
-                                clearable
-                                valueFormat="DD/MM/YYYY"
-                                styles={{ input: { fontSize: 12 } }}
-                              />
-                            )}
-                          />
-                        </Table.Td>
-                        <Table.Td style={{ width: colWidths.time }}>
-                          <Controller
-                            name={`entries.${index}.time`}
-                            control={control}
-                            render={({ field: f }) => (
-                              <TimeInput24
-                                value={f.value}
-                                onChange={(val) => {
-                                  f.onChange(val);
-                                  sortEntries();
-                                }}
-                                size="xs"
-                                styles={{ input: { fontSize: 12 } }}
-                              />
-                            )}
-                          />
-                        </Table.Td>
-                        <Table.Td style={{ width: colWidths.activity }}>
-                          <ActivityCell control={control} index={index} />
-                        </Table.Td>
-                        <Table.Td style={{ width: colWidths.comment }}>
-                          <Controller
-                            name={`entries.${index}.comment`}
-                            control={control}
-                            render={({ field: f }) => (
-                              <TextInput
-                                value={f.value}
-                                onChange={(e) => f.onChange(e.currentTarget.value)}
-                                onBlur={f.onBlur}
-                                size="xs"
-                                placeholder="Comment..."
-                                styles={{ input: { fontSize: 12 } }}
-                              />
-                            )}
-                          />
-                        </Table.Td>
-                        <Table.Td style={{ width: colWidths.actions }}>
-                          <ActionIcon
-                            size="xs"
-                            color="red"
-                            variant="subtle"
-                            onClick={() => remove(index)}
-                            title="Remove row"
-                          >
-                            &times;
-                          </ActionIcon>
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {fields.length === 0 && (
+                        <Table.Tr>
+                          <Table.Td colSpan={5}>
+                            <Text c="dimmed" size="xs" ta="center" py="xs">
+                              No entries. Use the Insert button below to add a row.
+                            </Text>
+                          </Table.Td>
+                        </Table.Tr>
+                      )}
+                      {fields.map((field, index) => (
+                        <Table.Tr key={field.id}>
+                          <Table.Td style={{ width: colWidths.date }}>
+                            <Controller
+                              name={`entries.${index}.date`}
+                              control={control}
+                              render={({ field: f }) => (
+                                <DatePickerInput
+                                  value={f.value}
+                                  onChange={(val) => {
+                                    f.onChange(val);
+                                    sortEntries();
+                                  }}
+                                  placeholder="Date"
+                                  size="xs"
+                                  clearable
+                                  valueFormat="DD/MM/YYYY"
+                                  styles={{ input: { fontSize: 12 } }}
+                                />
+                              )}
+                            />
+                          </Table.Td>
+                          <Table.Td style={{ width: colWidths.time }}>
+                            <Controller
+                              name={`entries.${index}.time`}
+                              control={control}
+                              render={({ field: f }) => (
+                                <TimeInput24
+                                  value={f.value}
+                                  onChange={(val) => {
+                                    f.onChange(val);
+                                    sortEntries();
+                                  }}
+                                  size="xs"
+                                  styles={{ input: { fontSize: 12 } }}
+                                />
+                              )}
+                            />
+                          </Table.Td>
+                          <Table.Td style={{ width: colWidths.activity }}>
+                            <ActivityCell control={control} index={index} />
+                          </Table.Td>
+                          <Table.Td style={{ width: colWidths.comment }}>
+                            <Controller
+                              name={`entries.${index}.comment`}
+                              control={control}
+                              render={({ field: f }) => (
+                                <TextInput
+                                  value={f.value}
+                                  onChange={(e) => f.onChange(e.currentTarget.value)}
+                                  onBlur={f.onBlur}
+                                  size="xs"
+                                  placeholder="Comment..."
+                                  styles={{ input: { fontSize: 12 } }}
+                                />
+                              )}
+                            />
+                          </Table.Td>
+                          <Table.Td style={{ width: colWidths.actions }}>
+                            <ActionIcon
+                              size="xs"
+                              color="red"
+                              variant="subtle"
+                              onClick={() => remove(index)}
+                              title="Remove row"
+                            >
+                              &times;
+                            </ActionIcon>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </Table.ScrollContainer>
                 <Group justify="flex-end" mt="xs">
                   <Button size="xs" variant="light" onClick={handleInsert}>
                     Insert
@@ -675,132 +690,114 @@ export function SofTimesheetModal({
                 </Group>
               </Box>
 
-              <Text size="xs" c="dimmed">
-                Section switches apply to both SOF versions. Interim reports keep the call open.
-                Current edits are saved before preparing either message.
-              </Text>
-              {/* Footer actions */}
+              <Box>
+                <Text fw={600} size="sm" mb="xs">
+                  Supporting sections
+                </Text>
+                <SimpleGrid cols={{ base: 1, xs: 2, md: 4 }} spacing="sm">
+                  {(
+                    [
+                      {
+                        name: 'includeBunkersDraftParcel',
+                        label: 'Bunkers/Draft/Parcel',
+                        open: openBunkersDraftParcel,
+                      },
+                      {
+                        name: 'includeBillShipFigures',
+                        label: 'Bill Fig./Ship Fig.',
+                        open: openBillShipFigures,
+                      },
+                      {
+                        name: 'includeLettersRemarks',
+                        label: 'Letters/Remarks',
+                        open: openLettersRemarks,
+                      },
+                      {
+                        name: 'includeSlopBunkers',
+                        label: 'Slop/B. Received',
+                        open: openSlopBunkers,
+                      },
+                    ] as const
+                  ).map((section) => (
+                    <Box
+                      key={section.name}
+                      p="sm"
+                      style={{
+                        border: '1px solid var(--mantine-color-default-border)',
+                        borderRadius: 'var(--mantine-radius-sm)',
+                      }}
+                    >
+                      <Stack gap="sm">
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant="default"
+                          fullWidth
+                          onClick={section.open}
+                          disabled={saveMutation.isPending}
+                        >
+                          {section.label}
+                        </Button>
+                        <Controller
+                          name={section.name}
+                          control={control}
+                          render={({ field }) => (
+                            <Switch
+                              size="sm"
+                              label="Include in SOF"
+                              aria-label={`${section.label}: include in SOF`}
+                              checked={field.value}
+                              disabled={saveMutation.isPending}
+                              onChange={(event) => field.onChange(event.currentTarget.checked)}
+                            />
+                          )}
+                        />
+                      </Stack>
+                    </Box>
+                  ))}
+                </SimpleGrid>
+                <Text size="xs" c="dimmed" mt="xs">
+                  Section switches apply to both SOF versions. Interim reports keep the call open.
+                  Current edits are saved before preparing either message.
+                </Text>
+              </Box>
+
               <Divider />
-              <Group justify="space-between" mt="xs">
-                <Group gap="xs">
-                  {pedrId && (
-                    <Group gap="xs">
-                      <Button
-                        size="xs"
-                        variant="light"
-                        color="blue"
-                        onClick={() => void prepareSofEmail('SOF_INTERIM')}
-                        disabled={saveMutation.isPending}
-                      >
-                        Send interim SOF
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="light"
-                        onClick={() => void prepareSofEmail('SOF')}
-                        disabled={saveMutation.isPending}
-                      >
-                        Send final SOF
-                      </Button>
-                    </Group>
-                  )}
-                  <Stack gap={2} align="center">
+              <Group justify="flex-end" gap="xs" wrap="wrap" aria-label="SOF actions">
+                {pedrId && (
+                  <>
                     <Button
-                      size="xs"
-                      variant="default"
-                      onClick={openBunkersDraftParcel}
+                      type="button"
+                      size="sm"
+                      variant="light"
+                      onClick={() => void prepareSofEmail('SOF_INTERIM')}
                       disabled={saveMutation.isPending}
                     >
-                      Bunkers/Draft/Parcel
+                      Send interim SOF
                     </Button>
-                    <Controller
-                      name="includeBunkersDraftParcel"
-                      control={control}
-                      render={({ field }) => (
-                        <Switch
-                          size="xs"
-                          label="Show in final SOF"
-                          checked={field.value}
-                          onChange={(event) => field.onChange(event.currentTarget.checked)}
-                        />
-                      )}
-                    />
-                  </Stack>
-                  <Stack gap={2} align="center">
                     <Button
-                      size="xs"
-                      variant="default"
-                      onClick={openBillShipFigures}
+                      type="button"
+                      size="sm"
+                      variant="light"
+                      onClick={() => void prepareSofEmail('SOF')}
                       disabled={saveMutation.isPending}
                     >
-                      Bill Fig./Ship Fig.
+                      Send final SOF
                     </Button>
-                    <Controller
-                      name="includeBillShipFigures"
-                      control={control}
-                      render={({ field }) => (
-                        <Switch
-                          size="xs"
-                          label="Show in final SOF"
-                          checked={field.value}
-                          onChange={(event) => field.onChange(event.currentTarget.checked)}
-                        />
-                      )}
-                    />
-                  </Stack>
-                  <Stack gap={2} align="center">
-                    <Button
-                      size="xs"
-                      variant="default"
-                      onClick={openLettersRemarks}
-                      disabled={saveMutation.isPending}
-                    >
-                      Letters/Remarks
-                    </Button>
-                    <Controller
-                      name="includeLettersRemarks"
-                      control={control}
-                      render={({ field }) => (
-                        <Switch
-                          size="xs"
-                          label="Show in final SOF"
-                          checked={field.value}
-                          onChange={(event) => field.onChange(event.currentTarget.checked)}
-                        />
-                      )}
-                    />
-                  </Stack>
-                  <Stack gap={2} align="center">
-                    <Button
-                      size="xs"
-                      variant="default"
-                      onClick={openSlopBunkers}
-                      disabled={saveMutation.isPending}
-                    >
-                      Slop/B. Received
-                    </Button>
-                    <Controller
-                      name="includeSlopBunkers"
-                      control={control}
-                      render={({ field }) => (
-                        <Switch
-                          size="xs"
-                          label="Show in final SOF"
-                          checked={field.value}
-                          onChange={(event) => field.onChange(event.currentTarget.checked)}
-                        />
-                      )}
-                    />
-                  </Stack>
-                </Group>
-                <Group gap="xs">
-                  <Button variant="default" onClick={handleClose} disabled={saveMutation.isPending}>
-                    Close
-                  </Button>
-                  <Button variant="default" type="submit" loading={saveMutation.isPending}>
-                    Save
-                  </Button>
-                </Group>
+                  </>
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="default"
+                  onClick={handleClose}
+                  disabled={saveMutation.isPending}
+                >
+                  Close
+                </Button>
+                <Button size="sm" type="submit" loading={saveMutation.isPending}>
+                  Save
+                </Button>
               </Group>
             </Stack>
           </form>

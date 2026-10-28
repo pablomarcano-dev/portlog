@@ -414,24 +414,26 @@ function PortsScreen() {
                   onChange={(e) => setGrouped(e.currentTarget.checked)}
                 />
               </Group>
+              <TextInput
+                size="xs"
+                label="Port name"
+                placeholder="Filter ports…"
+                value={nameFilter}
+                onChange={(e) => setNameFilter(e.currentTarget.value)}
+                aria-label="Filter ports by name"
+              />
               <EntityPicker
                 endpoint="/master-data/branches"
-                label="Branch filter"
+                label="Branch name"
                 placeholder="All branches"
                 value={branchFilter}
                 onChange={setBranchFilter}
                 searchValue={branchFilterSearch}
                 onSearchChange={setBranchFilterSearch}
               />
-              <TextInput
-                size="xs"
-                placeholder="Filter ports…"
-                value={nameFilter}
-                onChange={(e) => setNameFilter(e.currentTarget.value)}
-                aria-label="Filter ports by name"
-              />
               <Select
                 size="xs"
+                label="Country"
                 placeholder="All countries"
                 data={countryOptions}
                 value={countryFilter}

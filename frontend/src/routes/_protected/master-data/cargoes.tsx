@@ -129,6 +129,7 @@ function CargoFields({
         label="BBL Unit"
         placeholder="Select unit"
         data={BBL_UNIT_OPTIONS}
+        allowDeselect={false}
         value={bblUnitField.value ?? null}
         onChange={(value) => bblUnitField.onChange(value ?? '')}
         onBlur={bblUnitField.onBlur}

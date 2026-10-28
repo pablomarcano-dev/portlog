@@ -1674,6 +1674,7 @@ export class NominationsService {
       const parcelData = sof?.sofParcelsData as {
         columns?: string[];
         rows?: Record<string, string[]>;
+        comments?: Record<string, string>;
       } | null;
       const parcelLabels: Record<string, string> = {
         api: 'API',
@@ -1698,6 +1699,19 @@ export class NominationsService {
             .filter(Boolean)
             .join('\n\n')
         : '';
+
+      if (includeBunkersDraftParcel) {
+        const comments = Object.entries(parcelData?.comments ?? {}).flatMap(([key, text]) =>
+          text.trim() ? [`${parcelLabels[key] ?? key}: ${text}`] : [],
+        );
+        if (comments.length)
+          templateVars.parcel_figures_section = [
+            templateVars.parcel_figures_section,
+            ['Key Meeting Comments / Variation', ...comments].join('\n'),
+          ]
+            .filter(Boolean)
+            .join('\n\n');
+      }
 
       // Vessel Cargo Figures — the ship's own loaded figures, stated alongside
       // the bills of lading so the two can be compared.
