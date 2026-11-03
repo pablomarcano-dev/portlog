@@ -17,7 +17,7 @@ import {
 } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
-import { useDisclosure, useDebouncedValue } from '@mantine/hooks';
+import { useDisclosure } from '@mantine/hooks';
 import { useForm, Controller, useController, useFieldArray, type Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -26,7 +26,7 @@ import { TimeInput24 } from '../../../components/inputs/TimeInput24';
 import { useColumnResize } from '../../../components/table/useColumnResize';
 import { ResizableTh } from '../../../components/table/ResizableTh';
 import { useNominationSof, useNominationSofSave } from '../hooks/useNominationSof';
-import { useActivitySearch } from '../../../lib/api/master-data/activities';
+import { useActivityCatalog } from '../../../lib/api/master-data/activities';
 import type { SofTimesheetResponse } from '@portlog/schemas';
 import { SofBunkersDraftParcelModal } from './SofBunkersDraftParcelModal';
 import { SofBillShipFiguresModal } from './SofBillShipFiguresModal';
@@ -158,19 +158,25 @@ function buildDefaultValues(data: SofTimesheetResponse | undefined): SofFormValu
 }
 
 // ---------------------------------------------------------------------------
-// Activity cell — the empty search loads the complete Master Data activity
-// catalog; typing narrows it through /master-data/activities/search.
+// Activity cells share the modal’s cached catalog and filter entirely locally.
 // ---------------------------------------------------------------------------
 
-function ActivityCell({ control, index }: { control: Control<SofFormValues>; index: number }) {
+function ActivityCell({
+  control,
+  index,
+  catalog,
+}: {
+  control: Control<SofFormValues>;
+  index: number;
+  catalog: ReturnType<typeof useActivityCatalog>;
+}) {
   // The id and its label are two fields on the same row, kept in step here so
   // the row carries its own label through re-sorting.
   const { field: idField } = useController({ control, name: `entries.${index}.activityId` });
   const { field: labelField } = useController({ control, name: `entries.${index}.activityLabel` });
 
   const [search, setSearch] = useState('');
-  const [debouncedSearch] = useDebouncedValue(search, 300);
-  const { data, isLoading, isError, refetch } = useActivitySearch(debouncedSearch);
+  const { data, isLoading, isError, refetch } = catalog;
   const results = (data ?? []).map((a) => ({ value: a.id, label: a.label }));
 
   const value = idField.value;
@@ -193,6 +199,20 @@ function ActivityCell({ control, index }: { control: Control<SofFormValues>; ind
         }}
         data={options}
         searchable
+        filter={({ options, search: term }) => {
+          const normalized = term.trim().toLowerCase();
+          const alias = /^(nor|n\.?o\.?r\.?)$/i.test(normalized)
+            ? 'notice of readiness'
+            : /^(arrival|arrive|arrived)$/i.test(normalized)
+              ? 'arriv'
+              : null;
+          return options.filter(
+            (option) =>
+              'label' in option &&
+              (option.label.toLowerCase().includes(normalized) ||
+                (alias !== null && option.label.toLowerCase().includes(alias))),
+          );
+        }}
         searchValue={search}
         onSearchChange={setSearch}
         clearable
@@ -202,11 +222,15 @@ function ActivityCell({ control, index }: { control: Control<SofFormValues>; ind
         nothingFoundMessage={
           isLoading ? 'Loading...' : isError ? 'Could not load activities' : 'No results found'
         }
-        error={isError ? 'Activity search failed. Your saved selection is retained.' : undefined}
+        error={
+          isError && !data
+            ? 'Could not load activities. Your saved selection is retained.'
+            : undefined
+        }
       />
       {isError && (
         <Button type="button" size="compact-xs" variant="subtle" onClick={() => void refetch()}>
-          Retry activity search
+          Retry loading activities
         </Button>
       )}
     </Stack>
@@ -297,6 +321,8 @@ export function SofTimesheetModal({
     sofSendType,
     sofEmailOpen,
   );
+
+  const activityCatalog = useActivityCatalog(opened);
 
   // Dirty check for close confirmation
   const [confirmClose, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
@@ -649,7 +675,11 @@ export function SofTimesheetModal({
                             />
                           </Table.Td>
                           <Table.Td style={{ width: colWidths.activity }}>
-                            <ActivityCell control={control} index={index} />
+                            <ActivityCell
+                              control={control}
+                              index={index}
+                              catalog={activityCatalog}
+                            />
                           </Table.Td>
                           <Table.Td style={{ width: colWidths.comment }}>
                             <Controller

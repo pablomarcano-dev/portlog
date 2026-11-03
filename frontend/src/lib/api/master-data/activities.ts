@@ -109,13 +109,19 @@ export function useActivity(id: string) {
   return useQuery(activityQueryOptions(id));
 }
 
-export function useActivitySearch(q: string) {
-  return useQuery({
-    queryKey: ['activities', 'search', q],
-    queryFn: ({ signal }) => activitiesApi.search(q, signal),
+// The empty search returns the complete, small activity catalog. Every SOF row
+// shares this key; displaying a saved label or typing must never fetch again.
+export const activityCatalogQueryOptions = () =>
+  queryOptions({
+    queryKey: ['activities', 'catalog'],
+    queryFn: ({ signal }) => activitiesApi.search('', signal),
+    staleTime: 10 * 60_000,
+    gcTime: 30 * 60_000,
     retry: false,
-    staleTime: 30_000,
   });
+
+export function useActivityCatalog(enabled = true) {
+  return useQuery({ ...activityCatalogQueryOptions(), enabled });
 }
 
 export function useSaveActivity(selectedId: string | null) {
