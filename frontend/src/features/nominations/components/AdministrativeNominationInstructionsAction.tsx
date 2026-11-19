@@ -12,14 +12,14 @@ interface Props {
   nominationId: string;
   reference: string;
   disabled: boolean;
-  clientChangePending: boolean;
+  settingsPending: boolean;
 }
 
 export function AdministrativeNominationInstructionsAction({
   nominationId,
   reference,
   disabled,
-  clientChangePending,
+  settingsPending,
 }: Props) {
   const [billingOpen, setBillingOpen] = useState(false);
   const billingPending = useIsMutating({
@@ -31,7 +31,7 @@ export function AdministrativeNominationInstructionsAction({
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${reference.replace('/', '-')}-administrative-nomination-instructions.docx`;
+      link.download = `${reference.replaceAll('/', '-')}-administrative-nomination-instructions.docx`;
       document.body.append(link);
       link.click();
       link.remove();
@@ -58,7 +58,7 @@ export function AdministrativeNominationInstructionsAction({
           size="xs"
           variant="light"
           loading={download.isPending}
-          disabled={clientChangePending || billingPending > 0}
+          disabled={settingsPending || billingPending > 0}
           onClick={() => download.mutate()}
         >
           Descargar documento Word

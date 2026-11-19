@@ -10,6 +10,7 @@ import { AdministrativeNominationInstructionsAction } from './AdministrativeNomi
 interface NominationInstructionsActionProps {
   nominationId: string;
   reference: string;
+  nominationSavePending: boolean;
   client: { id: string; name: string } | null;
   disabled?: boolean;
 }
@@ -17,6 +18,7 @@ interface NominationInstructionsActionProps {
 export function NominationInstructionsAction({
   nominationId,
   reference,
+  nominationSavePending,
   client,
   disabled = false,
 }: NominationInstructionsActionProps) {
@@ -93,7 +95,7 @@ export function NominationInstructionsAction({
         nominationId={nominationId}
         reference={reference}
         disabled={disabled}
-        clientChangePending={associateClient.isPending}
+        settingsPending={nominationSavePending || associateClient.isPending}
       />
       <Divider my="xs" />
       <Text fw={600} size="sm">

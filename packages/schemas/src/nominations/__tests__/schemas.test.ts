@@ -129,6 +129,19 @@ describe('NominationUpdateSchema', () => {
     expect(NominationUpdateSchema.parse({ clientId: '' })).toEqual({ clientId: null });
   });
 
+  it('normalizes an agency SN/OT reference and supports clearing it', () => {
+    expect(NominationUpdateSchema.parse({ administrativeSnOt: ' sn3092/26/mbo ' })).toEqual({
+      administrativeSnOt: 'SN3092/26/MBO',
+    });
+    expect(NominationUpdateSchema.parse({ administrativeSnOt: ' ' })).toEqual({
+      administrativeSnOt: null,
+    });
+    expect(NominationUpdateSchema.safeParse({ administrativeSnOt: '005-26' }).success).toBe(false);
+    expect(NominationUpdateSchema.parse({ voyageNumber: '21' })).not.toHaveProperty(
+      'administrativeSnOt',
+    );
+  });
+
   it('drops kind from the parsed output so it can never be changed', () => {
     const result = NominationUpdateSchema.safeParse({ kind: 'OT', voyageNumber: 'NEW' });
     expect(result.success).toBe(true);

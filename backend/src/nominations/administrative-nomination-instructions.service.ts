@@ -40,6 +40,7 @@ export class AdministrativeNominationInstructionsService {
         correlative: true,
         dateNominated: true,
         kind: true,
+        administrativeSnOt: true,
         etaDate: true,
         grt: true,
         sdwt: true,
@@ -76,15 +77,19 @@ export class AdministrativeNominationInstructionsService {
         `${clientName}\n${addressText}`,
       ]),
     );
-    const snOt = formatSnOt(nomination.correlative, nomination.dateNominated, nomination.kind);
+    const filenameReference =
+      nomination.administrativeSnOt ??
+      formatSnOt(nomination.correlative, nomination.dateNominated, nomination.kind);
 
     const buffer = this.docx.render({
-      snOt: formatNominationNoticeReference(
-        nomination.correlative,
-        nomination.dateNominated,
-        nomination.kind,
-        nomination.branch?.code ?? null,
-      ),
+      snOt:
+        nomination.administrativeSnOt ??
+        formatNominationNoticeReference(
+          nomination.correlative,
+          nomination.dateNominated,
+          nomination.kind,
+          nomination.branch?.code ?? null,
+        ),
       vessel: vessel.name,
       arrivalDay: formatArrivalDay(nomination.pedr?.etaRecord?.etaNotify ?? nomination.etaDate),
       operationPort: nomination.opPort?.name ?? '',
@@ -104,7 +109,7 @@ export class AdministrativeNominationInstructionsService {
 
     return {
       buffer,
-      filename: `${snOt.replace('/', '-')}-administrative-nomination-instructions.docx`,
+      filename: `${filenameReference.replaceAll('/', '-')}-administrative-nomination-instructions.docx`,
     };
   }
 }

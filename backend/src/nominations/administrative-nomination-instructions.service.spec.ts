@@ -120,6 +120,20 @@ describe('AdministrativeNominationInstructionsService', () => {
     );
   });
 
+  it('prints the saved agency reference when it differs from the application sequence', async () => {
+    findUnique.mockResolvedValue({
+      ...fixture,
+      correlative: 21,
+      administrativeSnOt: 'SN3092/26/MBO',
+    });
+
+    await expect(service.generate('nomination-id')).resolves.toEqual({
+      filename: 'SN3092-26-MBO-administrative-nomination-instructions.docx',
+      buffer,
+    });
+    expect(render).toHaveBeenCalledWith(expect.objectContaining({ snOt: 'SN3092/26/MBO' }));
+  });
+
   it('leaves optional fields blank and rejects an unknown nomination', async () => {
     findUnique.mockResolvedValueOnce({
       ...fixture,
