@@ -102,7 +102,6 @@ jobs:
 
   image-audit:
     name: Audit ${{ matrix.service }} image
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     strategy:
