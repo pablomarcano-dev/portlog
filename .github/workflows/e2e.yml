@@ -16,7 +16,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:16.16-alpine
         env:
           POSTGRES_DB: portlog_test
           POSTGRES_USER: portlog
@@ -33,8 +33,15 @@ jobs:
       DATABASE_URL: postgresql://portlog:portlog_dev@localhost:5432/portlog_test
       DIRECT_URL: postgresql://portlog:portlog_dev@localhost:5432/portlog_test
       E2E_DATABASE_URL: postgresql://portlog:portlog_dev@localhost:5432/portlog_test
-      JWT_SECRET: ci-jwt-secret-placeholder
-      JWT_REFRESH_SECRET: ci-jwt-refresh-secret-placeholder
+      JWT_ACCESS_SECRET: ci-only-portlog-access-secret-placeholder
+      MINIO_ENDPOINT: 127.0.0.1
+      MINIO_PORT: '9000'
+      MINIO_BUCKET: sgc-documents
+      MINIO_ACCESS_KEY: portlog
+      MINIO_SECRET_KEY: portlog_dev
+      SMTP_HOST: localhost
+      SMTP_PORT: '1025'
+      SMTP_FROM: portlog@localhost
       NODE_ENV: test
 
     steps:
@@ -61,8 +68,14 @@ jobs:
         working-directory: backend
         run: npx prisma migrate deploy
 
+      - name: Start isolated object storage
+        run: |
+          docker compose -f docker-compose.dev.yml up -d --wait --wait-timeout 60 minio
+          docker compose -f docker-compose.dev.yml run --rm --no-deps -T minio-init
+
       - name: Seed database
-        run: npm run seed -w @portlog/backend
+        working-directory: backend
+        run: npx prisma db seed
 
       - name: Build backend
         run: npm run build -w @portlog/backend

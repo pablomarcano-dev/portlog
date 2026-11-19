@@ -1,0 +1,151 @@
+name: Security maintenance
+
+on:
+  pull_request:
+    paths:
+      - '.nvmrc'
+      - '**/package.json'
+      - 'package-lock.json'
+      - 'docker-compose.yml'
+      - 'docker-compose.dev.yml'
+      - 'backend/Dockerfile'
+      - 'frontend/Dockerfile'
+      - 'frontend/nginx.conf'
+      - 'nginx/conf.d/**'
+      - '.github/workflows/security-maintenance.yml'
+  schedule:
+    # Monday at 09:25 in Montevideo.
+    - cron: '25 12 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  nginx-config:
+    name: Validate both Nginx configurations
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Test proxy and frontend with the proposed Nginx image
+        run: |
+          set -euo pipefail
+          compose=$(docker compose config --no-env-resolution --no-interpolate --format json)
+          edge_image=$(jq -er '.services.nginx.image' <<< "$compose")
+          frontend_image=$(awk '$1 == "FROM" { image = $2 } END { print image }' frontend/Dockerfile)
+          if [[ "$edge_image" != "$frontend_image" ]]; then
+            echo 'The public proxy and frontend must use the same Nginx image.' >&2
+            exit 1
+          fi
+          docker pull "$edge_image"
+
+          # Nginx reads the certificate and resolves upstream names during nginx -t.
+          # Use a throwaway certificate and loopback hosts on the isolated runner.
+          certs="$RUNNER_TEMP/nginx-ci-certs"
+          cert_path=$(awk '$1 == "ssl_certificate" { sub(/;$/, "", $2); print $2; exit }' nginx/conf.d/portlog.conf)
+          key_path=$(awk '$1 == "ssl_certificate_key" { sub(/;$/, "", $2); print $2; exit }' nginx/conf.d/portlog.conf)
+          mkdir -p "$(dirname "$certs${cert_path#/etc/letsencrypt}")" "$(dirname "$certs${key_path#/etc/letsencrypt}")"
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=localhost \
+            -out "$certs${cert_path#/etc/letsencrypt}" -keyout "$certs${key_path#/etc/letsencrypt}"
+
+          docker run --rm --network none --add-host backend:127.0.0.1 --add-host frontend:127.0.0.1 \
+            -v "$PWD/nginx/conf.d:/etc/nginx/conf.d:ro" -v "$certs:/etc/letsencrypt:ro" \
+            "$edge_image" nginx -t
+          docker run --rm --network none \
+            -v "$PWD/frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro" \
+            "$frontend_image" nginx -t
+
+  storage-smoke:
+    name: Check object storage compatibility
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      COMPOSE_PROJECT_NAME: portlog-storage-ci
+      COMPOSE_FILE: docker-compose.dev.yml
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Verify existing MinIO objects survive the switch to Silo
+        run: |
+          set -euo pipefail
+          legacy_config="$RUNNER_TEMP/portlog-legacy-storage.yml"
+          cat > "$legacy_config" <<'YAML'
+          services:
+            minio:
+              image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+              healthcheck:
+                test: ['CMD-SHELL', 'curl -sf http://localhost:9000/minio/health/ready']
+          YAML
+          docker compose -f "$COMPOSE_FILE" -f "$legacy_config" up -d --wait --wait-timeout 60 minio
+          docker compose run --rm --no-deps -T minio-init
+          docker compose run --rm --no-deps -T minio-init '
+            mcli alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+            printf "%s" portlog-before-upgrade | mcli pipe local/sgc-documents/before-upgrade
+          '
+          docker compose up -d --force-recreate --wait --wait-timeout 60 minio
+          docker compose exec -T minio sh -ec '
+            mcli alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+            test "$(mcli cat local/sgc-documents/before-upgrade)" = portlog-before-upgrade
+            printf "%s" portlog-after-upgrade | mcli pipe local/sgc-documents/after-upgrade
+            test "$(mcli cat local/sgc-documents/after-upgrade)" = portlog-after-upgrade
+            mcli rm local/sgc-documents/after-upgrade
+          '
+      - name: Remove CI object storage resources
+        if: always()
+        run: docker compose down --volumes
+
+  image-audit:
+    name: Audit ${{ matrix.service }} image
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [nginx, frontend, backend, postgres, minio, certbot]
+    env:
+      TRIVY_IMAGE: ghcr.io/aquasecurity/trivy:0.76.2
+      SERVICE: ${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Resolve and prepare the configured image
+        run: |
+          set -euo pipefail
+          compose=$(docker compose config --no-env-resolution --no-interpolate --format json)
+          image=$(jq -r --arg service "$SERVICE" '.services[$service].image // empty' <<< "$compose")
+          if [[ -n "$image" ]]; then
+            docker pull "$image"
+          else
+            dockerfile=$(jq -er --arg service "$SERVICE" '.services[$service].build.dockerfile' <<< "$compose")
+            image="portlog-audit-$SERVICE:ci"
+            docker build --pull --file "$dockerfile" --tag "$image" .
+          fi
+          docker image inspect "$image" --format '{{.Id}} {{json .RepoDigests}} {{.Os}}/{{.Architecture}}'
+          docker image save --output "$RUNNER_TEMP/portlog-image.tar" "$image"
+      - name: Check for published image vulnerabilities
+        run: |
+          docker run --rm \
+            -v "$RUNNER_TEMP/portlog-image.tar:/scan/image.tar:ro" \
+            "$TRIVY_IMAGE" image --input /scan/image.tar --scanners vuln \
+            --severity HIGH,CRITICAL --exit-code 1
+
+  npm-audit:
+    name: Audit production npm dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+      - run: npm audit --omit=dev --audit-level=high
