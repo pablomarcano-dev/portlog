@@ -79,6 +79,7 @@ function NominationDetailPage() {
     nomReply: nomination.nomReply ?? undefined,
     mobileOnBoard: nomination.mobileOnBoard ?? undefined,
     referenceNo: nomination.referenceNo ?? undefined,
+    administrativeSnOt: nomination.administrativeSnOt,
     sdwt: nomination.sdwt ?? nomination.shipParticular.dwt ?? undefined,
     grt: nomination.grt ?? nomination.shipParticular.grt ?? undefined,
     loa: nomination.loa ?? nomination.shipParticular.loa ?? undefined,
@@ -431,6 +432,8 @@ function NominationDetailPage() {
                 <Box pt="xs">
                   <NominationInstructionsAction
                     nominationId={nomination.id}
+                    reference={nomination.administrativeSnOt ?? nomination.snOt}
+                    nominationSavePending={updateNomination.isPending}
                     client={nomination.client ?? nomination.charterer}
                     disabled={isReadOnly}
                   />

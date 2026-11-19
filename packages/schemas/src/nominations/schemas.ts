@@ -74,6 +74,13 @@ export const NominationCreateSchema = z
     nomReply: z.coerce.date().optional(),
     mobileOnBoard: z.string().max(50).optional(),
     referenceNo: z.string().max(100).optional(),
+    administrativeSnOt: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(/^(?:(?:SN|OT)\d{1,12}\/\d{2}(?:\/[A-Z0-9-]{1,20})?)?$/, 'Formato SN1234/26/ABC.')
+      .nullish()
+      .transform((value) => (value === '' ? null : value)),
 
     // Snapshot/override of the vessel's main particulars for this call.
     sdwt: z.coerce.number().nonnegative().nullable().optional(),
@@ -290,6 +297,7 @@ export const NominationSchema = z.object({
   nomReply: z.coerce.date().nullable(),
   mobileOnBoard: z.string().nullable(),
   referenceNo: z.string().nullable(),
+  administrativeSnOt: z.string().nullish().default(null),
   sdwt: z.coerce.number().nullable(),
   grt: z.coerce.number().nullable(),
   loa: z.coerce.number().nullable(),

@@ -74,6 +74,7 @@ model Nomination {
   nomReply      DateTime? @db.Timestamptz(6) // "Nom. Reply" — date nomination was acknowledged
   mobileOnBoard String? // mobile number for person on board
   referenceNo   String? // "Reference N°" free-text
+  administrativeSnOt String? // Agency-issued reference for the administrative Word form
 
   // Per-call vessel particulars. They start from the vessel registry but remain
   // editable because a recent ownership/flag change may make registry data stale.
@@ -151,6 +152,7 @@ model Nomination {
 
   // Client list back-relation (M6)
   nominationClients NominationClient[]
+  administrativeBillingRecipients AdministrativeNominationBillingRecipient[]
 
   // SOF Timesheet back-relation
   sofTimesheet SofTimesheet?

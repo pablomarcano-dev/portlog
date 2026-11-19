@@ -1256,13 +1256,23 @@ export function NominationForm({
               />
             </Grid.Col>
             <Grid.Col span={4}>
-              <TextInput
-                label="Reference Nº"
-                placeholder="Reference number"
-                disabled={isReadOnly}
-                error={formState.errors.referenceNo?.message}
-                {...register('referenceNo')}
-              />
+              <Stack gap="xs">
+                <TextInput
+                  label="Reference Nº"
+                  placeholder="Reference number"
+                  disabled={isReadOnly}
+                  error={formState.errors.referenceNo?.message}
+                  {...register('referenceNo')}
+                />
+                <TextInput
+                  label="SN/OT — Instrucciones administrativas"
+                  description="Ingresa la referencia oficial si difiere de la generada por PortLog."
+                  placeholder="SN1234/26/ABC"
+                  disabled={isReadOnly}
+                  error={formState.errors.administrativeSnOt?.message}
+                  {...register('administrativeSnOt')}
+                />
+              </Stack>
             </Grid.Col>
           </Grid>
 

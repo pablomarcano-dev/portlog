@@ -9,11 +9,28 @@ import { EmailModule } from '../email/email.module.js';
 import { AttachmentsModule } from '../attachments/attachments.module.js';
 import { EmailTemplatesModule } from '../email-templates/email-templates.module.js';
 import { NominationInstructionsDocxService } from './nomination-instructions-docx.service.js';
+import { AdministrativeNominationBillingController } from './administrative-nomination-billing.controller.js';
+import { AdministrativeNominationBillingService } from './administrative-nomination-billing.service.js';
+import { AdministrativeNominationInstructionsController } from './administrative-nomination-instructions.controller.js';
+import { AdministrativeNominationInstructionsDocxService } from './administrative-nomination-instructions-docx.service.js';
+import { AdministrativeNominationInstructionsService } from './administrative-nomination-instructions.service.js';
 
 @Module({
   imports: [PdfModule, PrismaModule, EmailModule, AttachmentsModule, EmailTemplatesModule],
-  controllers: [NominationsController, NominationFilesController],
-  providers: [NominationFilesService, NominationsService, NominationInstructionsDocxService],
+  controllers: [
+    NominationsController,
+    NominationFilesController,
+    AdministrativeNominationBillingController,
+    AdministrativeNominationInstructionsController,
+  ],
+  providers: [
+    NominationFilesService,
+    NominationsService,
+    NominationInstructionsDocxService,
+    AdministrativeNominationBillingService,
+    AdministrativeNominationInstructionsDocxService,
+    AdministrativeNominationInstructionsService,
+  ],
   exports: [NominationsService],
 })
 export class NominationsModule {}

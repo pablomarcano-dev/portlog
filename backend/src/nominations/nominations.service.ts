@@ -24,6 +24,7 @@ import { appendBranchCc, dedupeEmails } from '../email/email-address.util.js';
 import { OPERATIONAL_SENT_DISPATCH_WHERE } from '../common/operational-dispatch.js';
 import { EmailTemplateService } from '../email-templates/email-template.service.js';
 import { NominationInstructionsDocxService } from './nomination-instructions-docx.service.js';
+import { formatNominationNoticeReference, formatSnOt } from './nomination-reference.js';
 import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
 import {
   isValidTransition,
@@ -57,12 +58,6 @@ import {
   NominationClientDirectoryLinkError,
   normalizeNominationClientDirectoryLinks,
 } from '@portlog/schemas';
-
-function formatSnOt(correlative: number, dateNominated: Date, kind: NominationKind): string {
-  const yy = String(dateNominated.getFullYear()).slice(-2);
-  const prefix = kind === 'OT' ? 'OT' : 'SN';
-  return `${prefix}-${yy}/${String(correlative).padStart(4, '0')}`;
-}
 
 function formatInstructionDate(value: Date | null | undefined): string {
   if (!value) return '—';
@@ -1382,11 +1377,14 @@ export class NominationsService {
     const voyageNo = nomination.voyageNumber ?? '';
     const terminalName = nomination.opPort?.name ?? '';
     const branchCode = branch?.code ?? '';
-    const yy = String(nomination.dateNominated.getFullYear()).slice(-2);
-    const kindPrefix = nomination.kind === 'OT' ? 'OT' : 'SN';
     // "SN1522/24/JSE" — the form the agency writes on notices. Distinct from
     // formatSnOt's internal "SN-24/1522"; both refer to the same nomination.
-    const snOtRef = `${kindPrefix}${nomination.correlative}/${yy}/${branchCode}`;
+    const snOtRef = formatNominationNoticeReference(
+      nomination.correlative,
+      nomination.dateNominated,
+      nomination.kind,
+      branchCode,
+    );
     const refNo = nomination.referenceNo?.trim() ?? '';
     // Default matches the nomination form's auto-generated subject. If the user
     // edited the nomination's subject, that edit is preserved and reused here so

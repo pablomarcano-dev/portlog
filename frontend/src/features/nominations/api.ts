@@ -101,6 +101,9 @@ export const nominationsApi = {
   nominationInstructionsDocx: (nominationId: string): Promise<Blob> =>
     apiRequestBlob(`/nominations/${nominationId}/nomination-instructions.docx`),
 
+  administrativeNominationInstructionsDocx: (nominationId: string): Promise<Blob> =>
+    apiRequestBlob(`/nominations/${nominationId}/administrative-nomination-instructions.docx`),
+
   updateParcels: async (nominationId: string, parcels: unknown[]): Promise<void> => {
     await apiRequest<unknown>(`/nominations/${nominationId}/parcels`, {
       method: 'PATCH',

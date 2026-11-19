@@ -35,6 +35,9 @@ export function clientFormValues(client: ClientRecord): ClientCreateInput {
     phones,
     addresses,
     instructions,
+    administrativePortCostInstructions,
+    administrativeOwnerExpensesInstructions,
+    administrativeTechnicalManagementInstructions,
     notes,
     locationType,
     tariffItems,
@@ -46,6 +49,9 @@ export function clientFormValues(client: ClientRecord): ClientCreateInput {
     phones,
     addresses,
     instructions,
+    administrativePortCostInstructions,
+    administrativeOwnerExpensesInstructions,
+    administrativeTechnicalManagementInstructions,
     notes,
     locationType,
     tariffItems,
@@ -234,6 +240,34 @@ export function ClientFields({ form }: { form: UseFormReturn<ClientCreateInput> 
         {...register('instructions')}
         error={errors.instructions?.message}
       />
+      <Fieldset legend="Administrative nomination instructions (SNCA-RG-AGN-002)">
+        <Stack gap="sm">
+          <Textarea
+            label="Port cost"
+            autosize
+            minRows={3}
+            maxRows={12}
+            {...register('administrativePortCostInstructions')}
+            error={errors.administrativePortCostInstructions?.message}
+          />
+          <Textarea
+            label="Owner expenses"
+            autosize
+            minRows={3}
+            maxRows={12}
+            {...register('administrativeOwnerExpensesInstructions')}
+            error={errors.administrativeOwnerExpensesInstructions?.message}
+          />
+          <Textarea
+            label="Technical management"
+            autosize
+            minRows={3}
+            maxRows={12}
+            {...register('administrativeTechnicalManagementInstructions')}
+            error={errors.administrativeTechnicalManagementInstructions?.message}
+          />
+        </Stack>
+      </Fieldset>
       <Fieldset legend="Client tariff">
         <Controller
           control={control}

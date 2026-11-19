@@ -7,6 +7,7 @@ const PORT_SELECT = {
   name: true,
   abbreviation: true,
   country: true,
+  municipality: true,
   branchId: true,
   branch: { select: { id: true, name: true, code: true } },
   emails: true,
@@ -28,6 +29,7 @@ export interface PortNode {
   name: string;
   abbreviation: string | null;
   country: string | null;
+  municipality: string | null;
   branchId: string | null;
   emails: string[];
   emailGroup: string | null;

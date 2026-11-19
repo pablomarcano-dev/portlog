@@ -6,6 +6,12 @@ export const PortCreateSchema = z.object({
   name: z.string().min(1).max(120),
   abbreviation: z.string().max(20).optional(),
   country: optionalText(120),
+  municipality: z
+    .string()
+    .trim()
+    .max(120)
+    .nullish()
+    .transform((value) => (value === '' ? null : value)),
   branchId: clearableCuid(),
   // Addresses for the terminal itself, written to when a notice is addressed to
   // the terminal rather than to the nomination's client list.

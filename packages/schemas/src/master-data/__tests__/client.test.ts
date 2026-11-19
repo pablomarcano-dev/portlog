@@ -31,6 +31,26 @@ describe('canonical Client and Contact fields', () => {
       instructions: null,
     });
   });
+  it('keeps multiline administrative requirements separate and allows clearing one section', () => {
+    const portCost = 'Attach the invoice.\nInclude payment receipts.';
+    const created = ClientCreateSchema.parse({
+      name: 'Company',
+      instructions: 'Operations instructions',
+      administrativePortCostInstructions: ` ${portCost} `,
+      administrativeOwnerExpensesInstructions: 'Confirm with the owner.',
+      administrativeTechnicalManagementInstructions: 'Check the SOF.',
+    });
+
+    expect(created).toMatchObject({
+      instructions: 'Operations instructions',
+      administrativePortCostInstructions: portCost,
+      administrativeOwnerExpensesInstructions: 'Confirm with the owner.',
+      administrativeTechnicalManagementInstructions: 'Check the SOF.',
+    });
+    expect(ClientUpdateSchema.parse({ administrativeOwnerExpensesInstructions: ' ' })).toEqual({
+      administrativeOwnerExpensesInstructions: null,
+    });
+  });
   it('rejects duplicate address purposes and unlabelled Other addresses', () => {
     expect(
       ClientCreateSchema.safeParse({
