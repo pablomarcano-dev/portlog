@@ -151,6 +151,7 @@ model Nomination {
 
   // Client list back-relation (M6)
   nominationClients NominationClient[]
+  administrativeBillingRecipients AdministrativeNominationBillingRecipient[]
 
   // SOF Timesheet back-relation
   sofTimesheet SofTimesheet?

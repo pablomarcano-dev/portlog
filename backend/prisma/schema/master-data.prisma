@@ -72,6 +72,7 @@ model Port {
   name         String
   abbreviation String?
   country      String?
+  municipality String?
   // The terminal's own distribution list — who is written to when a notice is
   // addressed to the terminal itself (ETA forwarded to terminal), as opposed to
   // the nomination's client list. Distinct from `emailGroup`, which is a
@@ -300,6 +301,9 @@ model Client {
   entityType           ClientEntityType    @default(CLIENT)
   emails               String[]            @default([])
   instructions         String?             @db.Text
+  administrativePortCostInstructions            String? @db.Text
+  administrativeOwnerExpensesInstructions       String? @db.Text
+  administrativeTechnicalManagementInstructions String? @db.Text
   notes                String?             @db.Text
   locationType         ClientLocationType?
   phones               ClientPhone[]

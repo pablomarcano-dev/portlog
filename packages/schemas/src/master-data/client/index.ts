@@ -42,6 +42,9 @@ export const ClientCreateSchema = z
     phones: z.array(PhoneEntrySchema).max(30).default([]),
     addresses: AddressListSchema.default([]),
     instructions: nullableText(100_000),
+    administrativePortCostInstructions: nullableText(10_000),
+    administrativeOwnerExpensesInstructions: nullableText(10_000),
+    administrativeTechnicalManagementInstructions: nullableText(10_000),
     notes: nullableText(10_000),
     locationType: z.enum(['LOCAL', 'EXTERIOR']).nullish(),
     contactIds: z

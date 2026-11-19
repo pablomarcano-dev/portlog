@@ -273,6 +273,7 @@ function PortsScreen() {
           name: port.name,
           abbreviation: port.abbreviation ?? undefined,
           country: port.country ?? undefined,
+          municipality: port.municipality ?? undefined,
           branchId: port.branchId ?? undefined,
           emails: port.emails ?? [],
           emailGroup: port.emailGroup ?? undefined,
@@ -370,6 +371,7 @@ function PortsScreen() {
             name: port.name,
             abbreviation: port.abbreviation ?? undefined,
             country: port.country ?? undefined,
+            municipality: port.municipality ?? undefined,
             branchId: port.branchId ?? undefined,
             emails: port.emails ?? [],
             emailGroup: port.emailGroup ?? undefined,
@@ -564,7 +566,7 @@ function PortFields({ form }: { form: ReturnType<typeof useForm<PortCreateInput>
         </Grid.Col>
       </Grid>
       <Grid gutter="sm">
-        <Grid.Col span={6}>
+        <Grid.Col span={{ base: 12, sm: 4 }}>
           <TextInput
             label="Country"
             placeholder="e.g. Netherlands"
@@ -572,7 +574,14 @@ function PortFields({ form }: { form: ReturnType<typeof useForm<PortCreateInput>
             {...register('country')}
           />
         </Grid.Col>
-        <Grid.Col span={6}>
+        <Grid.Col span={{ base: 12, sm: 4 }}>
+          <TextInput
+            label="Municipality"
+            error={formState.errors.municipality?.message}
+            {...register('municipality')}
+          />
+        </Grid.Col>
+        <Grid.Col span={{ base: 12, sm: 4 }}>
           <Controller
             control={form.control}
             name="branchId"

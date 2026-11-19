@@ -18,6 +18,7 @@ export interface PortRecord {
   name: string;
   abbreviation?: string | null;
   country?: string | null;
+  municipality?: string | null;
   branchId?: string | null;
   branch?: { id: string; name: string; code: string } | null;
   emails?: string[];

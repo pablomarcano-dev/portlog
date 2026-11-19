@@ -28,6 +28,7 @@ export function NewPortModal({ opened, onClose, onCreated, branchId }: Props) {
       name: '',
       abbreviation: '',
       country: '',
+      municipality: '',
       emailGroup: '',
       branchId,
       terminalContacts: [],
@@ -88,6 +89,11 @@ export function NewPortModal({ opened, onClose, onCreated, branchId }: Props) {
               placeholder="e.g. Netherlands"
               error={formState.errors.country?.message}
               {...register('country')}
+            />
+            <TextInput
+              label="Municipality"
+              error={formState.errors.municipality?.message}
+              {...register('municipality')}
             />
             <Group gap={6} align="flex-end" wrap="nowrap">
               <Controller

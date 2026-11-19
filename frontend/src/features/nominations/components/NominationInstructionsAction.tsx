@@ -1,19 +1,22 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Group, Stack, Text } from '@mantine/core';
+import { Alert, Button, Divider, Group, Stack, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { EntityPicker } from '../../../components/master-data/EntityPicker';
 import { nominationsApi } from '../api';
 import { NewClientModal } from './NewClientModal';
+import { AdministrativeNominationInstructionsAction } from './AdministrativeNominationInstructionsAction';
 
 interface NominationInstructionsActionProps {
   nominationId: string;
+  reference: string;
   client: { id: string; name: string } | null;
   disabled?: boolean;
 }
 
 export function NominationInstructionsAction({
   nominationId,
+  reference,
   client,
   disabled = false,
 }: NominationInstructionsActionProps) {
@@ -86,6 +89,13 @@ export function NominationInstructionsAction({
 
   return (
     <Stack gap="xs" mb="md">
+      <AdministrativeNominationInstructionsAction
+        nominationId={nominationId}
+        reference={reference}
+        disabled={disabled}
+        clientChangePending={associateClient.isPending}
+      />
+      <Divider my="xs" />
       <Text fw={600} size="sm">
         Nomination instructions
       </Text>

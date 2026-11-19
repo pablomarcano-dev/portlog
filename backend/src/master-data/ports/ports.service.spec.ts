@@ -19,6 +19,7 @@ const mockPort = {
   name: 'Montevideo',
   abbreviation: 'MVD',
   country: 'Uruguay',
+  municipality: 'Montevideo',
   emailGroup: null,
   comments: null,
 };
@@ -121,6 +122,10 @@ describe('PortsService', () => {
       const result = await service.getById('port-cuid-1');
 
       expect(result.name).toBe('Montevideo');
+      expect(result.municipality).toBe('Montevideo');
+      expect(mockPrisma.port.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ select: expect.objectContaining({ municipality: true }) }),
+      );
       expect(result.piers).toHaveLength(1);
       expect(result.piers[0]?.name).toBe('Berth 3');
     });

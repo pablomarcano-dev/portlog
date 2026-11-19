@@ -33,3 +33,20 @@ describe('optional port branch', () => {
     });
   });
 });
+
+describe('optional port municipality', () => {
+  it('trims the municipality while retaining accents', () => {
+    expect(
+      PortCreateSchema.parse({ name: 'Terminal', municipality: '  San José  ' }).municipality,
+    ).toBe('San José');
+  });
+
+  it('omits the municipality from patches that do not change it', () => {
+    expect(PortUpdateSchema.parse({ name: 'Updated terminal' })).not.toHaveProperty('municipality');
+  });
+
+  it('allows the municipality to be cleared through the form or API', () => {
+    expect(PortUpdateSchema.parse({ municipality: '  ' })).toEqual({ municipality: null });
+    expect(PortUpdateSchema.parse({ municipality: null })).toEqual({ municipality: null });
+  });
+});

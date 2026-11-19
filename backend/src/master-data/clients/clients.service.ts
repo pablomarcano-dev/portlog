@@ -9,6 +9,9 @@ export const CLIENT_SELECT = {
   entityType: true,
   ...COMMUNICATION_SELECT,
   instructions: true,
+  administrativePortCostInstructions: true,
+  administrativeOwnerExpensesInstructions: true,
+  administrativeTechnicalManagementInstructions: true,
   notes: true,
   locationType: true,
   tariffItems: {

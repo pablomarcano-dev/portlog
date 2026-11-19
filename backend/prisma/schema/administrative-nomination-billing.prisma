@@ -1,0 +1,25 @@
+enum AdministrativeBillingCategory {
+  PORT_COSTS
+  OWNER_EXPENSES
+  TECHNICAL_MANAGEMENT
+}
+
+enum AdministrativeBillingAddressPurpose {
+  TAX
+  BILLING
+}
+
+model AdministrativeNominationBillingRecipient {
+  nominationId   String                              @db.Uuid
+  nomination     Nomination                          @relation(fields: [nominationId], references: [id], onDelete: Cascade)
+  category       AdministrativeBillingCategory
+  // Snapshot the selected payee and address. Directory edits replace address rows,
+  // and should not silently change an existing nomination's invoicing details.
+  clientId       String
+  clientName     String
+  addressPurpose AdministrativeBillingAddressPurpose
+  addressText    String                              @db.Text
+
+  @@id([nominationId, category])
+  @@map("administrative_nomination_billing_recipients")
+}

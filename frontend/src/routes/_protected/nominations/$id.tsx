@@ -431,6 +431,7 @@ function NominationDetailPage() {
                 <Box pt="xs">
                   <NominationInstructionsAction
                     nominationId={nomination.id}
+                    reference={nomination.snOt}
                     client={nomination.client ?? nomination.charterer}
                     disabled={isReadOnly}
                   />
