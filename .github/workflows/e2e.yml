@@ -42,6 +42,7 @@ jobs:
       SMTP_HOST: localhost
       SMTP_PORT: '1025'
       SMTP_FROM: portlog@localhost
+      VITE_API_URL: http://localhost:3000/api
       NODE_ENV: test
 
     steps:

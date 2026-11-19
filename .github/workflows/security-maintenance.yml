@@ -74,11 +74,27 @@ jobs:
       - name: Verify existing MinIO objects survive the switch to Silo
         run: |
           set -euo pipefail
+          legacy_release=RELEASE.2025-09-07T16-13-09Z
+          legacy_url="https://dl.min.io/community/server/minio/release/linux-amd64/minio.$legacy_release"
+          export LEGACY_MINIO_BIN="$RUNNER_TEMP/minio.$legacy_release"
+          curl -fsSL --retry 2 "$legacy_url" -o "$LEGACY_MINIO_BIN"
+          curl -fsSL --retry 2 "$legacy_url.sha256sum" -o "$LEGACY_MINIO_BIN.sha256sum"
+          (cd "$RUNNER_TEMP" && sha256sum --check "$(basename "$LEGACY_MINIO_BIN").sha256sum")
+          chmod 755 "$LEGACY_MINIO_BIN"
+
+          # The retired Docker Hub image is unavailable. Run the exact upstream
+          # server release in the standard Silo image for this CI fixture.
           legacy_config="$RUNNER_TEMP/portlog-legacy-storage.yml"
           cat > "$legacy_config" <<'YAML'
           services:
             minio:
-              image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+              entrypoint: ['/usr/local/bin/minio-legacy']
+              ports: !reset []
+              volumes:
+                - type: bind
+                  source: ${LEGACY_MINIO_BIN:?}
+                  target: /usr/local/bin/minio-legacy
+                  read_only: true
               healthcheck:
                 test: ['CMD-SHELL', 'curl -sf http://localhost:9000/minio/health/ready']
           YAML
