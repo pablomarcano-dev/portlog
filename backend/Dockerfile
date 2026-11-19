@@ -1,5 +1,5 @@
 # Build stage — context is repo root
-FROM node:26-alpine AS build
+FROM node:26.13.1-alpine AS build
 WORKDIR /app
 
 # Copy manifests first for layer caching
@@ -25,7 +25,7 @@ RUN cd backend && npx prisma generate
 RUN npm run build -w @portlog/backend
 
 # Production stage
-FROM node:26-alpine AS runtime
+FROM node:26.13.1-alpine AS runtime
 WORKDIR /app
 
 # Chromium for headless PDF rendering (puppeteer-core — no bundled browser).
