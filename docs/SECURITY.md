@@ -8,9 +8,9 @@ Companion to [STACK.md](STACK.md) (Golden Rules) and [DEPLOYMENT.md](DEPLOYMENT.
 Both Nginx containers use the same versioned image in `docker-compose.yml` and
 `frontend/Dockerfile`. Dependabot checks daily and proposes both updates in one pull
 request. On relevant PRs, the **Security maintenance** workflow validates both Nginx
-configurations using a generated test certificate, audits the production npm
-lockfile, and checks that Silo can read an object written to the same volume by
-the previous MinIO image. Merging to `main` triggers the production deployment.
+configurations using a generated test certificate, audits the production images
+and npm lockfile, and checks that Silo can read an object written to the same
+volume by the previous MinIO image. Merging to `main` triggers the production deployment.
 See [the storage upgrade procedure](DEPLOYMENT.md#upgrade-an-existing-minio-installation-to-silo)
 for the production cutover.
 
