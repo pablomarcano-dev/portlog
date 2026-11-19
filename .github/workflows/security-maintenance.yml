@@ -63,7 +63,7 @@ jobs:
     name: Check object storage compatibility
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
       COMPOSE_PROJECT_NAME: portlog-storage-ci
       COMPOSE_FILE: docker-compose.dev.yml
@@ -71,19 +71,24 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+      - name: Check out the previous MinIO release
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: minio/minio
+          ref: 07c3a429bfed433e49018cb0f78a52145d4bedeb # RELEASE.2025-09-07T16-13-09Z
+          path: minio-legacy
+          persist-credentials: false
+      - name: Build the legacy MinIO fixture
+        working-directory: minio-legacy
+        env:
+          CGO_ENABLED: '0'
+        run: go build -mod=readonly -o "$RUNNER_TEMP/minio-legacy" .
       - name: Verify existing MinIO objects survive the switch to Silo
         run: |
           set -euo pipefail
-          legacy_release=RELEASE.2025-09-07T16-13-09Z
-          legacy_url="https://dl.min.io/community/server/minio/release/linux-amd64/minio.$legacy_release"
-          export LEGACY_MINIO_BIN="$RUNNER_TEMP/minio.$legacy_release"
-          curl -fsSL --retry 2 "$legacy_url" -o "$LEGACY_MINIO_BIN"
-          curl -fsSL --retry 2 "$legacy_url.sha256sum" -o "$LEGACY_MINIO_BIN.sha256sum"
-          (cd "$RUNNER_TEMP" && sha256sum --check "$(basename "$LEGACY_MINIO_BIN").sha256sum")
-          chmod 755 "$LEGACY_MINIO_BIN"
-
-          # The retired Docker Hub image is unavailable. Run the exact upstream
-          # server release in the standard Silo image for this CI fixture.
+          export LEGACY_MINIO_BIN="$RUNNER_TEMP/minio-legacy"
+          # The legacy binary uses the test volume in the standard Silo image
+          # with its entrypoint replaced and ports kept on the Compose network.
           legacy_config="$RUNNER_TEMP/portlog-legacy-storage.yml"
           cat > "$legacy_config" <<'YAML'
           services:
