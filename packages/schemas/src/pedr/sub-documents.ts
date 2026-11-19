@@ -127,7 +127,7 @@ export const pedrSubDocumentResponseSchema = z.object({
   type: pedrSubDocumentTypeSchema,
   status: pedrSubDocumentStatusSchema,
   stage: pedrStageSchema,
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
   recipients: z.array(pedrSubDocumentRecipientSchema),
   body: z.string().nullable(),
   finalizedAt: z.string().datetime().nullable(),

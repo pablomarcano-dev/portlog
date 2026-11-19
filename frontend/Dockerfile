@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY package*.json ./
 COPY tsconfig.base.json ./
+COPY scripts/patch-minio-query-string.cjs ./scripts/
 COPY packages/schemas/package.json ./packages/schemas/
 COPY frontend/package.json ./frontend/
 

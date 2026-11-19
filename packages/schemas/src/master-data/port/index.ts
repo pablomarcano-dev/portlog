@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { clearableCuid, emailList, optionalText } from '../../common/fields';
+import { clearableCuid, emailList, optionalText, partialForUpdate } from '../../common/fields';
 import { ListQuerySchema } from '../../common/pagination';
 
 export const PortCreateSchema = z.object({
@@ -28,7 +28,7 @@ export const PortCreateSchema = z.object({
     .default([]),
 });
 
-export const PortUpdateSchema = PortCreateSchema.partial();
+export const PortUpdateSchema = partialForUpdate(PortCreateSchema);
 
 export const PortListQuerySchema = ListQuerySchema.extend({
   branchId: z.string().cuid().optional(),

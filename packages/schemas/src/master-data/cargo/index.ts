@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { partialForUpdate } from '../../common/fields';
 import { ListQuerySchema } from '../../common/pagination';
 
 // Product classification. SN products may be used on any nomination; OT products
@@ -15,7 +16,7 @@ export const CargoCreateSchema = z.object({
   comments: z.string().max(10_000).optional(),
 });
 
-export const CargoUpdateSchema = CargoCreateSchema.partial();
+export const CargoUpdateSchema = partialForUpdate(CargoCreateSchema);
 
 // Extends the shared list query with an optional category filter — the OT product
 // picker requests `category=OT` so it only suggests OT-eligible products.

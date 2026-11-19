@@ -19,7 +19,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import { DateTimePicker, DatePickerInput } from '@mantine/dates';
 import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from '../../../lib/zodResolver';
 import { z } from 'zod';
 import { useNominationSof } from '../hooks/useNominationSof';
 import type { EmailDispatchResponse, SubDocType } from '@portlog/schemas';

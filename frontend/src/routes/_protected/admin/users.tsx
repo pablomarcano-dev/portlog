@@ -21,7 +21,7 @@ import {
   Title,
 } from '@mantine/core';
 import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from '../../../lib/zodResolver';
 import { notifications } from '@mantine/notifications';
 import {
   CreateUserSchema,

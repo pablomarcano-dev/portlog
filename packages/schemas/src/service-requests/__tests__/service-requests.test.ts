@@ -300,7 +300,7 @@ describe('error messages', () => {
   function messageFor(
     result: {
       success: boolean;
-      error?: { issues: Array<{ path: (string | number)[]; message: string }> };
+      error?: { issues: Array<{ path: PropertyKey[]; message: string }> };
     },
     path: string,
   ) {

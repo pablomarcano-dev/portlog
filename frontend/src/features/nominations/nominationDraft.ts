@@ -2,7 +2,7 @@ import { NominationCreateSchema, type NominationCreateInput } from '@portlog/sch
 
 const prefix = 'portlog:pending-nomination:v1:';
 const dateKeys = ['dateNominated', 'layDaysFirst', 'layDaysLast', 'etaDate'];
-const allowed = new Set(Object.keys(NominationCreateSchema.innerType().shape));
+const allowed = new Set(Object.keys(NominationCreateSchema.shape));
 export function draftKey(userId: string) {
   return prefix + userId;
 }

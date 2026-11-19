@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Alert, Button, Group, Modal, Stack, TextInput } from '@mantine/core';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from '../../../lib/zodResolver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { OwnerCreateSchema, type OwnerCreateInput } from '@portlog/schemas';
 import { ownersApi } from '../../../lib/api/master-data/owners';

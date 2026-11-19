@@ -94,13 +94,13 @@ export type SHDocumentData = z.infer<typeof SHDocumentDataSchema>;
 export const CreateSHDocumentSchema = z.object({
   type: SHDocumentTypeSchema,
   title: z.string().max(255).optional(),
-  data: z.record(z.any()).optional().default({}),
+  data: z.record(z.string(), z.any()).optional().default({}),
 });
 export type CreateSHDocumentInput = z.infer<typeof CreateSHDocumentSchema>;
 
 export const UpdateSHDocumentSchema = z.object({
   title: z.string().max(255).optional(),
-  data: z.record(z.any()),
+  data: z.record(z.string(), z.any()),
 });
 export type UpdateSHDocumentInput = z.infer<typeof UpdateSHDocumentSchema>;
 

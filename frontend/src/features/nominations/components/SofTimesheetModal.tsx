@@ -19,7 +19,7 @@ import { DatePickerInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import { useDisclosure } from '@mantine/hooks';
 import { useForm, Controller, useController, useFieldArray, type Control } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from '../../../lib/zodResolver';
 import { z } from 'zod';
 import { EntityPicker } from '../../../components/master-data/EntityPicker';
 import { TimeInput24 } from '../../../components/inputs/TimeInput24';

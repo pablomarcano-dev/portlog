@@ -14,7 +14,9 @@ services:
     restart: unless-stopped
 
   certbot:
-    image: certbot/certbot:v5.10.0
+    build:
+      context: .
+      dockerfile: certbot/Dockerfile
     volumes:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
@@ -58,7 +60,9 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: postgres:16.16-alpine
+    build:
+      context: .
+      dockerfile: postgres/Dockerfile
     expose:
       - '5432'
     environment:

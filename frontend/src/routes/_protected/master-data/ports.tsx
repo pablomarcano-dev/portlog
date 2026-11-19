@@ -22,7 +22,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import { useQuery } from '@tanstack/react-query';
 import { useForm, FormProvider, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from '../../../lib/zodResolver';
 import { PortCreateSchema } from '@portlog/schemas';
 import type { PortCreateInput } from '@portlog/schemas';
 import { useCurrentUser } from '../../../lib/auth/queries';

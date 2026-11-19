@@ -52,6 +52,11 @@ export class StorageService implements OnModuleInit {
     return `sgc-documents/${nominationId}/${STAGE_FOLDER[stage]}/${filename}`;
   }
 
+  async isReady(): Promise<boolean> {
+    // Probe the existing bucket; readiness must never create or modify storage.
+    return this.available && this.client.bucketExists(this.bucket);
+  }
+
   async uploadFile(key: string, buffer: Buffer, mimeType: string): Promise<void> {
     this.assertAvailable();
     await this.client.putObject(this.bucket, key, buffer, buffer.length, {

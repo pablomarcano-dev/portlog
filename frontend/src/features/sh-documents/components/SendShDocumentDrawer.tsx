@@ -13,7 +13,7 @@ import {
 } from '@mantine/core';
 import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from '../../../lib/zodResolver';
 import { z } from 'zod';
 import { useSendShDocument } from '../api';
 import { EmailGroupPicker } from '../../../components/master-data/EmailGroupPicker';

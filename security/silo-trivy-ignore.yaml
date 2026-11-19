@@ -1,0 +1,15 @@
+vulnerabilities:
+  - id: CVE-2026-39414
+    paths:
+      - usr/bin/silo
+    purls:
+      - pkg:golang/github.com/minio/minio@v0.0.0-20261112032852-44e848fedf8c
+    expired_at: 2026-12-19
+    statement: >-
+      Fixed in the pinned PGSTY Silo fork, not an accepted vulnerable version.
+      Server 20261112 (44e848fedf8c) includes 3252d5b7f and fd69c89d0,
+      bounding CSV and JSON Lines SelectObjectContent records to 1 MiB,
+      including AVX2/AVX-512. The upstream minio module identifier retained
+      by the fork causes the false positive. See
+      https://silo.pgsty.com/about/security-advisories/#cve-2026-39414--s3-select-oversized-record-memory-exhaustion
+      and the executable regression in scripts/check-silo-record-limits.cjs.

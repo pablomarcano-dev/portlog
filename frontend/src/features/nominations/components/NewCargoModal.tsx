@@ -1,7 +1,7 @@
 import { Button, Group, Modal, Select, Stack, Textarea, TextInput } from '@mantine/core';
 import { useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from '../../../lib/zodResolver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CargoCreateSchema, type CargoCategory, type CargoCreateInput } from '@portlog/schemas';
 import { cargoesApi, type CargoRecord } from '../../../lib/api/master-data/cargoes';

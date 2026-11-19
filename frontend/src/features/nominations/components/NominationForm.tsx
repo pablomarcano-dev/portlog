@@ -22,7 +22,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import { DatePickerInput } from '@mantine/dates';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from '../../../lib/zodResolver';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import {

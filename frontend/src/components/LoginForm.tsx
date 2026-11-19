@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from '../lib/zodResolver';
 import { TextInput, PasswordInput, Button, Text, Stack } from '@mantine/core';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { LoginRequestSchema } from '@portlog/schemas';

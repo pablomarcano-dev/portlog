@@ -11,7 +11,7 @@ import {
   TextInput,
 } from '@mantine/core';
 import { Controller, useForm, useFieldArray } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from '../../../lib/zodResolver';
 import { z } from 'zod';
 import type { SHDocumentDto } from '@portlog/schemas';
 import {

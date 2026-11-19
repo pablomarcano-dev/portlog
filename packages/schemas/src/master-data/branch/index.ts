@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { emailList } from '../../common/fields';
+import { emailList, partialForUpdate } from '../../common/fields';
 import { ListQuerySchema } from '../../common/pagination';
 
 // ---------------------------------------------------------------------------
@@ -41,7 +41,7 @@ export const BranchCreateSchema = z.object({
   centralEmails: z.array(z.string().email()).default([]),
 });
 
-export const BranchUpdateSchema = BranchCreateSchema.partial();
+export const BranchUpdateSchema = partialForUpdate(BranchCreateSchema);
 
 export const BranchSummarySchema = z.object({
   id: z.string(),

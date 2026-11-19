@@ -15,6 +15,7 @@
     "format": "prettier --write .",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
+    "postinstall": "node scripts/patch-minio-query-string.cjs",
     "prepare": "husky || true"
   },
   "devDependencies": {
@@ -34,7 +35,19 @@
     "@nestjs/platform-fastify": {
       "fastify": "5.12.8",
       "find-my-way": "9.10.0"
-    }
+    },
+    "@prisma/config": {
+      "deepmerge-ts": "^8.0.0",
+      "effect": "^3.22.1"
+    },
+    "nestjs-zod": {
+      "zod": "^4.6.7"
+    },
+    "minio": {
+      "query-string": "10.0.0"
+    },
+    "fast-uri@^3": "3.1.9",
+    "fast-uri@^4": "4.2.3"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -54,6 +67,6 @@
     "@prisma/client@6.19.3": true,
     "@prisma/engines@6.19.3": true,
     "prisma@6.19.3": true,
-    "bcrypt@5.1.1": true
+    "bcrypt@6.0.0": true
   }
 }

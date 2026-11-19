@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { partialForUpdate } from '../../common/fields';
 
 export const EmailGroupMemberSchema = z.object({
   email: z.string().email(),
@@ -26,7 +27,7 @@ export const EmailGroupCreateSchema = z.object({
   ),
 });
 
-export const EmailGroupUpdateSchema = EmailGroupCreateSchema.partial();
+export const EmailGroupUpdateSchema = partialForUpdate(EmailGroupCreateSchema);
 
 export const EmailGroupListQuerySchema = z.object({
   search: z.string().max(100).optional(),

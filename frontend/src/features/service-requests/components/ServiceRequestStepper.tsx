@@ -122,7 +122,7 @@ export function ServiceRequestStepper({
     client: request?.billToClient?.name ?? '',
   });
 
-  const form = useForm<ServiceRequestFormValues>({
+  const form = useForm<ServiceRequestFormValues, unknown, ServiceRequestCreate>({
     resolver: zodResolver(ServiceRequestCreateSchema),
     defaultValues: request
       ? toFormValues(request)
@@ -205,10 +205,7 @@ export function ServiceRequestStepper({
 
   return (
     <FormProvider {...form}>
-      <form
-        onSubmit={handleSubmit((values) => onSubmit(values as ServiceRequestCreate))}
-        noValidate
-      >
+      <form onSubmit={handleSubmit((values) => onSubmit(values))} noValidate>
         <Stack gap="lg">
           <Title order={3}>{SERVICE_REQUEST_TYPE_LABELS[type].en}</Title>
 

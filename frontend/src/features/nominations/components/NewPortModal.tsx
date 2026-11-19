@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActionIcon, Button, Group, Modal, Select, Stack, TextInput, Tooltip } from '@mantine/core';
 import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from '../../../lib/zodResolver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { PortCreateSchema } from '@portlog/schemas';
 import type { PortCreateInput } from '@portlog/schemas';

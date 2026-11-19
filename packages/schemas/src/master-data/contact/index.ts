@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { clearableCuid, optionalCuid, emailList } from '../../common/fields';
+import { clearableCuid, optionalCuid, emailList, partialForUpdate } from '../../common/fields';
 import { ListQuerySchema } from '../../common/pagination';
 import { PhoneEntrySchema, AddressListSchema, nullableText } from '../communication';
 import { ClientEntityTypeSchema } from '../client';
@@ -18,7 +18,7 @@ export const ContactCreateSchema = z
       .default([]),
   })
   .strict();
-export const ContactUpdateSchema = ContactCreateSchema.partial();
+export const ContactUpdateSchema = partialForUpdate(ContactCreateSchema);
 export const ContactListQuerySchema = ListQuerySchema.extend({
   clientId: optionalCuid(),
   entityType: ClientEntityTypeSchema.optional(),

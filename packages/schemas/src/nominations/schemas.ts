@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { NominationStatusSchema, NominationTypeSchema, NominationKindSchema } from './enums.js';
 import { NominationParcelSchema, NominationParcelReadSchema } from './parcel.js';
 import { BranchSummarySchema } from '../master-data/branch/index.js';
-import { clearableCuid } from '../common/fields.js';
+import { clearableCuid, partialForUpdate } from '../common/fields.js';
 import { NominationClientSchema, NominationClientCreateSchema } from './client.js';
 
 // ---------------------------------------------------------------------------
@@ -46,99 +46,98 @@ function checkLayDaysOrder(
 // All other fields optional. Status is implicitly DRAFT (server-assigned).
 // correlative is server-assigned — never accepted on input.
 // ---------------------------------------------------------------------------
-export const NominationCreateSchema = z
-  .object({
-    // Vessel — required
-    shipParticularId: cuidFk,
+const NominationInputSchema = z.object({
+  // Vessel — required
+  shipParticularId: cuidFk,
 
-    // Voyage — voyageNumber is auto-assigned from correlative if omitted
-    voyageNumber: z.string().max(20).optional(),
+  // Voyage — voyageNumber is auto-assigned from correlative if omitted
+  voyageNumber: z.string().max(20).optional(),
 
-    // Branch — resolves Open Question #5
-    branchId: cuidFk,
+  // Branch — resolves Open Question #5
+  branchId: cuidFk,
 
-    // One commercial client for the nomination. This is independent from the
-    // operational party rows in nominationClients.
-    clientId: clearableCuid(),
+  // One commercial client for the nomination. This is independent from the
+  // operational party rows in nominationClients.
+  clientId: clearableCuid(),
 
-    // Operational charterer. Kept separate from the commercial Client record.
-    chartererId: clearableCuid(),
+  // Operational charterer. Kept separate from the commercial Client record.
+  chartererId: clearableCuid(),
 
-    masterContactId: routingCuid(),
-    firstMessageGroupId: routingCuid(),
-    secondMessageGroupId: routingCuid(),
-    thirdMessageGroupId: routingCuid(),
-    alwaysCopyGroupId: routingCuid(),
+  masterContactId: routingCuid(),
+  firstMessageGroupId: routingCuid(),
+  secondMessageGroupId: routingCuid(),
+  thirdMessageGroupId: routingCuid(),
+  alwaysCopyGroupId: routingCuid(),
 
-    // Supplementary fields from legacy General Info tab
-    nomReply: z.coerce.date().optional(),
-    mobileOnBoard: z.string().max(50).optional(),
-    referenceNo: z.string().max(100).optional(),
-    administrativeSnOt: z
-      .string()
-      .trim()
-      .toUpperCase()
-      .regex(/^(?:(?:SN|OT)\d{1,12}\/\d{2}(?:\/[A-Z0-9-]{1,20})?)?$/, 'Formato SN1234/26/ABC.')
-      .nullish()
-      .transform((value) => (value === '' ? null : value)),
+  // Supplementary fields from legacy General Info tab
+  nomReply: z.coerce.date().optional(),
+  mobileOnBoard: z.string().max(50).optional(),
+  referenceNo: z.string().max(100).optional(),
+  administrativeSnOt: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^(?:(?:SN|OT)\d{1,12}\/\d{2}(?:\/[A-Z0-9-]{1,20})?)?$/, 'Formato SN1234/26/ABC.')
+    .nullish()
+    .transform((value) => (value === '' ? null : value)),
 
-    // Snapshot/override of the vessel's main particulars for this call.
-    sdwt: z.coerce.number().nonnegative().nullable().optional(),
-    grt: z.coerce.number().nonnegative().nullable().optional(),
-    loa: z.coerce.number().nonnegative().nullable().optional(),
+  // Snapshot/override of the vessel's main particulars for this call.
+  sdwt: z.coerce.number().nonnegative().nullable().optional(),
+  grt: z.coerce.number().nonnegative().nullable().optional(),
+  loa: z.coerce.number().nonnegative().nullable().optional(),
 
-    contactBlackBerry: z.string().max(255).optional().nullable(),
-    blindCopy: z.string().max(255).optional().nullable(),
+  contactBlackBerry: z.string().max(255).optional().nullable(),
+  blindCopy: z.string().max(255).optional().nullable(),
 
-    // Email recipients — saved at creation and used by all email sends in this nomination flow
-    emailTo: z.array(z.string().email()).default([]),
-    emailCc: z.array(z.string().email()).default([]),
-    emailBcc: z.array(z.string().email()).default([]),
+  // Email recipients — saved at creation and used by all email sends in this nomination flow
+  emailTo: z.array(z.string().email()).default([]),
+  emailCc: z.array(z.string().email()).default([]),
+  emailBcc: z.array(z.string().email()).default([]),
 
-    // Ports — all optional cuid FKs; pierId references Pier (child of opPort)
-    opPortId: cuidFk.nullish(),
-    pierId: cuidFk.nullish(),
-    lastPortId: cuidFk.optional(),
-    nextPortId: cuidFk.optional(),
-    disPortId: cuidFk.optional(),
+  // Ports — all optional cuid FKs; pierId references Pier (child of opPort)
+  opPortId: cuidFk.nullish(),
+  pierId: cuidFk.nullish(),
+  lastPortId: cuidFk.optional(),
+  nextPortId: cuidFk.optional(),
+  disPortId: cuidFk.optional(),
 
-    // Dates — ISO 8601 strings coerced to Date; UTC required
-    dateNominated: z.coerce.date(),
-    layDaysFirst: z.coerce.date().nullable().optional(),
-    layDaysLast: z.coerce.date().nullable().optional(),
-    etaDate: z.coerce.date().nullable().optional(),
+  // Dates — ISO 8601 strings coerced to Date; UTC required
+  dateNominated: z.coerce.date(),
+  layDaysFirst: z.coerce.date().nullable().optional(),
+  layDaysLast: z.coerce.date().nullable().optional(),
+  etaDate: z.coerce.date().nullable().optional(),
 
-    // People — nominatedById is a cuid FK; others are free-text
-    nominatedById: cuidFk.optional(),
-    master: z.string().max(255).optional(),
-    mic: z.string().max(255).optional(),
-    broker: z.string().max(255).optional(),
-    boardingClerk: z.string().max(255).optional(),
-    inspector: z.string().max(255).optional(),
+  // People — nominatedById is a cuid FK; others are free-text
+  nominatedById: cuidFk.optional(),
+  master: z.string().max(255).optional(),
+  mic: z.string().max(255).optional(),
+  broker: z.string().max(255).optional(),
+  boardingClerk: z.string().max(255).optional(),
+  inspector: z.string().max(255).optional(),
 
-    // Type + subject
-    nominationType: NominationTypeSchema.default('CHARTERERS_AGENTS_ONLY'),
-    // SN or OT series — chosen at creation, then immutable (omitted from update).
-    // OT nominations only accept OT-category products (enforced in the service layer).
-    kind: NominationKindSchema.default('SN'),
-    subject: z.string().max(500).optional(),
+  // Type + subject
+  nominationType: NominationTypeSchema.default('CHARTERERS_AGENTS_ONLY'),
+  // SN or OT series — chosen at creation, then immutable (omitted from update).
+  // OT nominations only accept OT-category products (enforced in the service layer).
+  kind: NominationKindSchema.default('SN'),
+  subject: z.string().max(500).optional(),
 
-    // Parcels (JSON array of Product/Qtty/Unit/Oper rows, extended with cargo-update figures)
-    parcels: z.array(NominationParcelSchema).default([]),
+  // Parcels (JSON array of Product/Qtty/Unit/Oper rows, extended with cargo-update figures)
+  parcels: z.array(NominationParcelSchema).default([]),
 
-    // Client list rows — created atomically with the nomination
-    nominationClients: z.array(NominationClientCreateSchema).default([]),
-  })
-  .superRefine(checkLayDaysOrder);
+  // Client list rows — created atomically with the nomination
+  nominationClients: z.array(NominationClientCreateSchema).default([]),
+});
+
+export const NominationCreateSchema = NominationInputSchema.superRefine(checkLayDaysOrder);
 
 // ---------------------------------------------------------------------------
 // NominationUpdateSchema
 // Partial of create, excluding status (status transitions via separate endpoint)
 // ---------------------------------------------------------------------------
-export const NominationUpdateSchema = NominationCreateSchema.innerType()
-  .omit({ nominationClients: true, kind: true })
-  .partial()
-  .superRefine(checkLayDaysOrder);
+export const NominationUpdateSchema = partialForUpdate(
+  NominationInputSchema.omit({ nominationClients: true, kind: true }),
+).superRefine(checkLayDaysOrder);
 
 // ---------------------------------------------------------------------------
 // NominationStatusTransitionSchema

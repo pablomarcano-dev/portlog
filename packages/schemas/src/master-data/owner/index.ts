@@ -32,7 +32,7 @@ export const OwnerCreateSchema = z.object({
     } catch {
       return v;
     }
-  }, z.record(z.unknown()).optional()),
+  }, z.record(z.string(), z.unknown()).optional()),
   comments: z.string().max(10_000).optional(),
 });
 

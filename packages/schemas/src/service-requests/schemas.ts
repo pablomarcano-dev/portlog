@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { partialForUpdate } from '../common/fields.js';
 import { attachmentIdsSchema } from '../attachments/index.js';
 import { ServiceRequestDetailsSchema, requiresAuthorizationDocument } from './details.js';
 import {
@@ -104,7 +105,7 @@ export const ServiceRequestCreateSchema = z.object({
   }),
   /** ISO-4217. The paper voucher says "Bs." — Venezuelan bolívar. */
   currency: z
-    .string({ invalid_type_error: 'Currency must be text' })
+    .string({ error: 'Currency must be text' })
     .trim()
     .length(3, 'Currency must be a 3-letter code, e.g. VES or USD')
     .toUpperCase()
@@ -116,11 +117,11 @@ export type ServiceRequestCreate = z.infer<typeof ServiceRequestCreateSchema>;
  * PATCH body. `type` is immutable after creation — switching type would orphan
  * the whole `details` payload, so the caller deletes and re-creates instead.
  */
-export const ServiceRequestUpdateSchema = ServiceRequestCreateSchema.omit({ type: true })
-  .partial()
-  .extend({
-    reconciliationNotes: optionalTextField(10_000, 'Reconciliation notes'),
-  });
+export const ServiceRequestUpdateSchema = partialForUpdate(
+  ServiceRequestCreateSchema.omit({ type: true }),
+).extend({
+  reconciliationNotes: optionalTextField(10_000, 'Reconciliation notes'),
+});
 export type ServiceRequestUpdate = z.infer<typeof ServiceRequestUpdateSchema>;
 
 export const ServiceRequestReceiptSchema = z.object({
@@ -166,10 +167,7 @@ export const ServiceRequestSendReadinessSchema = z
     details: ServiceRequestDetailsSchema,
     requestedByAuthority: z.boolean().nullish(),
     requestingAuthority: z.string().nullish(),
-    documentCount: z
-      .number({ invalid_type_error: 'Document count must be a number' })
-      .int()
-      .nonnegative(),
+    documentCount: z.number({ error: 'Document count must be a number' }).int().nonnegative(),
   })
   .superRefine((data, ctx) => {
     if (
@@ -217,7 +215,7 @@ export type ServiceRequestSendReadiness = z.infer<typeof ServiceRequestSendReadi
 
 export const ServiceRequestTransitionSchema = z.object({
   status: z.enum(['COMPLETED', 'CANCELLED'], {
-    errorMap: () => ({ message: 'A request may only be marked completed or cancelled' }),
+    error: 'A request may only be marked completed or cancelled',
   }),
   reason: optionalTextField(500, 'Reason'),
 });
@@ -234,8 +232,8 @@ export const ServiceRequestListQuerySchema = z.object({
   branchId: z.string().cuid('That branch reference is not valid').optional(),
   supplierId: z.string().cuid('That provider reference is not valid').optional(),
   nominationId: z.string().uuid('That nomination reference is not valid').optional(),
-  dateFrom: z.coerce.date({ invalid_type_error: '"From" must be a valid date' }).optional(),
-  dateTo: z.coerce.date({ invalid_type_error: '"To" must be a valid date' }).optional(),
+  dateFrom: z.coerce.date({ error: '"From" must be a valid date' }).optional(),
+  dateTo: z.coerce.date({ error: '"To" must be a valid date' }).optional(),
   // These two keep `z.coerce` deliberately: they only ever arrive as URL search
   // params, never from an input the user can leave blank.
   /** Matches control number, vessel name, voucher number or provider name. */

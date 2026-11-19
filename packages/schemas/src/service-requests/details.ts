@@ -201,7 +201,7 @@ export const ServiceRequestDetailsSchema = z.discriminatedUnion(
     StsDetailsSchema,
     GeneralDetailsSchema,
   ],
-  { errorMap: () => ({ message: 'Unrecognised service request type' }) },
+  { error: 'Unrecognised service request type' },
 );
 export type ServiceRequestDetails = z.infer<typeof ServiceRequestDetailsSchema>;
 

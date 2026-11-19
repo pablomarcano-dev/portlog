@@ -24,11 +24,11 @@ import { z } from 'zod';
  * dropdown, which is unreadable under an input. The enum schemas below are
  * already constructed, so this rebuilds from their own `.options` tuple.
  */
-export function choice<T extends [string, ...string[]]>(
+export function choice<T extends Record<string, string>>(
   schema: z.ZodEnum<T>,
   message: string,
 ): z.ZodEnum<T> {
-  return z.enum(schema.options, { errorMap: () => ({ message }) });
+  return z.enum(schema.enum, { error: message });
 }
 
 /** A term the UI and the provider-facing document each need in their own language. */

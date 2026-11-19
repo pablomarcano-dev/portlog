@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Alert, Button, Group, Modal, Stack, Text } from '@mantine/core';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from '../../../lib/zodResolver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ClientCreateSchema, type ClientCreateInput } from '@portlog/schemas';
 import { clientsApi } from '../../../lib/api/master-data/clients';

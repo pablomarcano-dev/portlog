@@ -5,6 +5,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
 import { join } from 'node:path';
 import { LoggerModule } from 'nestjs-pino';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { throttlingOptions } from './common/throttling.js';
 import { HealthModule } from './health/health.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { AuthModule } from './auth/auth.module.js';
@@ -85,15 +86,7 @@ import { PublicApiModule } from './public-api/public-api.module.js';
     }),
 
     // Global rate-limiting defaults. Per-route overrides via @Throttle().
-    ThrottlerModule.forRoot({
-      throttlers: [
-        {
-          name: 'default',
-          ttl: 60 * 1000, // 1 minute window (ms)
-          limit: 60, // 60 requests/min global default
-        },
-      ],
-    }),
+    ThrottlerModule.forRoot(throttlingOptions(process.env['NODE_ENV'])),
 
     PrismaModule,
     HealthModule,

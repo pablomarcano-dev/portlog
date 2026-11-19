@@ -28,7 +28,7 @@ export const createPedrSchema = z.object({
 export type CreatePedrInput = z.infer<typeof createPedrSchema>;
 
 export const updatePedrRequirementsSchema = z.object({
-  requirements: z.record(z.unknown()),
+  requirements: z.record(z.string(), z.unknown()),
 });
 export type UpdatePedrRequirementsInput = z.infer<typeof updatePedrRequirementsSchema>;
 

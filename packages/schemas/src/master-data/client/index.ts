@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { emailList } from '../../common/fields';
+import { emailList, partialForUpdate } from '../../common/fields';
 import { ListQuerySchema } from '../../common/pagination';
 import { PhoneEntrySchema, AddressListSchema, nullableText } from '../communication';
 
@@ -56,7 +56,7 @@ export const ClientCreateSchema = z
     emailGroups: ClientEmailAssignmentsSchema.default([]),
   })
   .strict();
-export const ClientUpdateSchema = ClientCreateSchema.partial();
+export const ClientUpdateSchema = partialForUpdate(ClientCreateSchema);
 export const ClientListQuerySchema = ListQuerySchema.extend({
   entityType: ClientEntityTypeSchema.optional(),
 });

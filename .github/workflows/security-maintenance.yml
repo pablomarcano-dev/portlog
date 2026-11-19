@@ -10,6 +10,10 @@ on:
       - 'docker-compose.dev.yml'
       - 'backend/Dockerfile'
       - 'frontend/Dockerfile'
+      - 'postgres/Dockerfile'
+      - 'certbot/Dockerfile'
+      - 'scripts/**'
+      - 'security/**'
       - 'frontend/nginx.conf'
       - 'nginx/conf.d/**'
       - '.github/workflows/security-maintenance.yml'
@@ -30,6 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - name: Test proxy and frontend with the proposed Nginx image
         run: |
@@ -70,7 +75,11 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
       - name: Check out the previous MinIO release
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -117,6 +126,11 @@ jobs:
             test "$(mcli cat local/sgc-documents/after-upgrade)" = portlog-after-upgrade
             mcli rm local/sgc-documents/after-upgrade
           '
+      - name: Test the patched SDK and Silo oversized-record security fix
+        run: |
+          npm ci --omit=dev --ignore-scripts
+          node scripts/patch-minio-query-string.cjs
+          PORTLOG_STORAGE_TEST=1 node scripts/check-silo-record-limits.cjs
       - name: Remove CI object storage resources
         if: always()
         run: docker compose down --volumes
@@ -135,18 +149,20 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - name: Resolve and prepare the configured image
         run: |
           set -euo pipefail
           compose=$(docker compose config --no-env-resolution --no-interpolate --format json)
           image=$(jq -r --arg service "$SERVICE" '.services[$service].image // empty' <<< "$compose")
-          if [[ -n "$image" ]]; then
-            docker pull "$image"
-          else
-            dockerfile=$(jq -er --arg service "$SERVICE" '.services[$service].build.dockerfile' <<< "$compose")
+          dockerfile=$(jq -r --arg service "$SERVICE" '.services[$service].build.dockerfile // empty' <<< "$compose")
+          if [[ -n "$dockerfile" ]]; then
             image="portlog-audit-$SERVICE:ci"
             docker build --pull --file "$dockerfile" --tag "$image" .
+          else
+            test -n "$image"
+            docker pull "$image"
           fi
           docker image inspect "$image" --format '{{.Id}} {{json .RepoDigests}} {{.Os}}/{{.Architecture}}'
           docker image save --output "$RUNNER_TEMP/portlog-image.tar" "$image"
@@ -154,7 +170,9 @@ jobs:
         run: |
           docker run --rm \
             -v "$RUNNER_TEMP/portlog-image.tar:/scan/image.tar:ro" \
+            -v "$PWD/security/silo-trivy-ignore.yaml:/scan/ignore.yaml:ro" \
             "$TRIVY_IMAGE" image --input /scan/image.tar --scanners vuln \
+            --ignorefile /scan/ignore.yaml \
             --severity HIGH,CRITICAL --exit-code 1
 
   npm-audit:
@@ -164,6 +182,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Button, Group, Modal, Stack, TagsInput, Textarea, TextInput } from '@mantine/core';
 import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from '../../../lib/zodResolver';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { EmailGroupCreateSchema, type EmailGroupCreateInput } from '@portlog/schemas';
 import { emailGroupsApi } from '../../../lib/api/master-data/email-groups';

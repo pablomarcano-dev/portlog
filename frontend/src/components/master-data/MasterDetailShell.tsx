@@ -53,8 +53,8 @@ import {
 import { notifications } from '@mantine/notifications';
 import { useForm, FormProvider } from 'react-hook-form';
 import type { UseFormReturn, FieldValues, FieldErrors } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import type { ZodType, ZodTypeDef } from 'zod';
+import { zodResolver } from '../../lib/zodResolver';
+import type { ZodType } from 'zod';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useCurrentUser } from '../../lib/auth/queries';
 import { FlashSearch } from './FlashSearch';
@@ -73,7 +73,7 @@ export interface MasterDetailShellProps<TForm extends FieldValues> {
   showComments?: boolean;
   newValues?: TForm;
   /** Zod schema for the form. Includes optional `comments` when showComments is true. */
-  schema: ZodType<TForm, ZodTypeDef, unknown>;
+  schema: ZodType<TForm, unknown>;
   /** TanStack Query result providing the full list of records. */
   listQuery: UseQueryResult<{ items: ListItem[] }>;
   /** Currently selected record id, or null if none selected / new record. */

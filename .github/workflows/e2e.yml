@@ -24,7 +24,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U portlog -d portlog_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -44,10 +44,14 @@ jobs:
       SMTP_FROM: portlog@localhost
       VITE_API_URL: http://localhost:3000/api
       NODE_ENV: test
+      COOKIE_SECURE: 'false'
 
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4

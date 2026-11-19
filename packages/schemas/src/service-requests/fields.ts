@@ -34,7 +34,7 @@ export function requiredNumber(opts: { missing: string; notANumber: string }) {
       }
       return v;
     },
-    z.number({ required_error: opts.missing, invalid_type_error: opts.notANumber }),
+    z.number({ error: (issue) => (issue.input === undefined ? opts.missing : opts.notANumber) }),
   );
 }
 
@@ -49,7 +49,7 @@ export function optionalNumber(opts: { notANumber: string; negative: string }) {
       }
       return v;
     },
-    z.number({ invalid_type_error: opts.notANumber }).nonnegative(opts.negative).nullable(),
+    z.number({ error: opts.notANumber }).nonnegative(opts.negative).nullable(),
   );
 }
 
@@ -64,7 +64,7 @@ export function optionalNumber(opts: { notANumber: string; negative: string }) {
 export function requiredDate(message: string) {
   return z.preprocess(
     (v) => (isBlank(v) ? undefined : v instanceof Date ? v : new Date(v as string)),
-    z.date({ errorMap: () => ({ message }) }),
+    z.date({ error: message }),
   );
 }
 
@@ -72,7 +72,7 @@ export function requiredDate(message: string) {
 export function optionalDate(message: string) {
   return z.preprocess(
     (v) => (isBlank(v) ? null : v instanceof Date ? v : new Date(v as string)),
-    z.date({ errorMap: () => ({ message }) }).nullable(),
+    z.date({ error: message }).nullable(),
   );
 }
 
@@ -81,7 +81,7 @@ export function optionalTextField(max: number, field: string) {
   return z.preprocess(
     (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
     z
-      .string({ invalid_type_error: `${field} must be text` })
+      .string({ error: `${field} must be text` })
       .trim()
       .max(max, `${field} must be ${max} characters or fewer`)
       .optional(),
@@ -91,7 +91,7 @@ export function optionalTextField(max: number, field: string) {
 /** Required free text. */
 export function requiredTextField(max: number, opts: { missing: string; tooLong?: string }) {
   return z
-    .string({ required_error: opts.missing, invalid_type_error: opts.missing })
+    .string({ error: opts.missing })
     .trim()
     .min(1, opts.missing)
     .max(max, opts.tooLong ?? `Must be ${max} characters or fewer`);
@@ -100,7 +100,7 @@ export function requiredTextField(max: number, opts: { missing: string; tooLong?
 /** A required master-data reference. */
 export function requiredRef(field: string) {
   return z
-    .string({ required_error: `Select a ${field}`, invalid_type_error: `Select a ${field}` })
+    .string({ error: `Select a ${field}` })
     .min(1, `Select a ${field}`)
     .cuid(`That ${field} reference is not valid`);
 }
@@ -115,11 +115,11 @@ export function requiredRef(field: string) {
 export function clearableRef(field: string) {
   return z.preprocess(
     (v) => (isBlank(v) || (typeof v === 'string' && v.trim() === '') ? null : v),
-    z.string().cuid(`That ${field} reference is not valid`).nullish(),
+    z.string().cuid(`That ${field} reference is not valid`).nullable(),
   );
 }
 
 /** A checkbox. Only reachable by a malformed API call, but named anyway. */
 export function flag(field: string) {
-  return z.boolean({ invalid_type_error: `${field} must be yes or no` }).default(false);
+  return z.boolean({ error: `${field} must be yes or no` }).default(false);
 }

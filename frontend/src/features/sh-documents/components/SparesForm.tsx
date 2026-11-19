@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Alert, Button, Group, Loader, Stack, Table, Text, TextInput } from '@mantine/core';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from '../../../lib/zodResolver';
 import { z } from 'zod';
 import { NumberInput } from '@mantine/core';
 import type { SHDocumentDto, SHDocumentType } from '@portlog/schemas';

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Alert, Button, Group, Loader, Stack, Text, Textarea, TextInput } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from '../../../lib/zodResolver';
 import { z } from 'zod';
 import type { SHDocumentDto } from '@portlog/schemas';
 import {

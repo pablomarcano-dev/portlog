@@ -49,10 +49,10 @@ export const SofDraftDataSchema = z.object({
 
 const DynColsSchema = z.object({
   columns: z.array(z.string()).default([]),
-  rows: z.record(z.array(z.string())).default({}),
+  rows: z.record(z.string(), z.array(z.string())).default({}),
 });
 export const SofParcelsDataSchema = DynColsSchema.extend({
-  comments: z.record(z.string().max(10000)).optional(),
+  comments: z.record(z.string(), z.string().max(10000)).optional(),
 });
 export const SofBlFiguresDataSchema = DynColsSchema;
 export const SofShipFiguresDataSchema = DynColsSchema;

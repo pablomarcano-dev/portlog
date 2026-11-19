@@ -87,7 +87,7 @@ describe('Activities CRUD — E2E-S4', () => {
 
       // Old name gone, new name present
       cy.contains(fix.update.name).should('be.visible');
-      cy.contains(fix.create.name).should('not.exist');
+      cy.contains(new RegExp(`^${Cypress._.escapeRegExp(fix.create.name)}$`)).should('not.exist');
     });
   });
 

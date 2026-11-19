@@ -5,6 +5,7 @@ WORKDIR /app
 # Copy manifests first for layer caching
 COPY package*.json ./
 COPY tsconfig.base.json ./
+COPY scripts/patch-minio-query-string.cjs ./scripts/
 COPY packages/schemas/package.json ./packages/schemas/
 COPY backend/package.json ./backend/
 
@@ -23,6 +24,10 @@ RUN cd backend && npx prisma generate
 
 # Build backend
 RUN npm run build -w @portlog/backend
+
+# The runtime needs the Prisma CLI for migrations, but no build/test tooling.
+RUN npm prune --omit=dev --ignore-scripts --workspaces \
+    && mkdir -p /app/backend/node_modules
 
 # Production stage
 FROM node:26.13.1-alpine AS runtime

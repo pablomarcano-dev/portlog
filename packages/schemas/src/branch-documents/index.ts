@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { partialForUpdate } from '../common/fields';
 
 export const BranchDocumentFieldTypeSchema = z.enum([
   'TEXT',
@@ -54,7 +55,7 @@ export const BranchDocumentInstanceDto = z.object({
   id: z.string(),
   templateId: z.string(),
   nominationId: z.string(),
-  data: z.record(z.unknown()),
+  data: z.record(z.string(), z.unknown()),
   status: BranchDocumentStatusSchema,
   title: z.string().nullable(),
   minioKey: z.string().nullable(),
@@ -77,13 +78,13 @@ export type BranchDocumentInstance = z.infer<typeof BranchDocumentInstanceDto>;
 export const CreateBranchDocumentInstanceSchema = z.object({
   templateId: z.string().min(1),
   title: z.string().optional(),
-  data: z.record(z.unknown()).default({}),
+  data: z.record(z.string(), z.unknown()).default({}),
 });
 export type CreateBranchDocumentInstanceInput = z.infer<typeof CreateBranchDocumentInstanceSchema>;
 
 export const UpdateBranchDocumentInstanceSchema = z.object({
   title: z.string().optional(),
-  data: z.record(z.unknown()),
+  data: z.record(z.string(), z.unknown()),
 });
 export type UpdateBranchDocumentInstanceInput = z.infer<typeof UpdateBranchDocumentInstanceSchema>;
 
@@ -101,7 +102,9 @@ export const CreateBranchDocumentTemplateSchema = z.object({
 });
 export type CreateBranchDocumentTemplateInput = z.infer<typeof CreateBranchDocumentTemplateSchema>;
 
-export const UpdateBranchDocumentTemplateSchema = CreateBranchDocumentTemplateSchema.partial();
+export const UpdateBranchDocumentTemplateSchema = partialForUpdate(
+  CreateBranchDocumentTemplateSchema,
+);
 export type UpdateBranchDocumentTemplateInput = z.infer<typeof UpdateBranchDocumentTemplateSchema>;
 
 // --- Field CRUD schemas ---
@@ -124,8 +127,9 @@ export type CreateBranchDocumentTemplateFieldInput = z.infer<
   typeof CreateBranchDocumentTemplateFieldSchema
 >;
 
-export const UpdateBranchDocumentTemplateFieldSchema =
-  CreateBranchDocumentTemplateFieldSchema.partial();
+export const UpdateBranchDocumentTemplateFieldSchema = partialForUpdate(
+  CreateBranchDocumentTemplateFieldSchema,
+);
 export type UpdateBranchDocumentTemplateFieldInput = z.infer<
   typeof UpdateBranchDocumentTemplateFieldSchema
 >;
