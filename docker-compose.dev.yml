@@ -21,7 +21,7 @@
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.16-alpine
     ports:
       - '5432:5432'
     environment:
@@ -38,7 +38,7 @@ services:
       retries: 5
 
   minio:
-    image: minio/minio:latest
+    image: pgsty/silo:RELEASE.2026-11-12T00-00-00Z@sha256:c20d112390b9a9ce8c11b8af95ad35bcaa62f4759663c09c936cd8d2b511f329
     command: server /data --console-address ":9001"
     ports:
       - '9000:9000'
@@ -50,22 +50,24 @@ services:
       - minio-dev-data:/data
     restart: unless-stopped
     healthcheck:
-      test: ['CMD-SHELL', 'curl -sf http://localhost:9000/minio/health/live']
+      test: ['CMD', 'silo', 'healthcheck', 'ready']
       interval: 5s
       timeout: 5s
       retries: 10
 
   minio-init:
-    image: minio/mc
+    image: pgsty/silo:RELEASE.2026-11-12T00-00-00Z@sha256:c20d112390b9a9ce8c11b8af95ad35bcaa62f4759663c09c936cd8d2b511f329
     depends_on:
       minio:
         condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-        mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-portlog} $${MINIO_ROOT_PASSWORD:-portlog_dev};
-        mc mb --ignore-existing local/sgc-documents;
-        exit 0;
-      "
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-portlog}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-portlog_dev}
+    entrypoint: ['/bin/sh', '-ec']
+    command:
+      - |
+        mcli alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
+        mcli mb --ignore-existing local/sgc-documents
 
   mailhog:
     image: mailhog/mailhog:latest

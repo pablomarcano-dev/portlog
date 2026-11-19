@@ -30,7 +30,11 @@
   "overrides": {
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
-    "@nestjs/platform-express": "^11.0.0"
+    "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/platform-fastify": {
+      "fastify": "5.12.8",
+      "find-my-way": "9.10.0"
+    }
   },
   "lint-staged": {
     "*.{ts,tsx}": [
