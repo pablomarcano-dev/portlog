@@ -1,0 +1,17 @@
+version: 2
+
+multi-ecosystem-groups:
+  nginx:
+    schedule:
+      interval: daily
+
+updates:
+  - package-ecosystem: docker-compose
+    directory: /
+    patterns: [nginx]
+    multi-ecosystem-group: nginx
+
+  - package-ecosystem: docker
+    directory: /frontend
+    patterns: [nginx]
+    multi-ecosystem-group: nginx
