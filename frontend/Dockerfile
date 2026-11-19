@@ -1,5 +1,5 @@
 # Build stage — context is repo root
-FROM node:26-alpine AS build
+FROM node:26.13.1-alpine AS build
 WORKDIR /app
 
 COPY package*.json ./
@@ -19,7 +19,7 @@ ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build -w @portlog/frontend
 
 # Production stage
-FROM nginx:alpine
+FROM nginx:1.31.9-alpine
 COPY --from=build /app/frontend/dist /usr/share/nginx/html
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
