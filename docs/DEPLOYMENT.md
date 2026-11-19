@@ -47,8 +47,8 @@ docker compose -f docker-compose.dev.yml up -d
 Services:
 
 - `postgres` — Postgres 16-alpine on `:5432`. Credentials: `portlog` / `portlog_dev`. Health-checked.
-- `minio` — MinIO on `:9000` (S3 API) and `:9001` (console). Credentials from `.env` or defaults `portlog` / `portlog_dev`. Health-checked via `/minio/health/live`.
-- `minio-init` — One-shot container (`minio/mc`) that creates the `sgc-documents` bucket once MinIO is healthy. Exits 0 after bucket creation.
+- `minio` — Silo provides the MinIO-compatible S3 API on `:9000` and the console on `:9001`. Credentials come from `.env` and default to `portlog` / `portlog_dev` in development. The container checks readiness with `silo healthcheck ready`.
+- `minio-init` — One-shot container that uses the bundled `mcli` to create `sgc-documents` once storage is ready. It exits with an error if authentication or bucket creation fails.
 
 Connect to local Postgres:
 
@@ -67,7 +67,7 @@ version: '3.9'
 
 services:
   nginx:
-    image: nginx:alpine
+    image: nginx:1.31.9-alpine
     ports:
       - '80:80'
       - '443:443'
@@ -81,7 +81,7 @@ services:
     restart: unless-stopped
 
   certbot:
-    image: certbot/certbot
+    image: certbot/certbot:v5.10.0
     volumes:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
@@ -104,11 +104,12 @@ services:
     env_file:
       - .env
     depends_on:
-      - minio
+      minio:
+        condition: service_healthy
     restart: unless-stopped
 
   minio:
-    image: minio/minio:latest
+    image: pgsty/silo:RELEASE.2026-11-12T00-00-00Z@sha256:c20d112390b9a9ce8c11b8af95ad35bcaa62f4759663c09c936cd8d2b511f329
     command: server /data --console-address ":9001"
     expose:
       - '9000'
@@ -118,6 +119,11 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    healthcheck:
+      test: ['CMD', 'silo', 'healthcheck', 'ready']
+      interval: 5s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
 volumes:
@@ -134,7 +140,7 @@ Build context is the **repo root** (monorepo-aware). The Dockerfile lives at `fr
 
 ```dockerfile
 # Build stage — context is repo root
-FROM node:26-alpine AS build
+FROM node:26.13.1-alpine AS build
 WORKDIR /app
 
 COPY package*.json ./
@@ -150,7 +156,7 @@ RUN npm run build -w @portlog/schemas
 RUN npm run build -w @portlog/frontend
 
 # Production stage
-FROM nginx:alpine
+FROM nginx:1.31.9-alpine
 COPY --from=build /app/frontend/dist /usr/share/nginx/html
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
@@ -200,7 +206,7 @@ Both `backend` and `frontend` services in `docker-compose.yml` use `build.contex
 
 ```dockerfile
 # Build stage — context is repo root
-FROM node:26-alpine AS build
+FROM node:26.13.1-alpine AS build
 WORKDIR /app
 
 # Copy manifests first for layer caching
@@ -225,7 +231,7 @@ RUN cd backend && npx prisma generate
 RUN npm run build -w @portlog/backend
 
 # Production stage
-FROM node:26-alpine AS runtime
+FROM node:26.13.1-alpine AS runtime
 WORKDIR /app
 
 # Chromium for headless PDF rendering; tzdata because node:alpine ships no zoneinfo
@@ -482,28 +488,32 @@ docker compose run --rm certbot certonly \
 docker compose restart nginx
 ```
 
-### 4. Initialize MinIO bucket
+### 4. Initialize the object storage bucket
 
-In **development**, `docker-compose.dev.yml` includes a `minio-init` one-shot container (using the `minio/mc` image) that creates the `sgc-documents` bucket automatically once MinIO is healthy.
+In **development**, `docker-compose.dev.yml` creates `sgc-documents` automatically via `minio-init`.
 
-In **production**, run the bucket-create manually after MinIO is up:
-
-```bash
-docker compose up -d minio
-
-docker run --rm --network portlog_default \
-  -e MC_HOST_local="http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@minio:9000" \
-  minio/mc mb --ignore-existing local/sgc-documents
-```
-
-Or interactively:
+For a **fresh production installation**, start storage and create the bucket with the client bundled in the Silo image.
 
 ```bash
-docker run --rm -it --network portlog_default minio/mc sh
-mc alias set local http://minio:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
-mc mb local/sgc-documents
-exit
+docker compose up -d --wait minio
+docker compose exec -T minio sh -e <<'SH'
+config_dir=$(mktemp -d)
+trap 'rm -rf "$config_dir"' EXIT
+mcli --config-dir "$config_dir" alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+mcli --config-dir "$config_dir" mb --ignore-existing local/sgc-documents
+SH
 ```
+
+#### Upgrade an existing MinIO installation to Silo
+
+Merging to `main` triggers production deployment. Rehearse this upgrade on a restored copy of the existing object storage volume and schedule the cutover before merging.
+
+1. Record the current image digest, Compose project and volume names, and checksums of representative existing documents. Keep the existing `minio` service name, `minio-data` volume, and credential sources.
+2. Stop application writers and the MinIO service. Back up the complete offline volume, including `.minio.sys`, and verify the backup restores to a separate volume. Keep the previous Compose configuration and image digest available for recovery.
+3. Start only the replacement storage service against the existing volume. After it is ready, compare the recorded document checksums and verify writing, reading, and deleting a disposable object. Bring the application back once these checks pass.
+4. If a check fails, keep application writes stopped. Stop Silo, restore the pre-upgrade volume and previous image and configuration, and check existing documents before reopening the application.
+
+[Silo migration instructions](https://silo.pgsty.com/compatibility/migration/)
 
 ### 5. Bring up the full stack
 

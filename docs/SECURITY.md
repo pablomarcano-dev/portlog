@@ -3,6 +3,25 @@
 Research-backed plan for a recurring, mostly-autonomous security audit of Portlog.
 Companion to [STACK.md](STACK.md) (Golden Rules) and [DEPLOYMENT.md](DEPLOYMENT.md) (the box).
 
+## Scheduled dependency and image checks
+
+Both Nginx containers use the same versioned image in `docker-compose.yml` and
+`frontend/Dockerfile`. Dependabot checks daily and proposes both updates in one pull
+request. On relevant PRs, the **Security maintenance** workflow validates both Nginx
+configurations using a generated test certificate, audits the production npm
+lockfile, and checks that Silo can read an object written to the same volume by
+the previous MinIO image. Merging to `main` triggers the production deployment.
+See [the storage upgrade procedure](DEPLOYMENT.md#upgrade-an-existing-minio-installation-to-silo)
+for the production cutover.
+
+Each Monday at 09:25 Montevideo time, the workflow audits images for the proxy,
+frontend, backend, PostgreSQL, Silo, and Certbot. It also audits the production npm
+lockfile. Image checks report high and critical CVEs for fresh builds or pulls and
+print the image identity. An unavailable image or scanner makes its job fail. The
+workflow is also available from **Actions → Security maintenance → Run workflow**.
+Compare the CI image IDs and versions with the running containers before attributing
+findings to production.
+
 > Status: the audit runner and the `/security-audit` skill are **built and working** (section 6).
 > The per-PR CI subset and custom Semgrep rules are **not yet built**. Section 8 lists what a
 > first pass found by hand on 2026-08-08.
