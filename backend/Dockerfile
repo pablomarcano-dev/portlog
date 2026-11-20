@@ -35,7 +35,8 @@ WORKDIR /app
 
 # Chromium for headless PDF rendering (puppeteer-core — no bundled browser).
 # tzdata ships /usr/share/zoneinfo, which node:alpine omits — see the TZ note below.
-RUN apk add --no-cache chromium tzdata
+RUN apk add --no-cache chromium tzdata \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 ENV CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 # Operating timezone. LOAD-BEARING — do not remove.
@@ -87,4 +88,4 @@ EXPOSE 3000
 
 # In production, run migrations then start the server.
 # prisma migrate deploy is idempotent — safe to run on every restart.
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+CMD ["sh", "-c", "node /app/node_modules/prisma/build/index.js migrate deploy && node dist/main.js"]
