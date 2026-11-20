@@ -13,16 +13,21 @@
 const OPS_EMAIL = 'ops@portlog.local';
 const ADM_EMAIL = 'admin@portlog.local';
 
-// The 10 master-data tab labels defined in MasterDataTabs.tsx
+// Current master-data catalog; party roles now live in Clients.
 const MASTER_DATA_TAB_LABELS = [
   'Flags',
   'Activities',
   'Cargoes',
   'Ports',
-  'Charterers',
-  'Shippers',
+  'Owners',
+  'Crew',
   'Agents',
-  'Operators',
+  'Clients',
+  'Sales Contacts',
+  'Suppliers',
+  'Services',
+  'Branches',
+  'Email Groups',
   'Contacts',
   'Ship Particulars',
 ];
@@ -70,7 +75,7 @@ describe('Master Data navigation', () => {
 
     // All 10 tab labels should be visible in the tab strip (MasterDataTabs.tsx)
     MASTER_DATA_TAB_LABELS.forEach((label) => {
-      cy.contains(label).should('be.visible');
+      cy.contains('button', label).scrollIntoView().should('be.visible');
     });
   });
 

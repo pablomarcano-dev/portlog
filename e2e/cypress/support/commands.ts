@@ -13,6 +13,8 @@ declare global {
 }
 
 Cypress.Commands.add('login', (email: string, password: string) => {
+  // A user switch must not hydrate the previous user's cached access token.
+  cy.clearLocalStorage(/^portlog_at(?:_ts)?$/);
   cy.request({
     method: 'POST',
     url: `${Cypress.env('API_URL') as string}/auth/login`,

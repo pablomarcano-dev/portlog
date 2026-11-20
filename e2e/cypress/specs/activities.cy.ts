@@ -157,7 +157,7 @@ describe('Activities CRUD — E2E-S4', () => {
       // Get the record id from the list via the API as ADM
       cy.request({
         method: 'GET',
-        url: `${API_URL}/activities`,
+        url: `${API_URL}/master-data/activities`,
         headers: { Authorization: `Bearer ${Cypress.env('ACCESS_TOKEN') as string}` },
       }).then((listResp) => {
         const items = (listResp.body as { items: { id: string; name: string }[] }).items;
@@ -166,17 +166,18 @@ describe('Activities CRUD — E2E-S4', () => {
         const id = created!.id;
 
         // Switch to OPS token
-        cy.loginAsOPS();
-
-        // Attempt DELETE with OPS token
-        cy.request({
-          method: 'DELETE',
-          url: `${API_URL}/activities/${id}`,
-          headers: { Authorization: `Bearer ${Cypress.env('ACCESS_TOKEN') as string}` },
-          failOnStatusCode: false,
-        }).then((resp) => {
-          expect(resp.status).to.eq(403);
-        });
+        cy.loginAsOPS()
+          .then(() =>
+            cy.request({
+              method: 'DELETE',
+              url: `${API_URL}/master-data/activities/${id}`,
+              headers: { Authorization: `Bearer ${Cypress.env('ACCESS_TOKEN') as string}` },
+              failOnStatusCode: false,
+            }),
+          )
+          .then((resp) => {
+            expect(resp.status).to.eq(403);
+          });
       });
     });
   });
@@ -220,8 +221,12 @@ describe('Activities CRUD — E2E-S4', () => {
       cy.get(SEL.flashSearchInput).type('Test Act');
 
       // Wait for debounce (300ms) and results to appear
-      cy.contains(fix.create.name, { timeout: 2000 }).should('be.visible');
-      cy.contains('Unrelated Activity XYZ').should('not.exist');
+      cy.get(SEL.flashSearchInput)
+        .closest('.mantine-Stack-root')
+        .within(() => {
+          cy.contains(fix.create.name, { timeout: 2000 }).should('be.visible');
+          cy.contains('Unrelated Activity XYZ').should('not.exist');
+        });
     });
   });
 });

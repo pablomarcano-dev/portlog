@@ -86,7 +86,8 @@ jobs:
         run: npm run build -w @portlog/backend
 
       - name: Start backend
-        run: node backend/dist/main.js &
+        working-directory: backend
+        run: node dist/main.js &
 
       - name: Wait for backend
         run: npx wait-on http://localhost:3000/api/health --timeout 30000

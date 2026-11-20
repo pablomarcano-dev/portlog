@@ -18,21 +18,15 @@ function authHeaders(): Record<string, string> {
 
 describe('Nominations API — E2E', () => {
   let shipParticularId: string;
+  let branchId: string;
   let nominationId: string;
 
   before(() => {
     cy.resetDb();
     cy.loginAsOPS();
-    // Grab a seeded ShipParticular id to use as FK in create
-    cy.request({
-      method: 'GET',
-      url: `${API_URL}/master-data/ship-particulars`,
-      headers: authHeaders(),
-    }).then((res) => {
-      const body = res.body as { items: { id: string }[] };
-      const first = body.items[0];
-      if (!first) throw new Error('No ship particulars in seed data');
-      shipParticularId = first.id;
+    cy.task<{ shipParticularId: string; branchId: string }>('seedNominationFixture').then((ids) => {
+      shipParticularId = ids.shipParticularId;
+      branchId = ids.branchId;
     });
   });
 
@@ -44,6 +38,7 @@ describe('Nominations API — E2E', () => {
       headers: authHeaders(),
       body: {
         shipParticularId,
+        branchId,
         voyageNumber: '01/E2E',
         dateNominated: new Date().toISOString(),
         nominationType: 'FULL_AGENCY',

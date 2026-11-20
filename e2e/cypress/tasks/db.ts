@@ -3,7 +3,33 @@ import bcrypt from 'bcrypt';
 
 const databaseUrl = process.env['E2E_DATABASE_URL'];
 if (!databaseUrl) throw new Error('E2E_DATABASE_URL must explicitly identify the test database.');
+const target = new URL(databaseUrl);
+if (
+  process.env['NODE_ENV'] !== 'test' ||
+  !['localhost', '127.0.0.1', 'postgres'].includes(target.hostname) ||
+  !/_(test|e2e)$/.test(target.pathname)
+)
+  throw new Error('Destructive Cypress fixtures require an isolated local test database.');
 const prisma = new PrismaClient({ datasourceUrl: databaseUrl });
+
+export async function seedNominationFixture() {
+  const branch = await prisma.branch.upsert({
+    where: { code: 'E2E' },
+    update: {},
+    create: { name: 'E2E Branch', code: 'E2E' },
+  });
+  const flag = await prisma.flag.upsert({
+    where: { name: 'E2E Nomination Flag' },
+    update: {},
+    create: { name: 'E2E Nomination Flag', abbreviation: 'ENF' },
+  });
+  const vessel = await prisma.shipParticular.upsert({
+    where: { callSign: 'E2ENOM1' },
+    update: {},
+    create: { name: 'MV E2E Nomination', callSign: 'E2ENOM1', flagId: flag.id },
+  });
+  return { shipParticularId: vessel.id, branchId: branch.id };
+}
 
 export async function resetDb(): Promise<null> {
   // Physical table names, not model names: every model here carries an @@map to

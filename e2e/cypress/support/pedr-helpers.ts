@@ -16,26 +16,16 @@ function authHeaders(token: string): Record<string, string> {
  * (same assumption as nominations.cy.ts).
  */
 export function createNomination(token: string): Cypress.Chainable<{ nominationId: string }> {
-  let shipParticularId: string;
-
   return cy
-    .request({
-      method: 'GET',
-      url: `${API_URL}/master-data/ship-particulars`,
-      headers: authHeaders(token),
-    })
-    .then((res) => {
-      const body = res.body as { items: { id: string }[] };
-      const first = body.items[0];
-      if (!first) throw new Error('No ship particulars in seed data');
-      shipParticularId = first.id;
-
+    .task<{ shipParticularId: string; branchId: string }>('seedNominationFixture')
+    .then(({ shipParticularId, branchId }) => {
       return cy.request({
         method: 'POST',
         url: `${API_URL}/nominations`,
         headers: authHeaders(token),
         body: {
           shipParticularId,
+          branchId,
           voyageNumber: `E2E-PEDR-${Date.now()}`,
           dateNominated: new Date().toISOString(),
           nominationType: 'FULL_AGENCY',

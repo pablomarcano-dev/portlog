@@ -1,10 +1,17 @@
 import { defineConfig } from 'cypress';
 import * as dotenv from 'dotenv';
-import { resetDb, seedEtaRecipientFixture, cleanupEtaRecipientFixture } from './cypress/tasks/db';
+import {
+  resetDb,
+  seedNominationFixture,
+  seedEtaRecipientFixture,
+  cleanupEtaRecipientFixture,
+} from './cypress/tasks/db';
 
 dotenv.config({ path: '.env.local' });
 
 export default defineConfig({
+  viewportWidth: 1440,
+  viewportHeight: 1000,
   e2e: {
     baseUrl: 'http://localhost:5173',
     specPattern: 'cypress/specs/**/*.cy.ts',
@@ -21,7 +28,12 @@ export default defineConfig({
       ADM_PASSWORD: 'portlog_admin_dev',
     },
     setupNodeEvents(on) {
-      on('task', { resetDb, seedEtaRecipientFixture, cleanupEtaRecipientFixture });
+      on('task', {
+        resetDb,
+        seedNominationFixture,
+        seedEtaRecipientFixture,
+        cleanupEtaRecipientFixture,
+      });
     },
   },
 });

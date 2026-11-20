@@ -40,7 +40,7 @@ function selectMantineOption(fieldLabel: string, optionLabel: string) {
       cy.get(`#${inputId}`).click();
     });
   // Click the dropdown option (rendered in a portal outside the form)
-  cy.get('[role="option"]').contains(optionLabel).click();
+  cy.get('[role="listbox"]:visible [role="option"]').contains(optionLabel).click();
 }
 
 /** Read the current value shown in a Mantine Select input by its visible label. */
@@ -128,7 +128,7 @@ describe('Cargoes CRUD', () => {
 
       // List reflects new name
       cy.contains(update.name).should('be.visible');
-      cy.contains(create.name).should('not.exist');
+      cy.contains(new RegExp(`^${Cypress._.escapeRegExp(create.name)}$`)).should('not.exist');
 
       // Reload and re-verify
       cy.reload();
@@ -158,7 +158,7 @@ describe('Cargoes CRUD', () => {
       cy.get('[role="dialog"]').contains('button', 'Delete').click();
 
       // Cargo is gone from list
-      cy.contains(create.name).should('not.exist');
+      cy.contains(new RegExp(`^${Cypress._.escapeRegExp(create.name)}$`)).should('not.exist');
     });
   });
 
@@ -201,7 +201,7 @@ describe('Cargoes CRUD', () => {
       // Get the cargo id from the API
       cy.request<{ items: Array<{ id: string; name: string }> }>({
         method: 'GET',
-        url: `${API_URL}/cargoes`,
+        url: `${API_URL}/master-data/cargoes`,
         headers: { Authorization: `Bearer ${Cypress.env('ACCESS_TOKEN') as string}` },
       }).then((res) => {
         const cargo = res.body.items.find((c) => c.name === create.name);
@@ -209,15 +209,18 @@ describe('Cargoes CRUD', () => {
         const cargoId = cargo!.id;
 
         // Now switch to OPS and attempt DELETE
-        cy.loginAsOPS();
-        cy.request({
-          method: 'DELETE',
-          url: `${API_URL}/cargoes/${cargoId}`,
-          headers: { Authorization: `Bearer ${Cypress.env('ACCESS_TOKEN') as string}` },
-          failOnStatusCode: false,
-        }).then((deleteRes) => {
-          expect(deleteRes.status).to.equal(403);
-        });
+        cy.loginAsOPS()
+          .then(() =>
+            cy.request({
+              method: 'DELETE',
+              url: `${API_URL}/master-data/cargoes/${cargoId}`,
+              headers: { Authorization: `Bearer ${Cypress.env('ACCESS_TOKEN') as string}` },
+              failOnStatusCode: false,
+            }),
+          )
+          .then((deleteRes) => {
+            expect(deleteRes.status).to.equal(403);
+          });
       });
     });
   });
@@ -257,10 +260,10 @@ describe('Cargoes CRUD', () => {
       });
 
     // All 4 options must be present
-    cy.get('[role="option"]').should('have.length', 4);
-    cy.get('[role="option"]').eq(0).should('contain.text', 'BBL');
-    cy.get('[role="option"]').eq(1).should('contain.text', 'MT');
-    cy.get('[role="option"]').eq(2).should('contain.text', 'KG');
-    cy.get('[role="option"]').eq(3).should('contain.text', 'LT');
+    cy.get('[role="listbox"]:visible [role="option"]').should('have.length', 4);
+    cy.get('[role="listbox"]:visible [role="option"]').eq(0).should('contain.text', 'BBL');
+    cy.get('[role="listbox"]:visible [role="option"]').eq(1).should('contain.text', 'MT');
+    cy.get('[role="listbox"]:visible [role="option"]').eq(2).should('contain.text', 'KG');
+    cy.get('[role="listbox"]:visible [role="option"]').eq(3).should('contain.text', 'LT');
   });
 });
