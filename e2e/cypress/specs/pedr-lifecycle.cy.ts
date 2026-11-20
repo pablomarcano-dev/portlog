@@ -9,11 +9,11 @@ export {};
  *
  * Exercises the PEDR state machine end-to-end:
  *   Nomination (PEDR auto-created) → dispatch sub-documents
- *   → stage transitions (PREARRIBO → ATENCION → DESPACHO → CIERRE)
+ *   → stage transitions (PRE_ARRIVAL → ATTENDING → DISPATCH → CLOSING)
  *   → assert immutability of closed PEDR.
  *
  * Uses cy.request throughout (no UI) for speed and stability.
- * MinIO storage key assertions are skipped — MinIO may not be available in CI.
+ * PDF bytes are stored in the isolated CI object store; mail uses the test transport.
  * PEDR event POST and DELETE endpoints do not exist yet — noted as follow-ups.
  */
 
@@ -44,8 +44,8 @@ describe('PEDR lifecycle — E2E', () => {
     });
   });
 
-  // ── 2. PEDR is auto-created at stage = PREARRIBO ────────────────────────────
-  it('2. Auto-created PEDR is available at stage = PREARRIBO', () => {
+  // ── 2. PEDR is auto-created at stage = PRE_ARRIVAL ────────────────────────────
+  it('2. Auto-created PEDR is available at stage = PRE_ARRIVAL', () => {
     cy.request({
       method: 'GET',
       url: `${API_URL}/pedr/by-nomination/${nominationId}`,
@@ -53,7 +53,7 @@ describe('PEDR lifecycle — E2E', () => {
     }).then((res) => {
       expect(res.status).to.eq(200);
       const body = res.body as { id: string; currentStage: string };
-      expect(body.currentStage).to.eq('PREARRIBO');
+      expect(body.currentStage).to.eq('PRE_ARRIVAL');
       expect(body.id).to.be.a('string');
       pedrId = body.id;
     });
@@ -83,17 +83,17 @@ describe('PEDR lifecycle — E2E', () => {
     });
   });
 
-  // ── 6. Advance PREARRIBO → ATENCION ─────────────────────────────────────────
-  it('6. Transition PREARRIBO → ATENCION → 201', () => {
+  // ── 6. Advance PRE_ARRIVAL → ATTENDING ─────────────────────────────────────────
+  it('6. Transition PRE_ARRIVAL → ATTENDING → 201', () => {
     cy.request({
       method: 'POST',
       url: `${API_URL}/pedr/${pedrId}/transition`,
       headers: authHeaders(),
-      body: { toStage: 'ATENCION' },
+      body: { toStage: 'ATTENDING' },
     }).then((res) => {
       expect(res.status).to.eq(201);
       const body = res.body as { currentStage: string };
-      expect(body.currentStage).to.eq('ATENCION');
+      expect(body.currentStage).to.eq('ATTENDING');
     });
   });
 
@@ -137,51 +137,51 @@ describe('PEDR lifecycle — E2E', () => {
     });
   });
 
-  // ── 11. Advance ATENCION → DESPACHO ──────────────────────────────────────────
-  it('11. Transition ATENCION → DESPACHO → 201', () => {
+  // ── 11. Advance ATTENDING → DISPATCH ──────────────────────────────────────────
+  it('11. Transition ATTENDING → DISPATCH → 201', () => {
     cy.request({
       method: 'POST',
       url: `${API_URL}/pedr/${pedrId}/transition`,
       headers: authHeaders(),
-      body: { toStage: 'DESPACHO' },
+      body: { toStage: 'DISPATCH' },
     }).then((res) => {
       expect(res.status).to.eq(201);
       const body = res.body as { currentStage: string };
-      expect(body.currentStage).to.eq('DESPACHO');
+      expect(body.currentStage).to.eq('DISPATCH');
     });
   });
 
-  // ── 12. Advance DESPACHO → CIERRE ────────────────────────────────────────────
-  it('12. Transition DESPACHO → CIERRE → 201', () => {
+  // ── 12. Advance DISPATCH → CLOSING ────────────────────────────────────────────
+  it('12. Transition DISPATCH → CLOSING → 201', () => {
     cy.request({
       method: 'POST',
       url: `${API_URL}/pedr/${pedrId}/transition`,
       headers: authHeaders(),
-      body: { toStage: 'CIERRE' },
+      body: { toStage: 'CLOSING' },
     }).then((res) => {
       expect(res.status).to.eq(201);
       const body = res.body as { currentStage: string };
-      expect(body.currentStage).to.eq('CIERRE');
+      expect(body.currentStage).to.eq('CLOSING');
     });
   });
 
-  // ── 13. Invalid forward transition from CIERRE is rejected ───────────────────
+  // ── 13. Invalid forward transition from CLOSING is rejected ───────────────────
   // NOTE: No DELETE endpoint exists for PEDR — 405 cannot be tested.
-  // Instead, assert that an invalid transition from CIERRE is rejected (400).
-  it('13. Invalid transition from CIERRE → CIERRE returns 400', () => {
+  // Instead, assert that an invalid transition from CLOSING is rejected (400).
+  it('13. Invalid transition from CLOSING → CLOSING returns 400', () => {
     cy.request({
       method: 'POST',
       url: `${API_URL}/pedr/${pedrId}/transition`,
       headers: authHeaders(),
-      body: { toStage: 'CIERRE' },
+      body: { toStage: 'CLOSING' },
       failOnStatusCode: false,
     }).then((res) => {
       expect(res.status).to.eq(400);
     });
   });
 
-  // ── 14. GET by id → stage = CIERRE ───────────────────────────────────────────
-  it('14. GET PEDR by id → stage = CIERRE', () => {
+  // ── 14. GET by id → stage = CLOSING ───────────────────────────────────────────
+  it('14. GET PEDR by id → stage = CLOSING', () => {
     cy.request({
       method: 'GET',
       url: `${API_URL}/pedr/${pedrId}`,
@@ -194,10 +194,10 @@ describe('PEDR lifecycle — E2E', () => {
         stageHistory: { toStage: string }[];
       };
       expect(body.id).to.eq(pedrId);
-      expect(body.currentStage).to.eq('CIERRE');
+      expect(body.currentStage).to.eq('CLOSING');
       // Stage history should record all 4 stages
       const stages = body.stageHistory.map((h) => h.toStage);
-      expect(stages).to.include.members(['PREARRIBO', 'ATENCION', 'DESPACHO', 'CIERRE']);
+      expect(stages).to.include.members(['PRE_ARRIVAL', 'ATTENDING', 'DISPATCH', 'CLOSING']);
     });
   });
 

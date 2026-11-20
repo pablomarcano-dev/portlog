@@ -52,7 +52,7 @@ export function sendSubDoc(
   return cy.request({
     method: 'POST',
     url: `${API_URL}/dispatch/pedr/${pedrId}/sub-document`,
-    headers: authHeaders(token),
+    headers: { ...authHeaders(token), 'Idempotency-Key': crypto.randomUUID() },
     body: {
       subDocType,
       toAddresses: ['test@example.com'],

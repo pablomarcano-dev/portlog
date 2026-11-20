@@ -126,11 +126,7 @@ describe('Activities CRUD — E2E-S4', () => {
 
   // ── 8. OPS: Delete button absent/disabled ──────────────────────────────────────
   it('8. OPS: Delete button is absent for OPS users', () => {
-    cy.loginAsOPS();
-    cy.visit('/master-data/activities');
-
-    // First create a record as ADM via API so there is something to select
-    cy.loginAsADM();
+    // beforeEach has already opened the form as ADM.
     cy.fixture('activities').then((fix: { create: { name: string }; update: { name: string } }) => {
       cy.get(SEL.nameInput).clear().type(fix.create.name);
       cy.get(SEL.acceptButton).click();

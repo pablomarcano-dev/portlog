@@ -143,11 +143,11 @@ describe('ETA notices — recipients and header', () => {
     });
   });
 
-  // ── 4. Degrades safely when the vessel has no address on file ──────────────
-  it('8. falls back to the charterer when the vessel has no address', () => {
+  // Captain notices require an explicitly registered captain/vessel inbox.
+  it('8. leaves To empty when the vessel has no address instead of guessing a charterer', () => {
     compose(withoutEmail, 'ETA_REQUEST').then((d) => {
-      expect(d.toAddresses, 'falls back rather than sending nowhere').to.include(F.chartererTo);
-      expect(d.toAddresses).to.not.be.empty;
+      expect(d.toAddresses, 'operator must select the intended captain recipient').to.be.empty;
+      expect(d.toAddresses).to.not.include(F.chartererTo);
     });
   });
 
