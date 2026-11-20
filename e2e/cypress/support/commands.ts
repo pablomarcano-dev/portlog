@@ -13,8 +13,6 @@ declare global {
 }
 
 Cypress.Commands.add('login', (email: string, password: string) => {
-  // A user switch must not hydrate the previous user's cached access token.
-  cy.clearLocalStorage(/^portlog_at(?:_ts)?$/);
   cy.request({
     method: 'POST',
     url: `${Cypress.env('API_URL') as string}/auth/login`,
@@ -24,7 +22,16 @@ Cypress.Commands.add('login', (email: string, password: string) => {
     cy.getCookie('refresh_token').then((cookie) => {
       if (!cookie) throw new Error('login: refresh_token cookie not set by backend');
     });
-    Cypress.env('ACCESS_TOKEN', (response.body as { accessToken: string }).accessToken);
+    const token = (response.body as { accessToken: string }).accessToken;
+    Cypress.env('ACCESS_TOKEN', token);
+    // Reload the app with the new session before its in-memory store hydrates.
+    // Clearing storage alone can race with a still-running previous session.
+    cy.visit('/', {
+      onBeforeLoad(win) {
+        win.localStorage.setItem('portlog_at', token);
+        win.localStorage.setItem('portlog_at_ts', String(Date.now()));
+      },
+    });
   });
 });
 

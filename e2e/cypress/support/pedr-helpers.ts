@@ -12,8 +12,7 @@ function authHeaders(token: string): Record<string, string> {
  * Create a nomination. Its PEDR is auto-created server-side on creation, so no
  * confirm/start step is needed. Returns the nominationId.
  *
- * Relies on a seeded ShipParticular being present in the database
- * (same assumption as nominations.cy.ts).
+ * Creates its vessel and branch fixtures in the isolated test database.
  */
 export function createNomination(token: string): Cypress.Chainable<{ nominationId: string }> {
   return cy
@@ -26,7 +25,7 @@ export function createNomination(token: string): Cypress.Chainable<{ nominationI
         body: {
           shipParticularId,
           branchId,
-          voyageNumber: `E2E-PEDR-${Date.now()}`,
+          voyageNumber: `PEDR-${Date.now()}`,
           dateNominated: new Date().toISOString(),
           nominationType: 'FULL_AGENCY',
         },

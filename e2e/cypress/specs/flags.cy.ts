@@ -66,7 +66,7 @@ describe('Flags CRUD', () => {
 
       // List should reflect the updated name
       cy.contains(update.name).should('be.visible');
-      cy.contains(create.name).should('not.exist');
+      cy.contains(new RegExp(`^${Cypress._.escapeRegExp(create.name)}$`)).should('not.exist');
     });
   });
 
@@ -145,7 +145,7 @@ describe('Flags CRUD', () => {
       // Capture the flag id via the list API
       cy.request({
         method: 'GET',
-        url: `${Cypress.env('API_URL') as string}/flags`,
+        url: `${Cypress.env('API_URL') as string}/master-data/flags`,
         headers: { Authorization: `Bearer ${Cypress.env('ACCESS_TOKEN') as string}` },
       }).then((listResponse) => {
         const body = listResponse.body as { items: Array<{ id: string; name: string }> };
@@ -154,16 +154,18 @@ describe('Flags CRUD', () => {
         const flagId = flag!.id;
 
         // Re-login as OPS
-        cy.loginAsOPS();
-
-        cy.request({
-          method: 'DELETE',
-          url: `${Cypress.env('API_URL') as string}/flags/${flagId}`,
-          headers: { Authorization: `Bearer ${Cypress.env('ACCESS_TOKEN') as string}` },
-          failOnStatusCode: false,
-        }).then((deleteResponse) => {
-          expect(deleteResponse.status).to.equal(403);
-        });
+        cy.loginAsOPS()
+          .then(() =>
+            cy.request({
+              method: 'DELETE',
+              url: `${Cypress.env('API_URL') as string}/master-data/flags/${flagId}`,
+              headers: { Authorization: `Bearer ${Cypress.env('ACCESS_TOKEN') as string}` },
+              failOnStatusCode: false,
+            }),
+          )
+          .then((deleteResponse) => {
+            expect(deleteResponse.status).to.equal(403);
+          });
       });
     });
   });
