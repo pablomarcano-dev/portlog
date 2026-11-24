@@ -36,6 +36,23 @@ describe('EmailTemplateService', () => {
     expect(templates.some((t) => t.includes('_partials'))).toBe(false);
   });
 
+  it('uses the generated subject-only stamp in cargo and anchorage templates', async () => {
+    for (const path of [
+      '02_statement_of_facts/07_cargo_update.hbs',
+      '01_prearrival/09_update_at_anchorage.hbs',
+    ]) {
+      const rendered = await service.render(path, {
+        ...VARS,
+        ref_line: 'FOREVER SN3092/26/MBO',
+        update_subject_stamp: '01.01.2027 00:00 Hrs',
+        update_date: 'Dec-31st, 2026',
+        update_time: '23:55',
+      });
+      expect(rendered.subject).toContain('01.01.2027 00:00 Hrs');
+      expect(rendered.subject).not.toContain('23:55');
+    }
+  });
+
   describe('every template', () => {
     it('renders the shared signature exactly once', async () => {
       const offenders: { template: string; anchors: number; confidentiality: number }[] = [];

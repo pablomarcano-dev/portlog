@@ -27,6 +27,7 @@ import { NominationInstructionsDocxService } from './nomination-instructions-doc
 import { formatNominationNoticeReference, formatSnOt } from './nomination-reference.js';
 import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
 import {
+  formatUpdateSubjectTimestamp,
   isValidTransition,
   deriveNominationStatus,
   MONTH_ABBR,
@@ -1580,6 +1581,7 @@ export class NominationsService {
       contact_email: branch?.contactEmails?.join('; ') ?? '',
       central_emails: branch?.centralEmails?.join('; ') ?? '',
       // Cargo update date/time — rendered at time of compose
+      update_subject_stamp: formatUpdateSubjectTimestamp(new Date()),
       update_date: fmtDate(new Date()),
       update_time: fmtTime(new Date()),
       t_etd: '',

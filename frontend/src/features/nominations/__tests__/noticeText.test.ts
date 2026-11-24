@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { formatNoticeDate } from '@portlog/schemas';
 import {
   CARGO_FIGURE_WIDTH,
   alignCargoFigure,
@@ -120,7 +119,7 @@ describe('cargoUpdateSubject', () => {
 
   it('re-stamps the subject with the dialog Date Update / Time', () => {
     expect(cargoUpdateSubject(COMPOSED, new Date(2026, 6, 13), '00:01')).toBe(
-      `${REF} - Cargo Update Jul-13th, 2026 00:01 Hrs`,
+      `${REF} - Cargo Update 13.07.2026 00:01 Hrs`,
     );
   });
 
@@ -129,13 +128,29 @@ describe('cargoUpdateSubject', () => {
     // "Jul-13th, 2026 00:01". Both are built from these two fields now.
     const date = new Date(2026, 6, 13);
     const time = '00:01';
-    const bodyStamp = `${formatNoticeDate(date)} ${time}`;
-    expect(cargoUpdateSubject(COMPOSED, date, time)).toContain(bodyStamp);
+    expect(cargoUpdateSubject(COMPOSED, date, time)).toContain('13.07.2026 00:01 Hrs');
   });
 
   it('keeps the time exactly as typed, 24-hour', () => {
     expect(cargoUpdateSubject(COMPOSED, new Date(2026, 6, 13), '19:35')).toContain('19:35 Hrs');
     expect(cargoUpdateSubject(COMPOSED, new Date(2026, 6, 13), '19:35')).not.toMatch(/[AP]M/i);
+  });
+
+  it('rounds only automatic subject timestamps and carries date rollover', () => {
+    const day = new Date(2026, 8, 18);
+    expect(cargoUpdateSubject(COMPOSED, day, '06:02', true)).toBe(
+      `${REF} - Cargo Update 18.09.2026 06:00 Hrs`,
+    );
+    expect(cargoUpdateSubject(COMPOSED, day, '06:05', true)).toBe(
+      `${REF} - Cargo Update 18.09.2026 06:10 Hrs`,
+    );
+    expect(cargoUpdateSubject(COMPOSED, new Date(2026, 11, 31), '23:55', true)).toBe(
+      `${REF} - Cargo Update 01.01.2027 00:00 Hrs`,
+    );
+    expect(cargoUpdateSubject(COMPOSED, day, '06:05', false)).toBe(
+      `${REF} - Cargo Update 18.09.2026 06:05 Hrs`,
+    );
+    expect(day.getDate()).toBe(18);
   });
 
   it('is idempotent', () => {
@@ -145,7 +160,7 @@ describe('cargoUpdateSubject', () => {
 
   it('drops "Hrs" when no time was entered', () => {
     expect(cargoUpdateSubject(COMPOSED, new Date(2026, 6, 13), '  ')).toBe(
-      `${REF} - Cargo Update Jul-13th, 2026`,
+      `${REF} - Cargo Update 13.07.2026`,
     );
   });
 
@@ -159,13 +174,13 @@ describe('cargoUpdateSubject', () => {
 
   it('appends the stamp to a subject that carries no marker', () => {
     expect(cargoUpdateSubject(REF, new Date(2026, 6, 13), '00:01')).toBe(
-      `${REF} - Cargo Update Jul-13th, 2026 00:01 Hrs`,
+      `${REF} - Cargo Update 13.07.2026 00:01 Hrs`,
     );
   });
 
   it('stands alone when no draft was composed', () => {
     expect(cargoUpdateSubject('', new Date(2026, 6, 13), '00:01')).toBe(
-      'Cargo Update Jul-13th, 2026 00:01 Hrs',
+      'Cargo Update 13.07.2026 00:01 Hrs',
     );
   });
 });
