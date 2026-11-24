@@ -1,3 +1,4 @@
+import { NominationInstructionsPreviewButton } from './NominationInstructionsPreviewButton';
 import { useEffect, useState } from 'react';
 import { Alert, Button, Divider, Group, Stack, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
@@ -135,6 +136,11 @@ export function NominationInstructionsAction({
         </Alert>
       ) : (
         <>
+          <NominationInstructionsPreviewButton
+            nominationId={nominationId}
+            kind="operational"
+            disabled={nominationSavePending || associateClient.isPending}
+          />
           <Button
             size="xs"
             variant="light"

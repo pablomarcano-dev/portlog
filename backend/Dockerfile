@@ -34,8 +34,10 @@ FROM node:26.13.1-alpine AS runtime
 WORKDIR /app
 
 # Chromium for headless PDF rendering (puppeteer-core — no bundled browser).
+# LibreOffice Writer renders NI previews from the exact generated Word document.
+# Liberation fonts provide Arial/Times-compatible metrics for the retained templates.
 # tzdata ships /usr/share/zoneinfo, which node:alpine omits — see the TZ note below.
-RUN apk add --no-cache chromium tzdata \
+RUN apk add --no-cache chromium tzdata libreoffice-writer font-liberation font-liberation-sans-narrow font-carlito \
     && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 ENV CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
 

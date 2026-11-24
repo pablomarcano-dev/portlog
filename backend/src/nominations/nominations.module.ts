@@ -1,3 +1,5 @@
+import { DocxPreviewService } from './docx-preview.service.js';
+import { NominationInstructionsPreviewController } from './nomination-instructions-preview.controller.js';
 import { PdfModule } from '../pdf/pdf.module.js';
 import { NominationFilesService } from './nomination-files.service.js';
 import { NominationFilesController } from './nomination-files.controller.js';
@@ -19,6 +21,7 @@ import { AdministrativeNominationInstructionsService } from './administrative-no
   imports: [PdfModule, PrismaModule, EmailModule, AttachmentsModule, EmailTemplatesModule],
   controllers: [
     NominationsController,
+    NominationInstructionsPreviewController,
     NominationFilesController,
     AdministrativeNominationBillingController,
     AdministrativeNominationInstructionsController,
@@ -26,6 +29,7 @@ import { AdministrativeNominationInstructionsService } from './administrative-no
   providers: [
     NominationFilesService,
     NominationsService,
+    DocxPreviewService,
     NominationInstructionsDocxService,
     AdministrativeNominationBillingService,
     AdministrativeNominationInstructionsDocxService,
