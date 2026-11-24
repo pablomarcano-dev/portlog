@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Divider, Group, Stack, Text } from '@mantine/core';
+import { Alert, Button, Divider, Group, Stack, Text, Tooltip } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { EntityPicker } from '../../../components/master-data/EntityPicker';
@@ -98,12 +98,18 @@ export function NominationInstructionsAction({
         settingsPending={nominationSavePending || associateClient.isPending}
       />
       <Divider my="xs" />
-      <Text fw={600} size="sm">
-        Nomination instructions
-      </Text>
+      <Tooltip
+        label="Uses this nomination and the selected instruction client."
+        events={{ hover: true, focus: true, touch: true }}
+        multiline
+        w={240}
+      >
+        <Text component="span" tabIndex={0} fw={600} size="sm">
+          Nomination Instructions Operativo
+        </Text>
+      </Tooltip>
       <Text size="xs" c="dimmed">
-        Defaults to the nomination’s Charterers company. You can select a different instruction
-        client here; its contacts, message groups and standing instructions will be used.
+        SNCA-RG-AGN-001
       </Text>
       <Group align="flex-end" wrap="nowrap">
         <div style={{ flex: 1 }}>
@@ -144,10 +150,6 @@ export function NominationInstructionsAction({
           >
             Download instruction document
           </Button>
-          <Text size="xs" c="dimmed">
-            Fills the original SNCA-RG-AGN-001 Word template with the latest nomination and client
-            information.
-          </Text>
         </>
       )}
       <NewClientModal
