@@ -28,6 +28,7 @@ import { formatNominationNoticeReference, formatSnOt } from './nomination-refere
 import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
 import {
   formatVesselVoyageNumber,
+  formatNominationNoticeSubject,
   isValidTransition,
   deriveNominationStatus,
   MONTH_ABBR,
@@ -1266,6 +1267,7 @@ export class NominationsService {
           emailBcc: true,
           subject: true,
           referenceNo: true,
+          administrativeSnOt: true,
           parcels: true,
           dateNominated: true,
           voyageNumber: true,
@@ -1381,18 +1383,25 @@ export class NominationsService {
     const branchCode = branch?.code ?? '';
     // "SN1522/24/JSE" — the form the agency writes on notices. Distinct from
     // formatSnOt's internal "SN-24/1522"; both refer to the same nomination.
-    const snOtRef = formatNominationNoticeReference(
-      nomination.correlative,
-      nomination.dateNominated,
-      nomination.kind,
-      branchCode,
-    );
+    const snOtRef =
+      nomination.administrativeSnOt?.trim() ||
+      formatNominationNoticeReference(
+        nomination.correlative,
+        nomination.dateNominated,
+        nomination.kind,
+        branchCode,
+      );
     const refNo = nomination.referenceNo?.trim() ?? '';
     // Default matches the nomination form's auto-generated subject. If the user
     // edited the nomination's subject, that edit is preserved and reused here so
     // every email for this nomination shares the same reference line.
-    const refNoPrefix = refNo ? `${refNo} - ` : '';
-    const defaultRefLine = `${refNoPrefix}${vesselName} - Calling to ${terminalName} ${snOtRef}`;
+    const defaultRefLine = formatNominationNoticeSubject({
+      referenceNo: refNo,
+      vesselName,
+      vesselVoyageNumber: nomination.vesselVoyageNumber,
+      terminalName,
+      businessReference: snOtRef,
+    });
     const refLine = nomination.subject?.trim() || defaultRefLine;
 
     // Load ETA record for ETA action types

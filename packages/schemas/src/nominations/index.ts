@@ -12,3 +12,4 @@ export * from './sof-calculations.js';
 export * from './public-api.js';
 export * from './administrative-billing.js';
 export * from './vessel-voyage.js';
+export * from './notice-subject.js';
