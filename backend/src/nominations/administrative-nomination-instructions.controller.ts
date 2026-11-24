@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseUUIDPipe, Res } from '@nestjs/common';
+import { Controller, Get, Header, Param, ParseUUIDPipe, Res } from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
 import { Roles } from '../auth/roles.decorator.js';
 import { AdministrativeNominationInstructionsService } from './administrative-nomination-instructions.service.js';
@@ -7,6 +7,13 @@ import { AdministrativeNominationInstructionsService } from './administrative-no
 @Roles('OPS', 'ADM')
 export class AdministrativeNominationInstructionsController {
   constructor(private readonly instructions: AdministrativeNominationInstructionsService) {}
+
+  @Get(':id/administrative-nomination-instructions/diagnostics')
+  @Roles('ADM')
+  @Header('Cache-Control', 'private, no-store')
+  diagnostics(@Param('id', ParseUUIDPipe) id: string) {
+    return this.instructions.diagnostics(id);
+  }
 
   @Get(':id/administrative-nomination-instructions.docx')
   async download(@Param('id', ParseUUIDPipe) id: string, @Res() reply: FastifyReply) {

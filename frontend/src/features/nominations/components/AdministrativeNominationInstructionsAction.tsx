@@ -4,6 +4,7 @@ import { Button, Group, Modal, Stack, Text, Tooltip } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useIsMutating, useMutation } from '@tanstack/react-query';
 import { nominationsApi } from '../api';
+import { AdministrativeNominationSourceCheck } from './AdministrativeNominationSourceCheck';
 import {
   AdministrativeNominationBilling,
   administrativeBillingQueryKey,
@@ -79,6 +80,10 @@ export function AdministrativeNominationInstructionsAction({
         <Button size="xs" variant="default" onClick={() => setBillingOpen(true)}>
           {disabled ? 'Ver destinatarios de facturación' : 'Destinatarios de facturación'}
         </Button>
+        <AdministrativeNominationSourceCheck
+          nominationId={nominationId}
+          disabled={settingsPending || billingPending > 0}
+        />
       </Group>
       <Modal
         opened={billingOpen}

@@ -27,11 +27,15 @@ describe('AdministrativeNominationInstructionsService', () => {
     pedr: { etaRecord: { etaNotify: new Date('2026-11-13T03:30:00Z') } },
     opPort: { name: 'PUERTO MIRANDA TERMINAL', municipality: 'MIRANDA' },
     client: {
+      name: 'Selected instruction client',
       administrativePortCostInstructions: 'Standing port rules\nUse only approved costs',
       administrativeOwnerExpensesInstructions: 'Owner rules',
       administrativeTechnicalManagementInstructions: 'Check the SOF',
     },
-    charterer: { administrativePortCostInstructions: 'Different instructions' },
+    charterer: {
+      name: 'Fallback charterer',
+      administrativePortCostInstructions: 'Different instructions',
+    },
     shipParticular: {
       name: 'FOREVER',
       imoNumber: '9136058',
@@ -153,6 +157,197 @@ describe('AdministrativeNominationInstructionsService', () => {
         portCostInstructions: '',
       }),
     );
+  });
+
+  it('reports populated saved fields and all three independent fiscal snapshots', async () => {
+    findUnique.mockResolvedValue({
+      ...fixture,
+      administrativeBillingRecipients: [
+        ...fixture.administrativeBillingRecipients,
+        {
+          category: 'OWNER_EXPENSES',
+          clientName: 'Owner payer',
+          addressText: 'Owner fiscal address',
+        },
+      ],
+    });
+    const report = await service.diagnostics('nomination-id');
+    expect(report.instructionSource).toBe('INSTRUCTION_CLIENT');
+    expect(report.instructionClientName).toBe('Selected instruction client');
+    expect(report.checks).toHaveLength(7);
+    expect(report.checks.every((check) => check.status === 'POPULATED')).toBe(true);
+    expect(render).not.toHaveBeenCalled();
+  });
+
+  it('does not replace a selected client’s blank instructions with charterer rules', async () => {
+    findUnique.mockResolvedValue({
+      ...fixture,
+      client: {
+        name: 'Selected blank client',
+        administrativePortCostInstructions: '  ',
+        administrativeOwnerExpensesInstructions: null,
+        administrativeTechnicalManagementInstructions: null,
+      },
+    });
+    const report = await service.diagnostics('nomination-id');
+    expect(report.instructionSource).toBe('INSTRUCTION_CLIENT');
+    expect(report.instructionClientName).toBe('Selected blank client');
+    expect(report.checks.slice(0, 3).map((check) => check.status)).toEqual([
+      'MISSING',
+      'MISSING',
+      'MISSING',
+    ]);
+    expect(report.checks.find((check) => check.field === 'OWNER_EXPENSES_BILLING')?.status).toBe(
+      'MISSING',
+    );
+  });
+
+  it('identifies the charterer fallback only when no instruction client is selected', async () => {
+    findUnique.mockResolvedValue({ ...fixture, client: null });
+    const report = await service.diagnostics('nomination-id');
+    expect(report.instructionSource).toBe('CHARTERER_FALLBACK');
+    expect(report.instructionClientName).toBe('Fallback charterer');
+    expect(report.checks[0].status).toBe('POPULATED');
+    expect(report.checks[1].status).toBe('MISSING');
+  });
+
+  it('identifies missing sources and incomplete fiscal snapshots without copying another category', async () => {
+    findUnique.mockResolvedValue({
+      ...fixture,
+      client: null,
+      charterer: null,
+      opPort: null,
+      administrativeBillingRecipients: [
+        { category: 'PORT_COSTS', clientName: 'Port payer', addressText: '  ' },
+      ],
+    });
+    const report = await service.diagnostics('nomination-id');
+    expect(report.instructionSource).toBe('NONE');
+    expect(report.instructionClientName).toBeNull();
+    expect(report.checks.find((check) => check.field === 'PORT_COSTS_BILLING')?.status).toBe(
+      'INCOMPLETE',
+    );
+    expect(report.checks.filter((check) => check.status === 'MISSING')).toHaveLength(6);
+    findUnique.mockResolvedValue(null);
+    await expect(service.diagnostics('missing')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('renders all configured fields into the actual Word document', async () => {
+    findUnique.mockResolvedValue({
+      ...fixture,
+      administrativeBillingRecipients: [
+        ...fixture.administrativeBillingRecipients,
+        {
+          category: 'OWNER_EXPENSES',
+          clientName: 'Owner payer',
+          addressText: 'Owner fiscal address',
+        },
+      ],
+    });
+    const actual = new AdministrativeNominationInstructionsService(
+      { nomination: { findUnique } } as unknown as PrismaService,
+      new AdministrativeNominationInstructionsDocxService(),
+    );
+    const file = await actual.generate('nomination-id');
+    const xml = new PizZip(file.buffer).file('word/document.xml')?.asText() ?? '';
+    for (const value of [
+      'Standing port rules',
+      'Owner rules',
+      'Check the SOF',
+      'MIRANDA',
+      'Port fiscal address',
+      'Owner fiscal address',
+      'Tech payer',
+      'Floor 2',
+    ]) {
+      expect(xml).toContain(value);
+    }
+    expect(xml).not.toContain('Different instructions');
+  });
+
+  it('reproduces the reported blank sections when their saved sources are absent', async () => {
+    findUnique.mockResolvedValue({
+      ...fixture,
+      client: {
+        name: 'Selected blank client',
+        administrativePortCostInstructions: null,
+        administrativeOwnerExpensesInstructions: null,
+        administrativeTechnicalManagementInstructions: null,
+      },
+      opPort: { name: 'Example Terminal', municipality: null },
+      administrativeBillingRecipients: [],
+    });
+    const actual = new AdministrativeNominationInstructionsService(
+      { nomination: { findUnique } } as unknown as PrismaService,
+      new AdministrativeNominationInstructionsDocxService(),
+    );
+    const report = await actual.diagnostics('nomination-id');
+    expect(report.checks.every((check) => check.status === 'MISSING')).toBe(true);
+    const file = await actual.generate('nomination-id');
+    const xml = new PizZip(file.buffer).file('word/document.xml')?.asText() ?? '';
+    expect(xml).toContain('FOREVER');
+    expect(xml).toContain('107169');
+    expect(xml).toContain('Example Terminal');
+    for (const absent of [
+      'Different instructions',
+      'Standing port rules',
+      'Owner rules',
+      'Check the SOF',
+      'Port fiscal address',
+      'MIRANDA',
+    ])
+      expect(xml).not.toContain(absent);
+    expect(xml).not.toContain('{portCostInstructions}');
+  });
+
+  it('restricts read-only source diagnostics to authenticated ADM users', async () => {
+    findUnique.mockResolvedValue(fixture);
+    const secret = 'administrative-diagnostics-local-test';
+    const module = await Test.createTestingModule({
+      controllers: [AdministrativeNominationInstructionsController],
+      providers: [
+        AdministrativeNominationInstructionsService,
+        AdministrativeNominationInstructionsDocxService,
+        JwtStrategy,
+        { provide: APP_GUARD, useClass: JwtAuthGuard },
+        { provide: APP_GUARD, useClass: RolesGuard },
+        { provide: ConfigService, useValue: { get: () => secret } },
+        { provide: PrismaService, useValue: { nomination: { findUnique } } },
+      ],
+    }).compile();
+    const fastify = new FastifyAdapter();
+    const app = module.createNestApplication<NestFastifyApplication>(fastify);
+    const url =
+      '/nominations/6039ed24-664e-48ed-8ca9-a0acc7419d83/administrative-nomination-instructions/diagnostics';
+    const jwt = new JwtService({ secret });
+    try {
+      await app.init();
+      const server = fastify.getInstance();
+      await server.ready();
+      expect((await server.inject({ method: 'GET', url })).statusCode).toBe(401);
+      expect(
+        (
+          await server.inject({
+            method: 'GET',
+            url,
+            headers: { authorization: `Bearer ${jwt.sign({ sub: 'ops', role: 'OPS' })}` },
+          })
+        ).statusCode,
+      ).toBe(403);
+      expect(findUnique).not.toHaveBeenCalled();
+      const response = await server.inject({
+        method: 'GET',
+        url,
+        headers: { authorization: `Bearer ${jwt.sign({ sub: 'adm', role: 'ADM' })}` },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json().checks).toHaveLength(7);
+      expect(response.headers['cache-control']).toBe('private, no-store');
+      expect(response.body).not.toContain('Standing port rules');
+      expect(render).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
   });
 
   it('serves an authenticated Word download with populated sections and private cache headers', async () => {
