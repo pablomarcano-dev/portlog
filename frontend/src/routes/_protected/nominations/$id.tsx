@@ -16,6 +16,7 @@ import {
 } from '@mantine/core';
 import { useState } from 'react';
 import { NominationForm } from '../../../features/nominations/components/NominationForm';
+import { NominationSectionHeader } from '../../../features/nominations/components/NominationSectionHeader';
 import { CancelNominationButton } from '../../../features/nominations/components/CancelNominationButton';
 import { StatusHistoryTimeline } from '../../../features/nominations/components/StatusHistoryTimeline';
 import { MessagesPanel } from '../../../features/nominations/components/MessagesPanel';
@@ -169,22 +170,13 @@ function NominationDetailPage() {
 
             {/* Nomination form — collapsible */}
             <Stack gap={0}>
-              <UnstyledButton
-                onClick={() => setFormOpen((o) => !o)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '6px 0',
-                  userSelect: 'none',
-                }}
-              >
-                <Title order={5}>Nomination Details</Title>
-                <Text size="xs" c="dimmed">
-                  {formOpen ? '▲' : '▼'}
-                </Text>
-              </UnstyledButton>
-              <Collapse in={formOpen}>
+              <NominationSectionHeader
+                label="Nomination Details"
+                expanded={formOpen}
+                controls="nomination-details-content"
+                onToggle={() => setFormOpen((o) => !o)}
+              />
+              <Collapse id="nomination-details-content" in={formOpen}>
                 <Box pt="xs">
                   <NominationForm
                     nominationId={id}
@@ -262,22 +254,13 @@ function NominationDetailPage() {
 
             {/* Client list section — collapsible */}
             <Stack gap={0}>
-              <UnstyledButton
-                onClick={() => setClientsOpen((o) => !o)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '6px 0',
-                  userSelect: 'none',
-                }}
-              >
-                <Title order={5}>Clients</Title>
-                <Text size="xs" c="dimmed">
-                  {clientsOpen ? '▲' : '▼'}
-                </Text>
-              </UnstyledButton>
-              <Collapse in={clientsOpen}>
+              <NominationSectionHeader
+                label="Clients"
+                expanded={clientsOpen}
+                controls="nomination-clients-content"
+                onToggle={() => setClientsOpen((o) => !o)}
+              />
+              <Collapse id="nomination-clients-content" in={clientsOpen}>
                 <Box pt="xs">
                   <ClientsSection nominationId={id} />
                 </Box>
@@ -289,22 +272,13 @@ function NominationDetailPage() {
             {/* Branch Documents section — collapsible */}
             {nomination.branchId && (
               <Stack gap={0}>
-                <UnstyledButton
-                  onClick={() => setBranchDocsOpen((o) => !o)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '6px 0',
-                    userSelect: 'none',
-                  }}
-                >
-                  <Title order={5}>Branch Documents</Title>
-                  <Text size="xs" c="dimmed">
-                    {branchDocsOpen ? '▲' : '▼'}
-                  </Text>
-                </UnstyledButton>
-                <Collapse in={branchDocsOpen}>
+                <NominationSectionHeader
+                  label="Branch Documents"
+                  expanded={branchDocsOpen}
+                  controls="nomination-branch-documents-content"
+                  onToggle={() => setBranchDocsOpen((o) => !o)}
+                />
+                <Collapse id="nomination-branch-documents-content" in={branchDocsOpen}>
                   <Box pt="xs">
                     <BranchDocumentsPanel nomination={nomination} />
                   </Box>
@@ -316,22 +290,13 @@ function NominationDetailPage() {
 
             {/* Messages section — collapsible */}
             <Stack gap={0} id="messages-section">
-              <UnstyledButton
-                onClick={() => setMessagesOpen((o) => !o)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '6px 0',
-                  userSelect: 'none',
-                }}
-              >
-                <Title order={5}>Messages</Title>
-                <Text size="xs" c="dimmed">
-                  {messagesOpen ? '▲' : '▼'}
-                </Text>
-              </UnstyledButton>
-              <Collapse in={messagesOpen}>
+              <NominationSectionHeader
+                label="Messages"
+                expanded={messagesOpen}
+                controls="nomination-messages-content"
+                onToggle={() => setMessagesOpen((o) => !o)}
+              />
+              <Collapse id="nomination-messages-content" in={messagesOpen}>
                 <Box pt="xs">
                   <MessagesPanel nominationId={id} />
                 </Box>
@@ -391,24 +356,14 @@ function NominationDetailPage() {
           <Box style={{ overflowY: 'auto', flex: 1, padding: 'var(--mantine-spacing-md)' }}>
             {/* Status History — collapsible */}
             <Stack gap={0} mb="md">
-              <UnstyledButton
-                onClick={() => setHistoryOpen((o) => !o)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '4px 0',
-                  userSelect: 'none',
-                }}
-              >
-                <Text fw={700} size="sm">
-                  Status History
-                </Text>
-                <Text size="xs" c="dimmed">
-                  {historyOpen ? '▲' : '▼'}
-                </Text>
-              </UnstyledButton>
-              <Collapse in={historyOpen}>
+              <NominationSectionHeader
+                label="Status History"
+                expanded={historyOpen}
+                controls="nomination-status-history-content"
+                onToggle={() => setHistoryOpen((o) => !o)}
+                compact
+              />
+              <Collapse id="nomination-status-history-content" in={historyOpen}>
                 <Box pt="xs">
                   <StatusHistoryTimeline history={nomination.statusHistory} />
                 </Box>
@@ -417,24 +372,14 @@ function NominationDetailPage() {
 
             <Divider my="sm" />
             <Stack gap={0}>
-              <UnstyledButton
-                onClick={() => setActionsOpen((o) => !o)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '4px 0',
-                  userSelect: 'none',
-                }}
-              >
-                <Text fw={700} size="sm">
-                  Actions
-                </Text>
-                <Text size="xs" c="dimmed">
-                  {actionsOpen ? '▲' : '▼'}
-                </Text>
-              </UnstyledButton>
-              <Collapse in={actionsOpen}>
+              <NominationSectionHeader
+                label="Actions"
+                expanded={actionsOpen}
+                controls="nomination-actions-content"
+                onToggle={() => setActionsOpen((o) => !o)}
+                compact
+              />
+              <Collapse id="nomination-actions-content" in={actionsOpen}>
                 <Box pt="xs">
                   <NominationInstructionsAction
                     nominationId={nomination.id}
