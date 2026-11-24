@@ -37,8 +37,10 @@ model Nomination {
   correlative Int    @unique @default(autoincrement())
 
   // Voyage
-  voyageNumber String // e.g. "01/PLC" — free text, Zod-validated in M3-S1
-  voyageCode   String? // small dropdown next to Voy field (slide 4)
+  // Explicit vessel voyage; legacy voyageNumber may be an internal sequence.
+  vesselVoyageNumber String?
+  voyageNumber       String // e.g. "01/PLC" — free text, Zod-validated in M3-S1
+  voyageCode         String? // small dropdown next to Voy field (slide 4)
 
   // Vessel — required FK; cuid() PK on ShipParticular so plain String (no @db.Uuid)
   shipParticularId String

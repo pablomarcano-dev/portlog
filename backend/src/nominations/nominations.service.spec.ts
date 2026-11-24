@@ -333,6 +333,7 @@ describe('NominationsService', () => {
           shipParticularId: 'clship0000000001',
           branchId: 'clbranch000000001',
           voyageNumber: '01/PLC',
+          vesselVoyageNumber: '005-26',
           dateNominated: NOW,
           nominationType: 'FULL_AGENCY',
           parcels: [],
@@ -342,6 +343,11 @@ describe('NominationsService', () => {
 
       expect(result.snOt).toBe('SN-26/0001');
       expect(result.correlative).toBe(1);
+      expect(mockPrisma.nomination.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ voyageNumber: '01/PLC', vesselVoyageNumber: '005-26' }),
+        }),
+      );
       expect(result.status).toBe('NOMINATED');
       expect(mockPrisma.nominationStatusHistory.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -517,6 +523,24 @@ describe('NominationsService', () => {
   // 2. update — terminal status blocks edit
   // -------------------------------------------------------------------------
   describe('update', () => {
+    it('saves and clears explicit vessel VOY while retaining legacy voyageNumber', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue({ id: NOM_ID, status: 'NOMINATED' });
+      mockPrisma.nomination.update.mockResolvedValue({
+        ...mockNomBase,
+        vesselVoyageNumber: '005-26',
+      });
+      const saved = await service.update(NOM_ID, { vesselVoyageNumber: '005-26' }, USER_ID);
+      expect(saved.vesselVoyageNumber).toBe('005-26');
+      expect(saved.voyageNumber).toBe(mockNomBase.voyageNumber);
+      const data = mockPrisma.nomination.update.mock.calls[0]?.[0].data;
+      expect(data).toEqual(expect.objectContaining({ vesselVoyageNumber: '005-26' }));
+      expect(data).not.toHaveProperty('voyageNumber');
+      mockPrisma.nomination.update.mockResolvedValue({ ...mockNomBase, vesselVoyageNumber: null });
+      const cleared = await service.update(NOM_ID, { vesselVoyageNumber: null }, USER_ID);
+      expect(cleared.vesselVoyageNumber).toBeNull();
+      expect(cleared.voyageNumber).toBe(mockNomBase.voyageNumber);
+    });
+
     it('allows update when the nomination is not cancelled', async () => {
       mockPrisma.nomination.findUnique.mockResolvedValue({ id: NOM_ID, status: 'NOMINATED' });
       mockPrisma.nomination.update.mockResolvedValue({ ...mockNomBase, voyageNumber: 'NEW' });
@@ -1659,6 +1683,21 @@ describe('NominationsService', () => {
   // copies every address configured on the branch.
   // -------------------------------------------------------------------------
   describe('getComposeData — recipients', () => {
+    it.each([
+      { vesselVoyageNumber: '005-26', expected: '005-26' },
+      { vesselVoyageNumber: null, expected: 'TBC' },
+      { vesselVoyageNumber: undefined, expected: 'TBC' },
+    ])(
+      'uses explicit VOY $expected rather than the legacy sequence in template data',
+      async ({ vesselVoyageNumber, expected }) => {
+        mockPrisma.nomination.findUnique.mockResolvedValue(
+          composeNomination({ voyageNumber: '21', vesselVoyageNumber }),
+        );
+        await service.getComposeData(NOM_ID, 'PREARRIVAL', 'agent@navieramar.com');
+        expect(lastTemplateVars().voyage_no).toBe(expected);
+      },
+    );
+
     beforeEach(() => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
       mockPrisma.pedr.findUnique.mockResolvedValue({ etaRecord: null });

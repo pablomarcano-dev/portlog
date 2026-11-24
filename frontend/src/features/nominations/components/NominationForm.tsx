@@ -163,6 +163,7 @@ export function NominationForm({
       mic: '',
       boardingClerk: '',
       mobileOnBoard: '',
+      vesselVoyageNumber: '',
       parcels: [],
       nominationClients: defaultClients,
       ...defaultValues,
@@ -1257,6 +1258,15 @@ export function NominationForm({
             </Grid.Col>
             <Grid.Col span={4}>
               <Stack gap="xs">
+                <TextInput
+                  label="Vessel voyage (VOY)"
+                  description="Voyage supplied by the vessel; leave blank if unknown (TBC)."
+                  placeholder="TBC"
+                  disabled={isReadOnly}
+                  maxLength={100}
+                  error={formState.errors.vesselVoyageNumber?.message}
+                  {...register('vesselVoyageNumber')}
+                />
                 <TextInput
                   label="Reference Nº"
                   placeholder="Reference number"
