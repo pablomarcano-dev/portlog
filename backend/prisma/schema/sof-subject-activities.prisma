@@ -1,0 +1,11 @@
+// Independent email-subject vocabulary. Deactivation keeps historical messages intact.
+model SofSubjectActivity {
+  id         String   @id @default(cuid())
+  label      String   @unique
+  eventNames String[] @default([])
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(6)
+
+  @@map("sof_subject_activities")
+}
