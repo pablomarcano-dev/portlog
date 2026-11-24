@@ -17,3 +17,4 @@ export * from './update-subject-time.js';
 export * from './operational-update.js';
 
 export * from './administrative-instruction-diagnostics.js';
+export * from './notice-subject.js';

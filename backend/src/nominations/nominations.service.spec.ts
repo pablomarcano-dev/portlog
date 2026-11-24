@@ -1698,6 +1698,71 @@ describe('NominationsService', () => {
     });
   });
 
+  describe('getComposeData — shared notice subject defaults', () => {
+    beforeEach(() => {
+      const templates = new EmailTemplateService();
+      mockEmailTemplateService.render.mockImplementation(
+        (path: string, vars: Record<string, unknown>) => templates.render(path, vars),
+      );
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.pedr.findUnique.mockResolvedValue({ etaRecord: null });
+    });
+
+    afterEach(() => mockEmailTemplateService.render.mockReset());
+
+    it('renders the actual pre-arrival subject with reference, true VOY and explicit agency SN', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          referenceNo: 'GLP7705642',
+          vesselVoyageNumber: '005-26',
+          voyageNumber: '21',
+          administrativeSnOt: 'SN3092/26/MBO',
+          shipParticular: { name: 'FOREVER' },
+          opPort: { name: 'PDVSA PUERTO MIRANDA', emails: [] },
+          branch: BRANCH_FIXTURE,
+        }),
+      );
+      const result = await service.getComposeData(NOM_ID, 'PREARRIVAL', 'agent@example.test');
+      expect(result.subject).toBe(
+        'GLP7705642 FOREVER VOY. 005-26 - CALLING TO PDVSA PUERTO MIRANDA SN3092/26/MBO - Pre-Arrival Notification',
+      );
+      expect(lastTemplateVars()['sn_ot_ref']).toBe('SN3092/26/MBO');
+      expect(lastTemplateVars()['voyage_no']).toBe('005-26');
+    });
+
+    it('uses TBC and the existing allocated reference when no actual VOY or agency override exists', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          voyageNumber: '21',
+          correlative: 21,
+          dateNominated: NOW,
+          branch: BRANCH_FIXTURE,
+        }),
+      );
+      const result = await service.getComposeData(NOM_ID, 'PREARRIVAL', 'agent@example.test');
+      expect(result.subject).toBe(
+        'HAKKAISAN VOY. TBC - CALLING TO PDVSA TAECJAA OFF-SHORE PLATFORM, JOSE SN21/26/JSE - Pre-Arrival Notification',
+      );
+      expect(result.subject).not.toContain('VOY. 21');
+    });
+
+    it('does not rewrite a saved custom or legacy base subject when current fields differ', async () => {
+      const saved = 'Customer custom subject - Calling to Original Port SN1522/24/JSE';
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          subject: saved,
+          vesselVoyageNumber: 'NEW-VOY',
+          referenceNo: 'NEW-REF',
+          administrativeSnOt: 'SN9999/26/MBO',
+        }),
+      );
+      const result = await service.getComposeData(NOM_ID, 'PREARRIVAL', 'agent@example.test');
+      expect(result.subject).toBe(`${saved} - Pre-Arrival Notification`);
+      expect(mockPrisma.nomination.update).not.toHaveBeenCalled();
+      expect(mockPrisma.emailDispatch.update).not.toHaveBeenCalled();
+    });
+  });
+
   // -------------------------------------------------------------------------
   // getComposeData — recipients
   //

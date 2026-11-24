@@ -30,6 +30,8 @@ import {
   vesselParticularsSchema,
   vesselProDataSchema,
   vesselOwnershipSchema,
+  formatNominationNoticeSubject,
+  nominationCreateSubjectOverride,
 } from '@portlog/schemas';
 import type { NominationCreateInput } from '@portlog/schemas';
 import { apiRequest } from '../../../lib/api/client';
@@ -212,6 +214,9 @@ export function NominationForm({
   const previousOpPortId = useRef(defaultValues?.opPortId ?? null);
   const kind = watch('kind') ?? 'SN';
   const referenceNo = watch('referenceNo');
+  const vesselVoyageNumber = watch('vesselVoyageNumber');
+  const administrativeSnOt = watch('administrativeSnOt');
+  const dateNominated = watch('dateNominated');
 
   // Lay days are a range — each picker bounds the other so the invalid
   // combination can't be selected. NominationCreateSchema enforces the same
@@ -388,12 +393,20 @@ export function NominationForm({
     const shipName = ship?.name ?? '';
     const portName = port?.name ?? '';
     const branchCode = branch?.code ?? '';
-    const yy = String(new Date().getFullYear()).slice(-2);
-    const corrStr = correlative != null ? String(correlative) : '';
+    const yy = String(new Date(dateNominated ?? new Date()).getFullYear()).slice(-2);
     const kindPrefix = kind === 'OT' ? 'OT' : 'SN';
-    // Reference Nº leads the subject when the nomination has one.
-    const refPrefix = referenceNo?.trim() ? `${referenceNo.trim()} - ` : '';
-    return `${refPrefix}${shipName} - Calling to ${portName} ${kindPrefix}${corrStr}/${yy}/${branchCode}`;
+    // Retain the existing notice-reference convention until the numbering decision.
+    // A create preview cannot invent the correlative allocated by the database.
+    const businessReference =
+      administrativeSnOt?.trim() ||
+      (correlative != null ? `${kindPrefix}${correlative}/${yy}/${branchCode}` : undefined);
+    return formatNominationNoticeSubject({
+      referenceNo,
+      vesselName: shipName,
+      vesselVoyageNumber,
+      terminalName: portName,
+      businessReference,
+    });
   }
 
   // Keep generated subjects in sync, while preserving any operator-authored text.
@@ -412,6 +425,9 @@ export function NominationForm({
     portsQuery.data,
     opPortId,
     referenceNo,
+    vesselVoyageNumber,
+    administrativeSnOt,
+    dateNominated,
     kind,
     correlative,
   ]);
@@ -622,7 +638,16 @@ export function NominationForm({
       />
       <form
         id="nomination-form"
-        onSubmit={handleSubmit(onSubmit)}
+        onSubmit={handleSubmit((values) =>
+          onSubmit(
+            mode === 'create'
+              ? {
+                  ...values,
+                  subject: nominationCreateSubjectOverride(values.subject, buildSubject()),
+                }
+              : values,
+          ),
+        )}
         onKeyDown={(event) => {
           // Enter finishes numeric entry; Create/Save remains keyboard-accessible.
           const target = event.target;
