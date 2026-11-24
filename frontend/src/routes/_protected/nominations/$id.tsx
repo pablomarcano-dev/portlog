@@ -42,16 +42,22 @@ const STATUS_COLORS: Record<NominationStatus, string> = {
 
 function NominationDetailPage() {
   const { id } = Route.useParams();
+  // Reset local sections and form drafts only when navigating to another call.
+  // Query refreshes and saves keep the current page mounted and its edits intact.
+  return <NominationDetail key={id} id={id} />;
+}
+
+function NominationDetail({ id }: { id: string }) {
   const { data: nomination, isLoading, isError, error } = useNomination(id);
   const updateNomination = useUpdateNomination(id);
   const { data: pedr } = usePedrByNomination(id);
   const [rightOpen, setRightOpen] = useState(true);
-  const [formOpen, setFormOpen] = useState(true);
-  const [clientsOpen, setClientsOpen] = useState(true);
-  const [messagesOpen, setMessagesOpen] = useState(true);
-  const [branchDocsOpen, setBranchDocsOpen] = useState(true);
-  const [historyOpen, setHistoryOpen] = useState(true);
-  const [actionsOpen, setActionsOpen] = useState(true);
+  const [formOpen, setFormOpen] = useState(false);
+  const [clientsOpen, setClientsOpen] = useState(false);
+  const [messagesOpen, setMessagesOpen] = useState(false);
+  const [branchDocsOpen, setBranchDocsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
 
   if (isLoading) {
     return (
