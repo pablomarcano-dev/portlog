@@ -153,15 +153,7 @@ export class DispatchService {
       const prior = await this.prisma.emailDispatch.count({
         where: { pedrId, subDocType, sentAt: { not: null } },
       });
-      const sender = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { email: true },
-      });
-      const composed = await this.nominations.getComposeData(
-        nomination.id,
-        subDocType,
-        sender?.email ?? '',
-      );
+      const composed = await this.nominations.getComposeData(nomination.id, subDocType, { userId });
       Object.assign(baseData, {
         revisionNumber: prior + 1,
         revisionLabel: prior === 0 ? 'Original' : `Amendment ${prior}`,

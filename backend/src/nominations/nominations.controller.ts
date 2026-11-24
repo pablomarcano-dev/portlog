@@ -112,7 +112,7 @@ export class NominationsController {
     options: OperationalUpdateComposeQuery,
     @Req() req: { user: RequestUser },
   ) {
-    return this.svc.getComposeData(id, actionType, req.user.email, options);
+    return this.svc.getComposeData(id, actionType, { userId: req.user.sub }, options);
   }
 
   @Patch(':id/parcels')

@@ -4,6 +4,7 @@ import {
   ConflictException,
   MethodNotAllowedException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   NominationsService,
@@ -18,6 +19,8 @@ import { EmailService } from '../email/email.service.js';
 import { AttachmentsService } from '../attachments/attachments.service.js';
 import { EmailTemplateService } from '../email-templates/email-template.service.js';
 import { NominationInstructionsDocxService } from './nomination-instructions-docx.service.js';
+import { NominationsController } from './nominations.controller.js';
+import type { RequestUser } from '../auth/jwt.strategy.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -1646,6 +1649,19 @@ describe('NominationsService', () => {
       expect(created.data.bodyHtml).toBe(html);
     });
 
+    it('preserves the edited signature and records the authenticated sending account', async () => {
+      const edited = `${BODY}\nBest Regards,\nAgent One\nManually edited contact details`;
+      await service.sendEmail('nom-1', input(edited), 'user-1');
+
+      expect(mockEmailService.send.mock.calls[0][0].html).toContain(edited);
+      expect(mockPrisma.emailDispatch.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ sentById: 'user-1' }),
+        }),
+      );
+      expect(mockEmailTemplateService.render).not.toHaveBeenCalled();
+    });
+
     it('enforces every branch email list at send time', async () => {
       mockPrisma.pedr.findUnique.mockResolvedValue({
         id: 'pedr-1',
@@ -1760,6 +1776,89 @@ describe('NominationsService', () => {
       expect(result.subject).toBe(`${saved} - Pre-Arrival Notification`);
       expect(mockPrisma.nomination.update).not.toHaveBeenCalled();
       expect(mockPrisma.emailDispatch.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getComposeData — authenticated personal signatures', () => {
+    const users = {
+      'agent-one': {
+        email: 'one@example.test',
+        displayName: 'Agent One',
+        jobTitle: 'Shipping Agent',
+        mobile: '+58 111',
+        phone: '+58 112',
+        fax: null,
+      },
+      'agent-two': {
+        email: 'two@example.test',
+        displayName: 'Agent Two',
+        jobTitle: 'Supervisor',
+        mobile: '+58 221',
+        phone: '+58 222',
+        fax: null,
+      },
+    };
+    const request = (sub: string): { user: RequestUser } => ({
+      // Both tokens carry an old shared mailbox address. It must never choose
+      // the author; only the authenticated account ID identifies that person.
+      user: { sub, email: 'old-shared@example.test', role: 'OPS', permissions: [] },
+    });
+
+    beforeEach(() => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          branch: { ...BRANCH_FIXTURE, emails: ['shared-branch@example.test'] },
+        }),
+      );
+      mockPrisma.user.findUnique.mockImplementation(
+        async ({ where }: { where: { id?: string } }) =>
+          where.id ? (users[where.id as keyof typeof users] ?? null) : null,
+      );
+      mockPrisma.pedr.findUnique.mockResolvedValue({ etaRecord: null });
+      const templates = new EmailTemplateService();
+      mockEmailTemplateService.render.mockImplementation(templates.render.bind(templates));
+    });
+
+    it('renders each authenticated person in the unchanged signature with the same branch mailbox', async () => {
+      const controller = new NominationsController(service);
+      const one = await controller.getComposeData(NOM_ID, 'ETA_TERMINAL', {}, request('agent-one'));
+      const two = await controller.getComposeData(NOM_ID, 'ETA_TERMINAL', {}, request('agent-two'));
+
+      for (const [data, own, other] of [
+        [one, users['agent-one'], users['agent-two']],
+        [two, users['agent-two'], users['agent-one']],
+      ] as const) {
+        expect(data.bodyText).toContain(`Best Regards,\n\n${own.displayName}\n${own.jobTitle}`);
+        expect(data.bodyText).toContain(`💬 ${own.mobile} / ${own.phone}`);
+        expect(data.bodyText).toContain('✉️ shared-branch@example.test');
+        expect(data.bodyText).toContain('OPERATIONAL MATTERS: shared-branch@example.test');
+        expect(data.bodyText).not.toContain(other.displayName);
+        expect(data.bodyText).not.toContain(own.email);
+        expect(data.bodyText).not.toContain('old-shared@example.test');
+        expect(data.ccAddresses).toContain('shared-branch@example.test');
+      }
+      expect(one.toAddresses).toEqual(two.toAddresses);
+    });
+
+    it('uses the current profile email when a branch mailbox is absent, despite stale token email', async () => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(composeNomination());
+      const controller = new NominationsController(service);
+      const data = await controller.getComposeData(
+        NOM_ID,
+        'ETA_TERMINAL',
+        {},
+        request('agent-one'),
+      );
+      expect(data.bodyText).toContain('✉️ one@example.test');
+      expect(data.bodyText).not.toContain('old-shared@example.test');
+    });
+
+    it('refuses an absent authenticated profile instead of attributing it to the token email', async () => {
+      const controller = new NominationsController(service);
+      await expect(
+        controller.getComposeData(NOM_ID, 'ETA_TERMINAL', {}, request('deleted-user')),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockEmailTemplateService.render).not.toHaveBeenCalled();
     });
   });
 

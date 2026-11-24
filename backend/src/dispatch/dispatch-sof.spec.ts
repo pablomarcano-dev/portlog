@@ -34,7 +34,6 @@ describe('SOF dispatch content and classification', () => {
             },
           }),
         },
-        user: { findUnique: jest.fn().mockResolvedValue({ email: 'agent@example.test' }) },
         emailDispatch: {
           count: jest.fn().mockResolvedValue(0),
           create: jest
@@ -81,11 +80,9 @@ describe('SOF dispatch content and classification', () => {
         },
         'user-1',
       );
-      expect(nominations.getComposeData).toHaveBeenCalledWith(
-        'nom-1',
-        subDocType,
-        'agent@example.test',
-      );
+      expect(nominations.getComposeData).toHaveBeenCalledWith('nom-1', subDocType, {
+        userId: 'user-1',
+      });
       expect(pdf.renderSubDocument).toHaveBeenCalledWith(
         'SOF',
         expect.objectContaining({
@@ -96,7 +93,7 @@ describe('SOF dispatch content and classification', () => {
       );
       expect(prisma.emailDispatch.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ subDocType, subject: 'QA SOF' }),
+          data: expect.objectContaining({ subDocType, subject: 'QA SOF', sentById: 'user-1' }),
         }),
       );
       expect(email.send).toHaveBeenCalledWith(
