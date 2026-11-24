@@ -41,6 +41,7 @@ export const subDocExtraDataSchema = z.object({
 export type SubDocExtraData = z.infer<typeof subDocExtraDataSchema>;
 
 export const sendSubDocumentSchema = z.object({
+  sofSubjectActivityId: z.string().min(1).max(100).optional(),
   subDocType: subDocTypeSchema,
   toAddresses: z.array(z.string().email()).min(1, 'At least one recipient required'),
   ccAddresses: z.array(z.string().email()).default([]),

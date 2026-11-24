@@ -1,3 +1,4 @@
+import { sofActivitySubject } from '@portlog/schemas';
 import {
   NOMINATION_ROUTING_SELECT,
   alwaysCopyEmails,
@@ -5,6 +6,7 @@ import {
 } from '../nominations/nomination-routing.js';
 import { NominationsService } from '../nominations/nominations.service.js';
 import {
+  BadRequestException,
   Injectable,
   Logger,
   NotFoundException,
@@ -51,7 +53,7 @@ export class DispatchService {
       toAddresses,
       ccAddresses,
       bccAddresses,
-      subject,
+      subject: requestedSubject,
       bodyText,
       extraData,
       attachmentIds,
@@ -81,6 +83,26 @@ export class DispatchService {
     }
 
     const { nomination } = pedr;
+    let subject = requestedSubject;
+    if (dto.sofSubjectActivityId) {
+      if (subDocType !== 'SOF' && subDocType !== 'SOF_INTERIM') {
+        throw new BadRequestException('Activity subjects are available only for SOF messages.');
+      }
+      const activity = await this.prisma.sofSubjectActivity.findUnique({
+        where: { id: dto.sofSubjectActivityId },
+      });
+      if (!activity?.active)
+        throw new BadRequestException('Choose an active SOF subject activity.');
+      const requestedSuffix = requestedSubject.split('::').slice(1).join('::').trim();
+      if (requestedSuffix && requestedSuffix !== activity.label) {
+        throw new BadRequestException(
+          'The activity label changed. Select the activity again before sending.',
+        );
+      }
+      subject = sofActivitySubject(requestedSubject, activity.label);
+      if (subject.length > 500) throw new BadRequestException('Subject exceeds 500 characters.');
+    }
+
     const normalized = uniqueEnvelope(
       toAddresses,
       appendBranchCc([...ccAddresses, ...alwaysCopyEmails(nomination)], nomination.branch),

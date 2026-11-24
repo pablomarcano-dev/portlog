@@ -1,3 +1,4 @@
+import { SofSubjectControls } from './SofSubjectControls';
 import { SavedDocumentsPicker } from './SavedDocumentsPicker';
 import { useEffect, useState, useRef } from 'react';
 import {
@@ -74,25 +75,36 @@ const SUB_DOC_LABELS: Record<SubDocType, string> = {
 // Form schema
 // ---------------------------------------------------------------------------
 
-const composeSchema = z.object({
-  toAddresses: z.array(z.string()).min(1, 'At least one recipient required'),
-  ccAddresses: z.array(z.string()).default([]),
-  bccAddresses: z.array(z.string()).default([]),
-  subject: z.string().min(1, 'Subject is required'),
-  // Plain text, start to finish. The backend wraps it for mail clients at send
-  // time — nothing here composes HTML.
-  bodyText: z.string().default(''),
-  attachmentIds: z.array(z.string()).default([]),
-  printAfterSending: z.boolean().default(false),
-  etb: z.date().nullable().optional(),
-  berthNumber: z.string().optional(),
-  etcDate: z.date().nullable().optional(),
-  blQuantity: z.number().nullable().optional(),
-  blDate: z.date().nullable().optional(),
-  vesselFigure: z.number().nullable().optional(),
-  shoreFigure: z.number().nullable().optional(),
-  cargoUpdateRemarks: z.string().optional(),
-});
+const composeSchema = z
+  .object({
+    toAddresses: z.array(z.string()).min(1, 'At least one recipient required'),
+    ccAddresses: z.array(z.string()).default([]),
+    bccAddresses: z.array(z.string()).default([]),
+    subject: z.string().min(1, 'Subject is required'),
+    sofSubjectMode: z.enum(['statement', 'activity']).default('statement'),
+    sofSubjectActivityId: z.string().default(''),
+    // Plain text, start to finish. The backend wraps it for mail clients at send
+    // time — nothing here composes HTML.
+    bodyText: z.string().default(''),
+    attachmentIds: z.array(z.string()).default([]),
+    printAfterSending: z.boolean().default(false),
+    etb: z.date().nullable().optional(),
+    berthNumber: z.string().optional(),
+    etcDate: z.date().nullable().optional(),
+    blQuantity: z.number().nullable().optional(),
+    blDate: z.date().nullable().optional(),
+    vesselFigure: z.number().nullable().optional(),
+    shoreFigure: z.number().nullable().optional(),
+    cargoUpdateRemarks: z.string().optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.sofSubjectMode === 'activity' && !value.sofSubjectActivityId)
+      context.addIssue({
+        code: 'custom',
+        path: ['sofSubjectActivityId'],
+        message: 'Choose an activity for this subject.',
+      });
+  });
 type ComposeForm = z.infer<typeof composeSchema>;
 
 // ---------------------------------------------------------------------------
@@ -144,6 +156,8 @@ export function EmailComposeDrawer({
       ccAddresses: [],
       bccAddresses: [],
       subject: subjectOverride || defaultSubject,
+      sofSubjectMode: 'statement',
+      sofSubjectActivityId: '',
       bodyText: defaultBody,
       attachmentIds: [],
       printAfterSending: false,
@@ -192,6 +206,9 @@ export function EmailComposeDrawer({
     getValues,
   ]);
 
+  const sofSubjectMode = watch('sofSubjectMode');
+  const sofSubjectActivityId = watch('sofSubjectActivityId');
+  const currentSubject = watch('subject');
   const toAddresses = watch('toAddresses');
   const ccAddresses = watch('ccAddresses');
   const bccAddresses = watch('bccAddresses');
@@ -296,6 +313,8 @@ export function EmailComposeDrawer({
       dispatch.mutate(
         {
           subDocType,
+          sofSubjectActivityId:
+            isSof && values.sofSubjectMode === 'activity' ? values.sofSubjectActivityId : undefined,
           toAddresses: values.toAddresses,
           ccAddresses: values.ccAddresses,
           bccAddresses: values.bccAddresses,
@@ -467,6 +486,23 @@ export function EmailComposeDrawer({
               ]}
             />
 
+            {isSof && nominationId && (
+              <SofSubjectControls
+                nominationId={nominationId}
+                opened={opened}
+                mode={sofSubjectMode}
+                selectedId={sofSubjectActivityId}
+                subject={currentSubject}
+                interim={subDocType === 'SOF_INTERIM'}
+                error={errors.sofSubjectActivityId?.message}
+                onNestedModalChange={setAttachmentPreviewOpen}
+                onChange={(mode, id, subject) => {
+                  setValue('sofSubjectMode', mode, { shouldDirty: true });
+                  setValue('sofSubjectActivityId', id, { shouldDirty: true, shouldValidate: true });
+                  setValue('subject', subject, { shouldDirty: true });
+                }}
+              />
+            )}
             {/* Subject */}
             <TextInput
               label="Subject"
