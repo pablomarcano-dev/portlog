@@ -2739,6 +2739,18 @@ describe('NominationsService', () => {
       });
     });
 
+    it('provides a rounded Caracas subject stamp without rounding the saved event clock', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2027-01-01T03:55:00Z'));
+      try {
+        await service.getComposeData(NOM_ID, 'CARGO_UPDATE', 'agent@navieramar.com');
+        expect(lastTemplateVars()['update_subject_stamp']).toBe('01.01.2027 00:00 Hrs');
+        expect(mockPrisma.sofTimesheet.findUnique).not.toHaveBeenCalled();
+        expect(mockPrisma.nomination.update).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it('does not fetch or append Statement of Facts entries', async () => {
       await service.getComposeData(NOM_ID, 'CARGO_UPDATE', 'agent@navieramar.com');
 

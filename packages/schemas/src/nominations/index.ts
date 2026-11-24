@@ -13,3 +13,4 @@ export * from './public-api.js';
 export * from './administrative-billing.js';
 export * from './vessel-voyage.js';
 export * from './sof-subject-activities.js';
+export * from './update-subject-time.js';

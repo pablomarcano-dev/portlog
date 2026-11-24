@@ -17,6 +17,7 @@ import { notifications } from '@mantine/notifications';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   formatNoticeDate,
+  getUpdateSubjectParts,
   resolveTransferRateUnit,
   type NominationParcelRead,
 } from '@portlog/schemas';
@@ -114,10 +115,6 @@ interface ParcelRow extends NominationParcelRead {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function fmtTime(d: Date): string {
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
 /** Mantine number inputs hand back `''` or a raw string mid-edit; the DB gets a number. */
 function toNumber(value: unknown): number {
   const n = typeof value === 'number' ? value : Number(value);
@@ -136,7 +133,8 @@ export function CargoUpdateModal({
   initialParcels,
 }: CargoUpdateModalProps) {
   const qc = useQueryClient();
-  const now = new Date();
+  const [initialUpdate] = useState(() => getUpdateSubjectParts(new Date(), false));
+  const updateTimestampEdited = useRef(false);
 
   const [rows, setRows] = useState<ParcelRow[]>(() =>
     initialParcels.map((p, i) => ({ ...p, _key: String(i) })),
@@ -150,8 +148,10 @@ export function CargoUpdateModal({
       ),
     ),
   );
-  const [dateUpdate, setDateUpdate] = useState<Date | null>(now);
-  const [timeUpdate, setTimeUpdate] = useState(fmtTime(now));
+  const [dateUpdate, setDateUpdate] = useState<Date | null>(
+    () => new Date(initialUpdate.year, initialUpdate.month - 1, initialUpdate.day),
+  );
+  const [timeUpdate, setTimeUpdate] = useState(initialUpdate.time);
   const [etcValid, setEtcValid] = useState<Record<string, boolean>>({});
   const [dateEtd, setDateEtd] = useState<Date | null>(null);
   const [timeEtd, setTimeEtd] = useState('');
@@ -316,7 +316,14 @@ export function CargoUpdateModal({
     // it with the clock at compose time, which is a different moment from the
     // Date Update / Time the block above is written from. A notice whose title
     // and body quote different timestamps is a notice nobody can file.
-    setEmailSubject(cargoUpdateSubject(composeData.subject, dateUpdate, timeUpdate));
+    setEmailSubject(
+      cargoUpdateSubject(
+        composeData.subject,
+        dateUpdate,
+        timeUpdate,
+        !updateTimestampEdited.current,
+      ),
+    );
     setEmailBody(bodyText);
     setComposeOpen(true);
   }
@@ -361,7 +368,10 @@ export function CargoUpdateModal({
                 placeholder="DD/MM/YYYY"
                 dateParser={parseDateInput}
                 value={dateUpdate}
-                onChange={setDateUpdate}
+                onChange={(value) => {
+                  updateTimestampEdited.current = true;
+                  setDateUpdate(value);
+                }}
                 style={{ width: 150 }}
               />
               <TimeInput24
@@ -369,7 +379,10 @@ export function CargoUpdateModal({
                 size="sm"
                 placeholder="HH:MM"
                 value={timeUpdate}
-                onChange={setTimeUpdate}
+                onChange={(value) => {
+                  updateTimestampEdited.current = true;
+                  setTimeUpdate(value);
+                }}
                 style={{ width: 80 }}
               />
             </Group>

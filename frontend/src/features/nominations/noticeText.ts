@@ -12,11 +12,11 @@
  * a countdown can be tested and so the label is stamped at the moment the agent
  * sends rather than re-derived while a drawer sits open.
  *
- * 24-hour throughout. Nothing here formats an hour, and nothing here should
- * start: times arrive as the operator typed them ("HH:mm") and pass through.
+ * Operator-entered times pass through exactly. Only explicitly automatic update
+ * subject defaults are rounded; event/body timestamps remain unchanged.
  */
 
-import { etaNoticeLabel, formatCargoFigure, formatNoticeDate } from '@portlog/schemas';
+import { etaNoticeLabel, formatCargoFigure, roundUpdateSubjectWallTime } from '@portlog/schemas';
 
 // ---------------------------------------------------------------------------
 // ETA notices
@@ -87,7 +87,7 @@ export function withEtaNoticeLabel(
  * The words the Cargo Update stamp follows, straight out of the template's own
  * Subject comment in `02_statement_of_facts/07_cargo_update.hbs`:
  *
- *     {{ref_line}} - Cargo Update {{update_date}} {{update_time}} Hrs
+ *     {{ref_line}} - Cargo Update {{update_subject_stamp}}
  */
 const CARGO_UPDATE_MARKER = 'Cargo Update';
 
@@ -103,17 +103,24 @@ const CARGO_UPDATE_MARKER = 'Cargo Update';
  * "Jul-13th, 2026 00:01 Cargo Update". The typed values win on both.
  *
  * The reference line in front of the marker is kept verbatim, and the time is
- * passed through as typed (24-hour) rather than reformatted.
+ * passed through as typed (24-hour). The caller opts into rounding only while
+ * the timestamp is automatic; editing either picker makes the entered value win.
  */
 export function cargoUpdateSubject(
   composedSubject: string,
   dateUpdate: Date | null | undefined,
   timeUpdate: string,
+  automatic = false,
 ): string {
-  const date = formatNoticeDate(dateUpdate);
+  const date = dateUpdate
+    ? `${String(dateUpdate.getDate()).padStart(2, '0')}.${String(dateUpdate.getMonth() + 1).padStart(2, '0')}.${dateUpdate.getFullYear()}`
+    : '';
   const time = timeUpdate.trim();
   // "Hrs" labels the time; with no time there is nothing for it to label.
-  const stamp = [date, time && `${time} Hrs`].filter(Boolean).join(' ');
+  const stamp =
+    automatic && dateUpdate && /^([01]\d|2[0-3]):[0-5]\d$/.test(time)
+      ? roundUpdateSubjectWallTime(dateUpdate, time).stamp
+      : [date, time && `${time} Hrs`].filter(Boolean).join(' ');
   const titled = stamp ? `${CARGO_UPDATE_MARKER} ${stamp}` : CARGO_UPDATE_MARKER;
 
   const at = composedSubject.lastIndexOf(CARGO_UPDATE_MARKER);
