@@ -1,5 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { ordinalDay } from '@portlog/schemas';
+import {
+  AdministrativeInstructionDiagnosticsSchema,
+  ordinalDay,
+  type AdministrativeInstructionDiagnostics,
+} from '@portlog/schemas';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AdministrativeNominationInstructionsDocxService } from './administrative-nomination-instructions-docx.service.js';
 import { formatNominationNoticeReference, formatSnOt } from './nomination-reference.js';
@@ -33,7 +37,7 @@ export class AdministrativeNominationInstructionsService {
     private readonly docx: AdministrativeNominationInstructionsDocxService,
   ) {}
 
-  async generate(nominationId: string): Promise<{ buffer: Buffer; filename: string }> {
+  private async load(nominationId: string) {
     const nomination = await this.prisma.nomination.findUnique({
       where: { id: nominationId },
       select: {
@@ -48,8 +52,8 @@ export class AdministrativeNominationInstructionsService {
         branch: { select: { code: true } },
         pedr: { select: { etaRecord: { select: { etaNotify: true } } } },
         opPort: { select: { name: true, municipality: true } },
-        client: { select: clientInstructions },
-        charterer: { select: clientInstructions },
+        client: { select: { name: true, ...clientInstructions } },
+        charterer: { select: { name: true, ...clientInstructions } },
         shipParticular: {
           select: {
             name: true,
@@ -67,7 +71,55 @@ export class AdministrativeNominationInstructionsService {
     });
 
     if (!nomination) throw new NotFoundException('Nomination not found');
+    return nomination;
+  }
 
+  async diagnostics(nominationId: string): Promise<AdministrativeInstructionDiagnostics> {
+    const nomination = await this.load(nominationId);
+    // Match export precedence: a selected instruction client wins even when its
+    // optional instructions are blank. Never substitute another client's rules.
+    const client = nomination.client ?? nomination.charterer;
+    const populated = (value: string | null | undefined) =>
+      value?.trim() ? ('POPULATED' as const) : ('MISSING' as const);
+    const billing = (category: string) => {
+      const row = nomination.administrativeBillingRecipients.find(
+        (recipient) => recipient.category === category,
+      );
+      if (!row) return 'MISSING' as const;
+      return row.clientName.trim() && row.addressText.trim()
+        ? ('POPULATED' as const)
+        : ('INCOMPLETE' as const);
+    };
+    return AdministrativeInstructionDiagnosticsSchema.parse({
+      instructionSource: nomination.client
+        ? 'INSTRUCTION_CLIENT'
+        : nomination.charterer
+          ? 'CHARTERER_FALLBACK'
+          : 'NONE',
+      instructionClientName: client?.name ?? null,
+      checks: [
+        {
+          field: 'PORT_COSTS_INSTRUCTIONS',
+          status: populated(client?.administrativePortCostInstructions),
+        },
+        {
+          field: 'OWNER_EXPENSES_INSTRUCTIONS',
+          status: populated(client?.administrativeOwnerExpensesInstructions),
+        },
+        {
+          field: 'TECHNICAL_MANAGEMENT_INSTRUCTIONS',
+          status: populated(client?.administrativeTechnicalManagementInstructions),
+        },
+        { field: 'PORT_MUNICIPALITY', status: populated(nomination.opPort?.municipality) },
+        { field: 'PORT_COSTS_BILLING', status: billing('PORT_COSTS') },
+        { field: 'OWNER_EXPENSES_BILLING', status: billing('OWNER_EXPENSES') },
+        { field: 'TECHNICAL_MANAGEMENT_BILLING', status: billing('TECHNICAL_MANAGEMENT') },
+      ],
+    });
+  }
+
+  async generate(nominationId: string): Promise<{ buffer: Buffer; filename: string }> {
+    const nomination = await this.load(nominationId);
     const client = nomination.client ?? nomination.charterer;
     const vessel = nomination.shipParticular;
     const loa = nomination.loa ?? vessel.loa;

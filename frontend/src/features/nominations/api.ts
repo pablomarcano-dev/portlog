@@ -1,5 +1,6 @@
 import { apiRequest, apiRequestBlob } from '../../lib/api/client';
 import {
+  AdministrativeInstructionDiagnosticsSchema,
   NominationListResponseSchema,
   NominationSchema,
   NominationClientSchema,
@@ -103,6 +104,13 @@ export const nominationsApi = {
 
   administrativeNominationInstructionsDocx: (nominationId: string): Promise<Blob> =>
     apiRequestBlob(`/nominations/${nominationId}/administrative-nomination-instructions.docx`),
+
+  administrativeInstructionDiagnostics: async (nominationId: string) =>
+    AdministrativeInstructionDiagnosticsSchema.parse(
+      await apiRequest<unknown>(
+        `/nominations/${nominationId}/administrative-nomination-instructions/diagnostics`,
+      ),
+    ),
 
   updateParcels: async (nominationId: string, parcels: unknown[]): Promise<void> => {
     await apiRequest<unknown>(`/nominations/${nominationId}/parcels`, {
