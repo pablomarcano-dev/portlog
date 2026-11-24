@@ -1,6 +1,6 @@
 import { NominationInstructionsPreviewButton } from './NominationInstructionsPreviewButton';
 import { useState } from 'react';
-import { Button, Group, Modal, Stack, Text } from '@mantine/core';
+import { Button, Group, Modal, Stack, Text, Tooltip } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useIsMutating, useMutation } from '@tanstack/react-query';
 import { nominationsApi } from '../api';
@@ -48,9 +48,16 @@ export function AdministrativeNominationInstructionsAction({
 
   return (
     <Stack gap="xs">
-      <Text fw={600} size="sm">
-        Nomination Instructions Administrativo
-      </Text>
+      <Tooltip
+        label="Uses this nomination, client instructions and billing recipients."
+        events={{ hover: true, focus: true, touch: true }}
+        multiline
+        w={240}
+      >
+        <Text component="span" tabIndex={0} fw={600} size="sm">
+          Nomination Instructions Administrativo
+        </Text>
+      </Tooltip>
       <Text size="xs" c="dimmed">
         SNCA-RG-AGN-002
       </Text>
