@@ -3,6 +3,7 @@ import { Button, Group, Modal, Textarea, Text } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import type { NominationStatus } from '@portlog/schemas';
 import { useTransitionNomination } from '../hooks/useTransitionNomination';
+import { useCurrentUser } from '../../../lib/auth/queries';
 
 interface CancelNominationButtonProps {
   nominationId: string;
@@ -15,12 +16,13 @@ export function CancelNominationButton({
   nominationId,
   currentStatus,
 }: CancelNominationButtonProps) {
+  const { data: currentUser } = useCurrentUser();
   const transition = useTransitionNomination(nominationId);
   const [opened, { open, close }] = useDisclosure(false);
   const [reason, setReason] = useState('');
   const [reasonError, setReasonError] = useState<string | undefined>(undefined);
 
-  if (currentStatus === 'CANCELLED') return null;
+  if (currentUser?.role !== 'ADM' || currentStatus === 'CANCELLED') return null;
 
   const handleSubmit = () => {
     if (reason.trim().length === 0) {

@@ -79,6 +79,7 @@ export class NominationsController {
   }
 
   @Post(':id/transition')
+  @Roles('ADM')
   transition(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(NominationStatusTransitionSchema)) body: NominationStatusTransition,
