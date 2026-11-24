@@ -10,7 +10,6 @@ import {
   Group,
   Loader,
   Stack,
-  Text,
   Title,
   UnstyledButton,
 } from '@mantine/core';
