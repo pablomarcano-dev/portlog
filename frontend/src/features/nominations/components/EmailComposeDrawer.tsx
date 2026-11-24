@@ -11,7 +11,6 @@ import {
   Alert,
   Loader,
   Box,
-  Table,
   Divider,
   NumberInput,
   Checkbox,
@@ -21,7 +20,6 @@ import { DateTimePicker, DatePickerInput } from '@mantine/dates';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '../../../lib/zodResolver';
 import { z } from 'zod';
-import { useNominationSof } from '../hooks/useNominationSof';
 import type { EmailDispatchResponse, SubDocType } from '@portlog/schemas';
 import { useEmailDispatch } from '../api/useEmailDispatch';
 import { useNominationCompose } from '../api/useNominationCompose';
@@ -30,7 +28,6 @@ import { EmailGroupPicker } from '../../../components/master-data/EmailGroupPick
 import { EmailChipsInput } from '../../../components/master-data/EmailChipsInput';
 import { EmailAttachmentsField } from '../../../components/master-data/EmailAttachmentsField';
 import { openEmailPrintWindow, printStoredEmailInWindow } from '../../../lib/printEmail';
-import { formatDateTime } from '../../../lib/format/datetime';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -124,8 +121,6 @@ export function EmailComposeDrawer({
     // nomination-level route (no auto-generated PDF), like the others here.
     subDocType === 'NOR' ||
     subDocType === 'CARGO_UPDATE';
-  const isSof = subDocType === 'SOF' || subDocType === 'SOF_INTERIM';
-  const sofEventsQuery = useNominationSof(isSof ? (nominationId ?? '') : '');
 
   const {
     register,
@@ -360,49 +355,6 @@ export function EmailComposeDrawer({
                 onPreviewOpenChange={setAttachmentPreviewOpen}
               />
             )}
-            {/* SOF event log preview */}
-            {isSof && (
-              <Box>
-                <Text fw={600} size="sm" mb={4}>
-                  Event Log
-                </Text>
-                {sofEventsQuery.isLoading ? (
-                  <Box ta="center" py="sm">
-                    <Loader size="xs" />
-                  </Box>
-                ) : sofEventsQuery.isError ? (
-                  <Alert color="red" title="Could not load saved SOF events">
-                    Close this message and retry. Your saved entries have not been changed.
-                  </Alert>
-                ) : sofEventsQuery.data?.entries.length === 0 ? (
-                  <Alert color="yellow" title="No events recorded yet">
-                    The saved SOF has no activity entries. Return to the timesheet to add and save
-                    them.
-                  </Alert>
-                ) : (
-                  <Table withTableBorder withColumnBorders fz="xs">
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th>Time</Table.Th>
-                        <Table.Th>Event Type</Table.Th>
-                        <Table.Th>Notes</Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {sofEventsQuery.data?.entries.map((ev) => (
-                        <Table.Tr key={ev.id}>
-                          <Table.Td>{formatDateTime(ev.occurredAt)}</Table.Td>
-                          <Table.Td>{ev.activity?.name ?? ''}</Table.Td>
-                          <Table.Td>{ev.comment ?? ''}</Table.Td>
-                        </Table.Tr>
-                      ))}
-                    </Table.Tbody>
-                  </Table>
-                )}
-                <Divider mt="sm" />
-              </Box>
-            )}
-
             {/* Compose fetch failure — otherwise the drawer just opens blank and
                 the missing subject / recipients look like a data problem. */}
             {composeQuery.isError && (
