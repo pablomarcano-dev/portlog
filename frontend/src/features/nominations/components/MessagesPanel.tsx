@@ -45,6 +45,7 @@ const TYPE_LABELS: Record<string, string> = {
   SOF: 'Final SOF',
   SOF_INTERIM: 'Interim SOF',
   CARGO_UPDATE: 'Cargo Update',
+  OPERATIONAL_UPDATE: 'Operational Update',
 };
 
 function formatType(type: string): string {

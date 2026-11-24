@@ -5,6 +5,7 @@ import type { NominationParcelRead, SubDocType } from '@portlog/schemas';
 import { EmailComposeDrawer } from './EmailComposeDrawer';
 import { EtaAnswerModal } from './EtaAnswerModal';
 import { CargoUpdateModal } from './CargoUpdateModal';
+import { OperationalUpdateModal } from './OperationalUpdateModal';
 import { SofTimesheetModal } from './SofTimesheetModal';
 
 // ---------------------------------------------------------------------------
@@ -28,7 +29,7 @@ interface EmailActionsPanelProps {
 // ---------------------------------------------------------------------------
 
 interface SubDocAction {
-  type: SubDocType | 'ETA';
+  type: SubDocType | 'ETA' | 'OPERATIONAL_MODES';
   label: string;
   subjectTemplate: (vesselName: string) => string;
   /** Stories beyond M4-S6 that have not been wired yet */
@@ -36,6 +37,7 @@ interface SubDocAction {
 }
 
 const ACTIONS: SubDocAction[] = [
+  { type: 'OPERATIONAL_MODES', label: 'Operational Update', subjectTemplate: () => '' },
   {
     type: 'ACKNOWLEDGEMENT',
     label: 'Acknowledgement',
@@ -90,11 +92,19 @@ export function EmailActionsPanel({
   const [activeDrawer, setActiveDrawer] = useState<SubDocType | null>(null);
   const [etaOpen, setEtaOpen] = useState(false);
   const [cargoUpdateOpen, setCargoUpdateOpen] = useState(false);
+  const [operationalUpdateOpen, setOperationalUpdateOpen] = useState(false);
+  const [cargoUpdateDefaults, setCargoUpdateDefaults] = useState<{
+    date: Date;
+    time: string;
+    automatic: boolean;
+  }>();
   const [sofOpened, { open: openSof, close: closeSof }] = useDisclosure(false);
 
   useEffect(() => {
     if (externalOpen) {
-      if (externalOpen === 'SOF') {
+      if (externalOpen === 'OPERATIONAL_UPDATE') {
+        setOperationalUpdateOpen(true);
+      } else if (externalOpen === 'SOF') {
         openSof();
       } else {
         setActiveDrawer(externalOpen);
@@ -104,9 +114,12 @@ export function EmailActionsPanel({
   }, [externalOpen, onExternalOpenHandled, openSof]);
 
   function handleActionClick(type: SubDocAction['type']) {
-    if (type === 'ETA') {
+    if (type === 'OPERATIONAL_MODES') {
+      setOperationalUpdateOpen(true);
+    } else if (type === 'ETA') {
       setEtaOpen(true);
     } else if (type === 'CARGO_UPDATE') {
+      setCargoUpdateDefaults(undefined);
       setCargoUpdateOpen(true);
     } else if (type === 'SOF') {
       openSof();
@@ -149,6 +162,17 @@ export function EmailActionsPanel({
         ))}
       </Stack>
 
+      <OperationalUpdateModal
+        opened={operationalUpdateOpen}
+        onClose={() => setOperationalUpdateOpen(false)}
+        onCargo={(defaults) => {
+          setCargoUpdateDefaults(defaults);
+          setCargoUpdateOpen(true);
+        }}
+        nominationId={nominationId}
+        pedrId={pedrId}
+      />
+
       {/* ETA — two-step Answer ETA modal */}
       <EtaAnswerModal
         opened={etaOpen}
@@ -165,6 +189,7 @@ export function EmailActionsPanel({
         nominationId={nominationId}
         pedrId={pedrId}
         initialParcels={parcels}
+        updateDefaults={cargoUpdateDefaults}
       />
 
       {/* Compose drawer — for all other actions */}

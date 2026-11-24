@@ -29,6 +29,9 @@ import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
 import {
   formatVesselVoyageNumber,
   formatUpdateSubjectTimestamp,
+  getUpdateSubjectParts,
+  operationalUpdateSubject,
+  type OperationalUpdateComposeQuery,
   isValidTransition,
   deriveNominationStatus,
   MONTH_ABBR,
@@ -188,6 +191,7 @@ export const COMPOSE_TEMPLATE_PATHS: Record<string, string> = {
   ETA_RECAP: '01_prearrival/07_eta_recaps_and_nor.hbs',
   NOR: '01_prearrival/06_nor_tendered_to_terminal.hbs',
   CARGO_UPDATE: '02_statement_of_facts/07_cargo_update.hbs',
+  OPERATIONAL_UPDATE: '01_prearrival/operational_update.hbs',
   SOF: '02_statement_of_facts/15_final_sof.hbs',
   SOF_INTERIM: '02_statement_of_facts/15_final_sof.hbs',
 };
@@ -1256,7 +1260,13 @@ export class NominationsService {
     nominationId: string,
     actionType: string,
     agentEmail: string,
+    options: OperationalUpdateComposeQuery = {},
   ): Promise<ComposeData> {
+    if (actionType.toUpperCase() === 'OPERATIONAL_UPDATE' && !options.mode) {
+      throw new BadRequestException(
+        'Choose Anchor or Alongside before composing an operational update.',
+      );
+    }
     const [nomination, agent] = await Promise.all([
       this.prisma.nomination.findUnique({
         where: { id: nominationId },
@@ -1927,6 +1937,23 @@ export class NominationsService {
     // Render — via EmailTemplateService, which registers the {{> signature}}
     // partial. Compiling the source here instead throws on the missing partial.
     // ---------------------------------------------------------------------------
+    if (actionType.toUpperCase() === 'OPERATIONAL_UPDATE' && options.mode) {
+      const at = options.at ? new Date(options.at) : new Date();
+      const exact = getUpdateSubjectParts(at, false);
+      Object.assign(templateVars, {
+        operational_update_subject: operationalUpdateSubject(
+          refLine,
+          options.mode,
+          at,
+          options.automatic !== 'false',
+        ),
+        operational_update_status:
+          options.mode === 'ANCHOR' ? 'at anchor' : 'alongside without cargo operations',
+        update_date: `${String(exact.day).padStart(2, '0')}.${String(exact.month).padStart(2, '0')}.${exact.year}`,
+        update_time: exact.time,
+      });
+    }
+
     const rendered = await this.emailTemplates.render(relPath, templateVars);
 
     const subject = rendered.subject ?? nomination.subject ?? nomination.shipParticular?.name ?? '';

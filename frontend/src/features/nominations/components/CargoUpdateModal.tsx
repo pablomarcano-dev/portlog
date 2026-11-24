@@ -1,5 +1,5 @@
 import { EtaDateTimeInput } from './EtaDateTimeInput';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Modal,
   Stack,
@@ -105,6 +105,7 @@ interface CargoUpdateModalProps {
   nominationId: string;
   pedrId: string;
   initialParcels: NominationParcelRead[];
+  updateDefaults?: { date: Date; time: string; automatic: boolean };
 }
 
 interface ParcelRow extends NominationParcelRead {
@@ -131,6 +132,7 @@ export function CargoUpdateModal({
   nominationId,
   pedrId,
   initialParcels,
+  updateDefaults,
 }: CargoUpdateModalProps) {
   const qc = useQueryClient();
   const [initialUpdate] = useState(() => getUpdateSubjectParts(new Date(), false));
@@ -152,6 +154,12 @@ export function CargoUpdateModal({
     () => new Date(initialUpdate.year, initialUpdate.month - 1, initialUpdate.day),
   );
   const [timeUpdate, setTimeUpdate] = useState(initialUpdate.time);
+  useEffect(() => {
+    if (!opened || !updateDefaults) return;
+    setDateUpdate(updateDefaults.date);
+    setTimeUpdate(updateDefaults.time);
+    updateTimestampEdited.current = !updateDefaults.automatic;
+  }, [opened, updateDefaults]);
   const [etcValid, setEtcValid] = useState<Record<string, boolean>>({});
   const [dateEtd, setDateEtd] = useState<Date | null>(null);
   const [timeEtd, setTimeEtd] = useState('');

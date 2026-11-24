@@ -16,6 +16,7 @@ export const subDocTypeSchema = z.enum([
   'SOF',
   'SOF_INTERIM',
   'CARGO_UPDATE',
+  'OPERATIONAL_UPDATE',
 ]);
 export type SubDocType = z.infer<typeof subDocTypeSchema>;
 
@@ -42,7 +43,10 @@ export type SubDocExtraData = z.infer<typeof subDocExtraDataSchema>;
 
 export const sendSubDocumentSchema = z.object({
   sofSubjectActivityId: z.string().min(1).max(100).optional(),
-  subDocType: subDocTypeSchema,
+  subDocType: subDocTypeSchema.refine(
+    (type) => type !== 'OPERATIONAL_UPDATE',
+    'Operational updates use the nomination email route.',
+  ),
   toAddresses: z.array(z.string().email()).min(1, 'At least one recipient required'),
   ccAddresses: z.array(z.string().email()).default([]),
   bccAddresses: z.array(z.string().email()).default([]),
