@@ -2591,6 +2591,26 @@ describe('NominationsService', () => {
       expect(composed.bodyText).not.toContain('Pending data');
     });
 
+    it.each([
+      { action: 'SOF_INTERIM', title: 'Interim Statement of Facts' },
+      { action: 'SOF', title: 'Final Statement of Facts' },
+    ])(
+      'appends the exact $action subject title to the saved business reference',
+      async ({ action, title }) => {
+        const base = 'FOREVER VOY. 005-26 - Calling to PDVSA PUERTO MIRANDA SN3092/26/MBO';
+        mockPrisma.nomination.findUnique.mockResolvedValue(composeNomination({ subject: base }));
+        const realTemplates = new EmailTemplateService();
+        mockEmailTemplateService.render.mockImplementation(
+          (...args: Parameters<EmailTemplateService['render']>) => realTemplates.render(...args),
+        );
+
+        const composed = await service.getComposeData(NOM_ID, action, 'agent@example.test');
+
+        expect(composed.subject).toBe(`${base} - ${title}`);
+        expect(composed.subject?.split(title)).toHaveLength(2);
+      },
+    );
+
     it.each(['SOF', 'SOF_INTERIM'])(
       'keeps Safe Key Meeting in the saved timeline for %s',
       async (action) => {
