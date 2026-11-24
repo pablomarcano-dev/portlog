@@ -15,6 +15,7 @@ import {
   MethodNotAllowedException,
   NotFoundException,
   Optional,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -1253,7 +1254,7 @@ export class NominationsService {
   async getComposeData(
     nominationId: string,
     actionType: string,
-    agentEmail: string,
+    sender: { userId: string } | string,
   ): Promise<ComposeData> {
     const [nomination, agent] = await Promise.all([
       this.prisma.nomination.findUnique({
@@ -1341,12 +1342,25 @@ export class NominationsService {
         },
       }),
       this.prisma.user.findUnique({
-        where: { email: agentEmail },
-        select: { displayName: true, jobTitle: true, phone: true, mobile: true, fax: true },
+        // HTTP and dispatch callers bind the profile to the authenticated ID.
+        // Keep email lookup for legacy internal callers only.
+        where: typeof sender === 'string' ? { email: sender } : { id: sender.userId },
+        select: {
+          email: true,
+          displayName: true,
+          jobTitle: true,
+          phone: true,
+          mobile: true,
+          fax: true,
+        },
       }),
     ]);
 
     if (!nomination) throw new NotFoundException(`Nomination ${nominationId} not found.`);
+    if (typeof sender !== 'string' && !agent) {
+      throw new UnauthorizedException('Authenticated sender profile not found.');
+    }
+    const agentEmail = agent?.email ?? (typeof sender === 'string' ? sender : '');
 
     const relPath =
       COMPOSE_TEMPLATE_PATHS[actionType.toUpperCase()] ?? `${actionType.toLowerCase()}.hbs`;

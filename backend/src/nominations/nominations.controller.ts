@@ -107,7 +107,7 @@ export class NominationsController {
     @Param('actionType') actionType: string,
     @Req() req: { user: RequestUser },
   ) {
-    return this.svc.getComposeData(id, actionType, req.user.email);
+    return this.svc.getComposeData(id, actionType, { userId: req.user.sub });
   }
 
   @Patch(':id/parcels')
