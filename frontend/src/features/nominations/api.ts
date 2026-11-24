@@ -101,6 +101,14 @@ export const nominationsApi = {
   nominationInstructionsDocx: (nominationId: string): Promise<Blob> =>
     apiRequestBlob(`/nominations/${nominationId}/nomination-instructions.docx`),
 
+  nominationInstructionsPreview: (
+    nominationId: string,
+    kind: 'operational' | 'administrative',
+  ): Promise<Blob> =>
+    apiRequestBlob(
+      `/nominations/${nominationId}/${kind === 'administrative' ? 'administrative-' : ''}nomination-instructions.pdf`,
+    ),
+
   administrativeNominationInstructionsDocx: (nominationId: string): Promise<Blob> =>
     apiRequestBlob(`/nominations/${nominationId}/administrative-nomination-instructions.docx`),
 

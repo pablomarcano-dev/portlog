@@ -57,4 +57,14 @@ describe('NominationInstructionsDocxService', () => {
       );
     }
   });
+
+  it('keeps the logo inline in its own header cell so it cannot cross the document title', () => {
+    const generated = new PizZip(new NominationInstructionsDocxService().render(SAMPLE));
+    const header = generated.file('word/header2.xml')?.asText() ?? '';
+    const logoCell = header.match(/<w:tc\b[^>]*>[\s\S]*?<\/w:tc>/)?.[0] ?? '';
+    expect(logoCell).toContain('<wp:inline');
+    expect(logoCell).not.toContain('<wp:anchor');
+    expect(header.replace(/<[^>]*>/g, '')).toContain('SNCA-RG-AGN-001');
+    expect(header).toContain('NOMINATION INSTRUCTIONS');
+  });
 });

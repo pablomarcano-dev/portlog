@@ -1,3 +1,4 @@
+import { NominationInstructionsPreviewButton } from './NominationInstructionsPreviewButton';
 import { useState } from 'react';
 import { Button, Group, Modal, Stack, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
@@ -54,6 +55,11 @@ export function AdministrativeNominationInstructionsAction({
         SNCA-RG-AGN-002
       </Text>
       <Group gap="xs">
+        <NominationInstructionsPreviewButton
+          nominationId={nominationId}
+          kind="administrative"
+          disabled={settingsPending || billingPending > 0}
+        />
         <Button
           size="xs"
           variant="light"

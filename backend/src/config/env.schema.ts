@@ -72,6 +72,15 @@ const baseSchema = z
     SMTP_PASSWORD: z.string().optional(),
     SMTP_FROM: z.string().min(1),
 
+    // Local conversion of server-generated NI DOCX documents. Never a remote URL.
+    SOFFICE_EXECUTABLE_PATH: z.string().min(1).optional(),
+    DOCX_PREVIEW_TIMEOUT_MS: numericString
+      .refine(
+        (value) => Number(value) >= 1000 && Number(value) <= 45000,
+        'must be between 1000 and 45000',
+      )
+      .optional(),
+
     // Optional integrations — absent means the feature is off, which is safe.
     AIS_PROVIDER: z.string().optional(),
     AIS_API_KEY: z.string().optional(),
