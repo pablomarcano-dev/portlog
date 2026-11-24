@@ -169,6 +169,25 @@ describe('EmailTemplateService', () => {
     });
   });
 
+  it.each([
+    ['Update at Anchor', 'at anchor'],
+    ['Update at Alongside', 'alongside without cargo operations'],
+  ])('renders an honest %s operational notice', async (label, status) => {
+    const { subject, bodyText } = await service.render('01_prearrival/operational_update.hbs', {
+      ...VARS,
+      operational_update_subject: `REF - ${label} 24.11.2026 06:10 Hrs`,
+      operational_update_status: status,
+      vessel_name: 'QA vessel',
+      oper_port: 'QA terminal',
+      update_date: '24.11.2026',
+      update_time: '06:05',
+    });
+    expect(subject).toBe(`REF - ${label} 24.11.2026 06:10 Hrs`);
+    expect(bodyText).toContain(`06:05 Hrs local time, the vessel is ${status}`);
+    expect(bodyText).not.toContain('berthing schedule');
+    expect(bodyText).not.toContain('Final Statement');
+  });
+
   describe('subject header', () => {
     it('compiles the {{!-- Subject: --}} header and strips it from the body', async () => {
       const { subject, bodyText } = await service.render(

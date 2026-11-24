@@ -22,7 +22,11 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '../../../lib/zodResolver';
 import { z } from 'zod';
 import { useNominationSof } from '../hooks/useNominationSof';
-import type { EmailDispatchResponse, SubDocType } from '@portlog/schemas';
+import type {
+  EmailDispatchResponse,
+  SubDocType,
+  OperationalUpdateComposeQuery,
+} from '@portlog/schemas';
 import { useEmailDispatch } from '../api/useEmailDispatch';
 import { useNominationCompose } from '../api/useNominationCompose';
 import { useNominationSendEmail } from '../api/useNominationSendEmail';
@@ -54,6 +58,7 @@ interface EmailComposeDrawerProps {
    * Update stamp, the ETA countdown), which the composed one must not undo.
    */
   subjectOverride?: string;
+  composeOptions?: OperationalUpdateComposeQuery;
 }
 
 const SUB_DOC_LABELS: Record<SubDocType, string> = {
@@ -68,6 +73,7 @@ const SUB_DOC_LABELS: Record<SubDocType, string> = {
   SOF: 'Final Statement of Facts',
   SOF_INTERIM: 'Interim Statement of Facts',
   CARGO_UPDATE: 'Cargo Update',
+  OPERATIONAL_UPDATE: 'Operational Update',
 };
 
 // ---------------------------------------------------------------------------
@@ -108,8 +114,9 @@ export function EmailComposeDrawer({
   defaultSubject,
   defaultBody = '',
   subjectOverride = '',
+  composeOptions,
 }: EmailComposeDrawerProps) {
-  const composeQuery = useNominationCompose(nominationId, subDocType, opened);
+  const composeQuery = useNominationCompose(nominationId, subDocType, opened, composeOptions);
   const dispatch = useEmailDispatch(pedrId, nominationId);
   const nominationSend = useNominationSendEmail(nominationId);
   const isNominationLevel =
@@ -123,7 +130,8 @@ export function EmailComposeDrawer({
     // master's notice, not a generated form — so it goes out on the
     // nomination-level route (no auto-generated PDF), like the others here.
     subDocType === 'NOR' ||
-    subDocType === 'CARGO_UPDATE';
+    subDocType === 'CARGO_UPDATE' ||
+    subDocType === 'OPERATIONAL_UPDATE';
   const isSof = subDocType === 'SOF' || subDocType === 'SOF_INTERIM';
   const sofEventsQuery = useNominationSof(isSof ? (nominationId ?? '') : '');
 

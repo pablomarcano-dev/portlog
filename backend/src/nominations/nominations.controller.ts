@@ -21,6 +21,8 @@ import { NominationsService } from './nominations.service.js';
 import { Roles } from '../auth/roles.decorator.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import {
+  operationalUpdateComposeQuerySchema,
+  type OperationalUpdateComposeQuery,
   NominationCreateSchema,
   NominationUpdateSchema,
   NominationStatusTransitionSchema,
@@ -105,9 +107,11 @@ export class NominationsController {
   getComposeData(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('actionType') actionType: string,
+    @Query(new ZodValidationPipe(operationalUpdateComposeQuerySchema))
+    options: OperationalUpdateComposeQuery,
     @Req() req: { user: RequestUser },
   ) {
-    return this.svc.getComposeData(id, actionType, req.user.email);
+    return this.svc.getComposeData(id, actionType, req.user.email, options);
   }
 
   @Patch(':id/parcels')

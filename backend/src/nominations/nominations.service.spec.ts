@@ -1550,6 +1550,31 @@ describe('NominationsService', () => {
       mockPrisma.emailDispatch.update.mockResolvedValue({ id: 'disp-1' });
     });
 
+    it('records operational updates distinctly and preserves the authored subject without lifecycle changes', async () => {
+      await service.sendEmail(
+        'nom-1',
+        {
+          ...input(BODY),
+          subDocType: 'OPERATIONAL_UPDATE',
+          subject: 'Operator-authored exact subject',
+        },
+        'user-1',
+      );
+      expect(mockPrisma.emailDispatch.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          subDocType: 'OPERATIONAL_UPDATE',
+          subject: 'Operator-authored exact subject',
+          generatedPdfExpected: false,
+        }),
+      });
+      expect(mockEmailService.send).toHaveBeenCalledWith(
+        expect.objectContaining({ subject: 'Operator-authored exact subject' }),
+      );
+      expect(mockPrisma.nomination.update).not.toHaveBeenCalled();
+      expect(mockPrisma.nominationStatusHistory.create).not.toHaveBeenCalled();
+      expect(mockPrisma.pedrStageHistory.create).not.toHaveBeenCalled();
+    });
+
     it('wraps the plain-text body before it reaches SMTP', async () => {
       await service.sendEmail('nom-1', input(BODY), 'user-1');
 
@@ -1658,6 +1683,58 @@ describe('NominationsService', () => {
   // because compose returned nomination.emailTo for every type. Every action
   // copies every address configured on the branch.
   // -------------------------------------------------------------------------
+  describe('operational update drafts', () => {
+    beforeEach(() => {
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({ subject: 'SAVED BUSINESS REFERENCE' }),
+      );
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockEmailTemplateService.render.mockImplementation(
+        async (_path: string, vars: Record<string, unknown>) => ({
+          subject: vars.operational_update_subject,
+          bodyText: 'operational body',
+        }),
+      );
+    });
+    it('requires an explicit state rather than inferring it from nomination status', async () => {
+      await expect(
+        service.getComposeData(NOM_ID, 'OPERATIONAL_UPDATE', 'agent@example.test'),
+      ).rejects.toThrow('Choose Anchor or Alongside');
+    });
+    it.each([
+      ['ANCHOR', 'Update at Anchor'],
+      ['ALONGSIDE', 'Update at Alongside'],
+    ] as const)('builds %s with rounded subject and exact body timestamp', async (mode, label) => {
+      const data = await service.getComposeData(
+        NOM_ID,
+        'OPERATIONAL_UPDATE',
+        'agent@example.test',
+        {
+          mode,
+          at: '2026-11-24T10:05:00Z',
+          automatic: 'true',
+        },
+      );
+      expect(data.subject).toBe(`SAVED BUSINESS REFERENCE - ${label} 24.11.2026 06:10 Hrs`);
+      expect(lastTemplateVars()).toMatchObject({ update_date: '24.11.2026', update_time: '06:05' });
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockPrisma.nomination.update).not.toHaveBeenCalled();
+    });
+    it('honors an operator-entered exact timestamp', async () => {
+      const data = await service.getComposeData(
+        NOM_ID,
+        'OPERATIONAL_UPDATE',
+        'agent@example.test',
+        {
+          mode: 'ALONGSIDE',
+          at: '2026-11-24T10:05:00Z',
+          automatic: 'false',
+        },
+      );
+      expect(data.subject).toContain('06:05 Hrs');
+    });
+  });
+
   describe('getComposeData — recipients', () => {
     beforeEach(() => {
       mockPrisma.user.findUnique.mockResolvedValue(null);

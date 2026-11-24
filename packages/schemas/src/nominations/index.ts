@@ -12,3 +12,4 @@ export * from './sof-calculations.js';
 export * from './public-api.js';
 export * from './administrative-billing.js';
 export * from './update-subject-time.js';
+export * from './operational-update.js';

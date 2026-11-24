@@ -19,6 +19,7 @@ enum SubDocType {
   SOF
   SOF_INTERIM
   CARGO_UPDATE
+  OPERATIONAL_UPDATE
 }
 
 model EmailDispatch {
