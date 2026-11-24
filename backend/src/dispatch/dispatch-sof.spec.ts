@@ -95,10 +95,13 @@ describe('SOF dispatch content and classification', () => {
         }),
       );
       expect(prisma.emailDispatch.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ subDocType }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ subDocType, subject: 'QA SOF' }),
+        }),
       );
       expect(email.send).toHaveBeenCalledWith(
         expect.objectContaining({
+          subject: 'QA SOF',
           to: ['to@example.test'],
           cc: ['copy@example.test', 'branch@example.test'],
         }),
@@ -110,6 +113,9 @@ describe('SOF dispatch content and classification', () => {
       const html = Handlebars.compile(
         fs.readFileSync(path.join(process.cwd(), 'src/pdf/templates/sof.hbs'), 'utf8'),
       )(data);
+      expect(html).toContain(
+        `<h1>${subDocType === 'SOF_INTERIM' ? 'INTERIM STATEMENT OF FACTS' : 'FINAL STATEMENT OF FACTS'}</h1>`,
+      );
       expect(html).toContain('Letter &lt; &amp;');
       expect(html).toContain('Safe Key Meeting Completed');
       expect(html).not.toContain('No events recorded');
