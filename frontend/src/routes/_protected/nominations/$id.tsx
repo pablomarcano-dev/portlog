@@ -71,6 +71,7 @@ function NominationDetailPage() {
   }
 
   const isReadOnly = nomination.status === 'CANCELLED';
+  const businessReference = nomination.administrativeSnOt?.trim() || nomination.snOt;
 
   const defaultValues: Partial<NominationCreateInput> = {
     shipParticularId: nomination.shipParticularId,
@@ -129,21 +130,25 @@ function NominationDetailPage() {
           <Stack gap="md">
             {/* Header */}
             <Group justify="space-between" align="flex-start">
-              <Stack gap={4}>
-                <Title order={3}>
-                  Nomination #{nomination.correlative} — {nomination.voyageNumber}
+              <Stack gap="xs" style={{ flex: 1, minWidth: 0 }}>
+                <Title order={3} style={{ overflowWrap: 'anywhere' }}>
+                  {nomination.shipParticular.name}
                 </Title>
                 <Group gap="xs">
-                  <Text size="sm" c="dimmed">
-                    {nomination.shipParticular.name}
-                  </Text>
-                  <Badge variant="outline" color={nomination.kind === 'OT' ? 'grape' : 'blue'}>
-                    {nomination.snOt}
+                  <Badge
+                    size="lg"
+                    radius="sm"
+                    variant="outline"
+                    color={nomination.kind === 'OT' ? 'grape' : 'blue'}
+                    style={{ maxWidth: '100%', height: 'auto', paddingBlock: 4 }}
+                    styles={{ label: { whiteSpace: 'normal', overflowWrap: 'anywhere' } }}
+                  >
+                    {businessReference}
                   </Badge>
                   <Badge color={STATUS_COLORS[nomination.status]}>{nomination.status}</Badge>
                 </Group>
               </Stack>
-              <Group gap="xs">
+              <Group gap="xs" style={{ flexShrink: 0 }}>
                 <CancelNominationButton
                   nominationId={nomination.id}
                   currentStatus={nomination.status}
