@@ -52,6 +52,14 @@ const NominationInputSchema = z.object({
 
   // Voyage — voyageNumber is auto-assigned from correlative if omitted
   voyageNumber: z.string().max(20).optional(),
+  // True vessel voyage, separate from the legacy internal identifier.
+  vesselVoyageNumber: z
+    .string()
+    .trim()
+    .max(100)
+    .regex(/^[^\r\n]*$/, 'Voyage number must be a single line.')
+    .nullish()
+    .transform((value) => (value === '' ? null : value)),
 
   // Branch — resolves Open Question #5
   branchId: cuidFk,
@@ -203,6 +211,7 @@ export const NominationListItemSchema = z.object({
   correlative: z.number().int().positive(),
   voyageNumber: z.string(),
   voyageCode: z.string().nullable(),
+  vesselVoyageNumber: z.string().nullish(),
   status: NominationStatusSchema,
   nominationType: NominationTypeSchema,
   kind: NominationKindSchema,
@@ -266,6 +275,7 @@ export const NominationSchema = z.object({
   // Voyage
   voyageNumber: z.string(),
   voyageCode: z.string().nullable(),
+  vesselVoyageNumber: z.string().nullish(),
 
   // Vessel
   shipParticularId: cuidFk,

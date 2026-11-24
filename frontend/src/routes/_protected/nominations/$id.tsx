@@ -79,6 +79,7 @@ function NominationDetailPage() {
     nomReply: nomination.nomReply ?? undefined,
     mobileOnBoard: nomination.mobileOnBoard ?? undefined,
     referenceNo: nomination.referenceNo ?? undefined,
+    vesselVoyageNumber: nomination.vesselVoyageNumber ?? '',
     administrativeSnOt: nomination.administrativeSnOt,
     sdwt: nomination.sdwt ?? nomination.shipParticular.dwt ?? undefined,
     grt: nomination.grt ?? nomination.shipParticular.grt ?? undefined,

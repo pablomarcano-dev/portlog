@@ -27,6 +27,7 @@ import { NominationInstructionsDocxService } from './nomination-instructions-doc
 import { formatNominationNoticeReference, formatSnOt } from './nomination-reference.js';
 import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
 import {
+  formatVesselVoyageNumber,
   isValidTransition,
   deriveNominationStatus,
   MONTH_ABBR,
@@ -1268,6 +1269,7 @@ export class NominationsService {
           parcels: true,
           dateNominated: true,
           voyageNumber: true,
+          vesselVoyageNumber: true,
           correlative: true,
           kind: true,
           layDaysFirst: true,
@@ -1374,7 +1376,7 @@ export class NominationsService {
 
     const snRef = formatSnOt(nomination.correlative, nomination.dateNominated, nomination.kind);
     const vesselName = nomination.shipParticular?.name ?? '';
-    const voyageNo = nomination.voyageNumber ?? '';
+    const voyageNo = formatVesselVoyageNumber(nomination.vesselVoyageNumber);
     const terminalName = nomination.opPort?.name ?? '';
     const branchCode = branch?.code ?? '';
     // "SN1522/24/JSE" — the form the agency writes on notices. Distinct from
