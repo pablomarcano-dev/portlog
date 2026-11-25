@@ -42,6 +42,7 @@ import {
 } from '../../../lib/api/admin/users';
 import { useCurrentUser } from '../../../lib/auth/queries';
 import { EntityPicker } from '../../../components/master-data/EntityPicker';
+import { generateSecurePassword } from '../../../lib/security/password-generator';
 
 export const Route = createFileRoute('/_protected/admin/users')({
   component: UsersAdminScreen,
@@ -533,12 +534,26 @@ function ResetPasswordModal({ user, onClose }: { user: AdminUser; onClose: () =>
     }
   }
 
+  function onGeneratePassword() {
+    try {
+      form.setValue('newPassword', generateSecurePassword(), {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    } catch {
+      notifications.show({
+        message: 'Secure password generation is unavailable. Enter a password manually.',
+        color: 'red',
+      });
+    }
+  }
+
   return (
     <Modal opened onClose={onClose} title={`Reset password — ${user.email}`} centered size="sm">
       <form onSubmit={form.handleSubmit((v) => void onSubmit(v))}>
         <Stack gap="sm">
           <Text size="sm" c="dimmed">
-            All active sessions for this user will be revoked immediately.
+            Submitting Reset Password will revoke all active sessions for this user.
           </Text>
           <PasswordInput
             label="New Password"
@@ -547,6 +562,17 @@ function ResetPasswordModal({ user, onClose }: { user: AdminUser; onClose: () =>
             error={form.formState.errors.newPassword?.message}
             {...form.register('newPassword')}
           />
+          <Button
+            type="button"
+            variant="light"
+            disabled={resetPassword.isPending}
+            onClick={onGeneratePassword}
+          >
+            Generate secure password
+          </Button>
+          <Text size="xs" c="dimmed">
+            Review or edit the generated password before submitting.
+          </Text>
           <Group justify="flex-end" mt="sm">
             <Button variant="default" onClick={onClose}>
               Cancel
