@@ -16,7 +16,7 @@ class TestIdentity implements CanActivate {
     req.user = {
       sub: 'person',
       role: req.headers['x-test-role'] ?? 'OPS',
-      branchId: 'plc',
+      branchId: req.headers['x-test-branch'] === 'national' ? null : 'plc',
       permissions: [],
     };
     return true;
@@ -83,6 +83,7 @@ describe('answered permissions over HTTP', () => {
         boardingClerk: '',
       },
       'person',
+      false,
     );
   });
   it('agent cannot create or mutate Clients through direct endpoints', async () => {
@@ -97,7 +98,11 @@ describe('answered permissions over HTTP', () => {
     expect(svc.list).toHaveBeenLastCalledWith(expect.any(Object), 'plc');
     await app.inject({ method: 'GET', url: `/nominations/${ID}` });
     expect(svc.getById).toHaveBeenLastCalledWith(ID, false);
-    await app.inject({ method: 'GET', url: '/nominations', headers: { 'x-test-role': 'FLT' } });
+    await app.inject({
+      method: 'GET',
+      url: '/nominations',
+      headers: { 'x-test-role': 'FLT', 'x-test-branch': 'national' },
+    });
     expect(svc.list).toHaveBeenLastCalledWith(expect.any(Object), undefined);
   });
   it('Fleet Manager can fully edit, but cancellation remains Admin only', async () => {

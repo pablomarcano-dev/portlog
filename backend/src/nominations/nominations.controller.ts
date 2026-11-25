@@ -67,7 +67,7 @@ export class NominationsController {
     @Query(new ZodValidationPipe(NominationListQuerySchema)) query: NominationListQuery,
     @Req() req: { user: RequestUser },
   ) {
-    return this.svc.list(query, req.user.role === 'OPS' ? (req.user.branchId ?? null) : undefined);
+    return this.svc.list(query, req.user.branchId ?? (req.user.role === 'OPS' ? null : undefined));
   }
 
   @Get(':id')
@@ -81,7 +81,7 @@ export class NominationsController {
     @Body(new ZodValidationPipe(NominationUpdateSchema)) body: NominationUpdateInput,
     @Req() req: { user: RequestUser },
   ) {
-    return this.svc.update(id, body, req.user.sub);
+    return this.svc.update(id, body, req.user.sub, req.user.role !== 'OPS');
   }
 
   @Post(':id/transition')

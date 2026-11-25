@@ -42,7 +42,7 @@ export class PedrController {
     @Query(new ZodValidationPipe(pedrListQuerySchema)) query: PedrListQuery,
     @Req() req: { user: RequestUser },
   ) {
-    return this.svc.list(query, req.user.role === 'OPS' ? (req.user.branchId ?? null) : undefined);
+    return this.svc.list(query, req.user.branchId ?? (req.user.role === 'OPS' ? null : undefined));
   }
 
   @Get('by-nomination/:nominationId')

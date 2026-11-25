@@ -38,7 +38,9 @@ export class AllSentController {
 
     const nominations = await this.prisma.nomination.findMany({
       where: {
-        ...(req?.user.role === 'OPS' ? { branchId: req.user.branchId ?? '__unassigned__' } : {}),
+        ...(req?.user.branchId || req?.user.role === 'OPS'
+          ? { branchId: req.user.branchId ?? '__unassigned__' }
+          : {}),
         ...(filters.nominationId
           ? { id: filters.nominationId }
           : {

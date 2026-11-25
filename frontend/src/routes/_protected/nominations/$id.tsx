@@ -1,3 +1,6 @@
+import { hasManagementAccess } from '@portlog/schemas';
+import { useCurrentUser } from '../../../lib/auth/queries';
+import { AgentNominationEditor } from '../../../features/nominations/components/AgentNominationEditor';
 import { createFileRoute } from '@tanstack/react-router';
 import {
   Alert,
@@ -47,6 +50,8 @@ function NominationDetailPage() {
 }
 
 function NominationDetail({ id }: { id: string }) {
+  const { data: user } = useCurrentUser();
+  const canManage = hasManagementAccess(user);
   const { data: nomination, isLoading, isError, error } = useNomination(id);
   const updateNomination = useUpdateNomination(id);
   const { data: pedr } = usePedrByNomination(id);
@@ -183,14 +188,22 @@ function NominationDetail({ id }: { id: string }) {
               />
               <Collapse id="nomination-details-content" in={formOpen}>
                 <Box pt="xs">
+                  {!canManage && !isReadOnly && (
+                    <AgentNominationEditor
+                      nomination={nomination}
+                      onSubmit={(values) => updateNomination.mutate(values)}
+                      isSubmitting={updateNomination.isPending}
+                    />
+                  )}
                   <NominationForm
                     nominationId={id}
                     mode="edit"
                     defaultValues={defaultValues}
                     onSubmit={handleUpdate}
                     isSubmitting={updateNomination.isPending}
-                    isReadOnly={isReadOnly}
+                    isReadOnly={isReadOnly || !canManage}
                     correlative={nomination.correlative}
+                    businessReference={nomination.businessReference}
                     masterContactOption={
                       nomination.masterContact
                         ? {
@@ -258,19 +271,21 @@ function NominationDetail({ id }: { id: string }) {
             <Divider />
 
             {/* Client list section — collapsible */}
-            <Stack gap={0}>
-              <NominationSectionHeader
-                label="Clients"
-                expanded={clientsOpen}
-                controls="nomination-clients-content"
-                onToggle={() => setClientsOpen((o) => !o)}
-              />
-              <Collapse id="nomination-clients-content" in={clientsOpen}>
-                <Box pt="xs">
-                  <ClientsSection nominationId={id} />
-                </Box>
-              </Collapse>
-            </Stack>
+            {canManage && (
+              <Stack gap={0}>
+                <NominationSectionHeader
+                  label="Clients"
+                  expanded={clientsOpen}
+                  controls="nomination-clients-content"
+                  onToggle={() => setClientsOpen((o) => !o)}
+                />
+                <Collapse id="nomination-clients-content" in={clientsOpen}>
+                  <Box pt="xs">
+                    <ClientsSection nominationId={id} />
+                  </Box>
+                </Collapse>
+              </Stack>
+            )}
 
             <Divider />
 
@@ -360,20 +375,22 @@ function NominationDetail({ id }: { id: string }) {
         {rightOpen && (
           <Box style={{ overflowY: 'auto', flex: 1, padding: 'var(--mantine-spacing-md)' }}>
             {/* Status History — collapsible */}
-            <Stack gap={0} mb="md">
-              <NominationSectionHeader
-                label="Status History"
-                expanded={historyOpen}
-                controls="nomination-status-history-content"
-                onToggle={() => setHistoryOpen((o) => !o)}
-                compact
-              />
-              <Collapse id="nomination-status-history-content" in={historyOpen}>
-                <Box pt="xs">
-                  <StatusHistoryTimeline history={nomination.statusHistory} />
-                </Box>
-              </Collapse>
-            </Stack>
+            {canManage && (
+              <Stack gap={0} mb="md">
+                <NominationSectionHeader
+                  label="Status History"
+                  expanded={historyOpen}
+                  controls="nomination-status-history-content"
+                  onToggle={() => setHistoryOpen((o) => !o)}
+                  compact
+                />
+                <Collapse id="nomination-status-history-content" in={historyOpen}>
+                  <Box pt="xs">
+                    <StatusHistoryTimeline history={nomination.statusHistory} />
+                  </Box>
+                </Collapse>
+              </Stack>
+            )}
 
             <Divider my="sm" />
             <Stack gap={0}>

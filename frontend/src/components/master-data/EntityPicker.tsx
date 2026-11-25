@@ -28,6 +28,7 @@ interface EntityPickerProps {
   placeholder?: string;
   extraParams?: Record<string, string>;
   disabled?: boolean;
+  clearable?: boolean;
   /**
    * The option `value` refers to, when the caller already knows its label
    * (e.g. from a `{ id, name }` object on the record being edited).
@@ -67,6 +68,7 @@ export function EntityPicker({
   groupByCountry = false,
   limit = 50,
   includeSelectedOption = true,
+  clearable = true,
 }: EntityPickerProps) {
   const [debouncedSearch] = useDebouncedValue(searchValue, 300);
 
@@ -154,7 +156,7 @@ export function EntityPicker({
       onSearchChange={onSearchChange}
       disabled={disabledProp}
       rightSection={isLoading ? <Loader size="xs" /> : undefined}
-      clearable
+      clearable={clearable}
       nothingFoundMessage={isLoading ? 'Loading...' : 'No results found'}
     />
   );
