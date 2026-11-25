@@ -1,5 +1,19 @@
 import { ManagementAccess } from '../../lib/auth/ManagementAccess';
-import { Alert, Badge, Container, Group, List, Paper, Stack, Text, Title } from '@mantine/core';
+import {
+  Alert,
+  Anchor,
+  Badge,
+  Box,
+  Container,
+  Group,
+  Image,
+  List,
+  Paper,
+  SimpleGrid,
+  Stack,
+  Text,
+  Title,
+} from '@mantine/core';
 import { createFileRoute } from '@tanstack/react-router';
 import { changelogEntries, CHANGELOG_STATUS } from '../../features/changelog/data';
 
@@ -58,7 +72,8 @@ function ChangelogPage() {
                 </Alert>
                 <Stack gap="xs">
                   <Text fw={600} size="sm">
-                    Revisión local original de los 13 puntos de la minuta del 5 de octubre
+                    {entry.qaSummaryLabel ??
+                      'Revisión local original de los 13 puntos de la minuta del 5 de octubre'}
                   </Text>
                   <Group gap="xs" aria-label="Resumen de verificación local">
                     <Badge color="blue" variant="light">
@@ -72,8 +87,8 @@ function ChangelogPage() {
                     </Badge>
                   </Group>
                   <Text size="xs" c="dimmed">
-                    Este resumen conserva el resultado de la revisión local original. El estado
-                    actual del despliegue se indica por separado.
+                    {entry.qaSummaryNote ??
+                      'Este resumen conserva el resultado de la revisión local original. El estado actual del despliegue se indica por separado.'}
                   </Text>
                 </Stack>
                 {entry.sections.map((section) => (
@@ -103,6 +118,39 @@ function ChangelogPage() {
                         <List.Item key={item}>{item}</List.Item>
                       ))}
                     </List>
+                    {section.screenshots && (
+                      <Stack gap="xs">
+                        <Text size="xs" c="dimmed">
+                          Capturas con datos de prueba. Selecciona una imagen para verla completa.
+                        </Text>
+                        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                          {section.screenshots.map((shot) => (
+                            <Box component="figure" key={shot.src} m={0}>
+                              <Anchor
+                                href={shot.src}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={`Ver captura: ${shot.caption}`}
+                              >
+                                <Image
+                                  src={shot.src}
+                                  alt={shot.alt}
+                                  loading="lazy"
+                                  radius="sm"
+                                  h={240}
+                                  fit="contain"
+                                  bg="gray.0"
+                                  style={{ border: '1px solid var(--mantine-color-gray-3)' }}
+                                />
+                              </Anchor>
+                              <Text component="figcaption" size="xs" c="dimmed" mt="xs">
+                                {shot.caption}
+                              </Text>
+                            </Box>
+                          ))}
+                        </SimpleGrid>
+                      </Stack>
+                    )}
                     {section.verification && (
                       <Text size="sm" c="dimmed">
                         {section.verification}

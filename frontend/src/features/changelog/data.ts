@@ -7,12 +7,19 @@ export const CHANGELOG_STATUS = {
   deferred: { label: 'Aplazamiento aprobado', color: 'gray' },
 } as const satisfies Record<ChangelogStatus, { label: string; color: string }>;
 
+interface ChangelogScreenshot {
+  readonly src: `/changelog/${string}`;
+  readonly alt: string;
+  readonly caption: string;
+}
+
 interface ChangelogSection {
   readonly id: string;
   readonly title: string;
   readonly status: ChangelogStatus;
   readonly items: readonly string[];
   readonly verification?: string;
+  readonly screenshots?: readonly ChangelogScreenshot[];
 }
 
 export interface ChangelogEntry {
@@ -24,6 +31,8 @@ export interface ChangelogEntry {
   readonly title: string;
   readonly deployment: 'pending' | 'deployed';
   readonly releaseNote: string;
+  readonly qaSummaryLabel?: string;
+  readonly qaSummaryNote?: string;
   readonly qaSummary: {
     readonly verified: number;
     readonly partial: number;
@@ -35,6 +44,192 @@ export interface ChangelogEntry {
 // User-facing release notes only. Keep internal audit details and operational data in docs/.
 // Sources and verification boundaries: docs/CHANGELOG.md.
 export const changelogEntries: readonly ChangelogEntry[] = [
+  {
+    id: '2026-11-25-permissions-branches',
+    date: '2026-11-25',
+    dateLabel: '25 de noviembre de 2026',
+    timeZone: 'America/Montevideo',
+    title: 'Acceso por usuario, permisos y cambio de sucursal',
+    deployment: 'pending',
+    releaseNote:
+      'Cambios implementados y verificados en un entorno local con datos de prueba. La publicación en producción está pendiente. La emisión de los nuevos números SN/OT permanece inactiva hasta completar el traspaso autorizado.',
+    qaSummaryLabel: 'Requisitos trabajados en esta revisión',
+    qaSummaryNote:
+      'Ocho requisitos completados localmente y cinco con avances que aún requieren datos o decisiones. Los requisitos completados el 24 de noviembre se describen en su propia entrada.',
+    qaSummary: { verified: 8, partial: 5, deferred: 0 },
+    sections: [
+      {
+        id: 'personal-login-branches',
+        title: 'Inicio de sesión y sucursales',
+        status: 'verified-local',
+        items: [
+          'Cada persona puede acceder con un nombre de usuario individual; el acceso existente con correo electrónico sigue disponible.',
+          'Administración puede asignar varias sucursales y una principal a cada usuario. Quien tiene una sola entra directamente; los usuarios con varias pueden cambiar desde la barra superior sin cerrar sesión.',
+          'Al cambiar de sucursal se actualizan las nominaciones, solicitudes de servicio e información operativa. La selección se conserva al renovar la sesión y no cambia la sucursal principal del usuario.',
+          'El formulario administrativo para restablecer contraseñas permite generar una contraseña segura y revisarla o editarla. Generar no cambia la contraseña: es necesario confirmar el restablecimiento.',
+        ],
+        screenshots: [
+          {
+            src: '/changelog/2026-11/branch-switch.jpg',
+            alt: 'Selector superior en la segunda sucursal y nominaciones de esa sucursal con una sesión de agente de prueba.',
+            caption: 'Cambio de sucursal desde la barra superior, sin volver a iniciar sesión.',
+          },
+          {
+            src: '/changelog/2026-11/branch-assignments.jpg',
+            alt: 'Edición de usuario con varias sucursales asignadas y una sucursal principal.',
+            caption: 'Asignación administrativa de sucursales y elección de la principal.',
+          },
+          {
+            src: '/changelog/2026-11/username-login.jpg',
+            alt: 'Pantalla de inicio de sesión que acepta nombre de usuario o correo electrónico.',
+            caption: 'Acceso individual por nombre de usuario o por correo electrónico.',
+          },
+          {
+            src: '/changelog/2026-11/password-generator.jpg',
+            alt: 'Restablecimiento de contraseña con el botón Generate secure password y confirmación separada.',
+            caption: 'Generación de contraseña previa a la confirmación del restablecimiento.',
+          },
+        ],
+      },
+      {
+        id: 'fleet-agent-permissions',
+        title: 'Permisos de Fleet Manager y agentes',
+        status: 'verified-local',
+        items: [
+          'Fleet Manager dispone de alcance nacional, creación y edición completa de nominaciones, Clientes y facturación, catálogos de Master Data e historial. La cancelación sigue reservada a Administración.',
+          'Los agentes ven todas las nominaciones de su sucursal para cubrir los turnos. Solo pueden modificar Last Port, Next Port y Boarding; los demás detalles quedan disponibles como consulta.',
+          'Master Data, Changelog, Clientes e historial no se ofrecen a los agentes. Las mismas restricciones se verifican al solicitar datos o guardar cambios, incluidas las rutas de documentos y adjuntos.',
+          'Las solicitudes de servicio, sus informes, documentos y adjuntos respetan la sucursal autorizada. Se rechaza adjuntar un archivo temporal subido por otra persona.',
+          'Los puestos operativos y el rol de acceso se mantienen separados: un título laboral no concede permisos por sí solo.',
+        ],
+        screenshots: [
+          {
+            src: '/changelog/2026-11/agent-permitted-editor.jpg',
+            alt: 'Vista de agente con Last Port, Next Port y Boarding, sin panel de Clientes ni historial.',
+            caption:
+              'Edición limitada a los tres campos permitidos; el resto del viaje se consulta por separado.',
+          },
+        ],
+        verification:
+          'Inicio de sesión, cambio de sucursal, restricciones de lectura y guardado, y cancelación exclusiva de Administración comprobados con la aplicación local y datos simulados.',
+      },
+      {
+        id: 'consistent-subjects',
+        title: 'Asuntos de correo consistentes',
+        status: 'verified-local',
+        items: [
+          'Los asuntos automáticos y sus vistas previas comparten la referencia de la nominación, el nombre del buque, su VOY y el terminal. Cuando existe una nueva referencia emitida, se utiliza esa referencia guardada.',
+          'Se conservan los asuntos escritos manualmente y los mensajes ya enviados. La normalización del asunto no activa la nueva numeración ni cambia las referencias históricas.',
+        ],
+      },
+      {
+        id: 'numbering-and-pending-mappings',
+        title: 'Numeración y configuraciones que aún necesitan confirmación',
+        status: 'partial',
+        items: [
+          'Se preparó el formato SN####/YY/SUC y OT####/YY/SUC para nuevas nominaciones, con el año de apertura y secuencias independientes que continúan entre años. Los números ya emitidos y los documentos históricos se conservan.',
+          'La nueva emisión no está activada. Requiere el archivo del sistema anterior, los últimos números, la fecha de corte, confirmar el alcance nacional o por sucursal de OT y conciliar las sucursales.',
+          'El catálogo representa Branch Manager, Supervisor, Shipping Agent, Branch Administrator, Fleet Manager, Senior Fleet Manager y Administration Manager. Faltan las asignaciones reales de personas y permisos; no se promovieron cuentas automáticamente.',
+          'La revisión de sucursales incorpora la lista actual de siete entradas, con Puerto La Cruz y Jose bajo PLC, y señala JSE/Jose para conciliación manual. No se fusionaron registros.',
+          'Siguen pendientes las correspondencias reales entre usuarios y buzones, la política final de firmas y los datos para configurar y probar el correo saliente. Tampoco se activó 2FA sin definir el método y la recuperación.',
+        ],
+        screenshots: [
+          {
+            src: '/changelog/2026-11/operational-positions.jpg',
+            alt: 'Lista de los siete puestos operativos en la administración de usuarios, separada del rol de acceso.',
+            caption:
+              'Puestos operativos disponibles; asignar un puesto no concede un rol de acceso.',
+          },
+        ],
+        verification:
+          'Compilación y comprobaciones de tipos satisfactorias; 1.104 pruebas automatizadas. La numeración se comprobó con concurrencia y reversión en una base de prueba. No se enviaron correos ni se migraron datos de producción.',
+      },
+    ],
+  },
+  {
+    id: '2026-11-24-nominations-documents-subjects',
+    date: '2026-11-24',
+    dateLabel: '24 de noviembre de 2026',
+    timeZone: 'America/Montevideo',
+    title: 'Nominaciones más claras, vistas previas y asuntos de correo',
+    deployment: 'pending',
+    releaseNote:
+      'Primera entrega de los ajustes solicitados después del 19 de noviembre. Implementación y verificación local completadas en el alcance indicado; despliegue pendiente. Los avances posteriores de permisos, usuarios y sucursales figuran en la entrada del 25 de noviembre.',
+    qaSummaryLabel: 'Resultado de la primera entrega',
+    qaSummaryNote:
+      'Doce requisitos completados localmente y cuatro entregas parciales en esa fecha. Las decisiones y los datos que llegaron después se reflejan en la entrada siguiente.',
+    qaSummary: { verified: 12, partial: 4, deferred: 0 },
+    sections: [
+      {
+        id: 'nomination-interface',
+        title: 'Identificación y edición de nominaciones',
+        status: 'verified-local',
+        items: [
+          'El encabezado identifica primero al buque y muestra su referencia SN/OT. Las secciones tienen encabezados más claros y comienzan cerradas; guardar o actualizar el mismo registro no oculta la sección en uso.',
+          'Vessel voyage (VOY) guarda el viaje comunicado por el buque, separado de la numeración interna. Si no se conoce, los asuntos muestran TBC.',
+          'La cancelación de viajes queda reservada a Administración, tanto en la interfaz como al guardar.',
+        ],
+      },
+      {
+        id: 'ni-previews',
+        title: 'Instrucciones de nominación',
+        status: 'verified-local',
+        items: [
+          'Las instrucciones administrativas y operativas ofrecen una vista previa PDF dentro de la aplicación, además de la descarga del documento Word.',
+          'Las acciones se presentan de forma breve y disponen de ayuda opcional, sin explicaciones extensas que oculten los controles.',
+        ],
+        screenshots: [
+          {
+            src: '/changelog/2026-11/ni-preview.jpg',
+            alt: 'Vista previa PDF de instrucciones administrativas dentro de la nominación de prueba.',
+            caption:
+              'Revisión del documento administrativo antes de descargarlo; Word sigue disponible.',
+          },
+        ],
+      },
+      {
+        id: 'sof-and-update-subjects',
+        title: 'SOF y asuntos de las actualizaciones',
+        status: 'verified-local',
+        items: [
+          'El compositor SOF elimina la tabla Event Log redundante, manteniendo los eventos en el documento generado. Los interinos usan Interim Statement of Facts.',
+          'El asunto SOF ofrece dieciséis etiquetas de actividad administrables. Sugiere la última actividad cuando tiene una coincidencia clara y permite elegir otra sin modificar los eventos.',
+          'Las actualizaciones distinguen Anchor, Alongside y Cargo Update. La hora automática del asunto se redondea a diez minutos; una hora introducida manualmente se conserva. Las horas operativas guardadas no se redondean.',
+        ],
+        screenshots: [
+          {
+            src: '/changelog/2026-11/sof-activity-subject.jpg',
+            alt: 'Compositor de SOF interino con selección de actividad All Fast y asunto con VOY.',
+            caption: 'Selección de la actividad SOF y asunto con el viaje del buque.',
+          },
+          {
+            src: '/changelog/2026-11/anchor-subject-rounding.jpg',
+            alt: 'Actualización Anchor con hora automática redondeada en el asunto y hora original en el cuerpo.',
+            caption: 'La hora del asunto puede redondearse sin alterar la hora del evento.',
+          },
+        ],
+      },
+      {
+        id: 'source-diagnostics-and-partial-work',
+        title: 'Diagnóstico de datos y avances parciales',
+        status: 'partial',
+        items: [
+          'Administración puede revisar si faltan instrucciones, municipio o destinatarios fiscales antes de completar las instrucciones administrativas. Los campos opcionales sin datos no se rellenan con valores supuestos.',
+          'Se prepararon la revisión de códigos de sucursal, el formato común de asuntos y la firma asociada a la persona autenticada. El cierre de esos requisitos dependía de respuestas y datos adicionales; parte avanzó el 25 de noviembre.',
+          'La corrección del caso FOREVER sigue pendiente de confirmar la nominación exacta, la fecha y el cliente de instrucciones. Los espacios tachados en los ejemplos no se interpretan como datos faltantes.',
+        ],
+        screenshots: [
+          {
+            src: '/changelog/2026-11/ni-source-diagnostics.jpg',
+            alt: 'Revisión de datos de origen de las instrucciones administrativas usando una nominación sintética.',
+            caption: 'Diagnóstico de los datos necesarios para el documento administrativo.',
+          },
+        ],
+        verification:
+          '707 pruebas automatizadas, compilación, comprobaciones de tipos, revisión de documentos y pruebas locales de navegador y API. Los ejemplos contienen datos de prueba; no se enviaron correos reales.',
+      },
+    ],
+  },
   {
     id: '2026-10-28-operational-followups',
     date: '2026-10-28',
