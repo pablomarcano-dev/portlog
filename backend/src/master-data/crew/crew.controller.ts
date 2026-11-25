@@ -45,17 +45,19 @@ export class CrewController {
   }
 
   @Post()
+  @Roles('ADM', 'FLT')
   create(@Body() dto: CreateCrewDto) {
     return this.crewService.create(dto);
   }
 
   @Patch(':id')
+  @Roles('ADM', 'FLT')
   update(@Param('id') id: string, @Body() dto: UpdateCrewDto) {
     return this.crewService.update(id, dto);
   }
 
   @Delete(':id')
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string) {
     return this.crewService.remove(id);

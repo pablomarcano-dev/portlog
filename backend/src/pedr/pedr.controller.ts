@@ -38,8 +38,11 @@ export class PedrController {
   }
 
   @Get()
-  list(@Query(new ZodValidationPipe(pedrListQuerySchema)) query: PedrListQuery) {
-    return this.svc.list(query);
+  list(
+    @Query(new ZodValidationPipe(pedrListQuerySchema)) query: PedrListQuery,
+    @Req() req: { user: RequestUser },
+  ) {
+    return this.svc.list(query, req.user.role === 'OPS' ? (req.user.branchId ?? null) : undefined);
   }
 
   @Get('by-nomination/:nominationId')

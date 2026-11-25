@@ -38,17 +38,19 @@ export class ContactsController {
   }
 
   @Post()
+  @Roles('ADM', 'FLT')
   create(@Body() dto: CreateContactDto) {
     return this.contactsService.create(dto);
   }
 
   @Patch(':id')
+  @Roles('ADM', 'FLT')
   update(@Param('id') id: string, @Body() dto: UpdateContactDto) {
     return this.contactsService.update(id, dto);
   }
 
   @Delete(':id')
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string) {
     return this.contactsService.remove(id);

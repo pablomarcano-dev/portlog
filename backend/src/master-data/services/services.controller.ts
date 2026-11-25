@@ -43,17 +43,19 @@ export class ServicesController {
   }
 
   @Post()
+  @Roles('ADM', 'FLT')
   create(@Body() dto: CreateServiceDto) {
     return this.servicesService.create(dto);
   }
 
   @Patch(':id')
+  @Roles('ADM', 'FLT')
   update(@Param('id') id: string, @Body() dto: UpdateServiceDto) {
     return this.servicesService.update(id, dto);
   }
 
   @Delete(':id')
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string) {
     return this.servicesService.remove(id);

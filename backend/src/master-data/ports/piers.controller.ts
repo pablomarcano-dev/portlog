@@ -29,11 +29,13 @@ export class PiersController {
   }
 
   @Post()
+  @Roles('ADM', 'FLT')
   create(@Param('portId') portId: string, @Body() dto: CreatePierDto) {
     return this.piersService.create({ name: dto.name, portId });
   }
 
   @Patch(':id')
+  @Roles('ADM', 'FLT')
   update(@Param('id') id: string, @Body() dto: UpdatePierDto) {
     return this.piersService.update(id, dto);
   }

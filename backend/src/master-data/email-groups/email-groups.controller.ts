@@ -40,19 +40,19 @@ export class EmailGroupsController {
   }
 
   @Post()
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   create(@Body() dto: CreateEmailGroupDto) {
     return this.svc.create(dto);
   }
 
   @Patch(':id')
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   update(@Param('id') id: string, @Body() dto: UpdateEmailGroupDto) {
     return this.svc.update(id, dto);
   }
 
   @Delete(':id')
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string) {
     return this.svc.remove(id);

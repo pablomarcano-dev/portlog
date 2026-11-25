@@ -56,17 +56,19 @@ export class BranchesController {
   }
 
   @Post()
+  @Roles('ADM', 'FLT')
   create(@Body() dto: CreateBranchDto) {
     return this.branchesService.create(dto);
   }
 
   @Patch(':id')
+  @Roles('ADM', 'FLT')
   update(@Param('id') id: string, @Body() dto: UpdateBranchDto) {
     return this.branchesService.update(id, dto);
   }
 
   @Delete(':id')
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string) {
     return this.branchesService.remove(id);

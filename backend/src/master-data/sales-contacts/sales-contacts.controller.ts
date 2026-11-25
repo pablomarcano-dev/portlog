@@ -45,17 +45,19 @@ export class SalesContactsController {
   }
 
   @Post()
+  @Roles('ADM', 'FLT')
   create(@Body() dto: CreateSalesContactDto) {
     return this.salesContactsService.create(dto);
   }
 
   @Patch(':id')
+  @Roles('ADM', 'FLT')
   update(@Param('id') id: string, @Body() dto: UpdateSalesContactDto) {
     return this.salesContactsService.update(id, dto);
   }
 
   @Delete(':id')
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string) {
     return this.salesContactsService.remove(id);

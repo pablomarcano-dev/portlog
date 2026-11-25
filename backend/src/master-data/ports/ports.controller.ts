@@ -48,17 +48,19 @@ export class PortsController {
   }
 
   @Post()
+  @Roles('ADM', 'FLT')
   create(@Body() dto: CreatePortDto) {
     return this.portsService.create(dto);
   }
 
   @Patch(':id')
+  @Roles('ADM', 'FLT')
   update(@Param('id') id: string, @Body() dto: UpdatePortDto) {
     return this.portsService.update(id, dto);
   }
 
   @Delete(':id')
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string) {
     return this.portsService.remove(id);

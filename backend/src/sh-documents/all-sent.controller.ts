@@ -1,4 +1,5 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, Req } from '@nestjs/common';
+import type { RequestUser } from '../auth/jwt.strategy.js';
 import { Roles } from '../auth/roles.decorator.js';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import {
@@ -27,6 +28,7 @@ export class AllSentController {
   @Get()
   async getAllSent(
     @Query(new ZodValidationPipe(AllSentFiltersSchema)) filters: AllSentFilters,
+    @Req() req?: { user: RequestUser },
   ): Promise<AllSentResponse> {
     // Default filter: last 30 days when no range provided
     const toDate = filters.to ? new Date(filters.to) : new Date();
@@ -35,12 +37,15 @@ export class AllSentController {
       : new Date(toDate.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     const nominations = await this.prisma.nomination.findMany({
-      where: filters.nominationId
-        ? { id: filters.nominationId }
-        : {
-            dateNominated: { gte: fromDate, lte: toDate },
-            ...(filters.portId ? { opPortId: filters.portId } : {}),
-          },
+      where: {
+        ...(req?.user.role === 'OPS' ? { branchId: req.user.branchId ?? '__unassigned__' } : {}),
+        ...(filters.nominationId
+          ? { id: filters.nominationId }
+          : {
+              dateNominated: { gte: fromDate, lte: toDate },
+              ...(filters.portId ? { opPortId: filters.portId } : {}),
+            }),
+      },
       include: {
         shipParticular: { select: { name: true } },
         opPort: { select: { name: true, abbreviation: true } },

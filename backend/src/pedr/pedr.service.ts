@@ -115,10 +115,13 @@ export class PedrService {
     });
   }
 
-  async list(query: PedrListQuery) {
+  async list(query: PedrListQuery, branchId?: string | null) {
     const { stage, nominationSearch, pageSize, cursor } = query;
 
-    const where: Prisma.PedrWhereInput = {};
+    const where: Prisma.PedrWhereInput =
+      branchId === undefined
+        ? {}
+        : { AND: [{ nomination: { branchId: branchId ?? '__unassigned__' } }] };
 
     if (stage) where.currentStage = stage;
 

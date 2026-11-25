@@ -15,13 +15,13 @@ export class SofSubjectActivitiesController {
   }
 
   @Get('admin/sof-subject-activities')
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   list() {
     return this.service.list(true);
   }
 
   @Post('admin/sof-subject-activities')
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   create(
     @Body(new ZodValidationPipe(sofSubjectActivityInputSchema)) input: SofSubjectActivityInput,
   ) {
@@ -29,7 +29,7 @@ export class SofSubjectActivitiesController {
   }
 
   @Patch('admin/sof-subject-activities/:id')
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   update(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(sofSubjectActivityInputSchema)) input: SofSubjectActivityInput,

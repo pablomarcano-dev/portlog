@@ -12,7 +12,7 @@ import { AdministrativeNominationBillingService } from './administrative-nominat
 class AdministrativeBillingUpdateDto extends createZodDto(AdministrativeBillingUpdateSchema) {}
 
 @Controller('nominations/:id/administrative-billing')
-@Roles('OPS', 'ADM')
+@Roles('ADM', 'FLT')
 export class AdministrativeNominationBillingController {
   constructor(private readonly billing: AdministrativeNominationBillingService) {}
 

@@ -129,7 +129,7 @@ export class BranchDocumentsController {
   // Template management (ADM only)
   // ---------------------------------------------------------------------------
 
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   @Post('branches/:branchId/document-templates')
   createTemplate(
     @Param('branchId') branchId: string,
@@ -139,7 +139,7 @@ export class BranchDocumentsController {
     return this.service.createTemplate(branchId, dto);
   }
 
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   @Patch('branches/:branchId/document-templates/:templateId')
   updateTemplate(
     @Param('branchId') branchId: string,
@@ -150,7 +150,7 @@ export class BranchDocumentsController {
     return this.service.updateTemplate(branchId, templateId, dto);
   }
 
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   @Delete('branches/:branchId/document-templates/:templateId')
   @HttpCode(204)
   async deleteTemplate(
@@ -160,7 +160,7 @@ export class BranchDocumentsController {
     await this.service.deleteTemplate(branchId, templateId);
   }
 
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   @Post('branches/:branchId/document-templates/:templateId/hbs')
   uploadHbs(
     @Param('branchId') branchId: string,
@@ -174,7 +174,7 @@ export class BranchDocumentsController {
   // Field management (ADM only)
   // ---------------------------------------------------------------------------
 
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   @Post('branches/:branchId/document-templates/:templateId/fields')
   createField(
     @Param('branchId') branchId: string,
@@ -185,7 +185,7 @@ export class BranchDocumentsController {
     return this.service.createField(branchId, templateId, dto);
   }
 
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   @Patch('branches/:branchId/document-templates/:templateId/fields/:fieldId')
   updateField(
     @Param('branchId') branchId: string,
@@ -197,7 +197,7 @@ export class BranchDocumentsController {
     return this.service.updateField(branchId, templateId, fieldId, dto);
   }
 
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   @Delete('branches/:branchId/document-templates/:templateId/fields/:fieldId')
   @HttpCode(204)
   async deleteField(
@@ -208,7 +208,7 @@ export class BranchDocumentsController {
     await this.service.deleteField(branchId, templateId, fieldId);
   }
 
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   @Put('branches/:branchId/document-templates/:templateId/fields/reorder')
   reorderFields(
     @Param('branchId') branchId: string,

@@ -40,11 +40,13 @@ export class OwnersController {
   }
 
   @Post()
+  @Roles('ADM', 'FLT')
   create(@Body() dto: CreateOwnerDto) {
     return this.ownersService.create(dto);
   }
 
   @Patch(':id')
+  @Roles('ADM', 'FLT')
   update(@Param('id') id: string, @Body() dto: UpdateOwnerDto, @Req() req: { user: RequestUser }) {
     return this.ownersService.update(id, dto, req.user.permissions, {
       userId: req.user.sub,
@@ -52,7 +54,7 @@ export class OwnersController {
   }
 
   @Delete(':id')
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string) {
     return this.ownersService.remove(id);

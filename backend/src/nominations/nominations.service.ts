@@ -601,13 +601,13 @@ export class NominationsService {
     }
   }
 
-  async list(query: NominationListQuery) {
+  async list(query: NominationListQuery, branchId?: string | null) {
     const { page, pageSize, status, portId, country, shipParticularId, dateFrom, dateTo, search } =
       query;
     const skip = (page - 1) * pageSize;
 
     const now = new Date();
-    const where: Prisma.NominationWhereInput = {};
+    const where: Prisma.NominationWhereInput = branchId === undefined ? {} : { branchId: branchId ?? '__unassigned__' };
     // Each independent filter that needs an OR across the several port relations
     // is pushed as its own AND clause so the groups don't clobber one another.
     const and: Prisma.NominationWhereInput[] = [];
@@ -686,7 +686,7 @@ export class NominationsService {
     };
   }
 
-  async getById(id: string) {
+  async getById(id: string, includeClients = true) {
     const nomination = await this.prisma.nomination.findUnique({
       where: { id },
       include: DETAIL_INCLUDE,
@@ -694,7 +694,7 @@ export class NominationsService {
     if (!nomination) {
       throw new NotFoundException(`Nomination ${id} not found.`);
     }
-    return present(nomination);
+    return present(includeClients ? nomination : { ...nomination, nominationClients: [], statusHistory: [] });
   }
 
   async update(id: string, dto: NominationUpdateInput, userId: string) {

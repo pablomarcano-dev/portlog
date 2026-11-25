@@ -54,6 +54,7 @@ export class NominationsController {
   constructor(private readonly svc: NominationsService) {}
 
   @Post()
+  @Roles('ADM', 'FLT')
   create(
     @Body(new ZodValidationPipe(NominationCreateSchema)) body: NominationCreateInput,
     @Req() req: { user: RequestUser },
@@ -62,13 +63,16 @@ export class NominationsController {
   }
 
   @Get()
-  list(@Query(new ZodValidationPipe(NominationListQuerySchema)) query: NominationListQuery) {
-    return this.svc.list(query);
+  list(
+    @Query(new ZodValidationPipe(NominationListQuerySchema)) query: NominationListQuery,
+    @Req() req: { user: RequestUser },
+  ) {
+    return this.svc.list(query, req.user.role === 'OPS' ? (req.user.branchId ?? null) : undefined);
   }
 
   @Get(':id')
-  byId(@Param('id', ParseUUIDPipe) id: string) {
-    return this.svc.getById(id);
+  byId(@Param('id', ParseUUIDPipe) id: string, @Req() req: { user: RequestUser }) {
+    return this.svc.getById(id, req.user.role !== 'OPS');
   }
 
   @Patch(':id')
@@ -116,6 +120,7 @@ export class NominationsController {
   }
 
   @Patch(':id/parcels')
+  @Roles('ADM', 'FLT')
   @HttpCode(HttpStatus.NO_CONTENT)
   updateParcels(@Param('id', ParseUUIDPipe) id: string, @Body() body: { parcels: unknown[] }) {
     return this.svc.updateParcels(id, body.parcels);
@@ -166,6 +171,7 @@ export class NominationsController {
   }
 
   @Get(':id/clients')
+  @Roles('ADM', 'FLT')
   listClients(@Param('id', ParseUUIDPipe) id: string) {
     return this.svc.listClients(id);
   }
@@ -188,11 +194,13 @@ export class NominationsController {
   }
 
   @Post(':id/clients')
+  @Roles('ADM', 'FLT')
   addClient(@Param('id', ParseUUIDPipe) id: string, @Body() dto: CreateNominationClientDto) {
     return this.svc.addClient(id, dto);
   }
 
   @Patch(':id/clients/:clientId')
+  @Roles('ADM', 'FLT')
   updateClient(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('clientId', ParseUUIDPipe) clientId: string,
@@ -202,6 +210,7 @@ export class NominationsController {
   }
 
   @Delete(':id/clients/:clientId')
+  @Roles('ADM', 'FLT')
   @HttpCode(HttpStatus.NO_CONTENT)
   removeClient(
     @Param('id', ParseUUIDPipe) id: string,
