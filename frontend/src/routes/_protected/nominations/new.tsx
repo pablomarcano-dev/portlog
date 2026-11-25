@@ -1,3 +1,4 @@
+import { ManagementAccess } from '../../../lib/auth/ManagementAccess';
 import { useCallback, useEffect, useState } from 'react';
 import { useCurrentUser } from '../../../lib/auth/queries';
 import {
@@ -66,68 +67,70 @@ function NewNominationPage() {
   };
 
   return (
-    <Container size="xl" py="lg">
-      <Stack gap="md">
-        <Title order={3}>New Nomination</Title>
-        {createNomination.isError && (
-          <Alert color="red" title="Error creating nomination">
-            {createNomination.error instanceof Error
-              ? createNomination.error.message
-              : 'An unexpected error occurred.'}
-          </Alert>
-        )}
-        {draftError && <Alert color="red">{draftError}</Alert>}
-        {!user && !userError && <Loader size="sm" />}
-        {userError && (
-          <Alert color="red">
-            Could not load your account. Reload to recover your local draft.
-          </Alert>
-        )}
-        {pending && !ready && (
-          <Alert title="Continue pending nomination" color="blue">
-            <Text>
-              A draft is saved in this browser for your account. It has not been submitted.
+    <ManagementAccess>
+      <Container size="xl" py="lg">
+        <Stack gap="md">
+          <Title order={3}>New Nomination</Title>
+          {createNomination.isError && (
+            <Alert color="red" title="Error creating nomination">
+              {createNomination.error instanceof Error
+                ? createNomination.error.message
+                : 'An unexpected error occurred.'}
+            </Alert>
+          )}
+          {draftError && <Alert color="red">{draftError}</Alert>}
+          {!user && !userError && <Loader size="sm" />}
+          {userError && (
+            <Alert color="red">
+              Could not load your account. Reload to recover your local draft.
+            </Alert>
+          )}
+          {pending && !ready && (
+            <Alert title="Continue pending nomination" color="blue">
+              <Text>
+                A draft is saved in this browser for your account. It has not been submitted.
+              </Text>
+              <Group mt="sm">
+                <Button
+                  onClick={() => {
+                    setInitial(pending);
+                    setReady(true);
+                  }}
+                >
+                  Continue pending nomination
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={() => {
+                    if (user) clearNominationDraft(localStorage, user.id);
+                    setPending(null);
+                    setInitial(undefined);
+                    setReady(true);
+                  }}
+                >
+                  Discard draft and start new
+                </Button>
+              </Group>
+            </Alert>
+          )}
+          {ready && (
+            <Text size="sm" c="dimmed">
+              {saved
+                ? 'Pending nomination saved locally in this browser. You can leave and continue it later.'
+                : 'Your progress will be saved locally in this browser as you edit.'}
             </Text>
-            <Group mt="sm">
-              <Button
-                onClick={() => {
-                  setInitial(pending);
-                  setReady(true);
-                }}
-              >
-                Continue pending nomination
-              </Button>
-              <Button
-                variant="default"
-                onClick={() => {
-                  if (user) clearNominationDraft(localStorage, user.id);
-                  setPending(null);
-                  setInitial(undefined);
-                  setReady(true);
-                }}
-              >
-                Discard draft and start new
-              </Button>
-            </Group>
-          </Alert>
-        )}
-        {ready && (
-          <Text size="sm" c="dimmed">
-            {saved
-              ? 'Pending nomination saved locally in this browser. You can leave and continue it later.'
-              : 'Your progress will be saved locally in this browser as you edit.'}
-          </Text>
-        )}
-        {ready && (
-          <NominationForm
-            mode="create"
-            defaultValues={initial}
-            onDraftChange={persistDraft}
-            onSubmit={handleSubmit}
-            isSubmitting={createNomination.isPending}
-          />
-        )}
-      </Stack>
-    </Container>
+          )}
+          {ready && (
+            <NominationForm
+              mode="create"
+              defaultValues={initial}
+              onDraftChange={persistDraft}
+              onSubmit={handleSubmit}
+              isSubmitting={createNomination.isPending}
+            />
+          )}
+        </Stack>
+      </Container>
+    </ManagementAccess>
   );
 }

@@ -3,7 +3,7 @@ import { readNominationDraft } from '../../../features/nominations/nominationDra
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { Stack, Group, Title, Button, Alert, Pagination, Text, Switch } from '@mantine/core';
 import { useState } from 'react';
-import { NominationListSearchSchema } from '@portlog/schemas';
+import { NominationListSearchSchema, hasManagementAccess } from '@portlog/schemas';
 import type { NominationListItem, NominationListSearch, NominationStatus } from '@portlog/schemas';
 import { NominationFilters } from '../../../features/nominations/components/NominationFilters';
 import { NominationTable } from '../../../features/nominations/components/NominationTable';
@@ -56,9 +56,11 @@ function NominationListPage() {
     <Stack p="xl" gap="md">
       <Group justify="space-between" align="center">
         <Title order={2}>Nominated Vessels</Title>
-        <Button onClick={() => void navigate({ to: '/nominations/new' })}>
-          {hasPending ? 'Continue pending nomination' : 'New Nomination'}
-        </Button>
+        {hasManagementAccess(user) && (
+          <Button onClick={() => void navigate({ to: '/nominations/new' })}>
+            {hasPending ? 'Continue pending nomination' : 'New Nomination'}
+          </Button>
+        )}
       </Group>
 
       <NominationFilters
