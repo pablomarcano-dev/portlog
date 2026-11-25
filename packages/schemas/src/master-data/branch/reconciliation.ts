@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-/** Procedure section 7.3.1; business codes do not identify database rows by themselves. */
-export const NAVIERAMAR_BRANCH_CODES = [
+/** Retained November 23 procedure evidence; it does not authorize current row changes. */
+export const NAVIERAMAR_LEGACY_PROCEDURE_BRANCH_CODES = [
   { code: 'MBO', name: 'Maracaibo' },
   { code: 'PFJ', name: 'Punto Fijo' },
   { code: 'PBO', name: 'Puerto Cabello' },
@@ -9,6 +9,17 @@ export const NAVIERAMAR_BRANCH_CODES = [
   { code: 'CRN', name: 'Carenero' },
   { code: 'JSE', name: 'José' },
   { code: 'PLC', name: 'Puerto La Cruz' },
+  { code: 'GRA', name: 'Güiria' },
+] as const;
+
+/** José Bello's revised answers, November 24 at 5:50 PM, pp. 4–5. */
+export const NAVIERAMAR_BRANCH_CODES = [
+  { code: 'MBO', name: 'Maracaibo' },
+  { code: 'PFJ', name: 'Punto Fijo' },
+  { code: 'PBO', name: 'Puerto Cabello' },
+  { code: 'LGR', name: 'La Guaira' },
+  { code: 'CRN', name: 'Carenero' },
+  { code: 'PLC', name: 'Puerto La Cruz y Jose' },
   { code: 'GRA', name: 'Güiria' },
 ] as const;
 
@@ -45,6 +56,19 @@ export function reconcileNavieramarBranchCodes(input: unknown) {
     if (row.id) idCounts.set(row.id, (idCounts.get(row.id) ?? 0) + 1);
   }
   const repeatedIds = new Set([...idCounts].filter(([, count]) => count > 1).map(([id]) => id));
+  // Historical JSE codes and separate José/PLC identities need a human decision,
+  // even when a different row already matches today's combined PLC identity.
+  const legacyConflicts = rows
+    .filter(
+      (row) =>
+        normalizedCode(row) === 'JSE' ||
+        ['jose', 'puerto la cruz'].includes(normalizeBranchIdentity(row.name)),
+    )
+    .map((row) => ({
+      row,
+      reason:
+        'The earlier procedure listed José/JSE separately; the revised answers combine Puerto La Cruz y Jose under PLC. Verify this row and its historical relationships with Carlos Ferrer before any merge, rename or code change.',
+    }));
   const mappings = NAVIERAMAR_BRANCH_CODES.map((expected) => {
     const named = rows.filter(
       (row) => normalizeBranchIdentity(row.name) === normalizeBranchIdentity(expected.name),
@@ -75,10 +99,19 @@ export function reconcileNavieramarBranchCodes(input: unknown) {
   );
   return {
     readOnly: true as const,
+    guidance: {
+      currentSource: 'José Bello — RESPUESTAS SYSPORTLOG - REV.docx, November 24, 2026, pp. 4–5',
+      previousSource: 'November 23 procedure screenshot, section 7.3.1',
+      previousMappings: NAVIERAMAR_LEGACY_PROCEDURE_BRANCH_CODES,
+      unresolvedDifference:
+        'Seven current entries combine Puerto La Cruz y Jose as PLC; the earlier eight-entry procedure listed José as JSE separately. No historical remapping is authorized by this report.',
+    },
     reviewedRows: rows.length,
     matchedCount: mappings.filter((mapping) => mapping.status === 'matched').length,
-    requiresReview: mappings.some((mapping) => mapping.status !== 'matched'),
+    requiresReview:
+      legacyConflicts.length > 0 || mappings.some((mapping) => mapping.status !== 'matched'),
     mappings,
+    legacyConflicts,
     unmapped,
   };
 }

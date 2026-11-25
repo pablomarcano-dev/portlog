@@ -8,7 +8,8 @@ if (args.length !== 1 || args[0] === '--help') {
   process.stdout.write(
     'Usage: npm run --silent branches:reconcile -- branches.json\n' +
       'Build @portlog/schemas first. Input: complete unfiltered array or {items, hasMore:false, nextCursor:null}.\n' +
-      'Read-only JSON report. Exit 0: all eight mappings match; 2: review required; 1: invalid input.\n',
+      'Current guidance: seven entries, combined Puerto La Cruz y Jose under PLC. Historical JSE requires review.\n' +
+      'Read-only JSON report. Exit 0: all seven mappings match with no legacy conflicts; 2: review required; 1: invalid input.\n',
   );
   process.exitCode = args[0] === '--help' ? 0 : 1;
 } else {
