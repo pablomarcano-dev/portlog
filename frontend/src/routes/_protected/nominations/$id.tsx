@@ -195,75 +195,80 @@ function NominationDetail({ id }: { id: string }) {
                       isSubmitting={updateNomination.isPending}
                     />
                   )}
-                  <NominationForm
-                    nominationId={id}
-                    mode="edit"
-                    defaultValues={defaultValues}
-                    onSubmit={handleUpdate}
-                    isSubmitting={updateNomination.isPending}
-                    isReadOnly={isReadOnly || !canManage}
-                    correlative={nomination.correlative}
-                    businessReference={nomination.businessReference}
-                    masterContactOption={
-                      nomination.masterContact
-                        ? {
-                            value: nomination.masterContact.id,
-                            label: nomination.masterContact.name,
-                          }
-                        : null
-                    }
-                    routingOptions={{
-                      firstMessageGroupId: nomination.firstMessageGroup
-                        ? {
-                            value: nomination.firstMessageGroup.id,
-                            label: nomination.firstMessageGroup.name,
-                          }
-                        : null,
-                      secondMessageGroupId: nomination.secondMessageGroup
-                        ? {
-                            value: nomination.secondMessageGroup.id,
-                            label: nomination.secondMessageGroup.name,
-                          }
-                        : null,
-                      thirdMessageGroupId: nomination.thirdMessageGroup
-                        ? {
-                            value: nomination.thirdMessageGroup.id,
-                            label: nomination.thirdMessageGroup.name,
-                          }
-                        : null,
-                      alwaysCopyGroupId: nomination.alwaysCopyGroup
-                        ? {
-                            value: nomination.alwaysCopyGroup.id,
-                            label: nomination.alwaysCopyGroup.name,
-                          }
-                        : null,
-                    }}
-                    chartererOption={
-                      nomination.charterer
-                        ? { value: nomination.charterer.id, label: nomination.charterer.name }
-                        : null
-                    }
-                    opPortOption={
-                      nomination.opPort
-                        ? { value: nomination.opPort.id, label: nomination.opPort.name }
-                        : null
-                    }
-                    pierOption={
-                      nomination.pier
-                        ? { value: nomination.pier.id, label: nomination.pier.name }
-                        : null
-                    }
-                    lastPortOption={
-                      nomination.lastPort
-                        ? { value: nomination.lastPort.id, label: nomination.lastPort.name }
-                        : null
-                    }
-                    nextPortOption={
-                      nomination.nextPort
-                        ? { value: nomination.nextPort.id, label: nomination.nextPort.name }
-                        : null
-                    }
-                  />
+                  <Box component={canManage ? 'div' : 'details'}>
+                    <summary hidden={canManage}>View voyage details</summary>
+                    <div inert={!canManage || undefined}>
+                      <NominationForm
+                        nominationId={id}
+                        mode="edit"
+                        defaultValues={defaultValues}
+                        onSubmit={handleUpdate}
+                        isSubmitting={updateNomination.isPending}
+                        isReadOnly={isReadOnly || !canManage}
+                        correlative={nomination.correlative}
+                        businessReference={nomination.businessReference}
+                        masterContactOption={
+                          nomination.masterContact
+                            ? {
+                                value: nomination.masterContact.id,
+                                label: nomination.masterContact.name,
+                              }
+                            : null
+                        }
+                        routingOptions={{
+                          firstMessageGroupId: nomination.firstMessageGroup
+                            ? {
+                                value: nomination.firstMessageGroup.id,
+                                label: nomination.firstMessageGroup.name,
+                              }
+                            : null,
+                          secondMessageGroupId: nomination.secondMessageGroup
+                            ? {
+                                value: nomination.secondMessageGroup.id,
+                                label: nomination.secondMessageGroup.name,
+                              }
+                            : null,
+                          thirdMessageGroupId: nomination.thirdMessageGroup
+                            ? {
+                                value: nomination.thirdMessageGroup.id,
+                                label: nomination.thirdMessageGroup.name,
+                              }
+                            : null,
+                          alwaysCopyGroupId: nomination.alwaysCopyGroup
+                            ? {
+                                value: nomination.alwaysCopyGroup.id,
+                                label: nomination.alwaysCopyGroup.name,
+                              }
+                            : null,
+                        }}
+                        chartererOption={
+                          nomination.charterer
+                            ? { value: nomination.charterer.id, label: nomination.charterer.name }
+                            : null
+                        }
+                        opPortOption={
+                          nomination.opPort
+                            ? { value: nomination.opPort.id, label: nomination.opPort.name }
+                            : null
+                        }
+                        pierOption={
+                          nomination.pier
+                            ? { value: nomination.pier.id, label: nomination.pier.name }
+                            : null
+                        }
+                        lastPortOption={
+                          nomination.lastPort
+                            ? { value: nomination.lastPort.id, label: nomination.lastPort.name }
+                            : null
+                        }
+                        nextPortOption={
+                          nomination.nextPort
+                            ? { value: nomination.nextPort.id, label: nomination.nextPort.name }
+                            : null
+                        }
+                      />
+                    </div>
+                  </Box>
                 </Box>
               </Collapse>
             </Stack>
@@ -358,7 +363,7 @@ function NominationDetail({ id }: { id: string }) {
           >
             {rightOpen ? '▶' : '◀'}
           </UnstyledButton>
-          {!isReadOnly && (
+          {!isReadOnly && canManage && (
             <Button
               size="xs"
               form="nomination-form"
