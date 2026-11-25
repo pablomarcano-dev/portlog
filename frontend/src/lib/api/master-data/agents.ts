@@ -1,3 +1,4 @@
+import type { UserOperationalRole } from '@portlog/schemas';
 import { useQuery, useMutation, useQueryClient, queryOptions } from '@tanstack/react-query';
 import { apiRequest } from '../client';
 import type { AgentCreateInput, AgentUpdateInput, AgentListQuery } from '@portlog/schemas';
@@ -14,7 +15,7 @@ export interface AgentRecord {
   mobile?: string | null;
   branchId?: string | null;
   branch?: { id: string; name: string; code: string } | null;
-  operationalRole?: 'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT' | null;
+  operationalRole?: UserOperationalRole | null;
   comments?: string | null;
   label: string;
 }

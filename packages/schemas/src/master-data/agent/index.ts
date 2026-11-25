@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { UserOperationalRoleSchema } from '../../common/operational-positions';
 import { clearableCuid, optionalText } from '../../common/fields';
 import { ListQuerySchema } from '../../common/pagination';
 
@@ -12,7 +13,7 @@ export const AgentCreateSchema = z.object({
     z.string().trim().max(50).nullish(),
   ),
   branchId: clearableCuid(),
-  operationalRole: z.enum(['BRANCH_MANAGER', 'SUPERVISOR', 'SHIPPING_AGENT']).nullable().optional(),
+  operationalRole: UserOperationalRoleSchema.nullable().optional(),
   comments: z.string().max(10_000).optional(),
 });
 
@@ -20,7 +21,7 @@ export const AgentUpdateSchema = AgentCreateSchema.partial();
 
 export const AgentListQuerySchema = ListQuerySchema.extend({
   branchId: z.string().cuid().optional(),
-  operationalRole: z.enum(['BRANCH_MANAGER', 'SUPERVISOR', 'SHIPPING_AGENT']).optional(),
+  operationalRole: UserOperationalRoleSchema.optional(),
 });
 
 export type AgentCreateInput = z.infer<typeof AgentCreateSchema>;

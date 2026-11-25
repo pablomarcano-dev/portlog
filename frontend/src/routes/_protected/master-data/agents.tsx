@@ -1,3 +1,4 @@
+import { OPERATIONAL_POSITION_OPTIONS } from '@portlog/schemas';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState, useCallback } from 'react';
 import { Alert, Select, Stack, TextInput, Textarea } from '@mantine/core';
@@ -182,11 +183,7 @@ function AgentFields({
             clearable
             value={field.value ?? null}
             onChange={field.onChange}
-            data={[
-              { value: 'BRANCH_MANAGER', label: 'Branch manager' },
-              { value: 'SUPERVISOR', label: 'Supervisor' },
-              { value: 'SHIPPING_AGENT', label: 'Shipping agent' },
-            ]}
+            data={OPERATIONAL_POSITION_OPTIONS}
             error={fieldState.error?.message}
           />
         )}
