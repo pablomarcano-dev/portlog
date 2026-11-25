@@ -10,7 +10,7 @@ datasource db {
 // ---------------------------------------------------------------------------
 // Roles
 // ---------------------------------------------------------------------------
-// Two roles only. ADM can manage master data and users; OPS handles operations.
+// ADM administers accounts; FLT manages operations nationally; OPS handles branch operations.
 // Passwords MUST never appear in logs, API responses, or select clauses.
 // Emails are stored lowercased — enforce at application layer before persist.
 // ---------------------------------------------------------------------------
@@ -18,10 +18,11 @@ datasource db {
 enum Role {
   OPS
   ADM
+  FLT
 }
 
 // Operational responsibility inside a branch. This is deliberately separate
-// from Role, which controls application access (OPS/ADM).
+// from Role, which controls application access (OPS/FLT/ADM).
 enum UserOperationalRole {
   BRANCH_MANAGER
   SUPERVISOR

@@ -10,7 +10,7 @@ export const AdminUserSchema = z.object({
   phone: z.string().nullable(),
   mobile: z.string().nullable(),
   fax: z.string().nullable(),
-  role: z.enum(['OPS', 'ADM']),
+  role: z.enum(['OPS', 'ADM', 'FLT']),
   operationalRole: UserOperationalRoleSchema.nullable(),
   isActive: z.boolean(),
   permissions: z.array(z.string()),
@@ -32,7 +32,7 @@ export const CreateUserSchema = z.object({
   email: z.string().email('Valid email required'),
   displayName: z.string().optional(),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  role: z.enum(['OPS', 'ADM']),
+  role: z.enum(['OPS', 'ADM', 'FLT']),
   operationalRole: UserOperationalRoleSchema.nullable().optional(),
   branchId: z.preprocess(
     (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
@@ -48,7 +48,7 @@ export const UpdateUserSchema = z.object({
   phone: z.string().optional(),
   mobile: z.string().optional(),
   fax: z.string().optional(),
-  role: z.enum(['OPS', 'ADM']).optional(),
+  role: z.enum(['OPS', 'ADM', 'FLT']).optional(),
   operationalRole: UserOperationalRoleSchema.nullable().optional(),
   isActive: z.boolean().optional(),
   // Blank clears the assignment; Prisma writes NULL.

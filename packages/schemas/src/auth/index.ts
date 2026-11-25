@@ -1,7 +1,12 @@
 import { z } from 'zod';
 
-export const RoleSchema = z.enum(['OPS', 'ADM']);
+export const RoleSchema = z.enum(['OPS', 'ADM', 'FLT']);
 export type Role = z.infer<typeof RoleSchema>;
+
+/** Operational titles never imply access. These roles are assigned explicitly by Admin. */
+export function hasManagementAccess(user: { role: Role } | null | undefined): boolean {
+  return user?.role === 'ADM' || user?.role === 'FLT';
+}
 
 export const LoginRequestSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
