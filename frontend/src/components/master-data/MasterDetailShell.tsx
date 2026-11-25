@@ -1,3 +1,4 @@
+import { hasManagementAccess } from '@portlog/schemas';
 /**
  * MasterDetailShell — Reusable master/detail layout for all M2 master-data screens.
  *
@@ -122,7 +123,7 @@ export function MasterDetailShell<TForm extends FieldValues>({
   children,
 }: MasterDetailShellProps<TForm>) {
   const { data: currentUser } = useCurrentUser();
-  const isAdm = currentUser?.role === 'ADM';
+  const isAdm = hasManagementAccess(currentUser);
 
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);

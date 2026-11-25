@@ -98,7 +98,7 @@ export function SofSubjectControls({
         <Text size="sm" fw={600}>
           SOF subject
         </Text>
-        {user?.role === 'ADM' && (
+        {(user?.role === 'ADM' || user?.role === 'FLT') && (
           <Button
             type="button"
             variant="subtle"

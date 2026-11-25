@@ -1,3 +1,4 @@
+import { hasManagementAccess } from '@portlog/schemas';
 import { TerminalDocumentsPanel } from '../../../features/nominations/components/TerminalDocumentsPanel';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState, useCallback, useEffect, useMemo } from 'react';
@@ -231,7 +232,7 @@ function PortsScreen() {
   const [grouped, setGrouped] = useState(true);
 
   const { data: currentUser } = useCurrentUser();
-  const isAdm = currentUser?.role === 'ADM';
+  const isAdm = hasManagementAccess(currentUser);
 
   const savePort = useSavePort(selectedId);
   const deletePort = useDeletePort();
