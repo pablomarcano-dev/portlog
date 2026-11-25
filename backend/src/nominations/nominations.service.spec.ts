@@ -324,17 +324,39 @@ describe('NominationsService', () => {
   // -------------------------------------------------------------------------
   describe('create', () => {
     it('persists a new issued snapshot from its initialized series inside the create transaction', async () => {
-      mockPrisma.nominationNumberingConfig.findUnique.mockResolvedValue({ cutoverAt: NOW, otScope: 'GLOBAL' });
+      mockPrisma.nominationNumberingConfig.findUnique.mockResolvedValue({
+        cutoverAt: NOW,
+        otScope: 'GLOBAL',
+      });
       mockPrisma.nominationNumberSeries.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.nominationNumberSeries.findUniqueOrThrow.mockResolvedValue({ nextValue: 3141 });
       mockPrisma.branch.findUnique.mockResolvedValue({ code: 'PBO' });
-      mockPrisma.$transaction.mockImplementation(async (fn: (tx: typeof mockPrisma) => Promise<unknown>) => fn(mockPrisma));
-      mockPrisma.nomination.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ ...mockNomBase, ...data }));
+      mockPrisma.$transaction.mockImplementation(
+        async (fn: (tx: typeof mockPrisma) => Promise<unknown>) => fn(mockPrisma),
+      );
+      mockPrisma.nomination.create.mockImplementation(
+        async ({ data }: { data: Record<string, unknown> }) => ({ ...mockNomBase, ...data }),
+      );
       mockPrisma.pedr.create.mockResolvedValue({ id: 'pedr-new-number' });
 
-      const result = await service.create({ shipParticularId: 'clship0000000001', branchId: 'clbranch000000001', voyageNumber: 'local-voyage', dateNominated: NOW, nominationType: 'FULL_AGENCY', kind: 'SN', parcels: [] }, USER_ID);
+      const result = await service.create(
+        {
+          shipParticularId: 'clship0000000001',
+          branchId: 'clbranch000000001',
+          voyageNumber: 'local-voyage',
+          dateNominated: NOW,
+          nominationType: 'FULL_AGENCY',
+          kind: 'SN',
+          parcels: [],
+        },
+        USER_ID,
+      );
       expect(result.snOt).toBe('SN3140/26/PBO');
-      expect(mockPrisma.nomination.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ businessReference: 'SN3140/26/PBO' }) }));
+      expect(mockPrisma.nomination.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ businessReference: 'SN3140/26/PBO' }),
+        }),
+      );
       expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
     });
 
@@ -1734,11 +1756,23 @@ describe('NominationsService', () => {
 
   describe('getComposeData — shared notice subject defaults', () => {
     it('uses the issued snapshot for new defaults while preserving custom saved subjects', async () => {
-      mockPrisma.nomination.findUnique.mockResolvedValue(composeNomination({ businessReference: 'SN3140/26/PBO', correlative: 7, dateNominated: new Date('2027-01-01T00:00:00Z'), branch: BRANCH_FIXTURE }));
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          businessReference: 'SN3140/26/PBO',
+          correlative: 7,
+          dateNominated: new Date('2027-01-01T00:00:00Z'),
+          branch: BRANCH_FIXTURE,
+        }),
+      );
       const data = await service.getComposeData(NOM_ID, 'PREARRIVAL', 'agent@navieramar.com');
       expect(data.subject).toContain('SN3140/26/PBO');
       expect(data.subject).not.toContain('SN7/27/JSE');
-      mockPrisma.nomination.findUnique.mockResolvedValue(composeNomination({ businessReference: 'SN3140/26/PBO', subject: 'Historic subject SN7/26/JSE — preserve exactly' }));
+      mockPrisma.nomination.findUnique.mockResolvedValue(
+        composeNomination({
+          businessReference: 'SN3140/26/PBO',
+          subject: 'Historic subject SN7/26/JSE — preserve exactly',
+        }),
+      );
       const saved = await service.getComposeData(NOM_ID, 'PREARRIVAL', 'agent@navieramar.com');
       expect(saved.subject).toContain('Historic subject SN7/26/JSE — preserve exactly');
     });

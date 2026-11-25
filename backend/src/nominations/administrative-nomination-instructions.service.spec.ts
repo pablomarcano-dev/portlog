@@ -126,8 +126,17 @@ describe('AdministrativeNominationInstructionsService', () => {
   });
 
   it('prints a new issued snapshot unchanged after later branch/date edits', async () => {
-    findUnique.mockResolvedValue({ ...fixture, businessReference: 'SN3140/26/PBO', correlative: 21, dateNominated: new Date('2027-01-01T00:00:00Z'), branch: { code: 'PLC' } });
-    await expect(service.generate('nomination-id')).resolves.toEqual({ filename: 'SN3140-26-PBO-administrative-nomination-instructions.docx', buffer });
+    findUnique.mockResolvedValue({
+      ...fixture,
+      businessReference: 'SN3140/26/PBO',
+      correlative: 21,
+      dateNominated: new Date('2027-01-01T00:00:00Z'),
+      branch: { code: 'PLC' },
+    });
+    await expect(service.generate('nomination-id')).resolves.toEqual({
+      filename: 'SN3140-26-PBO-administrative-nomination-instructions.docx',
+      buffer,
+    });
     expect(render).toHaveBeenCalledWith(expect.objectContaining({ snOt: 'SN3140/26/PBO' }));
   });
 

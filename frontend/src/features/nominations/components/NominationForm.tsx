@@ -316,10 +316,7 @@ export function NominationForm({
     const currentBoarding = form.getValues('boardingClerk')?.trim();
     const currentMobile = form.getValues('mobileOnBoard')?.trim();
     const staff = agentsQuery.data.items;
-    const findByName = (
-      name: string | undefined,
-      roles: Array<UserOperationalRole>,
-    ) =>
+    const findByName = (name: string | undefined, roles: Array<UserOperationalRole>) =>
       name
         ? staff.find(
             (candidate) =>

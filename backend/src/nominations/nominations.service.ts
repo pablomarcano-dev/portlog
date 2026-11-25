@@ -618,7 +618,8 @@ export class NominationsService {
     const skip = (page - 1) * pageSize;
 
     const now = new Date();
-    const where: Prisma.NominationWhereInput = branchId === undefined ? {} : { branchId: branchId ?? '__unassigned__' };
+    const where: Prisma.NominationWhereInput =
+      branchId === undefined ? {} : { branchId: branchId ?? '__unassigned__' };
     // Each independent filter that needs an OR across the several port relations
     // is pushed as its own AND clause so the groups don't clobber one another.
     const and: Prisma.NominationWhereInput[] = [];
@@ -705,7 +706,9 @@ export class NominationsService {
     if (!nomination) {
       throw new NotFoundException(`Nomination ${id} not found.`);
     }
-    return present(includeClients ? nomination : { ...nomination, nominationClients: [], statusHistory: [] });
+    return present(
+      includeClients ? nomination : { ...nomination, nominationClients: [], statusHistory: [] },
+    );
   }
 
   async update(id: string, dto: NominationUpdateInput, userId: string, includeClients = true) {
@@ -785,7 +788,9 @@ export class NominationsService {
         include: DETAIL_INCLUDE,
       });
       this.logger.log({ event: 'nomination.updated', nominationId: id, userId });
-      return present(includeClients ? updated : { ...updated, nominationClients: [], statusHistory: [] });
+      return present(
+        includeClients ? updated : { ...updated, nominationClients: [], statusHistory: [] },
+      );
     } catch (err: unknown) {
       if (this.isFkViolation(err)) {
         throw new BadRequestException('Invalid foreign key reference.');

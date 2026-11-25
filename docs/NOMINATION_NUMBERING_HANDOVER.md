@@ -17,8 +17,8 @@ After deploying the additive migration, prepare a reviewed manifest with:
   "legacyExportSha256": "REPLACE_WITH_ACTUAL_EXPORT_SHA256",
   "legacySystemReadOnlyConfirmed": true,
   "otScope": "GLOBAL",
-  "branches": [{"id": "ACTUAL_BRANCH_ID", "code": "PLC"}],
-  "lastIssued": {"SN": 3140, "OT": 125}
+  "branches": [{ "id": "ACTUAL_BRANCH_ID", "code": "PLC" }],
+  "lastIssued": { "SN": 3140, "OT": 125 }
 }
 ```
 
