@@ -1,4 +1,6 @@
+import { BranchSelector } from './BranchSelector';
 import type { ReactNode } from 'react';
+import { hasManagementAccess } from '@portlog/schemas';
 import {
   AppShell as MantineAppShell,
   Group,
@@ -60,7 +62,14 @@ export function AppShell({ children }: AppShellProps) {
             wrap="nowrap"
             style={{ flex: 1, minWidth: 0, overflowX: 'auto' }}
           >
-            {[...NAV_LINKS, ...(currentUser?.role === 'ADM' ? ADMIN_NAV_LINKS : [])].map((link) => {
+            {[
+              ...NAV_LINKS.filter(
+                (link) =>
+                  hasManagementAccess(currentUser) ||
+                  !['Master Data', 'Changelog'].includes(link.label),
+              ),
+              ...(currentUser?.role === 'ADM' ? ADMIN_NAV_LINKS : []),
+            ].map((link) => {
               const isActive = currentPath.startsWith(link.to.split('/').slice(0, 2).join('/'));
               return (
                 <UnstyledButton
@@ -87,6 +96,7 @@ export function AppShell({ children }: AppShellProps) {
           <Group gap="sm" wrap="nowrap">
             {currentUser !== undefined && (
               <>
+                <BranchSelector user={currentUser} />
                 <Text size="sm" visibleFrom="lg">
                   {currentUser.email}
                 </Text>
@@ -106,7 +116,9 @@ export function AppShell({ children }: AppShellProps) {
           </Group>
         </Group>
       </MantineAppShell.Header>
-      <MantineAppShell.Main>{children}</MantineAppShell.Main>
+      <MantineAppShell.Main key={currentUser?.branchId ?? 'national'}>
+        {children}
+      </MantineAppShell.Main>
     </MantineAppShell>
   );
 }

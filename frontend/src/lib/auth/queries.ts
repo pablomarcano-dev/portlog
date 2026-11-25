@@ -60,3 +60,23 @@ export async function attemptSilentRefresh(): Promise<void> {
     // No valid session — normal on first visit or after logout
   }
 }
+
+/** Branch context changes discard data cached for the previous jurisdiction. */
+export function useSwitchBranch() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (branchId: string | null) => {
+      const raw = await apiRequest<unknown>('/auth/branch', {
+        method: 'POST',
+        body: JSON.stringify({ branchId }),
+      });
+      return LoginResponseSchema.parse(raw);
+    },
+    onSuccess: async (data) => {
+      await queryClient.cancelQueries();
+      accessTokenStore.set(data.accessToken);
+      queryClient.clear();
+      queryClient.setQueryData(['auth', 'me'], data.user);
+    },
+  });
+}

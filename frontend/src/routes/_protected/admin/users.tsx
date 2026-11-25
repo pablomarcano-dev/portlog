@@ -13,6 +13,7 @@ import {
   TextInput,
   PasswordInput,
   Select,
+  MultiSelect,
   Switch,
   Tooltip,
   Center,
@@ -24,6 +25,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '../../../lib/zodResolver';
 import { notifications } from '@mantine/notifications';
 import {
+  OPERATIONAL_POSITION_OPTIONS,
   CreateUserSchema,
   UpdateUserSchema,
   ResetPasswordSchema,
@@ -41,7 +43,6 @@ import {
   useSendCredentials,
 } from '../../../lib/api/admin/users';
 import { useCurrentUser } from '../../../lib/auth/queries';
-import { EntityPicker } from '../../../components/master-data/EntityPicker';
 import { generateSecurePassword } from '../../../lib/security/password-generator';
 
 export const Route = createFileRoute('/_protected/admin/users')({
@@ -62,13 +63,10 @@ function formatDate(iso: string | null): string {
 const ACCESS_ROLE_OPTIONS = [
   { value: 'OPS', label: 'OPS — Operations' },
   { value: 'ADM', label: 'ADM — Administrator' },
+  { value: 'FLT', label: 'FLT — Fleet Manager' },
 ];
 
-const OPERATIONAL_ROLE_OPTIONS = [
-  { value: 'BRANCH_MANAGER', label: 'Branch Manager' },
-  { value: 'SUPERVISOR', label: 'Supervisor' },
-  { value: 'SHIPPING_AGENT', label: 'Shipping Agent' },
-];
+const OPERATIONAL_ROLE_OPTIONS = OPERATIONAL_POSITION_OPTIONS;
 
 const operationalRoleLabel = (value: AdminUser['operationalRole']) =>
   OPERATIONAL_ROLE_OPTIONS.find((option) => option.value === value)?.label ?? '—';
@@ -278,7 +276,8 @@ function UsersAdminScreen() {
 
 function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const createUser = useCreateUser();
-  const [branchSearch, setBranchSearch] = useState('');
+  const { data: currentUser } = useCurrentUser();
+  const branches = currentUser?.branches ?? [];
   const form = useForm<CreateUserInput>({
     resolver: zodResolver(CreateUserSchema),
     defaultValues: {
@@ -288,6 +287,7 @@ function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void
       password: '',
       role: 'OPS',
       branchId: null,
+      branchIds: [],
       operationalRole: null,
     },
   });
@@ -355,17 +355,39 @@ function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void
             )}
           />
           <Controller
+            name="branchIds"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <MultiSelect
+                label="Assigned branches"
+                data={branches.map((branch) => ({
+                  value: branch.id,
+                  label: `${branch.code} — ${branch.name}`,
+                }))}
+                value={field.value ?? []}
+                searchable
+                onChange={(values) => {
+                  field.onChange(values);
+                  if (!values.includes(form.getValues('branchId') ?? ''))
+                    form.setValue('branchId', values[0] ?? null);
+                }}
+                error={fieldState.error?.message}
+              />
+            )}
+          />
+          <Controller
             name="branchId"
             control={form.control}
             render={({ field, fieldState }) => (
-              <EntityPicker
-                endpoint="/master-data/branches"
-                label="Branch"
-                placeholder="Select branch"
+              <Select
+                label="Primary branch"
+                data={branches
+                  .filter((branch) => (form.watch('branchIds') ?? []).includes(branch.id))
+                  .map((branch) => ({ value: branch.id, label: branch.name }))}
                 value={field.value ?? null}
                 onChange={field.onChange}
-                searchValue={branchSearch}
-                onSearchChange={setBranchSearch}
+                allowDeselect={false}
+                disabled={!(form.watch('branchIds') ?? []).length}
                 error={fieldState.error?.message}
               />
             )}
@@ -402,7 +424,8 @@ function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void
 
 function EditUserModal({ user, onClose }: { user: AdminUser; onClose: () => void }) {
   const updateUser = useUpdateUser(user.id);
-  const [branchSearch, setBranchSearch] = useState('');
+  const { data: currentUser } = useCurrentUser();
+  const branches = currentUser?.branches ?? [];
   const form = useForm<UpdateUserInput>({
     resolver: zodResolver(UpdateUserSchema),
     defaultValues: {
@@ -416,6 +439,7 @@ function EditUserModal({ user, onClose }: { user: AdminUser; onClose: () => void
       operationalRole: user.operationalRole,
       isActive: user.isActive,
       branchId: user.branchId,
+      branchIds: user.branchIds ?? (user.branchId ? [user.branchId] : []),
     },
   });
 
@@ -495,22 +519,39 @@ function EditUserModal({ user, onClose }: { user: AdminUser; onClose: () => void
             )}
           />
           <Controller
+            name="branchIds"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <MultiSelect
+                label="Assigned branches"
+                data={branches.map((branch) => ({
+                  value: branch.id,
+                  label: `${branch.code} — ${branch.name}`,
+                }))}
+                value={field.value ?? []}
+                searchable
+                onChange={(values) => {
+                  field.onChange(values);
+                  if (!values.includes(form.getValues('branchId') ?? ''))
+                    form.setValue('branchId', values[0] ?? null);
+                }}
+                error={fieldState.error?.message}
+              />
+            )}
+          />
+          <Controller
             name="branchId"
             control={form.control}
             render={({ field, fieldState }) => (
-              <EntityPicker
-                endpoint="/master-data/branches"
-                label="Default Branch (Sucursal)"
-                placeholder="No default branch"
-                // The backend assigns this branch to new service requests.
-                // Keep the saved choice visible even when it is not on page one.
+              <Select
+                label="Primary branch"
+                data={branches
+                  .filter((branch) => (form.watch('branchIds') ?? []).includes(branch.id))
+                  .map((branch) => ({ value: branch.id, label: branch.name }))}
                 value={field.value ?? null}
-                selectedOption={
-                  user.branch ? { value: user.branch.id, label: user.branch.name } : null
-                }
                 onChange={field.onChange}
-                searchValue={branchSearch}
-                onSearchChange={setBranchSearch}
+                allowDeselect={false}
+                disabled={!(form.watch('branchIds') ?? []).length}
                 error={fieldState.error?.message}
               />
             )}
