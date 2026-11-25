@@ -1,3 +1,4 @@
+import type { UserOperationalRole } from '@portlog/schemas';
 import {
   NOMINATION_ROUTING_SELECT,
   captainRouting,
@@ -25,7 +26,8 @@ import { appendBranchCc, dedupeEmails } from '../email/email-address.util.js';
 import { OPERATIONAL_SENT_DISPATCH_WHERE } from '../common/operational-dispatch.js';
 import { EmailTemplateService } from '../email-templates/email-template.service.js';
 import { NominationInstructionsDocxService } from './nomination-instructions-docx.service.js';
-import { formatNominationNoticeReference, formatSnOt } from './nomination-reference.js';
+import { resolveNominationReference } from '@portlog/schemas';
+import { issueNominationReference } from './nomination-numbering.js';
 import { wrapPlainTextEmailBody } from '../email/email-body.util.js';
 import {
   formatVesselVoyageNumber,
@@ -87,7 +89,7 @@ function uniqueNonBlank(values: Array<string | null | undefined>): string[] {
 type BranchAgentForNominationDefaults = {
   name: string;
   mobile: string | null;
-  operationalRole: 'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT' | null;
+  operationalRole: UserOperationalRole | null;
 };
 
 type BranchContactForNominationDefaults = {
@@ -341,6 +343,8 @@ const STATUS_FACTS_INCLUDE = {
 type StatusFacts = {
   status: NominationStatus;
   correlative: number;
+  businessReference?: string | null;
+  administrativeSnOt?: string | null;
   dateNominated: Date;
   kind: NominationKind;
   layDaysFirst: Date | null;
@@ -361,7 +365,7 @@ function present<T extends StatusFacts>(n: T, now: Date = new Date()) {
     layDaysLast: rest.layDaysLast,
     now,
   });
-  return { ...rest, status, snOt: formatSnOt(rest.correlative, rest.dateNominated, rest.kind) };
+  return { ...rest, status, snOt: resolveNominationReference(rest) };
 }
 
 // Translates a derived-status filter into a Prisma where clause so list filtering
@@ -482,9 +486,15 @@ export class NominationsService {
       });
       const branchContact = await tx.branch.findUnique({
         where: { id: nominationData.branchId },
-        select: { contactName: true, contactMobile: true, mobile24h: true },
+        select: { code: true, contactName: true, contactMobile: true, mobile24h: true },
       });
       const staff = resolveNominationStaff(branchStaff, branchContact, nominationData);
+      const businessReference = await issueNominationReference(tx, {
+        kind: nominationData.kind ?? 'SN',
+        branchId: nominationData.branchId,
+        branchCode: branchContact?.code,
+        dateNominated: nominationData.dateNominated,
+      });
       const nomination = await tx.nomination.create({
         data: {
           ...(nominationData as unknown as Prisma.NominationUncheckedCreateInput),
@@ -496,6 +506,7 @@ export class NominationsService {
           boardingClerk: staff.boardingClerk ?? null,
           mobileOnBoard: staff.mobileOnBoard ?? null,
           voyageNumber: nominationData.voyageNumber ?? '',
+          businessReference,
           createdById: userId,
         },
         include: DETAIL_INCLUDE,
@@ -697,7 +708,7 @@ export class NominationsService {
     return present(includeClients ? nomination : { ...nomination, nominationClients: [], statusHistory: [] });
   }
 
-  async update(id: string, dto: NominationUpdateInput, userId: string) {
+  async update(id: string, dto: NominationUpdateInput, userId: string, includeClients = true) {
     const existing = await this.prisma.nomination.findUnique({
       where: { id },
       select: {
@@ -774,7 +785,7 @@ export class NominationsService {
         include: DETAIL_INCLUDE,
       });
       this.logger.log({ event: 'nomination.updated', nominationId: id, userId });
-      return present(updated);
+      return present(includeClients ? updated : { ...updated, nominationClients: [], statusHistory: [] });
     } catch (err: unknown) {
       if (this.isFkViolation(err)) {
         throw new BadRequestException('Invalid foreign key reference.');
@@ -1105,7 +1116,7 @@ export class NominationsService {
     );
     const clientChannels = uniqueNonBlank([formatPhones(client.phones), ...client.emails]);
 
-    const snOt = formatSnOt(nomination.correlative, nomination.dateNominated, nomination.kind);
+    const snOt = resolveNominationReference(nomination);
     const context = {
       snOt: uniqueNonBlank([snOt, nomination.voyageNumber]).join(' / '),
       vessel: nomination.shipParticular.name,
@@ -1280,6 +1291,7 @@ export class NominationsService {
           subject: true,
           referenceNo: true,
           administrativeSnOt: true,
+          businessReference: true,
           parcels: true,
           dateNominated: true,
           voyageNumber: true,
@@ -1401,21 +1413,13 @@ export class NominationsService {
     // terminal notice and its addresses join the terminal's on the To line.
     const shipper = NominationsService.resolveShipper(nomination.nominationClients);
 
-    const snRef = formatSnOt(nomination.correlative, nomination.dateNominated, nomination.kind);
+    const snRef = resolveNominationReference(nomination);
     const vesselName = nomination.shipParticular?.name ?? '';
     const voyageNo = formatVesselVoyageNumber(nomination.vesselVoyageNumber);
     const terminalName = nomination.opPort?.name ?? '';
-    const branchCode = branch?.code ?? '';
-    // "SN1522/24/JSE" — the form the agency writes on notices. Distinct from
-    // formatSnOt's internal "SN-24/1522"; both refer to the same nomination.
-    const snOtRef =
-      nomination.administrativeSnOt?.trim() ||
-      formatNominationNoticeReference(
-        nomination.correlative,
-        nomination.dateNominated,
-        nomination.kind,
-        branchCode,
-      );
+    // New records use their immutable issued reference; legacy notice wording
+    // and saved agency overrides are retained without retroactive reformatting.
+    const snOtRef = resolveNominationReference(nomination, 'notice');
     const refNo = nomination.referenceNo?.trim() ?? '';
     // Default matches the nomination form's auto-generated subject. If the user
     // edited the nomination's subject, that edit is preserved and reused here so

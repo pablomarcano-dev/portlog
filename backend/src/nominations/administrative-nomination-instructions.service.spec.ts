@@ -1,3 +1,4 @@
+import { UsersService } from '../users/users.service.js';
 import { NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
@@ -122,6 +123,12 @@ describe('AdministrativeNominationInstructionsService', () => {
         technicalManagementBilling: '',
       }),
     );
+  });
+
+  it('prints a new issued snapshot unchanged after later branch/date edits', async () => {
+    findUnique.mockResolvedValue({ ...fixture, businessReference: 'SN3140/26/PBO', correlative: 21, dateNominated: new Date('2027-01-01T00:00:00Z'), branch: { code: 'PLC' } });
+    await expect(service.generate('nomination-id')).resolves.toEqual({ filename: 'SN3140-26-PBO-administrative-nomination-instructions.docx', buffer });
+    expect(render).toHaveBeenCalledWith(expect.objectContaining({ snOt: 'SN3140/26/PBO' }));
   });
 
   it('prints the saved agency reference when it differs from the application sequence', async () => {
@@ -309,10 +316,30 @@ describe('AdministrativeNominationInstructionsService', () => {
         AdministrativeNominationInstructionsService,
         AdministrativeNominationInstructionsDocxService,
         JwtStrategy,
+        {
+          provide: UsersService,
+          useValue: {
+            findById: jest.fn(async (id: string) => ({
+              id,
+              email: `${id}@example.test`,
+              role: ['adm', 'admin'].includes(id) ? 'ADM' : 'OPS',
+              isActive: true,
+              permissions: [],
+              branchId: 'plc',
+              branchAssignments: [],
+            })),
+          },
+        },
         { provide: APP_GUARD, useClass: JwtAuthGuard },
         { provide: APP_GUARD, useClass: RolesGuard },
         { provide: ConfigService, useValue: { get: () => secret } },
-        { provide: PrismaService, useValue: { nomination: { findUnique } } },
+        {
+          provide: PrismaService,
+          useValue: {
+            nomination: { findUnique },
+            branch: { findUnique: jest.fn(async () => ({ id: 'plc' })) },
+          },
+        },
       ],
     }).compile();
     const fastify = new FastifyAdapter();
@@ -359,10 +386,30 @@ describe('AdministrativeNominationInstructionsService', () => {
         AdministrativeNominationInstructionsService,
         AdministrativeNominationInstructionsDocxService,
         JwtStrategy,
+        {
+          provide: UsersService,
+          useValue: {
+            findById: jest.fn(async (id: string) => ({
+              id,
+              email: `${id}@example.test`,
+              role: ['adm', 'admin'].includes(id) ? 'ADM' : 'OPS',
+              isActive: true,
+              permissions: [],
+              branchId: 'plc',
+              branchAssignments: [],
+            })),
+          },
+        },
         { provide: APP_GUARD, useClass: JwtAuthGuard },
         { provide: APP_GUARD, useClass: RolesGuard },
         { provide: ConfigService, useValue: { get: () => secret } },
-        { provide: PrismaService, useValue: { nomination: { findUnique } } },
+        {
+          provide: PrismaService,
+          useValue: {
+            nomination: { findUnique },
+            branch: { findUnique: jest.fn(async () => ({ id: 'plc' })) },
+          },
+        },
       ],
     }).compile();
     const fastify = new FastifyAdapter();

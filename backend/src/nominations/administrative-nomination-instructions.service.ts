@@ -6,7 +6,7 @@ import {
 } from '@portlog/schemas';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AdministrativeNominationInstructionsDocxService } from './administrative-nomination-instructions-docx.service.js';
-import { formatNominationNoticeReference, formatSnOt } from './nomination-reference.js';
+import { resolveNominationReference } from '@portlog/schemas';
 
 const clientInstructions = {
   administrativePortCostInstructions: true,
@@ -45,6 +45,7 @@ export class AdministrativeNominationInstructionsService {
         dateNominated: true,
         kind: true,
         administrativeSnOt: true,
+        businessReference: true,
         etaDate: true,
         grt: true,
         sdwt: true,
@@ -129,19 +130,10 @@ export class AdministrativeNominationInstructionsService {
         `${clientName}\n${addressText}`,
       ]),
     );
-    const filenameReference =
-      nomination.administrativeSnOt ??
-      formatSnOt(nomination.correlative, nomination.dateNominated, nomination.kind);
+    const filenameReference = resolveNominationReference(nomination);
 
     const buffer = this.docx.render({
-      snOt:
-        nomination.administrativeSnOt ??
-        formatNominationNoticeReference(
-          nomination.correlative,
-          nomination.dateNominated,
-          nomination.kind,
-          nomination.branch?.code ?? null,
-        ),
+      snOt: resolveNominationReference(nomination, 'notice'),
       vessel: vessel.name,
       arrivalDay: formatArrivalDay(nomination.pedr?.etaRecord?.etaNotify ?? nomination.etaDate),
       operationPort: nomination.opPort?.name ?? '',

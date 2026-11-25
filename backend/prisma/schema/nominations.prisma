@@ -31,10 +31,42 @@ enum NominationKind {
   OT
 }
 
+enum NominationOtScope {
+  GLOBAL
+  BRANCH
+}
+
+// Empty until an explicitly verified legacy handover initializes the series.
+// There is deliberately no default OT scope or automatic seed from app IDs.
+model NominationNumberingConfig {
+  id                 String @id
+  cutoverAt          DateTime @db.Timestamptz(6)
+  otScope            NominationOtScope
+  legacyExportSha256 String
+  legacyExportAsOf   DateTime @db.Timestamptz(6)
+  createdAt          DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("nomination_numbering_config")
+}
+
+model NominationNumberSeries {
+  kind      NominationKind
+  // "*" is national. Otherwise the explicit branch ID, never its mutable code.
+  scopeKey  String
+  nextValue Int
+
+  @@id([kind, scopeKey])
+  @@map("nomination_number_series")
+}
+
 model Nomination {
   id          String @id @default(uuid()) @db.Uuid
   // Correlative drives the SN/OT number. Format rendered by service layer as `${YY}/${n.padStart(4,'0')}`.
   correlative Int    @unique @default(autoincrement())
+
+  // Issued once on new application records. Null preserves legacy rendering;
+  // never backfill from dates or infer the external system's sequence.
+  businessReference String? @unique
 
   // Voyage
   // Explicit vessel voyage; legacy voyageNumber may be an internal sequence.

@@ -209,13 +209,14 @@ export const NominationListSearchSchema = NominationListQuerySchema.extend({
 export const NominationListItemSchema = z.object({
   id: z.string().uuid(),
   correlative: z.number().int().positive(),
+  businessReference: z.string().nullish(),
   voyageNumber: z.string(),
   voyageCode: z.string().nullable(),
   vesselVoyageNumber: z.string().nullish(),
   status: NominationStatusSchema,
   nominationType: NominationTypeSchema,
   kind: NominationKindSchema,
-  // Rendered reference, e.g. "SN-26/0007" or "OT-26/0008" (attached by the service layer).
+  // Issued snapshot for new records, original reference convention for legacy rows.
   snOt: z.string(),
   dateNominated: z.coerce.date(),
   shipParticular: z.object({
@@ -271,6 +272,7 @@ const UserSummarySchema = z
 export const NominationSchema = z.object({
   id: z.string().uuid(),
   correlative: z.number().int().positive(),
+  businessReference: z.string().nullish(),
 
   // Voyage
   voyageNumber: z.string(),

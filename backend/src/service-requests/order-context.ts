@@ -9,6 +9,7 @@ import {
   UNDERWATER_INSPECTION_TYPE_LABELS,
   UNDERWATER_METHOD_LABELS,
   formatControlNumber,
+  resolveNominationReference,
   resolveServiceLabel,
   type ServiceRequestDetails,
 } from '@portlog/schemas';
@@ -84,7 +85,12 @@ interface OrderSource {
   pier: { name: string } | null;
   billToClient: { name: string } | null;
   documents: Array<{ filename: string }>;
-  nomination?: { correlative: number; dateNominated: Date; kind: 'SN' | 'OT' } | null;
+  nomination?: {
+    correlative: number;
+    dateNominated: Date;
+    kind: 'SN' | 'OT';
+    businessReference?: string | null;
+  } | null;
   createdBy?: { email: string; displayName: string | null };
   approvedBy?: { email: string; displayName: string | null } | null;
   approvedAt?: Date | null;
@@ -295,9 +301,7 @@ export function buildOperationalOrderData(
     `${String(value.getUTCDate()).padStart(2, '0')}/${String(value.getUTCMonth() + 1).padStart(2, '0')}/${value.getUTCFullYear()}`;
 
   const data: Record<string, string> = {
-    snOt: row.nomination
-      ? `${row.nomination.kind}-${String(row.nomination.dateNominated.getUTCFullYear()).slice(-2)}/${String(row.nomination.correlative).padStart(4, '0')}`
-      : '',
+    snOt: row.nomination ? resolveNominationReference(row.nomination, 'internal-utc') : '',
     orderNumber: context.control,
     vessel: context.vessel.name,
     supplier: context.supplier?.name ?? '',
