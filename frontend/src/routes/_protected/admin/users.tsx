@@ -156,6 +156,11 @@ function UsersAdminScreen() {
             <Table.Tr key={user.id}>
               <Table.Td>
                 <Text size="sm">{user.email}</Text>
+                {user.username && (
+                  <Text size="xs" c="dimmed">
+                    {user.username}
+                  </Text>
+                )}
               </Table.Td>
               <Table.Td>
                 <Text size="sm" c={user.displayName ? undefined : 'dimmed'}>
@@ -278,6 +283,7 @@ function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void
     resolver: zodResolver(CreateUserSchema),
     defaultValues: {
       email: '',
+      username: '',
       displayName: '',
       password: '',
       role: 'OPS',
@@ -295,7 +301,7 @@ function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to create user.';
       notifications.show({
-        message: msg.includes('409') ? 'Email already in use.' : msg,
+        message: msg.includes('409') ? 'Email or username already in use.' : msg,
         color: 'red',
       });
     }
@@ -311,6 +317,15 @@ function CreateUserModal({ open, onClose }: { open: boolean; onClose: () => void
             required
             error={form.formState.errors.email?.message}
             {...form.register('email')}
+          />
+          <TextInput
+            label="Username"
+            description="Optional personal login: 3–64 letters, numbers, dots, underscores or hyphens."
+            autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
+            error={form.formState.errors.username?.message}
+            {...form.register('username')}
           />
           <TextInput
             label="Display Name"
@@ -391,6 +406,7 @@ function EditUserModal({ user, onClose }: { user: AdminUser; onClose: () => void
   const form = useForm<UpdateUserInput>({
     resolver: zodResolver(UpdateUserSchema),
     defaultValues: {
+      username: user.username ?? '',
       displayName: user.displayName ?? '',
       jobTitle: user.jobTitle ?? '',
       phone: user.phone ?? '',
@@ -417,6 +433,15 @@ function EditUserModal({ user, onClose }: { user: AdminUser; onClose: () => void
     <Modal opened onClose={onClose} title={`Edit — ${user.email}`} centered>
       <form onSubmit={form.handleSubmit((v) => void onSubmit(v))}>
         <Stack gap="sm">
+          <TextInput
+            label="Username"
+            description="Optional personal login. Existing email login remains available."
+            autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
+            error={form.formState.errors.username?.message}
+            {...form.register('username')}
+          />
           <TextInput
             label="Display Name"
             placeholder="Full name"

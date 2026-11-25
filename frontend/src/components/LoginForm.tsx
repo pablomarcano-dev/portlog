@@ -36,7 +36,7 @@ export function LoginForm() {
       await navigate({ to: redirectTo });
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        setAuthError('Invalid email or password.');
+        setAuthError('Invalid username, email or password.');
       } else {
         setAuthError('An unexpected error occurred. Please try again.');
       }
@@ -47,9 +47,10 @@ export function LoginForm() {
     <form onSubmit={handleSubmit(onSubmit)} noValidate>
       <Stack gap="md">
         <TextInput
-          label="Email"
-          type="email"
-          autoComplete="email"
+          label="Username or email"
+          autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
           error={errors.email?.message}
           {...register('email')}
         />
