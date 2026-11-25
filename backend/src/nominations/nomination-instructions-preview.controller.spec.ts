@@ -1,3 +1,5 @@
+import { PrismaService } from '../prisma/prisma.service.js';
+import { UsersService } from '../users/users.service.js';
 import { Test } from '@nestjs/testing';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
@@ -33,6 +35,24 @@ describe('instruction preview HTTP contract', () => {
       controllers: [NominationInstructionsPreviewController],
       providers: [
         JwtStrategy,
+        {
+          provide: PrismaService,
+          useValue: { branch: { findUnique: jest.fn(async () => ({ id: 'plc' })) } },
+        },
+        {
+          provide: UsersService,
+          useValue: {
+            findById: jest.fn(async (id: string) => ({
+              id,
+              email: `${id}@example.test`,
+              role: ['adm', 'admin'].includes(id) ? 'ADM' : 'OPS',
+              isActive: true,
+              permissions: [],
+              branchId: 'plc',
+              branchAssignments: [],
+            })),
+          },
+        },
         { provide: APP_GUARD, useClass: JwtAuthGuard },
         { provide: APP_GUARD, useClass: RolesGuard },
         { provide: ConfigService, useValue: { get: () => secret } },

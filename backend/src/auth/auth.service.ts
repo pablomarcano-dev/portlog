@@ -4,11 +4,18 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
 import { AuditService } from '../audit/audit.service.js';
-import { type LoginResponse, type RefreshResponse, type CurrentUser } from '@portlog/schemas';
+import {
+  type LoginResponse,
+  type RefreshResponse,
+  type CurrentUser,
+  hasManagementAccess,
+} from '@portlog/schemas';
 import { type JwtPayload } from './jwt.strategy.js';
 import { AuditEvent } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomBytes, createHash } from 'node:crypto';
+import { resolveBranchContext } from './branch-context.js';
+import type { SafeUser } from '../users/users.service.js';
 
 type LoginContext = {
   email: string;
@@ -53,7 +60,7 @@ export class AuthService {
    */
   async validateUser(email: string, password: string) {
     const record = await this.prisma.user.findUnique({
-      where: { email },
+      where: email.includes('@') ? { email } : { username: email },
       select: { id: true, passwordHash: true, isActive: true },
     });
 
@@ -80,6 +87,7 @@ export class AuthService {
   async issueRefreshToken(
     userId: string,
     context: { ip: string; userAgent: string },
+    branchId: string | null = null,
   ): Promise<string> {
     const raw = randomBytes(32).toString('hex');
     const tokenHash = hashToken(raw);
@@ -90,6 +98,7 @@ export class AuthService {
     await this.prisma.refreshToken.create({
       data: {
         userId,
+        branchId,
         tokenHash,
         expiresAt,
         ip: context.ip,
@@ -120,14 +129,16 @@ export class AuthService {
       return null;
     }
 
+    const branchId = resolveBranchContext(user);
     const payload: JwtPayload = {
+      branchId,
       sub: user.id,
       email: user.email,
       role: user.role,
       permissions: user.permissions ?? [],
     };
     const accessToken = this.issueAccessToken(payload);
-    const rawRefreshToken = await this.issueRefreshToken(user.id, ctx);
+    const rawRefreshToken = await this.issueRefreshToken(user.id, ctx, branchId);
 
     // Update lastLoginAt
     await this.prisma.user.update({
@@ -152,16 +163,7 @@ export class AuthService {
 
     const loginResponse: LoginResponse = {
       accessToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        operationalRole: user.operationalRole,
-        isActive: user.isActive,
-        permissions: user.permissions ?? [],
-        branchId: user.branchId ?? null,
-        branchCode: user.branch?.code ?? null,
-      },
+      user: await this.currentUserResponse(user, branchId),
     };
 
     return { loginResponse, rawRefreshToken };
@@ -212,6 +214,10 @@ export class AuthService {
       throw new UnauthorizedException('Account is inactive.');
     }
 
+    const current = await this.usersService.findById(record.userId);
+    if (!current || !current.isActive) throw new UnauthorizedException('Account is inactive.');
+    const branchId = resolveBranchContext(current, record.branchId);
+
     // Revoke the old token.
     await this.prisma.refreshToken.update({
       where: { id: record.id },
@@ -220,13 +226,14 @@ export class AuthService {
 
     // Issue new tokens.
     const payload: JwtPayload = {
-      sub: record.user.id,
-      email: record.user.email,
-      role: record.user.role,
-      permissions: record.user.permissions ?? [],
+      sub: current.id,
+      email: current.email,
+      role: current.role,
+      permissions: current.permissions ?? [],
+      branchId,
     };
     const accessToken = this.issueAccessToken(payload);
-    const newRawRefreshToken = await this.issueRefreshToken(record.user.id, ctx);
+    const newRawRefreshToken = await this.issueRefreshToken(record.user.id, ctx, branchId);
 
     this.logger.log({
       event: 'auth.refresh',
@@ -257,20 +264,76 @@ export class AuthService {
     void this.auditService.record(AuditEvent.LOGOUT, { userId });
   }
 
-  async getCurrentUser(userId: string): Promise<CurrentUser> {
+  async getCurrentUser(userId: string, selectedBranchId?: string | null): Promise<CurrentUser> {
     const user = await this.usersService.findById(userId);
-    if (!user) {
-      throw new UnauthorizedException('User not found.');
-    }
+    if (!user || !user.isActive) throw new UnauthorizedException('User not found.');
+    return this.currentUserResponse(user, resolveBranchContext(user, selectedBranchId));
+  }
+
+  private async currentUserResponse(user: SafeUser, branchId: string | null): Promise<CurrentUser> {
+    const branches = hasManagementAccess(user)
+      ? await this.prisma.branch.findMany({
+          select: { id: true, name: true, code: true },
+          orderBy: { name: 'asc' },
+        })
+      : [
+          ...new Map(
+            [
+              ...(user.branch ? [user.branch] : []),
+              ...(user.branchAssignments ?? []).map((a) => a.branch),
+            ].map((b) => [b.id, b]),
+          ).values(),
+        ];
     return {
       id: user.id,
       email: user.email,
+      username: user.username ?? null,
       role: user.role,
       operationalRole: user.operationalRole,
       isActive: user.isActive,
       permissions: user.permissions ?? [],
-      branchId: user.branchId ?? null,
-      branchCode: user.branch?.code ?? null,
+      branchId,
+      branchCode: branches.find((b) => b.id === branchId)?.code ?? null,
+      primaryBranchId: user.branchId,
+      branches,
+    };
+  }
+
+  async switchBranch(
+    userId: string,
+    requested: string | null,
+    rawToken: string,
+    ctx: { ip: string; userAgent: string },
+  ): Promise<LoginResult> {
+    const record = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash: hashToken(rawToken) },
+    });
+    if (!record || record.userId !== userId || record.revokedAt || record.expiresAt < new Date()) {
+      throw new UnauthorizedException('A valid session is required.');
+    }
+    const user = await this.usersService.findById(userId);
+    if (!user || !user.isActive) throw new UnauthorizedException('User not found.');
+    const branchId = resolveBranchContext(user, requested);
+    if (
+      branchId &&
+      !(await this.prisma.branch.findUnique({ where: { id: branchId }, select: { id: true } }))
+    ) {
+      throw new UnauthorizedException('Branch is unavailable.');
+    }
+    await this.prisma.refreshToken.update({
+      where: { id: record.id },
+      data: { revokedAt: new Date() },
+    });
+    const accessToken = this.issueAccessToken({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      permissions: user.permissions ?? [],
+      branchId,
+    });
+    return {
+      loginResponse: { accessToken, user: await this.currentUserResponse(user, branchId) },
+      rawRefreshToken: await this.issueRefreshToken(user.id, ctx, branchId),
     };
   }
 }

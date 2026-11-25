@@ -27,11 +27,16 @@ enum UserOperationalRole {
   BRANCH_MANAGER
   SUPERVISOR
   SHIPPING_AGENT
+  BRANCH_ADMINISTRATOR
+  FLEET_MANAGER
+  SENIOR_FLEET_MANAGER
+  ADMINISTRATION_MANAGER
 }
 
 model User {
   id              String               @id @default(cuid())
   email           String               @unique
+  username        String?              @unique
   passwordHash    String
   displayName     String? // full name for email signatures e.g. "Carlos Ferrer"
   jobTitle        String? // title line in email signatures e.g. "Fleet Manager"
@@ -46,6 +51,7 @@ model User {
   // SetNull keeps a branch deletion from cascading into user rows.
   branchId        String?
   branch          Branch?              @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  branchAssignments UserBranch[]
   isActive        Boolean              @default(true)
   // permissions is a flexible array of permission strings.
   // Reserved values for M2: "owner.financial" (gates Owner Acuerdos + financial history fields).
@@ -124,6 +130,8 @@ model RefreshToken {
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   tokenHash String    @unique
+  // Selected branch belongs to this session, not the global user profile.
+  branchId  String?
   expiresAt DateTime
   revokedAt DateTime?
   createdAt DateTime  @default(now())
@@ -131,4 +139,16 @@ model RefreshToken {
   ip        String?
 
   @@map("refresh_tokens")
+}
+
+// Additional authorized branches; User.branchId remains the primary branch.
+model UserBranch {
+  userId   String
+  branchId String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@id([userId, branchId])
+  @@index([branchId])
+  @@map("user_branches")
 }

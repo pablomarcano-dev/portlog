@@ -1,10 +1,13 @@
 import { z } from 'zod';
+import { OptionalUsernameSchema } from '../auth/identity.js';
 
-export const UserOperationalRoleSchema = z.enum(['BRANCH_MANAGER', 'SUPERVISOR', 'SHIPPING_AGENT']);
+import { UserOperationalRoleSchema } from '../common/operational-positions';
+export { UserOperationalRoleSchema } from '../common/operational-positions';
 
 export const AdminUserSchema = z.object({
   id: z.string(),
   email: z.string().email(),
+  username: z.string().nullable().optional(),
   displayName: z.string().nullable(),
   jobTitle: z.string().nullable(),
   phone: z.string().nullable(),
@@ -17,6 +20,7 @@ export const AdminUserSchema = z.object({
   // Default Sucursal — pre-fills the service-request forms.
   branchId: z.string().nullable(),
   branch: z.object({ id: z.string(), name: z.string(), code: z.string() }).nullable(),
+  branchIds: z.array(z.string()).optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
   lastLoginAt: z.string().nullable(),
@@ -30,10 +34,12 @@ export type AdminUserList = z.infer<typeof AdminUserListSchema>;
 
 export const CreateUserSchema = z.object({
   email: z.string().email('Valid email required'),
+  username: OptionalUsernameSchema.optional(),
   displayName: z.string().optional(),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   role: z.enum(['OPS', 'ADM', 'FLT']),
   operationalRole: UserOperationalRoleSchema.nullable().optional(),
+  branchIds: z.array(z.string().cuid()).max(100).optional(),
   branchId: z.preprocess(
     (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
     z.string().cuid().nullish(),
@@ -42,6 +48,7 @@ export const CreateUserSchema = z.object({
 export type CreateUserInput = z.infer<typeof CreateUserSchema>;
 
 export const UpdateUserSchema = z.object({
+  username: OptionalUsernameSchema.optional(),
   displayName: z.string().optional(),
   // Renders as the title line of the email signature.
   jobTitle: z.string().optional(),
@@ -52,6 +59,7 @@ export const UpdateUserSchema = z.object({
   operationalRole: UserOperationalRoleSchema.nullable().optional(),
   isActive: z.boolean().optional(),
   // Blank clears the assignment; Prisma writes NULL.
+  branchIds: z.array(z.string().cuid()).max(100).optional(),
   branchId: z.preprocess(
     (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
     z.string().cuid().nullish(),

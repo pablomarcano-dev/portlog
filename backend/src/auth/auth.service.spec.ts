@@ -17,6 +17,9 @@ const mockUser = {
   email: 'ops@portlog.test',
   role: 'OPS' as const,
   isActive: true,
+  branchId: 'plc',
+  branch: { id: 'plc', name: 'Puerto La Cruz', code: 'PLC' },
+  branchAssignments: [],
   createdAt: new Date(),
   updatedAt: new Date(),
   lastLoginAt: null,
@@ -39,6 +42,7 @@ const mockPrisma = {
     findUnique: jest.fn(),
     update: jest.fn(),
   },
+  branch: { findUnique: jest.fn().mockResolvedValue({ id: 'mbo' }) },
   refreshToken: {
     create: jest.fn(),
     findUnique: jest.fn(),
@@ -76,6 +80,7 @@ describe('AuthService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockUsersService.findById.mockResolvedValue(mockUser);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -224,5 +229,84 @@ describe('AuthService', () => {
         service.refresh('expiredtoken', { ip: '127.0.0.1', userAgent: 'jest' }),
       ).rejects.toThrow(UnauthorizedException);
     });
+  });
+});
+
+describe('session branch switching', () => {
+  const user = {
+    ...mockUser,
+    branchAssignments: [{ branchId: 'mbo', branch: { id: 'mbo', name: 'Maracaibo', code: 'MBO' } }],
+  };
+  const service = new AuthService(
+    mockUsersService as unknown as UsersService,
+    mockJwtService as unknown as JwtService,
+    mockConfigService as unknown as ConfigService,
+    mockPrisma as unknown as PrismaService,
+    mockAuditService as unknown as AuditService,
+  );
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUsersService.findById.mockResolvedValue(user);
+    mockPrisma.refreshToken.findUnique.mockResolvedValue({ ...mockRefreshToken, branchId: 'plc' });
+    mockPrisma.refreshToken.create.mockResolvedValue(mockRefreshToken);
+    mockPrisma.branch.findUnique.mockResolvedValue({ id: 'mbo' });
+  });
+  it('rotates only this session into an assigned branch, preserving the primary', async () => {
+    const result = await service.switchBranch(user.id, 'mbo', 'raw-session', {
+      ip: '127.0.0.1',
+      userAgent: 'jest',
+    });
+    expect(result.loginResponse.user).toMatchObject({
+      branchId: 'mbo',
+      primaryBranchId: 'plc',
+      branchCode: 'MBO',
+    });
+    expect(mockPrisma.refreshToken.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ userId: user.id, branchId: 'mbo' }),
+      }),
+    );
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+  it('does not rotate on an unauthorized branch or national view', async () => {
+    await expect(
+      service.switchBranch(user.id, 'other', 'raw', { ip: '', userAgent: '' }),
+    ).rejects.toThrow();
+    await expect(
+      service.switchBranch(user.id, null, 'raw', { ip: '', userAgent: '' }),
+    ).rejects.toThrow();
+    expect(mockPrisma.refreshToken.update).not.toHaveBeenCalled();
+    expect(mockPrisma.refreshToken.create).not.toHaveBeenCalled();
+  });
+  it('rejects another user’s cookie or a revoked session', async () => {
+    mockPrisma.refreshToken.findUnique.mockResolvedValue({ ...mockRefreshToken, userId: 'other' });
+    await expect(
+      service.switchBranch(user.id, 'mbo', 'raw', { ip: '', userAgent: '' }),
+    ).rejects.toThrow(UnauthorizedException);
+    mockPrisma.refreshToken.findUnique.mockResolvedValue({
+      ...mockRefreshToken,
+      revokedAt: new Date(),
+    });
+    await expect(
+      service.switchBranch(user.id, 'mbo', 'raw', { ip: '', userAgent: '' }),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+  it('retains the selected branch on refresh and reloads current permissions', async () => {
+    mockPrisma.refreshToken.findUnique.mockResolvedValue({ ...mockRefreshToken, branchId: 'mbo' });
+    await service.refresh('raw', { ip: '', userAgent: '' });
+    expect(mockJwtService.sign).toHaveBeenCalledWith(
+      expect.objectContaining({ branchId: 'mbo', role: 'OPS' }),
+    );
+  });
+  it('resolves username login separately from email', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+    await service.validateUser('jose.romero', 'wrong-password');
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { username: 'jose.romero' } }),
+    );
+    await service.validateUser('jose@example.test', 'wrong-password');
+    expect(mockPrisma.user.findUnique).toHaveBeenLastCalledWith(
+      expect.objectContaining({ where: { email: 'jose@example.test' } }),
+    );
   });
 });

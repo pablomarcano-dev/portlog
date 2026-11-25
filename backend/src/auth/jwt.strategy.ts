@@ -1,8 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { type Role } from '@portlog/schemas';
+import { UsersService } from '../users/users.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { assignedBranchIds, resolveBranchContext } from './branch-context.js';
 
 /**
  * JWT payload shape stored in access tokens.
@@ -13,6 +16,8 @@ export type JwtPayload = {
   email: string;
   role: Role;
   permissions: string[];
+  branchId?: string | null;
+  branchIds?: string[];
 };
 
 /**
@@ -23,7 +28,11 @@ export type RequestUser = JwtPayload;
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(configService: ConfigService) {
+  constructor(
+    configService: ConfigService,
+    private readonly usersService: UsersService,
+    private readonly prisma: PrismaService,
+  ) {
     const secret = configService.get<string>('JWT_ACCESS_SECRET');
     if (!secret) {
       throw new Error('JWT_ACCESS_SECRET env var is required');
@@ -45,12 +54,23 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
    * Called after JWT signature is verified. Return value becomes request.user.
    * We return the payload as-is since it already contains the fields we need.
    */
-  validate(payload: JwtPayload): RequestUser {
+  async validate(payload: JwtPayload): Promise<RequestUser> {
+    const user = await this.usersService.findById(payload.sub);
+    if (!user || !user.isActive) throw new UnauthorizedException('Account is inactive.');
+    const branchId = resolveBranchContext(user, payload.branchId);
+    if (
+      branchId &&
+      !(await this.prisma.branch.findUnique({ where: { id: branchId }, select: { id: true } }))
+    ) {
+      throw new UnauthorizedException('Branch is unavailable.');
+    }
     return {
-      sub: payload.sub,
-      email: payload.email,
-      role: payload.role,
-      permissions: payload.permissions ?? [],
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      permissions: user.permissions ?? [],
+      branchId,
+      branchIds: assignedBranchIds(user),
     };
   }
 }

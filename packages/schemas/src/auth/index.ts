@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { UserOperationalRoleSchema } from '../common/operational-positions';
+import { LoginIdentifierSchema } from './identity.js';
+export * from './identity.js';
 
 export const RoleSchema = z.enum(['OPS', 'ADM', 'FLT']);
 export type Role = z.infer<typeof RoleSchema>;
@@ -9,7 +12,7 @@ export function hasManagementAccess(user: { role: Role } | null | undefined): bo
 }
 
 export const LoginRequestSchema = z.object({
-  email: z.string().trim().toLowerCase().email().max(254),
+  email: LoginIdentifierSchema,
   password: z.string().min(8).max(256),
 });
 export type LoginRequest = z.infer<typeof LoginRequestSchema>;
@@ -17,11 +20,9 @@ export type LoginRequest = z.infer<typeof LoginRequestSchema>;
 export const CurrentUserSchema = z.object({
   id: z.string(),
   email: z.string().email(),
+  username: z.string().nullable().optional(),
   role: RoleSchema,
-  operationalRole: z
-    .enum(['BRANCH_MANAGER', 'SUPERVISOR', 'SHIPPING_AGENT'])
-    .nullable()
-    .default(null),
+  operationalRole: UserOperationalRoleSchema.nullable().default(null),
   isActive: z.boolean(),
   permissions: z.array(z.string()).default([]),
   /**
@@ -31,6 +32,8 @@ export const CurrentUserSchema = z.object({
    */
   branchId: z.string().nullable().default(null),
   branchCode: z.string().nullable().default(null),
+  primaryBranchId: z.string().nullable().optional(),
+  branches: z.array(z.object({ id: z.string(), name: z.string(), code: z.string() })).optional(),
 });
 export type CurrentUser = z.infer<typeof CurrentUserSchema>;
 

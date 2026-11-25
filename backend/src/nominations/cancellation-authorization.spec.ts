@@ -1,3 +1,5 @@
+import { UsersService } from '../users/users.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
@@ -33,6 +35,24 @@ describe('nomination cancellation authorization', () => {
       controllers: [NominationsController],
       providers: [
         JwtStrategy,
+        {
+          provide: UsersService,
+          useValue: {
+            findById: jest.fn(async (id: string) => ({
+              id,
+              email: `${id}@example.test`,
+              role: id === 'administrator' ? 'ADM' : 'OPS',
+              isActive: true,
+              permissions: [],
+              branchId: 'plc',
+              branchAssignments: [],
+            })),
+          },
+        },
+        {
+          provide: PrismaService,
+          useValue: { branch: { findUnique: jest.fn(async () => ({ id: 'plc' })) } },
+        },
         { provide: APP_GUARD, useClass: JwtAuthGuard },
         { provide: APP_GUARD, useClass: RolesGuard },
         { provide: ConfigService, useValue: { get: () => secret } },

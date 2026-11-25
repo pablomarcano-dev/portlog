@@ -9,6 +9,8 @@ import {
   HttpStatus,
   UnauthorizedException,
 } from '@nestjs/common';
+import { z } from 'zod';
+import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import { Throttle } from '@nestjs/throttler';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { AuthService } from './auth.service.js';
@@ -80,7 +82,7 @@ export class AuthController {
     });
 
     if (!result) {
-      throw new UnauthorizedException('Invalid email or password.');
+      throw new UnauthorizedException('Invalid username, email or password.');
     }
 
     void reply.setCookie(REFRESH_COOKIE, result.rawRefreshToken, refreshCookieOptions());
@@ -145,6 +147,23 @@ export class AuthController {
     });
   }
 
+  @Post('branch')
+  async switchBranch(
+    @Body(new ZodValidationPipe(z.object({ branchId: z.string().cuid().nullable() }).strict()))
+    body: { branchId: string | null },
+    @Req() req: FastifyRequestWithCookies & { user: RequestUser },
+    @Res({ passthrough: true }) reply: FastifyReplyWithCookies,
+  ) {
+    const rawToken = req.cookies[REFRESH_COOKIE];
+    if (!rawToken) throw new UnauthorizedException('A valid session is required.');
+    const result = await this.authService.switchBranch(req.user.sub, body.branchId, rawToken, {
+      ip: req.ip,
+      userAgent: req.headers['user-agent'] ?? 'unknown',
+    });
+    void reply.setCookie(REFRESH_COOKIE, result.rawRefreshToken, refreshCookieOptions());
+    return result.loginResponse;
+  }
+
   /**
    * GET /api/auth/me
    * Returns the current authenticated user's profile.
@@ -152,6 +171,6 @@ export class AuthController {
    */
   @Get('me')
   async me(@Req() req: FastifyRequest & { user: RequestUser }) {
-    return this.authService.getCurrentUser(req.user.sub);
+    return this.authService.getCurrentUser(req.user.sub, req.user.branchId);
   }
 }

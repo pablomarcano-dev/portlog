@@ -510,6 +510,7 @@ model Branch {
   serviceRequests   ServiceRequest[]
   // Users whose default Sucursal this is (pre-fills service request forms)
   users             User[]
+  userAssignments   UserBranch[]
   ports             Port[]
   agents            Agent[]
 

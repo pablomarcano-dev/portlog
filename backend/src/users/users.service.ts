@@ -1,5 +1,7 @@
+import type { UserOperationalRole } from '@portlog/schemas';
 import {
   Injectable,
+  BadRequestException,
   ConflictException,
   NotFoundException,
   ForbiddenException,
@@ -8,22 +10,25 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { EmailService } from '../email/email.service.js';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'node:crypto';
+import type { Role } from '@portlog/schemas';
 
 // Safe user fields — passwordHash is NEVER returned from this service.
 // This is the only sanctioned way to fetch user records in application code.
 export type SafeUser = {
   id: string;
   email: string;
+  username?: string | null;
   displayName: string | null;
   jobTitle: string | null;
   phone: string | null;
   mobile: string | null;
   fax: string | null;
-  role: 'OPS' | 'ADM';
-  operationalRole: 'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT' | null;
+  role: Role;
+  operationalRole: UserOperationalRole | null;
   isActive: boolean;
   permissions: string[];
   branchId: string | null;
+  branchAssignments?: { branchId: string; branch: { id: string; name: string; code: string } }[];
   /** Joined for the control-number prefix; null when no branch is assigned. */
   branch: { id: string; name: string; code: string } | null;
   createdAt: Date;
@@ -34,6 +39,7 @@ export type SafeUser = {
 const SAFE_USER_SELECT = {
   id: true,
   email: true,
+  username: true,
   displayName: true,
   jobTitle: true,
   phone: true,
@@ -46,6 +52,9 @@ const SAFE_USER_SELECT = {
   // Default Sucursal — pre-fills the service-request forms and is returned by
   // /auth/me alongside the branch code the control number is built from.
   branchId: true,
+  branchAssignments: {
+    select: { branchId: true, branch: { select: { id: true, name: true, code: true } } },
+  },
   branch: { select: { id: true, name: true, code: true } },
   createdAt: true,
   updatedAt: true,
@@ -54,23 +63,27 @@ const SAFE_USER_SELECT = {
 
 export type CreateUserDto = {
   email: string;
+  username?: string | null;
   displayName?: string;
   password: string;
-  role: 'OPS' | 'ADM';
-  operationalRole?: 'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT' | null;
+  role: Role;
+  operationalRole?: UserOperationalRole | null;
   branchId?: string | null;
+  branchIds?: string[];
 };
 
 export type UpdateUserDto = {
+  username?: string | null;
   displayName?: string;
   jobTitle?: string;
   phone?: string;
   mobile?: string;
   fax?: string;
-  role?: 'OPS' | 'ADM';
-  operationalRole?: 'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT' | null;
+  role?: Role;
+  operationalRole?: UserOperationalRole | null;
   isActive?: boolean;
   branchId?: string | null;
+  branchIds?: string[];
 };
 
 @Injectable()
@@ -108,10 +121,19 @@ export class UsersService {
   // ── Admin operations ──────────────────────────────────────────────────────
 
   async list(): Promise<SafeUser[]> {
-    return this.prisma.user.findMany({
+    const users = await this.prisma.user.findMany({
       select: SAFE_USER_SELECT,
       orderBy: { createdAt: 'asc' },
     });
+    return users.map((user) => ({
+      ...user,
+      branchIds: [
+        ...new Set([
+          ...(user.branchId ? [user.branchId] : []),
+          ...user.branchAssignments.map((a) => a.branchId),
+        ]),
+      ],
+    }));
   }
 
   async create(dto: CreateUserDto): Promise<SafeUser> {
@@ -122,11 +144,23 @@ export class UsersService {
       throw new ConflictException('A user with this email already exists.');
     }
 
+    if (dto.username) {
+      const duplicate = await this.prisma.user.findUnique({
+        where: { username: dto.username.trim().toLowerCase() },
+        select: { id: true },
+      });
+      if (duplicate) throw new ConflictException('A user with this username already exists.');
+    }
+    await this.validateBranches(dto.branchId ?? null, dto.branchIds);
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
     return this.prisma.user.create({
       data: {
         email,
+        username: dto.username?.trim().toLowerCase() || null,
+        branchAssignments: dto.branchIds
+          ? { create: [...new Set(dto.branchIds)].map((branchId) => ({ branchId })) }
+          : undefined,
         displayName: dto.displayName ?? null,
         passwordHash,
         role: dto.role,
@@ -138,11 +172,43 @@ export class UsersService {
   }
 
   async update(id: string, dto: UpdateUserDto): Promise<SafeUser> {
-    await this.requireExists(id);
-
+    const existing = await this.requireExists(id);
+    if (dto.username) {
+      const duplicate = await this.prisma.user.findUnique({
+        where: { username: dto.username.trim().toLowerCase() },
+        select: { id: true },
+      });
+      if (duplicate && duplicate.id !== id)
+        throw new ConflictException('A user with this username already exists.');
+    }
+    const primary = dto.branchId !== undefined ? dto.branchId : existing.branchId;
+    await this.validateBranches(primary, dto.branchIds);
+    // A changed identity/access assignment requires a fresh refresh session.
+    if (
+      dto.role !== undefined ||
+      dto.branchId !== undefined ||
+      dto.branchIds !== undefined ||
+      dto.isActive !== undefined
+    ) {
+      await this.prisma.refreshToken.updateMany({
+        where: { userId: id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    }
     return this.prisma.user.update({
       where: { id },
       data: {
+        ...(dto.username !== undefined
+          ? { username: dto.username?.trim().toLowerCase() || null }
+          : {}),
+        ...(dto.branchIds !== undefined
+          ? {
+              branchAssignments: {
+                deleteMany: {},
+                create: [...new Set(dto.branchIds)].map((branchId) => ({ branchId })),
+              },
+            }
+          : {}),
         ...(dto.displayName !== undefined ? { displayName: dto.displayName } : {}),
         ...(dto.jobTitle !== undefined ? { jobTitle: dto.jobTitle } : {}),
         ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
@@ -202,6 +268,26 @@ export class UsersService {
       subject: 'Your Portlog credentials',
       html: credentialsEmailHtml(user.email, tempPassword),
     });
+  }
+
+  private async validateBranches(primary: string | null, branchIds?: string[]): Promise<void> {
+    if (
+      branchIds !== undefined &&
+      branchIds.length > 0 &&
+      (!primary || !branchIds.includes(primary))
+    ) {
+      throw new BadRequestException('Select one primary branch from the assigned branches.');
+    }
+    if (branchIds !== undefined && branchIds.length === 0 && primary) {
+      throw new BadRequestException('The primary branch must be assigned.');
+    }
+    const ids = [...new Set([...(primary ? [primary] : []), ...(branchIds ?? [])])];
+    if (
+      ids.length &&
+      (await this.prisma.branch.count({ where: { id: { in: ids } } })) !== ids.length
+    ) {
+      throw new BadRequestException('One or more selected branches do not exist.');
+    }
   }
 
   private async requireExists(id: string): Promise<SafeUser> {
