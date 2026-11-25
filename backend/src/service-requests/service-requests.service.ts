@@ -13,6 +13,8 @@ import {
   ServiceRequestDetailsSchema,
   ServiceRequestSendReadinessSchema,
   formatControlNumber,
+  hasManagementAccess,
+  resolveNominationReference,
   requiresAuthorizationDocument,
   resolveServiceLabel,
   type ServiceRequestCreate,
@@ -35,6 +37,7 @@ import { AttachmentsService } from '../attachments/attachments.service.js';
 import { appendBranchCc } from '../email/email-address.util.js';
 import { buildOperationalOrderData, buildOrderContext } from './order-context.js';
 import { OperationalOrderDocxService } from './operational-order-docx.service.js';
+import type { RequestUser } from '../auth/jwt.strategy.js';
 
 /**
  * Everything the read DTO needs, in one round trip. Declared once so the
@@ -63,7 +66,9 @@ const DETAIL_INCLUDE = {
   receiptAttachment: {
     select: { id: true, filename: true, mimeType: true, sizeBytes: true, createdAt: true },
   },
-  nomination: { select: { correlative: true, dateNominated: true, kind: true } },
+  nomination: {
+    select: { correlative: true, dateNominated: true, kind: true, businessReference: true },
+  },
   documents: {
     select: { id: true, filename: true, mimeType: true, sizeBytes: true, createdAt: true },
     orderBy: { createdAt: 'asc' },
@@ -111,13 +116,18 @@ export class ServiceRequestsService {
   // CRUD
   // -------------------------------------------------------------------------
 
-  async create(dto: ServiceRequestCreate, userId: string): Promise<ServiceRequestRead> {
+  async create(
+    dto: ServiceRequestCreate,
+    userId: string,
+    actor?: RequestUser,
+  ): Promise<ServiceRequestRead> {
     this.assertDetailsMatchType(dto.type, dto.details);
     if (!dto.shipParticularId && !dto.nominationId)
       throw new BadRequestException('Select a vessel for the service');
+    const branchId = actor ? await this.creationBranch(actor, dto.branchId) : undefined;
     const assignment = dto.shipParticularId
-      ? await this.resolveVesselForUser(dto.shipParticularId, dto.nominationId, userId)
-      : await this.resolveNominationForUser(dto.nominationId, userId);
+      ? await this.resolveVesselForUser(dto.shipParticularId, dto.nominationId, userId, branchId)
+      : await this.resolveNominationForUser(dto.nominationId, userId, branchId);
 
     const created = await this.prisma.serviceRequest.create({
       data: {
@@ -165,29 +175,32 @@ export class ServiceRequestsService {
     return this.toDto(await this.getOrThrow(id));
   }
 
-  async nominationOptions(userId: string, q = '') {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { branchId: true },
-    });
-    if (!user?.branchId) return [];
+  async nominationOptions(userId: string, q = '', actor?: RequestUser) {
+    const user = actor
+      ? { branchId: this.listBranch(actor) }
+      : await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { branchId: true },
+        });
+    if (!actor && !user?.branchId) return [];
 
     const search = q.trim().toLocaleLowerCase();
     const rows = await this.prisma.nomination.findMany({
       where: {
-        branchId: user.branchId,
+        ...(user?.branchId && { branchId: user.branchId }),
         status: { not: 'CANCELLED' },
       },
       select: {
         id: true,
         kind: true,
         correlative: true,
+        businessReference: true,
         dateNominated: true,
         voyageNumber: true,
         shipParticularId: true,
         shipParticular: { select: { name: true } },
         branchId: true,
-        branch: { select: { name: true } },
+        branch: { select: { name: true, code: true } },
       },
       orderBy: { createdAt: 'desc' },
       // Search the formatted reference before limiting results; otherwise a
@@ -197,8 +210,7 @@ export class ServiceRequestsService {
 
     return rows
       .flatMap((row) => {
-        const yy = String(row.dateNominated.getFullYear()).slice(-2);
-        const reference = `${row.kind}-${yy}/${String(row.correlative).padStart(4, '0')}`;
+        const reference = resolveNominationReference(row);
         const label = `${reference} · ${row.shipParticular.name}`;
         if (
           search &&
@@ -214,7 +226,7 @@ export class ServiceRequestsService {
             reference,
             shipParticularId: row.shipParticularId,
             vesselName: row.shipParticular.name,
-            branchId: row.branchId ?? user.branchId,
+            branchId: row.branchId ?? user?.branchId ?? null,
             branchName: row.branch?.name ?? '',
           },
         ];
@@ -226,6 +238,7 @@ export class ServiceRequestsService {
     id: string,
     dto: ServiceRequestUpdate,
     userId?: string,
+    actor?: RequestUser,
   ): Promise<ServiceRequestRead> {
     const existing = await this.getOrThrow(id);
 
@@ -262,11 +275,14 @@ export class ServiceRequestsService {
       const nominationId =
         dto.nominationId === undefined ? existing.nominationId : dto.nominationId;
       if (userId) {
+        const branchId = actor
+          ? await this.creationBranch(actor, dto.branchId ?? existing.branchId)
+          : undefined;
         const assignment = vesselId
-          ? await this.resolveVesselForUser(vesselId, nominationId, userId)
+          ? await this.resolveVesselForUser(vesselId, nominationId, userId, branchId)
           : existing.type === 'GENERAL'
-            ? await this.resolveAdministrationForUser(userId)
-            : await this.resolveNominationForUser(nominationId, userId);
+            ? await this.resolveAdministrationForUser(userId, branchId)
+            : await this.resolveNominationForUser(nominationId, userId, branchId);
         dto = { ...dto, ...assignment };
       }
     }
@@ -377,12 +393,13 @@ export class ServiceRequestsService {
   // List
   // -------------------------------------------------------------------------
 
-  async report(query: ServiceRequestListQuery) {
+  async report(query: ServiceRequestListQuery, actor?: RequestUser) {
     const items: ServiceRequestListItem[] = [];
     let page = 1;
     let total = 0;
     do {
-      const result = await this.list({ ...query, page, pageSize: 100 });
+      const pageQuery = { ...query, page, pageSize: 100 };
+      const result = actor ? await this.list(pageQuery, actor) : await this.list(pageQuery);
       items.push(...result.items);
       total = result.total;
       if (!result.items.length) break;
@@ -391,12 +408,16 @@ export class ServiceRequestsService {
     return { items, total: items.length, page: 1, pageSize: Math.max(1, items.length) };
   }
 
-  async list(query: ServiceRequestListQuery): Promise<ServiceRequestListResponse> {
+  async list(
+    query: ServiceRequestListQuery,
+    actor?: RequestUser,
+  ): Promise<ServiceRequestListResponse> {
+    const branchId = actor ? this.listBranch(actor, query.branchId) : query.branchId;
     const where: Prisma.ServiceRequestWhereInput = {
       ...(query.type && { type: query.type }),
       ...(query.status && { status: query.status }),
       ...(query.shipParticularId && { shipParticularId: query.shipParticularId }),
-      ...(query.branchId && { branchId: query.branchId }),
+      ...(branchId && { branchId }),
       ...(query.supplierId && { supplierId: query.supplierId }),
       ...(query.nominationId && { nominationId: query.nominationId }),
       ...((query.dateFrom || query.dateTo) && {
@@ -471,10 +492,33 @@ export class ServiceRequestsService {
   // Authorisation documents
   // -------------------------------------------------------------------------
 
-  async addDocuments(id: string, attachmentIds: string[]): Promise<ServiceRequestRead> {
+  async addDocuments(
+    id: string,
+    attachmentIds: string[],
+    userId?: string,
+  ): Promise<ServiceRequestRead> {
     const existing = await this.getOrThrow(id);
     if (existing.status === 'CANCELLED') {
       throw new ConflictException('Cannot add documents to a cancelled request');
+    }
+    if (userId) {
+      const uniqueIds = [...new Set(attachmentIds)];
+      const uploads = await this.prisma.emailAttachment.findMany({
+        where: { id: { in: uniqueIds } },
+        select: { id: true, uploadedById: true, serviceRequestId: true },
+      });
+      if (uploads.length !== uniqueIds.length) {
+        throw new BadRequestException('One or more attachments no longer exist');
+      }
+      if (
+        uploads.some(
+          (upload) =>
+            upload.serviceRequestId !== id &&
+            (upload.serviceRequestId !== null || upload.uploadedById !== userId),
+        )
+      ) {
+        throw new ForbiddenException('Only your own staged uploads can be added to this request.');
+      }
     }
     await this.attachments.attachToServiceRequest(attachmentIds, id);
     await this.invalidateDraftOrder(existing);
@@ -488,7 +532,7 @@ export class ServiceRequestsService {
     return this.toDto(await this.getOrThrow(id));
   }
 
-  async approve(id: string, userId: string): Promise<ServiceRequestRead> {
+  async approve(id: string, userId: string, actor?: RequestUser): Promise<ServiceRequestRead> {
     const request = await this.getOrThrow(id);
     if (request.status !== 'DRAFT') throw new ConflictException('Only a draft can be approved');
     const readiness = ServiceRequestSendReadinessSchema.safeParse({
@@ -510,7 +554,8 @@ export class ServiceRequestsService {
     if (
       !user?.isActive ||
       (user.role !== 'ADM' &&
-        (user.operationalRole !== 'BRANCH_MANAGER' || user.branchId !== request.branchId))
+        (user.operationalRole !== 'BRANCH_MANAGER' ||
+          (actor ? actor.branchId : user.branchId) !== request.branchId))
     ) {
       throw new ForbiddenException(
         'Only an active branch manager for this branch or an administrator can approve',
@@ -1119,11 +1164,14 @@ export class ServiceRequestsService {
   private async resolveNominationForUser(
     nominationId: string | null,
     userId: string,
+    selectedBranchId?: string,
   ): Promise<{ nominationId: string; shipParticularId: string; branchId: string }> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { branchId: true },
-    });
+    const user = selectedBranchId
+      ? { branchId: selectedBranchId }
+      : await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { branchId: true },
+        });
     if (!user?.branchId) {
       throw new BadRequestException('Your user is not assigned to a branch');
     }
@@ -1148,31 +1196,68 @@ export class ServiceRequestsService {
     shipParticularId: string,
     nominationId: string | null,
     userId: string,
+    selectedBranchId?: string,
   ) {
-    const assignment = await this.resolveAdministrationForUser(userId);
+    const assignment = await this.resolveAdministrationForUser(userId, selectedBranchId);
     const vessel = await this.prisma.shipParticular.findUnique({
       where: { id: shipParticularId },
       select: { id: true },
     });
     if (!vessel) throw new BadRequestException('Select a registered vessel');
     if (nominationId) {
-      const nomination = await this.resolveNominationForUser(nominationId, userId);
+      const nomination = await this.resolveNominationForUser(
+        nominationId,
+        userId,
+        selectedBranchId,
+      );
       if (nomination.shipParticularId !== shipParticularId)
         throw new BadRequestException('The nomination belongs to another vessel');
     }
     return { branchId: assignment.branchId, shipParticularId, nominationId };
   }
 
-  private async resolveAdministrationForUser(userId: string): Promise<{
+  private async resolveAdministrationForUser(
+    userId: string,
+    selectedBranchId?: string,
+  ): Promise<{
     shipParticularId: null;
     branchId: string;
     nominationId: null;
   }> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { branchId: true },
-    });
+    const user = selectedBranchId
+      ? { branchId: selectedBranchId }
+      : await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { branchId: true },
+        });
     if (!user?.branchId) throw new BadRequestException('Your user is not assigned to a branch');
     return { shipParticularId: null, branchId: user.branchId, nominationId: null };
+  }
+
+  /** RequestUser comes from the strategy's current account and authorized selected branch. */
+  private listBranch(actor: RequestUser, requestedBranchId?: string): string | undefined {
+    if (!hasManagementAccess(actor) && !actor.branchId) {
+      throw new ForbiddenException('An authorized branch assignment is required.');
+    }
+    if (actor.branchId) {
+      if (requestedBranchId && requestedBranchId !== actor.branchId) {
+        throw new ForbiddenException('Switch to the requested branch before viewing its requests.');
+      }
+      return actor.branchId;
+    }
+    return requestedBranchId;
+  }
+
+  private async creationBranch(actor: RequestUser, requestedBranchId?: string): Promise<string> {
+    if (!hasManagementAccess(actor)) return this.listBranch(actor, requestedBranchId)!;
+    const branchId = requestedBranchId ?? actor.branchId;
+    if (!branchId) throw new BadRequestException('Select a branch for this service request.');
+    const branch = await this.prisma.branch.findUnique({
+      where: { id: branchId },
+      select: { id: true },
+    });
+    if (!branch)
+      throw new BadRequestException('Select an existing branch for this service request.');
+    return branchId;
   }
 }

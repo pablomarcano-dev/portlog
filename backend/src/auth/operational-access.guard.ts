@@ -48,6 +48,7 @@ export class OperationalAccessGuard implements CanActivate {
             where: {
               name: req.body['boardingClerk'],
               branchId: req.user.branchId ?? '__unassigned__',
+              operationalRole: 'SHIPPING_AGENT',
             },
             select: { id: true },
           });
@@ -71,6 +72,7 @@ export class OperationalAccessGuard implements CanActivate {
             select: { shDocument: { select: { nomination: { select: { branchId: true } } } } },
           },
           serviceRequest: { select: { branchId: true } },
+          serviceRequestReceipt: { select: { branchId: true } },
           serviceRequestDispatch: { select: { serviceRequest: { select: { branchId: true } } } },
           terminalPort: { select: { branchId: true } },
         },
@@ -80,6 +82,7 @@ export class OperationalAccessGuard implements CanActivate {
         attachment.emailDispatch?.pedr?.nomination.branchId,
         attachment.shDocumentDispatch?.shDocument.nomination.branchId,
         attachment.serviceRequest?.branchId,
+        attachment.serviceRequestReceipt?.branchId,
         attachment.serviceRequestDispatch?.serviceRequest.branchId,
         attachment.terminalPort?.branchId,
       ].filter((value): value is string => typeof value === 'string');
@@ -89,6 +92,15 @@ export class OperationalAccessGuard implements CanActivate {
           : attachment.uploadedById !== req.user.sub
       )
         this.deny();
+    }
+
+    if (path.startsWith('/service-requests/') && req.params['id']) {
+      const serviceRequest = await this.prisma.serviceRequest.findUnique({
+        where: { id: req.params['id'] },
+        select: { branchId: true },
+      });
+      if (!serviceRequest) throw new NotFoundException('Service request not found.');
+      if (!req.user.branchId || serviceRequest.branchId !== req.user.branchId) this.deny();
     }
 
     let nominationId = req.params['nominationId'];

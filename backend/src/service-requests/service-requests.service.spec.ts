@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ServiceRequestsService } from './service-requests.service.js';
 import { buildOperationalOrderData } from './order-context.js';
+import type { RequestUser } from '../auth/jwt.strategy.js';
 
 const REQ_ID = '3f2504e0-4f89-11d3-9a0c-0305e82c3301';
 const SCHEDULED = new Date('2026-08-10T14:00:00.000Z');
@@ -73,6 +74,7 @@ describe('ServiceRequestsService', () => {
     user: Record<string, jest.Mock>;
     nomination: Record<string, jest.Mock>;
     shipParticular: Record<string, jest.Mock>;
+    branch: Record<string, jest.Mock>;
     $transaction: jest.Mock;
   };
   let pdf: { renderTemplate: jest.Mock };
@@ -97,7 +99,7 @@ describe('ServiceRequestsService', () => {
         findMany: jest.fn(),
         count: jest.fn().mockResolvedValue(0),
       },
-      emailAttachment: { findUnique: jest.fn() },
+      emailAttachment: { findUnique: jest.fn(), findMany: jest.fn() },
       user: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'user-1',
@@ -106,6 +108,7 @@ describe('ServiceRequestsService', () => {
         }),
       },
       shipParticular: { findUnique: jest.fn().mockResolvedValue({ id: 'ship-1' }) },
+      branch: { findUnique: jest.fn().mockResolvedValue({ id: 'branch-2' }) },
       nomination: { findFirst: jest.fn(), findMany: jest.fn() },
       $transaction: jest.fn(),
     };
@@ -904,6 +907,208 @@ describe('ServiceRequestsService', () => {
         serviceLabel: 'Berthing (Inbound) (×2)',
         actualCost: 1500.5,
       });
+    });
+  });
+  describe('authorization document upload ownership', () => {
+    beforeEach(() => {
+      prisma.serviceRequest.findUnique.mockResolvedValue(makeRequest());
+      prisma.serviceRequest.update.mockResolvedValue(makeRequest());
+    });
+
+    it('rejects another user staged upload before filing or changing the draft', async () => {
+      prisma.emailAttachment.findMany.mockResolvedValue([
+        { id: 'foreign-upload', uploadedById: 'other-user', serviceRequestId: null },
+      ]);
+      await expect(service.addDocuments(REQ_ID, ['foreign-upload'], 'user-1')).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(attachments.attachToServiceRequest).not.toHaveBeenCalled();
+      expect(prisma.serviceRequest.update).not.toHaveBeenCalled();
+    });
+
+    it('permits the uploader to file their own staged document', async () => {
+      prisma.emailAttachment.findMany.mockResolvedValue([
+        { id: 'own-upload', uploadedById: 'user-1', serviceRequestId: null },
+      ]);
+      await service.addDocuments(REQ_ID, ['own-upload'], 'user-1');
+      expect(attachments.attachToServiceRequest).toHaveBeenCalledWith(['own-upload'], REQ_ID);
+    });
+
+    it('permits an idempotent repeat for documents already on the authorized request', async () => {
+      prisma.emailAttachment.findMany.mockResolvedValue([
+        { id: 'existing-document', uploadedById: 'coworker', serviceRequestId: REQ_ID },
+      ]);
+      await service.addDocuments(REQ_ID, ['existing-document'], 'user-1');
+      expect(attachments.attachToServiceRequest).toHaveBeenCalledWith(
+        ['existing-document'],
+        REQ_ID,
+      );
+    });
+
+    it('rejects even the uploader moving a document from another request', async () => {
+      prisma.emailAttachment.findMany.mockResolvedValue([
+        { id: 'filed-elsewhere', uploadedById: 'user-1', serviceRequestId: 'foreign-request' },
+      ]);
+      await expect(service.addDocuments(REQ_ID, ['filed-elsewhere'], 'user-1')).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(attachments.attachToServiceRequest).not.toHaveBeenCalled();
+    });
+
+    it('rejects missing upload IDs before filing any part of a mixed batch', async () => {
+      prisma.emailAttachment.findMany.mockResolvedValue([
+        { id: 'own-upload', uploadedById: 'user-1', serviceRequestId: null },
+      ]);
+      await expect(
+        service.addDocuments(REQ_ID, ['own-upload', 'missing-upload'], 'user-1'),
+      ).rejects.toThrow(BadRequestException);
+      expect(attachments.attachToServiceRequest).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('authorized selected branch context', () => {
+    const agent: RequestUser = {
+      sub: 'user-1',
+      email: 'ops@portlog.local',
+      role: 'OPS',
+      permissions: [],
+      branchId: 'branch-2',
+    };
+    const manager: RequestUser = { ...agent, role: 'FLT', branchId: null };
+    const dto = {
+      type: 'TUG',
+      shipParticularId: 'ship-1',
+      nominationId: null,
+      branchId: 'branch-2',
+      details: TUG_DETAILS,
+      scheduledAt: SCHEDULED,
+      currency: 'USD',
+    } as unknown as import('@portlog/schemas').ServiceRequestCreate;
+
+    beforeEach(() => {
+      prisma.serviceRequest.findMany.mockResolvedValue([]);
+      prisma.serviceRequest.count.mockResolvedValue(0);
+      prisma.nomination.findMany.mockResolvedValue([]);
+      prisma.serviceRequest.create.mockResolvedValue(makeRequest({ branchId: 'branch-2' }));
+      prisma.user.findUnique.mockResolvedValue({ branchId: 'branch-1' });
+    });
+
+    it('scopes lists and counts to the selected branch rather than the primary branch', async () => {
+      await service.list({ page: 1, pageSize: 25 }, agent);
+      expect(prisma.serviceRequest.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { branchId: 'branch-2' } }),
+      );
+      expect(prisma.serviceRequest.count).toHaveBeenCalledWith({ where: { branchId: 'branch-2' } });
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('rejects spoofed branch filters and agents without current assignments', async () => {
+      await expect(
+        service.list({ page: 1, pageSize: 25, branchId: 'branch-1' }, agent),
+      ).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.list({ page: 1, pageSize: 25 }, { ...agent, branchId: null }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.serviceRequest.findMany).not.toHaveBeenCalled();
+    });
+
+    it('allows national manager reporting and filters a selected manager context', async () => {
+      await service.list({ page: 1, pageSize: 25 }, manager);
+      expect(prisma.serviceRequest.findMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({ where: {} }),
+      );
+      await service.list({ page: 1, pageSize: 25 }, { ...manager, branchId: 'branch-2' });
+      expect(prisma.serviceRequest.findMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({ where: { branchId: 'branch-2' } }),
+      );
+      await service.list({ page: 1, pageSize: 25, branchId: 'branch-1' }, manager);
+      expect(prisma.serviceRequest.findMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({ where: { branchId: 'branch-1' } }),
+      );
+    });
+
+    it('keeps selected branch authorization on every report page', async () => {
+      const first = Array.from({ length: 100 }, (_, i) => ({ id: `request-${i}` }));
+      const list = jest
+        .spyOn(service, 'list')
+        .mockResolvedValueOnce({ items: first, total: 101, page: 1, pageSize: 100 } as never)
+        .mockResolvedValueOnce({
+          items: [{ id: 'last' }],
+          total: 101,
+          page: 2,
+          pageSize: 100,
+        } as never);
+      await service.report({ page: 1, pageSize: 25 }, agent);
+      expect(list).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ page: 2, pageSize: 100 }),
+        agent,
+      );
+      list.mockRestore();
+    });
+
+    it('uses the selected branch in nomination options and supports national managers', async () => {
+      await service.nominationOptions(agent.sub, '', agent);
+      expect(prisma.nomination.findMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({ where: { branchId: 'branch-2', status: { not: 'CANCELLED' } } }),
+      );
+      await service.nominationOptions(manager.sub, '', manager);
+      expect(prisma.nomination.findMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({ where: { status: { not: 'CANCELLED' } } }),
+      );
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('creates in the selected branch without rewriting or consulting the primary assignment', async () => {
+      await service.create(dto, agent.sub, agent);
+      expect(prisma.serviceRequest.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ branchId: 'branch-2', createdById: agent.sub }),
+        }),
+      );
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('rejects agent branch spoofing before creating a request', async () => {
+      await expect(
+        service.create({ ...dto, branchId: 'branch-1' }, agent.sub, agent),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.serviceRequest.create).not.toHaveBeenCalled();
+    });
+
+    it('permits a manager to choose an existing concrete branch for a national-context draft', async () => {
+      await service.create(dto, manager.sub, manager);
+      expect(prisma.branch.findUnique).toHaveBeenCalledWith({
+        where: { id: 'branch-2' },
+        select: { id: true },
+      });
+      expect(prisma.serviceRequest.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ branchId: 'branch-2' }) }),
+      );
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('requires a real concrete branch for manager creation', async () => {
+      await expect(
+        service.create({ ...dto, branchId: undefined }, manager.sub, manager),
+      ).rejects.toThrow('Select a branch');
+      prisma.branch.findUnique.mockResolvedValue(null);
+      await expect(service.create(dto, manager.sub, manager)).rejects.toThrow(
+        'Select an existing branch',
+      );
+      expect(prisma.serviceRequest.create).not.toHaveBeenCalled();
+    });
+
+    it('validates the linked nomination against the selected branch when saving', async () => {
+      prisma.nomination.findFirst.mockResolvedValue(null);
+      await expect(
+        service.create({ ...dto, nominationId: 'foreign-nomination' }, agent.sub, agent),
+      ).rejects.toThrow('Select an active');
+      expect(prisma.nomination.findFirst).toHaveBeenCalledWith({
+        where: { id: 'foreign-nomination', branchId: 'branch-2', status: { not: 'CANCELLED' } },
+        select: { id: true, shipParticularId: true, branchId: true },
+      });
+      expect(prisma.serviceRequest.create).not.toHaveBeenCalled();
     });
   });
 });

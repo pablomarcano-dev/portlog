@@ -1,4 +1,4 @@
-import { type ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { type ExecutionContext, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { OperationalAccessGuard } from './operational-access.guard.js';
 import { type PrismaService } from '../prisma/prisma.service.js';
 
@@ -19,6 +19,8 @@ describe('OperationalAccessGuard', () => {
   const prisma = {
     nomination: { findUnique: jest.fn() },
     pedr: { findUnique: jest.fn() },
+    serviceRequest: { findUnique: jest.fn() },
+    emailAttachment: { findUnique: jest.fn() },
   };
   let guard: OperationalAccessGuard;
   beforeEach(() => {
@@ -29,6 +31,57 @@ describe('OperationalAccessGuard', () => {
 
   it('allows every voyage in the current branch independent of creator', async () => {
     await expect(guard.canActivate(context(request()))).resolves.toBe(true);
+  });
+  it('allows branch coworkers to download filed receipts while denying foreign receipts', async () => {
+    const req = request({ url: '/api/attachments/receipt/download', params: { id: 'receipt' } });
+    prisma.emailAttachment.findUnique.mockResolvedValue({
+      uploadedById: 'another-agent',
+      serviceRequestReceipt: { branchId: 'plc' },
+    });
+    await expect(guard.canActivate(context(req))).resolves.toBe(true);
+    prisma.emailAttachment.findUnique.mockResolvedValue({
+      uploadedById: 'agent',
+      serviceRequestReceipt: { branchId: 'mbo' },
+    });
+    await expect(guard.canActivate(context(req))).rejects.toThrow(ForbiddenException);
+  });
+  it('checks all direct service request reads, writes and archived dispatch downloads', async () => {
+    for (const [method, suffix] of [
+      ['GET', ''],
+      ['PATCH', ''],
+      ['DELETE', ''],
+      ['POST', '/approve'],
+      ['POST', '/receipt'],
+      ['POST', '/transition'],
+      ['POST', '/documents'],
+      ['DELETE', '/documents/attachment'],
+      ['POST', '/generate'],
+      ['GET', '/order.pdf'],
+      ['GET', '/order.docx'],
+      ['POST', '/send'],
+      ['GET', '/dispatches'],
+      ['GET', '/dispatches/dispatch/order.pdf'],
+      ['GET', '/dispatches/dispatch/order.docx'],
+    ]) {
+      const req = request({
+        method,
+        url: `/api/service-requests/request${suffix}`,
+        params: { id: 'request' },
+      });
+      prisma.serviceRequest.findUnique.mockResolvedValue({ branchId: 'mbo' });
+      await expect(guard.canActivate(context(req))).rejects.toThrow(ForbiddenException);
+      prisma.serviceRequest.findUnique.mockResolvedValue({ branchId: 'plc' });
+      await expect(guard.canActivate(context(req))).resolves.toBe(true);
+    }
+  });
+  it('rejects missing or unassigned direct service requests before their handlers run', async () => {
+    const req = request({ url: '/api/service-requests/request', params: { id: 'request' } });
+    prisma.serviceRequest.findUnique.mockResolvedValue(null);
+    await expect(guard.canActivate(context(req))).rejects.toThrow(NotFoundException);
+    prisma.serviceRequest.findUnique.mockResolvedValue({ branchId: 'plc' });
+    await expect(
+      guard.canActivate(context({ ...req, user: { sub: 'agent', role: 'OPS', branchId: null } })),
+    ).rejects.toThrow(ForbiddenException);
   });
   it('rejects direct links and email sends outside the current branch', async () => {
     prisma.nomination.findUnique.mockResolvedValue({ branchId: 'mbo' });

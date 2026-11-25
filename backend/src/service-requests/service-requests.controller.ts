@@ -56,15 +56,17 @@ export class ServiceRequestsController {
   @Get()
   list(
     @Query(new ZodValidationPipe(ServiceRequestListQuerySchema)) query: ServiceRequestListQuery,
+    @Req() req: { user: RequestUser },
   ) {
-    return this.service.list(query);
+    return this.service.list(query, req.user);
   }
 
   @Get('report')
   report(
     @Query(new ZodValidationPipe(ServiceRequestListQuerySchema)) query: ServiceRequestListQuery,
+    @Req() req: { user: RequestUser },
   ) {
-    return this.service.report(query);
+    return this.service.report(query, req.user);
   }
 
   @Post()
@@ -72,12 +74,12 @@ export class ServiceRequestsController {
     @Body(new ZodValidationPipe(ServiceRequestCreateSchema)) dto: ServiceRequestCreate,
     @Req() req: { user: RequestUser },
   ) {
-    return this.service.create(dto, req.user.sub);
+    return this.service.create(dto, req.user.sub, req.user);
   }
 
   @Get('nomination-options')
   nominationOptions(@Query('q') q: string, @Req() req: { user: RequestUser }) {
-    return this.service.nominationOptions(req.user.sub, q ?? '');
+    return this.service.nominationOptions(req.user.sub, q ?? '', req.user);
   }
 
   @Get(':id')
@@ -91,7 +93,7 @@ export class ServiceRequestsController {
     @Body(new ZodValidationPipe(ServiceRequestUpdateSchema)) dto: ServiceRequestUpdate,
     @Req() req: { user: RequestUser },
   ) {
-    return this.service.update(id, dto, req.user.sub);
+    return this.service.update(id, dto, req.user.sub, req.user);
   }
 
   @Delete(':id')
@@ -102,7 +104,7 @@ export class ServiceRequestsController {
 
   @Post(':id/approve')
   approve(@Param('id', ParseUUIDPipe) id: string, @Req() req: { user: RequestUser }) {
-    return this.service.approve(id, req.user.sub);
+    return this.service.approve(id, req.user.sub, req.user);
   }
 
   @Post(':id/receipt')
@@ -132,8 +134,9 @@ export class ServiceRequestsController {
   addDocuments(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(AddDocumentsSchema)) dto: AddDocumentsInput,
+    @Req() req: { user: RequestUser },
   ) {
-    return this.service.addDocuments(id, dto.attachmentIds);
+    return this.service.addDocuments(id, dto.attachmentIds, req.user.sub);
   }
 
   @Delete(':id/documents/:attachmentId')
