@@ -9,12 +9,14 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
 import { ShipParticularsService } from './ship-particulars.service.js';
 import { CreateShipParticularDto, UpdateShipParticularDto } from './dto/ship-particular.dto.js';
 import { Roles } from '../../auth/roles.decorator.js';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe.js';
 import { ShipParticularListQuerySchema } from '@portlog/schemas';
+import type { RequestUser } from '../../auth/jwt.strategy.js';
 import type { ShipParticularListQuery } from '@portlog/schemas';
 
 @Controller('master-data/ship-particulars')
@@ -25,23 +27,36 @@ export class ShipParticularsController {
   @Get()
   list(
     @Query(new ZodValidationPipe(ShipParticularListQuerySchema)) query: ShipParticularListQuery,
+    @Req() req: { user: RequestUser },
   ) {
-    return this.shipParticularsService.list(query);
+    return this.shipParticularsService.list(
+      query,
+      req.user.role === 'OPS' ? (req.user.branchId ?? '__unassigned__') : undefined,
+    );
   }
 
   @Get('search')
-  search(@Query('q') q: string) {
-    return this.shipParticularsService.search(q ?? '');
+  search(@Query('q') q: string, @Req() req: { user: RequestUser }) {
+    return this.shipParticularsService.search(
+      q ?? '',
+      req.user.role === 'OPS' ? (req.user.branchId ?? '__unassigned__') : undefined,
+    );
   }
 
   @Get('by-imo/:imo')
-  findByImo(@Param('imo') imo: string) {
-    return this.shipParticularsService.findByImo(imo);
+  findByImo(@Param('imo') imo: string, @Req() req: { user: RequestUser }) {
+    return this.shipParticularsService.findByImo(
+      imo,
+      req.user.role === 'OPS' ? (req.user.branchId ?? '__unassigned__') : undefined,
+    );
   }
 
   @Get(':id')
-  getById(@Param('id') id: string) {
-    return this.shipParticularsService.getById(id);
+  getById(@Param('id') id: string, @Req() req: { user: RequestUser }) {
+    return this.shipParticularsService.getById(
+      id,
+      req.user.role === 'OPS' ? (req.user.branchId ?? '__unassigned__') : undefined,
+    );
   }
 
   @Post()

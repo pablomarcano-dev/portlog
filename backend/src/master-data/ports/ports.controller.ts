@@ -9,12 +9,14 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
 import { PortsService } from './ports.service.js';
 import { CreatePortDto, UpdatePortDto } from './dto/port.dto.js';
 import { Roles } from '../../auth/roles.decorator.js';
 import { ZodValidationPipe } from '../../common/zod-validation.pipe.js';
 import { PortListQuerySchema } from '@portlog/schemas';
+import type { RequestUser } from '../../auth/jwt.strategy.js';
 import type { PortListQuery } from '@portlog/schemas';
 
 @Controller('master-data/ports')
@@ -23,8 +25,15 @@ export class PortsController {
   constructor(private readonly portsService: PortsService) {}
 
   @Get('search')
-  search(@Query('q') q: string, @Query('branchId') branchId?: string) {
-    return this.portsService.search(q ?? '', branchId);
+  search(
+    @Query('q') q: string,
+    @Req() req: { user: RequestUser },
+    @Query('branchId') branchId?: string,
+  ) {
+    return this.portsService.search(
+      q ?? '',
+      req.user.role === 'OPS' ? (req.user.branchId ?? '__unassigned__') : branchId,
+    );
   }
 
   @Get('countries')
@@ -38,8 +47,16 @@ export class PortsController {
   }
 
   @Get()
-  list(@Query(new ZodValidationPipe(PortListQuerySchema)) query: PortListQuery) {
-    return this.portsService.list(query);
+  list(
+    @Query(new ZodValidationPipe(PortListQuerySchema)) query: PortListQuery,
+    @Req() req: { user: RequestUser },
+    @Query('allPorts') allPorts?: string,
+  ) {
+    return this.portsService.list(
+      req.user.role === 'OPS' && allPorts !== 'true'
+        ? { ...query, branchId: req.user.branchId ?? '__unassigned__' }
+        : query,
+    );
   }
 
   @Get(':id')

@@ -39,21 +39,24 @@ export class ShipParticularsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(query: ShipParticularListQuery) {
+  async list(query: ShipParticularListQuery, branchId?: string) {
     const { q, limit, cursor } = query;
 
     const items = await this.prisma.shipParticular.findMany({
       take: limit + 1,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-      where: q
-        ? {
-            OR: [
-              { name: { contains: q, mode: 'insensitive' } },
-              { callSign: { contains: q, mode: 'insensitive' } },
-              { imoNumber: { contains: q, mode: 'insensitive' } },
-            ],
-          }
-        : undefined,
+      where: {
+        ...(branchId ? { nominations: { some: { branchId } } } : {}),
+        ...(q
+          ? {
+              OR: [
+                { name: { contains: q, mode: 'insensitive' as const } },
+                { callSign: { contains: q, mode: 'insensitive' as const } },
+                { imoNumber: { contains: q, mode: 'insensitive' as const } },
+              ],
+            }
+          : {}),
+      },
       orderBy: { name: 'asc' },
       select: SELECT,
     });
@@ -69,18 +72,18 @@ export class ShipParticularsService {
     };
   }
 
-  async findByImo(imo: string) {
+  async findByImo(imo: string, branchId?: string) {
     const ship = await this.prisma.shipParticular.findUnique({
-      where: { imoNumber: imo },
+      where: { imoNumber: imo, ...(branchId ? { nominations: { some: { branchId } } } : {}) },
       select: SELECT,
     });
     if (!ship) throw new NotFoundException(`No ship particular with IMO ${imo}.`);
     return ship;
   }
 
-  async getById(id: string) {
+  async getById(id: string, branchId?: string) {
     const ship = await this.prisma.shipParticular.findUnique({
-      where: { id },
+      where: { id, ...(branchId ? { nominations: { some: { branchId } } } : {}) },
       select: SELECT,
     });
 
@@ -123,10 +126,11 @@ export class ShipParticularsService {
     this.logger.log({ event: 'ship-particulars.delete', id });
   }
 
-  async search(q: string) {
+  async search(q: string, branchId?: string) {
     const items = await this.prisma.shipParticular.findMany({
       take: 20,
       where: {
+        ...(branchId ? { nominations: { some: { branchId } } } : {}),
         OR: [
           { name: { contains: q, mode: 'insensitive' } },
           { callSign: { contains: q, mode: 'insensitive' } },
