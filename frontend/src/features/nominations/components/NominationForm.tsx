@@ -1,3 +1,4 @@
+import type { UserOperationalRole } from '@portlog/schemas';
 import { CaptainContactModal } from './CaptainContactModal';
 import { allEmailGroupsOptions } from '../../../components/master-data/directoryOptions';
 import { contactsApi } from '../../../lib/api/master-data/contacts';
@@ -31,6 +32,7 @@ import {
   vesselProDataSchema,
   vesselOwnershipSchema,
   formatNominationNoticeSubject,
+  resolveNominationReference,
   nominationCreateSubjectOverride,
 } from '@portlog/schemas';
 import type { NominationCreateInput } from '@portlog/schemas';
@@ -104,8 +106,10 @@ interface NominationFormProps {
   onDraftChange?: (values: Partial<NominationCreateInput>) => void;
   isSubmitting: boolean;
   isReadOnly?: boolean;
-  /** Auto-assigned correlative number to show as read-only in edit mode. */
+  /** Legacy/internal number, used only when there is no issued reference. */
   correlative?: number;
+  /** Immutable issued reference; absent for legacy nominations and create previews. */
+  businessReference?: string | null;
   /** Ensures the saved Charterer label remains visible when editing. */
   chartererOption?: { value: string; label: string } | null;
   masterContactOption?: { value: string; label: string } | null;
@@ -130,6 +134,7 @@ export function NominationForm({
   isSubmitting,
   isReadOnly = false,
   correlative,
+  businessReference: issuedBusinessReference,
   chartererOption,
   masterContactOption,
   onDraftChange,
@@ -297,7 +302,7 @@ export function NominationForm({
           name: string;
           mobile: string | null;
           branchId: string | null;
-          operationalRole: 'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT' | null;
+          operationalRole: UserOperationalRole | null;
         }>;
       }>(`/master-data/agents?limit=200&branchId=${encodeURIComponent(branchId)}`),
     enabled: !!branchId,
@@ -313,7 +318,7 @@ export function NominationForm({
     const staff = agentsQuery.data.items;
     const findByName = (
       name: string | undefined,
-      roles: Array<'BRANCH_MANAGER' | 'SUPERVISOR' | 'SHIPPING_AGENT'>,
+      roles: Array<UserOperationalRole>,
     ) =>
       name
         ? staff.find(
@@ -393,13 +398,22 @@ export function NominationForm({
     const shipName = ship?.name ?? '';
     const portName = port?.name ?? '';
     const branchCode = branch?.code ?? '';
-    const yy = String(new Date(dateNominated ?? new Date()).getFullYear()).slice(-2);
-    const kindPrefix = kind === 'OT' ? 'OT' : 'SN';
-    // Retain the existing notice-reference convention until the numbering decision.
-    // A create preview cannot invent the correlative allocated by the database.
+    // A create preview cannot invent a number before transactional issuance.
+    // Edits use the issued snapshot or preserve the legacy notice convention.
     const businessReference =
-      administrativeSnOt?.trim() ||
-      (correlative != null ? `${kindPrefix}${correlative}/${yy}/${branchCode}` : undefined);
+      correlative != null
+        ? resolveNominationReference(
+            {
+              correlative,
+              dateNominated: new Date(dateNominated ?? new Date()),
+              kind: kind ?? 'SN',
+              businessReference: issuedBusinessReference,
+              administrativeSnOt,
+              branch: { code: branchCode },
+            },
+            'notice',
+          )
+        : administrativeSnOt?.trim();
     return formatNominationNoticeSubject({
       referenceNo,
       vesselName: shipName,
@@ -430,6 +444,7 @@ export function NominationForm({
     dateNominated,
     kind,
     correlative,
+    issuedBusinessReference,
   ]);
 
   const [isFetchingVessel, setIsFetchingVessel] = useState(false);
@@ -671,7 +686,7 @@ export function NominationForm({
             <Grid.Col span={2}>
               <TextInput
                 label="Number"
-                value={correlative ?? ''}
+                value={issuedBusinessReference ?? correlative ?? ''}
                 readOnly
                 disabled
                 placeholder="Auto"
