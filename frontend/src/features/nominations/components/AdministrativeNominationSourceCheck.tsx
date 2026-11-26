@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Alert, Badge, Button, Group, Loader, Modal, Stack, Table, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
-import type { AdministrativeInstructionDiagnostics } from '@portlog/schemas';
+import { hasManagementAccess, type AdministrativeInstructionDiagnostics } from '@portlog/schemas';
 import { useCurrentUser } from '../../../lib/auth/queries';
 import { nominationsApi } from '../api';
 
@@ -34,7 +34,7 @@ const fields: Record<Field, { label: string; source: string }> = {
   },
 };
 
-/** Read-only diagnostics; restricted to the existing ADM role on both sides. */
+/** Read-only diagnostics for Admin and Fleet Manager, enforced on both sides. */
 export function AdministrativeNominationSourceCheck({
   nominationId,
   disabled,
@@ -47,11 +47,11 @@ export function AdministrativeNominationSourceCheck({
   const report = useQuery({
     queryKey: ['administrative-ni-source-check', nominationId],
     queryFn: () => nominationsApi.administrativeInstructionDiagnostics(nominationId),
-    enabled: opened && user?.role === 'ADM',
+    enabled: opened && hasManagementAccess(user),
     staleTime: 0,
     retry: false,
   });
-  if (user?.role !== 'ADM') return null;
+  if (!hasManagementAccess(user)) return null;
   return (
     <>
       <Button size="xs" variant="default" disabled={disabled} onClick={() => setOpened(true)}>
