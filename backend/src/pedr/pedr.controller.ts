@@ -56,7 +56,7 @@ export class PedrController {
   }
 
   @Patch(':id/requirements')
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   updateRequirements(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(updatePedrRequirementsSchema)) body: UpdatePedrRequirementsInput,

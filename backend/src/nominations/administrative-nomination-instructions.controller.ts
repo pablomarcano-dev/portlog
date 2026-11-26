@@ -9,7 +9,7 @@ export class AdministrativeNominationInstructionsController {
   constructor(private readonly instructions: AdministrativeNominationInstructionsService) {}
 
   @Get(':id/administrative-nomination-instructions/diagnostics')
-  @Roles('ADM')
+  @Roles('ADM', 'FLT')
   @Header('Cache-Control', 'private, no-store')
   diagnostics(@Param('id', ParseUUIDPipe) id: string) {
     return this.instructions.diagnostics(id);
