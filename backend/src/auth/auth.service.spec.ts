@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { EmailTwoFactorService } from './email-two-factor.service.js';
 import { AuthService } from './auth.service.js';
 import { UsersService } from '../users/users.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -85,6 +86,7 @@ describe('AuthService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
+        { provide: EmailTwoFactorService, useValue: {} },
         { provide: UsersService, useValue: mockUsersService },
         { provide: JwtService, useValue: mockJwtService },
         { provide: ConfigService, useValue: mockConfigService },
@@ -117,8 +119,8 @@ describe('AuthService', () => {
       });
 
       expect(result).not.toBeNull();
-      expect(result?.loginResponse.accessToken).toBe('mock.jwt.token');
-      expect(result?.loginResponse.user.email).toBe(mockUser.email);
+      expect(result?.loginResponse?.accessToken).toBe('mock.jwt.token');
+      expect(result?.loginResponse?.user.email).toBe(mockUser.email);
       expect(result?.rawRefreshToken).toBeDefined();
       // Raw token must be a 64-char hex string (32 bytes)
       expect(result?.rawRefreshToken).toMatch(/^[0-9a-f]{64}$/);
@@ -243,6 +245,7 @@ describe('session branch switching', () => {
     mockConfigService as unknown as ConfigService,
     mockPrisma as unknown as PrismaService,
     mockAuditService as unknown as AuditService,
+    {} as EmailTwoFactorService,
   );
   beforeEach(() => {
     jest.clearAllMocks();

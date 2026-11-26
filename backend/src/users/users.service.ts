@@ -17,6 +17,8 @@ import type { Role } from '@portlog/schemas';
 export type SafeUser = {
   id: string;
   email: string;
+  twoFactorEnabled?: boolean;
+  authVersion?: number;
   username?: string | null;
   displayName: string | null;
   jobTitle: string | null;
@@ -40,6 +42,8 @@ const SAFE_USER_SELECT = {
   id: true,
   email: true,
   username: true,
+  twoFactorEnabled: true,
+  authVersion: true,
   displayName: true,
   jobTitle: true,
   phone: true,

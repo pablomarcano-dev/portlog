@@ -15,6 +15,8 @@ import { AuditEvent } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomBytes, createHash } from 'node:crypto';
 import { resolveBranchContext } from './branch-context.js';
+import { EmailTwoFactorService } from './email-two-factor.service.js';
+import type { EmailCodeChallenge } from '@portlog/schemas';
 import type { SafeUser } from '../users/users.service.js';
 
 type LoginContext = {
@@ -51,6 +53,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly twoFactor: EmailTwoFactorService,
   ) {}
 
   /**
@@ -88,6 +91,7 @@ export class AuthService {
     userId: string,
     context: { ip: string; userAgent: string },
     branchId: string | null = null,
+    authVersion = 0,
   ): Promise<string> {
     const raw = randomBytes(32).toString('hex');
     const tokenHash = hashToken(raw);
@@ -99,6 +103,7 @@ export class AuthService {
       data: {
         userId,
         branchId,
+        authVersion,
         tokenHash,
         expiresAt,
         ip: context.ip,
@@ -109,7 +114,15 @@ export class AuthService {
     return raw;
   }
 
-  async login(email: string, password: string, ctx: LoginContext): Promise<LoginResult | null> {
+  async login(
+    email: string,
+    password: string,
+    ctx: LoginContext,
+  ): Promise<
+    | LoginResult
+    | { challengeResponse: EmailCodeChallenge; loginResponse?: never; rawRefreshToken?: never }
+    | null
+  > {
     const user = await this.validateUser(email, password);
 
     if (!user) {
@@ -129,16 +142,30 @@ export class AuthService {
       return null;
     }
 
+    if (user.twoFactorEnabled) {
+      return { challengeResponse: await this.twoFactor.issue(user.id, 'login') };
+    }
+    return this.completeLogin(user, ctx);
+  }
+
+  private async completeLogin(user: SafeUser, ctx: LoginContext): Promise<LoginResult> {
+    const email = user.email;
     const branchId = resolveBranchContext(user);
     const payload: JwtPayload = {
       branchId,
       sub: user.id,
+      authVersion: user.authVersion ?? 0,
       email: user.email,
       role: user.role,
       permissions: user.permissions ?? [],
     };
     const accessToken = this.issueAccessToken(payload);
-    const rawRefreshToken = await this.issueRefreshToken(user.id, ctx, branchId);
+    const rawRefreshToken = await this.issueRefreshToken(
+      user.id,
+      ctx,
+      branchId,
+      user.authVersion ?? 0,
+    );
 
     // Update lastLoginAt
     await this.prisma.user.update({
@@ -216,6 +243,8 @@ export class AuthService {
 
     const current = await this.usersService.findById(record.userId);
     if (!current || !current.isActive) throw new UnauthorizedException('Account is inactive.');
+    if ((record.authVersion ?? 0) !== (current.authVersion ?? 0))
+      throw new UnauthorizedException('Please sign in again.');
     const branchId = resolveBranchContext(current, record.branchId);
 
     // Revoke the old token.
@@ -227,13 +256,19 @@ export class AuthService {
     // Issue new tokens.
     const payload: JwtPayload = {
       sub: current.id,
+      authVersion: current.authVersion ?? 0,
       email: current.email,
       role: current.role,
       permissions: current.permissions ?? [],
       branchId,
     };
     const accessToken = this.issueAccessToken(payload);
-    const newRawRefreshToken = await this.issueRefreshToken(record.user.id, ctx, branchId);
+    const newRawRefreshToken = await this.issueRefreshToken(
+      record.user.id,
+      ctx,
+      branchId,
+      current.authVersion ?? 0,
+    );
 
     this.logger.log({
       event: 'auth.refresh',
@@ -247,6 +282,42 @@ export class AuthService {
       refreshResponse: { accessToken },
       rawRefreshToken: newRawRefreshToken,
     };
+  }
+
+  async verifyLoginCode(
+    challengeId: string,
+    code: string,
+    ctx: { ip: string; userAgent: string },
+  ): Promise<LoginResult> {
+    const proof = await this.twoFactor.consume(challengeId, code, 'login');
+    const user = await this.usersService.findById(proof.userId);
+    if (!user || !user.isActive || !user.twoFactorEnabled || user.authVersion !== proof.authVersion)
+      throw new UnauthorizedException('Please sign in again.');
+    return this.completeLogin(user, { ...ctx, email: user.email });
+  }
+
+  async requestTwoFactorChange(userId: string, password: string, enabled: boolean) {
+    const record = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { passwordHash: true, isActive: true },
+    });
+    if (!record?.isActive || !(await bcrypt.compare(password, record.passwordHash)))
+      throw new UnauthorizedException('Invalid password.');
+    return this.twoFactor.issue(userId, enabled ? 'enable' : 'disable');
+  }
+
+  async confirmTwoFactorChange(
+    userId: string,
+    challengeId: string,
+    code: string,
+    enabled: boolean,
+  ) {
+    await this.twoFactor.consume(challengeId, code, enabled ? 'enable' : 'disable', userId);
+    await this.auditService.record(
+      enabled ? AuditEvent.TWO_FACTOR_ENABLED : AuditEvent.TWO_FACTOR_DISABLED,
+      { userId },
+    );
+    return { twoFactorEnabled: enabled };
   }
 
   async logout(userId: string, rawToken: string): Promise<void> {
@@ -288,6 +359,7 @@ export class AuthService {
       id: user.id,
       email: user.email,
       username: user.username ?? null,
+      twoFactorEnabled: user.twoFactorEnabled ?? false,
       role: user.role,
       operationalRole: user.operationalRole,
       isActive: user.isActive,
@@ -312,7 +384,8 @@ export class AuthService {
       throw new UnauthorizedException('A valid session is required.');
     }
     const user = await this.usersService.findById(userId);
-    if (!user || !user.isActive) throw new UnauthorizedException('User not found.');
+    if (!user || !user.isActive || (record.authVersion ?? 0) !== (user.authVersion ?? 0))
+      throw new UnauthorizedException('Please sign in again.');
     const branchId = resolveBranchContext(user, requested);
     if (
       branchId &&
@@ -326,6 +399,7 @@ export class AuthService {
     });
     const accessToken = this.issueAccessToken({
       sub: user.id,
+      authVersion: user.authVersion ?? 0,
       email: user.email,
       role: user.role,
       permissions: user.permissions ?? [],
@@ -333,7 +407,7 @@ export class AuthService {
     });
     return {
       loginResponse: { accessToken, user: await this.currentUserResponse(user, branchId) },
-      rawRefreshToken: await this.issueRefreshToken(user.id, ctx, branchId),
+      rawRefreshToken: await this.issueRefreshToken(user.id, ctx, branchId, user.authVersion ?? 0),
     };
   }
 }
