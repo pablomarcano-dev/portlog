@@ -1,3 +1,5 @@
+import { EmailModule } from '../email/email.module.js';
+import { EmailTwoFactorService } from './email-two-factor.service.js';
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -12,6 +14,7 @@ import { AuditModule } from '../audit/audit.module.js';
 @Module({
   imports: [
     PassportModule,
+    EmailModule,
     UsersModule,
     AuditModule,
     JwtModule.registerAsync({
@@ -32,7 +35,7 @@ import { AuditModule } from '../audit/audit.module.js';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, PermissionsGuard],
+  providers: [EmailTwoFactorService, AuthService, JwtStrategy, PermissionsGuard],
   exports: [AuthService],
 })
 export class AuthModule {}

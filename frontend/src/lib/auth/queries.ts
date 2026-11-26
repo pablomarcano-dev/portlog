@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CurrentUserSchema, LoginResponseSchema, RefreshResponseSchema } from '@portlog/schemas';
-import type { CurrentUser, LoginRequest } from '@portlog/schemas';
+import {
+  CurrentUserSchema,
+  LoginResponseSchema,
+  LoginOutcomeSchema,
+  RefreshResponseSchema,
+} from '@portlog/schemas';
+import type { CurrentUser, LoginRequest, VerifyEmailCode } from '@portlog/schemas';
 import { apiRequest } from '../api/client';
 import { accessTokenStore } from './accessTokenStore';
 
@@ -28,9 +33,14 @@ export function useLogin() {
         method: 'POST',
         body: JSON.stringify(credentials),
       });
-      return LoginResponseSchema.parse(raw);
+      return LoginOutcomeSchema.parse(raw);
     },
     onSuccess: (data) => {
+      if (!('accessToken' in data)) {
+        accessTokenStore.set(null);
+        queryClient.clear();
+        return;
+      }
       accessTokenStore.set(data.accessToken);
       void queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
     },
@@ -74,6 +84,24 @@ export function useSwitchBranch() {
     },
     onSuccess: async (data) => {
       await queryClient.cancelQueries();
+      accessTokenStore.set(data.accessToken);
+      queryClient.clear();
+      queryClient.setQueryData(['auth', 'me'], data.user);
+    },
+  });
+}
+
+export function useVerifyLoginCode() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: VerifyEmailCode) => {
+      const raw = await apiRequest<unknown>('/auth/two-factor/verify', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+      return LoginResponseSchema.parse(raw);
+    },
+    onSuccess: (data) => {
       accessTokenStore.set(data.accessToken);
       queryClient.clear();
       queryClient.setQueryData(['auth', 'me'], data.user);

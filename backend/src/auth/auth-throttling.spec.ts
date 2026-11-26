@@ -22,6 +22,10 @@ describe('Authentication rate limits', () => {
         {
           provide: AuthService,
           useValue: {
+            verifyLoginCode: jest.fn().mockResolvedValue({
+              rawRefreshToken: 'test-refresh',
+              loginResponse: { accessToken: 'test-access' },
+            }),
             login: jest.fn().mockResolvedValue({
               rawRefreshToken: 'isolated-test-refresh',
               loginResponse: { accessToken: 'isolated-test-access' },
@@ -51,6 +55,18 @@ describe('Authentication rate limits', () => {
       expect((await login()).statusCode).toBe(429);
     },
   );
+
+  it('limits the public code-verification endpoint in production', async () => {
+    await start('production');
+    const attempt = () =>
+      app.inject({
+        method: 'POST',
+        url: '/auth/two-factor/verify',
+        payload: { challengeId: 'a'.repeat(64), code: '123456' },
+      });
+    for (let i = 0; i < 10; i++) expect((await attempt()).statusCode).toBe(201);
+    expect((await attempt()).statusCode).toBe(429);
+  });
 
   it('allows the isolated Cypress suite to reuse its loopback IP', async () => {
     await start('test');

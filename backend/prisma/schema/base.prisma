@@ -37,6 +37,10 @@ model User {
   id              String               @id @default(cuid())
   email           String               @unique
   username        String?              @unique
+  twoFactorEnabled Boolean              @default(false)
+  authVersion     Int                  @default(0)
+  twoFactorLastSentAt DateTime?
+  twoFactorChallenges EmailTwoFactorChallenge[]
   passwordHash    String
   displayName     String? // full name for email signatures e.g. "Carlos Ferrer"
   jobTitle        String? // title line in email signatures e.g. "Fleet Manager"
@@ -106,6 +110,9 @@ enum AuditEvent {
   LOGIN_FAILURE
   LOGOUT
   REFRESH_TOKEN_REUSE
+  TWO_FACTOR_ENABLED
+  TWO_FACTOR_DISABLED
+  TWO_FACTOR_FAILURE
   OWNER_FINANCIAL_DENIED
 }
 
@@ -130,6 +137,7 @@ model RefreshToken {
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   tokenHash String    @unique
+  authVersion Int     @default(0)
   // Selected branch belongs to this session, not the global user profile.
   branchId  String?
   expiresAt DateTime
@@ -151,4 +159,23 @@ model UserBranch {
   @@id([userId, branchId])
   @@index([branchId])
   @@map("user_branches")
+}
+
+// One-time email challenges contain keyed digests, never plaintext codes.
+model EmailTwoFactorChallenge {
+  id String @id
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose String
+  codeHash String
+  credentialHash String
+  authVersion Int
+  attempts Int @default(0)
+  expiresAt DateTime
+  consumedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+  @@map("email_two_factor_challenges")
 }

@@ -15,6 +15,7 @@ import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useCurrentUser, useLogout } from '../lib/auth/queries';
 
 const NAV_LINKS = [
+  { label: 'Security', to: '/security' },
   { label: 'Nominations', to: '/nominations' },
   { label: 'Vessels', to: '/vessels' },
   { label: 'Service Requests', to: '/service-requests' },

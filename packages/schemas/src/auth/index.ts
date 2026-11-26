@@ -24,6 +24,7 @@ export const CurrentUserSchema = z.object({
   role: RoleSchema,
   operationalRole: UserOperationalRoleSchema.nullable().default(null),
   isActive: z.boolean(),
+  twoFactorEnabled: z.boolean().default(false),
   permissions: z.array(z.string()).default([]),
   /**
    * The user's default Sucursal. Service-request forms pre-fill from this
@@ -47,3 +48,25 @@ export const RefreshResponseSchema = z.object({
   accessToken: z.string(),
 });
 export type RefreshResponse = z.infer<typeof RefreshResponseSchema>;
+
+export const EmailCodeChallengeSchema = z.object({
+  twoFactorRequired: z.literal(true),
+  challengeId: z.string().regex(/^[a-f0-9]{64}$/),
+  maskedEmail: z.string(),
+  expiresAt: z.string().datetime(),
+});
+export type EmailCodeChallenge = z.infer<typeof EmailCodeChallengeSchema>;
+export const LoginOutcomeSchema = z.union([LoginResponseSchema, EmailCodeChallengeSchema]);
+export const VerifyEmailCodeSchema = z
+  .object({
+    challengeId: z.string().regex(/^[a-f0-9]{64}$/),
+    code: z.string().regex(/^\d{6}$/, 'Enter the six-digit code.'),
+  })
+  .strict();
+export type VerifyEmailCode = z.infer<typeof VerifyEmailCodeSchema>;
+export const TwoFactorChangeSchema = z
+  .object({
+    enabled: z.boolean(),
+    password: z.string().min(8).max(256),
+  })
+  .strict();

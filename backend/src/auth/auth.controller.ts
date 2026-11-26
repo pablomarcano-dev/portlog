@@ -9,6 +9,11 @@ import {
   HttpStatus,
   UnauthorizedException,
 } from '@nestjs/common';
+import {
+  VerifyEmailCodeSchema,
+  TwoFactorChangeSchema,
+  type VerifyEmailCode,
+} from '@portlog/schemas';
 import { z } from 'zod';
 import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
 import { Throttle } from '@nestjs/throttler';
@@ -85,9 +90,57 @@ export class AuthController {
       throw new UnauthorizedException('Invalid username, email or password.');
     }
 
+    if ('challengeResponse' in result) {
+      void reply.clearCookie(REFRESH_COOKIE, { path: '/' });
+      return result.challengeResponse;
+    }
     void reply.setCookie(REFRESH_COOKIE, result.rawRefreshToken, refreshCookieOptions());
 
     return result.loginResponse;
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 15 * 60 * 1000 } })
+  @Post('two-factor/verify')
+  async verifyCode(
+    @Body(new ZodValidationPipe(VerifyEmailCodeSchema)) body: VerifyEmailCode,
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReplyWithCookies,
+  ) {
+    const result = await this.authService.verifyLoginCode(body.challengeId, body.code, {
+      ip: req.ip,
+      userAgent: req.headers['user-agent'] ?? 'unknown',
+    });
+    void reply.setCookie(REFRESH_COOKIE, result.rawRefreshToken, refreshCookieOptions());
+    return result.loginResponse;
+  }
+
+  @Throttle({ default: { limit: 5, ttl: 15 * 60 * 1000 } })
+  @Post('two-factor/change')
+  async requestTwoFactorChange(
+    @Body(new ZodValidationPipe(TwoFactorChangeSchema))
+    body: { password: string; enabled: boolean },
+    @Req() req: FastifyRequest & { user: RequestUser },
+  ) {
+    return this.authService.requestTwoFactorChange(req.user.sub, body.password, body.enabled);
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 15 * 60 * 1000 } })
+  @Post('two-factor/confirm')
+  async confirmTwoFactorChange(
+    @Body(new ZodValidationPipe(VerifyEmailCodeSchema.extend({ enabled: z.boolean() })))
+    body: VerifyEmailCode & { enabled: boolean },
+    @Req() req: FastifyRequest & { user: RequestUser },
+    @Res({ passthrough: true }) reply: FastifyReplyWithCookies,
+  ) {
+    const result = await this.authService.confirmTwoFactorChange(
+      req.user.sub,
+      body.challengeId,
+      body.code,
+      body.enabled,
+    );
+    void reply.clearCookie(REFRESH_COOKIE, { path: '/' });
+    return result;
   }
 
   /**

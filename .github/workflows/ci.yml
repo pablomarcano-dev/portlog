@@ -18,6 +18,17 @@ jobs:
   check:
     name: Typecheck, lint, test
     runs-on: ubuntu-latest
+    services:
+      two-factor-db:
+        image: postgres:16
+        env:
+          POSTGRES_USER: portlog_test
+          POSTGRES_PASSWORD: isolated-ci-test-only
+          POSTGRES_DB: portlog_two_factor_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U portlog_test -d portlog_two_factor_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -45,5 +56,13 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Apply migrations to the isolated two-factor database
+        run: npx prisma migrate deploy
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://portlog_test:isolated-ci-test-only@127.0.0.1:5432/portlog_two_factor_test
+
       - name: Test
         run: npm run test --workspaces --if-present
+        env:
+          TEST_TWO_FACTOR_DATABASE_URL: postgresql://portlog_test:isolated-ci-test-only@127.0.0.1:5432/portlog_two_factor_test

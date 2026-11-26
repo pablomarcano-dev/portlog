@@ -64,6 +64,10 @@ import { PublicApiModule } from './public-api/public-api.module.js';
       pinoHttp: {
         redact: [
           'req.body.password',
+          'req.body.code',
+          'req.body.challengeId',
+          '*.codeHash',
+          '*.credentialHash',
           'req.headers.authorization',
           // pino-http's default serializers emit req.headers and res.headers
           // wholesale, so these two carry the refresh token into the logs: the

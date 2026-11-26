@@ -13,6 +13,7 @@ import { assignedBranchIds, resolveBranchContext } from './branch-context.js';
  */
 export type JwtPayload = {
   sub: string;
+  authVersion?: number;
   email: string;
   role: Role;
   permissions: string[];
@@ -57,6 +58,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: JwtPayload): Promise<RequestUser> {
     const user = await this.usersService.findById(payload.sub);
     if (!user || !user.isActive) throw new UnauthorizedException('Account is inactive.');
+    if ((payload.authVersion ?? 0) !== (user.authVersion ?? 0))
+      throw new UnauthorizedException('Please sign in again.');
     const branchId = resolveBranchContext(user, payload.branchId);
     if (
       branchId &&
@@ -66,6 +69,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
     return {
       sub: user.id,
+      authVersion: user.authVersion ?? 0,
       email: user.email,
       role: user.role,
       permissions: user.permissions ?? [],

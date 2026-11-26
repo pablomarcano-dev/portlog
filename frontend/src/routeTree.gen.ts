@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ProtectedRouteImport } from './routes/_protected'
 import { Route as ProtectedIndexRouteImport } from './routes/_protected/index'
+import { Route as ProtectedSecurityRouteImport } from './routes/_protected/security'
 import { Route as ProtectedNominationsRouteImport } from './routes/_protected/nominations'
 import { Route as ProtectedMasterDataRouteImport } from './routes/_protected/master-data'
 import { Route as ProtectedChangelogRouteImport } from './routes/_protected/changelog'
@@ -56,6 +57,11 @@ const ProtectedRoute = ProtectedRouteImport.update({
 const ProtectedIndexRoute = ProtectedIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => ProtectedRoute,
+} as any)
+const ProtectedSecurityRoute = ProtectedSecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
   getParentRoute: () => ProtectedRoute,
 } as any)
 const ProtectedNominationsRoute = ProtectedNominationsRouteImport.update({
@@ -241,6 +247,7 @@ export interface FileRoutesByFullPath {
   '/changelog': typeof ProtectedChangelogRoute
   '/master-data': typeof ProtectedMasterData_demoRoute
   '/nominations': typeof ProtectedNominationsRouteWithChildren
+  '/security': typeof ProtectedSecurityRoute
   '/admin/users': typeof ProtectedAdminUsersRoute
   '/master-data/activities': typeof ProtectedMasterDataActivitiesRoute
   '/master-data/agents': typeof ProtectedMasterDataAgentsRoute
@@ -273,6 +280,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/changelog': typeof ProtectedChangelogRoute
   '/master-data': typeof ProtectedMasterData_demoRoute
+  '/security': typeof ProtectedSecurityRoute
   '/': typeof ProtectedIndexRoute
   '/admin/users': typeof ProtectedAdminUsersRoute
   '/master-data/activities': typeof ProtectedMasterDataActivitiesRoute
@@ -309,6 +317,7 @@ export interface FileRoutesById {
   '/_protected/changelog': typeof ProtectedChangelogRoute
   '/_protected/master-data': typeof ProtectedMasterDataRouteWithChildren
   '/_protected/nominations': typeof ProtectedNominationsRouteWithChildren
+  '/_protected/security': typeof ProtectedSecurityRoute
   '/_protected/': typeof ProtectedIndexRoute
   '/_protected/admin/users': typeof ProtectedAdminUsersRoute
   '/_protected/master-data/__demo': typeof ProtectedMasterData_demoRoute
@@ -347,6 +356,7 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/master-data'
     | '/nominations'
+    | '/security'
     | '/admin/users'
     | '/master-data/activities'
     | '/master-data/agents'
@@ -379,6 +389,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/changelog'
     | '/master-data'
+    | '/security'
     | '/'
     | '/admin/users'
     | '/master-data/activities'
@@ -414,6 +425,7 @@ export interface FileRouteTypes {
     | '/_protected/changelog'
     | '/_protected/master-data'
     | '/_protected/nominations'
+    | '/_protected/security'
     | '/_protected/'
     | '/_protected/admin/users'
     | '/_protected/master-data/__demo'
@@ -471,6 +483,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof ProtectedIndexRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
+    '/_protected/security': {
+      id: '/_protected/security'
+      path: '/security'
+      fullPath: '/security'
+      preLoaderRoute: typeof ProtectedSecurityRouteImport
       parentRoute: typeof ProtectedRoute
     }
     '/_protected/nominations': {
@@ -760,6 +779,7 @@ interface ProtectedRouteChildren {
   ProtectedChangelogRoute: typeof ProtectedChangelogRoute
   ProtectedMasterDataRoute: typeof ProtectedMasterDataRouteWithChildren
   ProtectedNominationsRoute: typeof ProtectedNominationsRouteWithChildren
+  ProtectedSecurityRoute: typeof ProtectedSecurityRoute
   ProtectedIndexRoute: typeof ProtectedIndexRoute
   ProtectedAdminUsersRoute: typeof ProtectedAdminUsersRoute
   ProtectedServiceRequestsIdRoute: typeof ProtectedServiceRequestsIdRoute
@@ -773,6 +793,7 @@ const ProtectedRouteChildren: ProtectedRouteChildren = {
   ProtectedChangelogRoute: ProtectedChangelogRoute,
   ProtectedMasterDataRoute: ProtectedMasterDataRouteWithChildren,
   ProtectedNominationsRoute: ProtectedNominationsRouteWithChildren,
+  ProtectedSecurityRoute: ProtectedSecurityRoute,
   ProtectedIndexRoute: ProtectedIndexRoute,
   ProtectedAdminUsersRoute: ProtectedAdminUsersRoute,
   ProtectedServiceRequestsIdRoute: ProtectedServiceRequestsIdRoute,
